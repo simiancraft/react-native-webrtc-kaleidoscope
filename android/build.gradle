@@ -1,0 +1,50 @@
+// Android build script for react-native-webrtc-kaleidoscope.
+// Effect implementations land in Commits 4 (mirror) and 10 (blur) of
+// bootstrap-and-ship-v0-1.md.
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'com.simiancraft.kaleidoscope'
+version = '0.1.0-alpha.1'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+if (expoModulesCorePlugin.exists()) {
+  apply from: expoModulesCorePlugin
+  applyKotlinExpoModulesCorePlugin()
+}
+
+android {
+  namespace 'com.simiancraft.kaleidoscope'
+  compileSdkVersion safeExtGet('compileSdkVersion', 34)
+
+  defaultConfig {
+    minSdkVersion safeExtGet('minSdkVersion', 24)
+    targetSdkVersion safeExtGet('targetSdkVersion', 34)
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = '17'
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+
+  // react-native-webrtc is a peer dependency. Its native libs already exist in
+  // the consumer's build graph; we link against the registry symbols at compile time.
+  compileOnly fileTree(dir: "${rootProject.projectDir}/../node_modules/react-native-webrtc/android/libs", include: ['*.jar', '*.aar'])
+
+  // MLKit Selfie Segmentation (Commit 10). Verify latest stable at write time.
+  implementation 'com.google.mlkit:selfie-segmentation:16.0.0-beta6'
+}
+
+// Helper: gracefully read root project ext properties with a default.
+def safeExtGet(prop, fallback) {
+  rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}

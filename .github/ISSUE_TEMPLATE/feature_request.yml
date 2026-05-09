@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a capability, effect, or API addition.
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        react-native-webrtc-kaleidoscope aims for a small, coherent surface. Features are evaluated against "does this earn its weight in native code, the bundle, and the docs?"; lead with the problem you're solving.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the package doesn't let you do today? A concrete use case is far more useful than a proposed API.
+      placeholder: "I'm building X and need to Y. Today I have to work around it by Z."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would the API look like? Pseudo-code is fine. If you're not sure, say so; the problem statement is what matters most.
+      render: ts
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other libraries, userland workarounds, or API shapes you've already ruled out.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Fits the project scope?
+      description: react-native-webrtc-kaleidoscope wraps `react-native-webrtc`'s `_setVideoEffects` registry on native and `MediaStreamTrackProcessor` on web. New named effects, BYO-effect plumbing, and improvements to existing effects are in scope. Forking `react-native-webrtc` itself, replacing the underlying media stack, and managed-cloud SaaS shapes are out of scope.
+      options:
+        - label: I've read the README and believe this fits the project's scope.
+          required: true

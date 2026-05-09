@@ -1,0 +1,38 @@
+node_modules/
+dist/
+*.log
+*.tgz
+.DS_Store
+.env
+.env.local
+.env.*.local
+coverage/
+.cache/
+.claude/
+.aider*
+.cursor/
+.continue/
+.codeium/
+.windsurf/
+
+# Expo / Metro / native build artifacts
+.expo/
+.expo-shared/
+*.tsbuildinfo
+plugin/build/
+demo/.expo/
+demo/dist/
+demo/web-build/
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+
+# Android
+android/build/
+android/.gradle/
+android/local.properties
+android/.cxx/
+android/app/build/

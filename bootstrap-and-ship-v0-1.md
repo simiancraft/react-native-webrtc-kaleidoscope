@@ -70,7 +70,7 @@ Brand-new repo. Inventory before this plan executes:
 | npm registry | `react-native-webrtc-kaleidoscope` available (verified) |
 | Reference templates | `chromonym` and `unitforge` repos (publicly published; URLs in References) |
 
-## File structure: before
+## ~~File structure: before~~ ✅ Scaffolded 2026-05-08
 
 ```
 react-native-webrtc-kaleidoscope/
@@ -78,7 +78,9 @@ react-native-webrtc-kaleidoscope/
 └── bootstrap-and-ship-v0-1.md       # this plan
 ```
 
-## File structure: after
+## ~~File structure: after~~ ✅ Scaffolded 2026-05-08
+
+> The tree below matches the working copy as of 2026-05-08. Code files are stubs that throw `not implemented yet (Commit N)` errors; configs, OSS-hygiene files, and workflows are filled in. Implementation lands in Commits 3–14.
 
 **Legend:** `+` created, `~` modified
 
@@ -159,7 +161,9 @@ react-native-webrtc-kaleidoscope/
 
 ## Commits
 
-### Commit 1: Scaffold module via `create-expo-module`, reconcile with plan file
+### ~~Commit 1: Scaffold module via `create-expo-module`, reconcile with plan file~~ ✅ Done 2026-05-08
+
+> Scaffolded by hand against `chromonym` / `unitforge` templates rather than running `create-expo-module`; same target tree, no scaffolder reconciliation step needed. `bootstrap-and-ship-v0-1.md` survives intact at the root.
 
 **Goal:** Standard Expo Module scaffold in place without overwriting this plan.
 
@@ -181,7 +185,9 @@ react-native-webrtc-kaleidoscope/
 
 **Gate:** `bun install` completes. The scaffolder's default test/typecheck (whatever it scaffolds) passes. `bootstrap-and-ship-v0-1.md` still present at repo root.
 
-### Commit 2: Apply chromonym/unitforge OSS-hygiene template
+### ~~Commit 2: Apply chromonym/unitforge OSS-hygiene template~~ ✅ Done 2026-05-08
+
+> Top-level OSS-hygiene files, `.github/` (FUNDING, dependabot, PR + issue templates, ci/link-check/scorecard/deploy-demo workflows), `package.json` skeleton, `tsconfig.json`, biome/bunfig/codecov/knip/.releaserc all in place per the chromonym/unitforge template. `deploy-demo.yml` adapted for `bunx expo export -p web` instead of Vite. Gates (`bun run lint` / `typecheck` / `check:knip`) deferred until `bun install` runs.
 
 **Goal:** Match the user's published-package quality bar.
 

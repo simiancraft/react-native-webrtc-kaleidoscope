@@ -1,0 +1,35 @@
+version: 2
+updates:
+  # GitHub Actions: SHA-pinned actions need automated bumps.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # npm root: peerDeps stay quiet; devDeps roll on a slow cadence to keep
+  # the OSS-hygiene template in lockstep with chromonym/unitforge.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        patterns:
+          - "*"
+    ignore:
+      # Peer deps are managed by the consumer; do not auto-bump.
+      - dependency-name: "react"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-webrtc"
+      - dependency-name: "expo"

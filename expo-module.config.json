@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["KaleidoscopeModule"]
+  },
+  "android": {
+    "modules": ["com.simiancraft.kaleidoscope.KaleidoscopeModule"]
+  }
+}

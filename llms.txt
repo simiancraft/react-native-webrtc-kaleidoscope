@@ -1,0 +1,55 @@
+# react-native-webrtc-kaleidoscope
+
+> Live video effects for `react-native-webrtc`, packaged as a managed-Expo-friendly Expo Module. v0.1 ships `mirror` and `blur`; the architecture supports BYO effects in later versions.
+
+## What this package is
+
+`react-native-webrtc-kaleidoscope` is a thin layer over `react-native-webrtc`'s undocumented `track._setVideoEffects(['name'])` API. On native (iOS, Android), it registers named frame-processor factories at app boot via an Expo config plugin. On web, it uses `MediaStreamTrackProcessor` + `MediaStreamTrackGenerator` (Insertable Streams) behind the same JS facade.
+
+It is **not** a fork of `react-native-webrtc`. It is **not** a managed-cloud SaaS like Fishjam Cloud. It is a small, self-contained module that consumers install alongside `react-native-webrtc` (peer dep) to get background blur and similar effects on local video tracks.
+
+## Install
+
+```sh
+bun add react-native-webrtc react-native-webrtc-kaleidoscope
+```
+
+Add the config plugin to `app.config.ts`:
+
+```ts
+plugins: ['react-native-webrtc', 'react-native-webrtc-kaleidoscope'];
+```
+
+Run `bunx expo prebuild` to materialize the native registration calls.
+
+## Use
+
+```ts
+import { applyVideoEffects } from 'react-native-webrtc-kaleidoscope';
+
+const stream = await mediaDevices.getUserMedia({ video: true });
+const [track] = stream.getVideoTracks();
+applyVideoEffects(track, ['blur']);
+```
+
+Pass `[]` to clear effects. Effects chain in array order.
+
+## Public API
+
+- `applyVideoEffects(track, names)` — apply zero or more named effects to a local `MediaStreamTrack`. Throws if the track is remote, or if the installed `react-native-webrtc` does not expose `_setVideoEffects`.
+- `EffectName` — TypeScript union of the built-in effect names. v0.1: `'mirror' | 'blur'`.
+
+## Effects shipped in v0.1
+
+- `mirror` — horizontal flip. No ML. Pixel-exact across platforms.
+- `blur` — person-segmentation + Gaussian background blur. Uses Apple Vision (iOS), MLKit Selfie Segmentation (Android), MediaPipe Selfie Segmentation WASM (web). Visual parity is "similar enough"; mask differences are accepted.
+
+## Platform support
+
+- **iOS** native ≥ 15.0 (Apple Vision person segmentation requirement)
+- **Android** native ≥ API 24 (MLKit minimum)
+- **Web** Chrome / Edge (any browser supporting `MediaStreamTrackProcessor`). Safari and Firefox lacking Insertable Streams produce a typed runtime error; capability-check before calling.
+
+## Reference
+
+Sibling projects [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge) share this project's OSS-hygiene template.

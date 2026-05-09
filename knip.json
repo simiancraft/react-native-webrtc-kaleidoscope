@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/index.ts", "src/index.web.ts", "plugin/src/withKaleidoscope.ts", "scripts/*.ts"],
+  "ignore": ["demo/**", "plugin/build/**", "dist/**", "android/**", "ios/**"],
+  "ignoreDependencies": ["@semantic-release/.*", "@mediapipe/.*"]
+}

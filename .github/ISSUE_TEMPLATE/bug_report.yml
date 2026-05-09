@@ -1,0 +1,87 @@
+name: Bug report
+description: Something in react-native-webrtc-kaleidoscope doesn't behave as documented.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. A reproducible example is by far the most useful thing you can include.
+
+        **Do not use this form for security issues.** See [SECURITY.md](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/blob/main/SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: react-native-webrtc-kaleidoscope version
+      description: Output of `npm ls react-native-webrtc-kaleidoscope` or the value from your lockfile.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: rnwebrtc-version
+    attributes:
+      label: react-native-webrtc version (peer dep)
+      description: The version of `react-native-webrtc` installed in your project. Effects depend on `_setVideoEffects`, which exists upstream from v124.
+      placeholder: "124.0.7"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: iOS / Android / web / Expo SDK version, runtime version, device or browser model.
+      placeholder: "iOS 17.5 / iPhone 14 Pro / Expo SDK 51 / RN 0.74.5"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effect
+    attributes:
+      label: Effect
+      description: Which effect is involved?
+      options:
+        - mirror
+        - blur
+        - both
+        - other / not effect-specific
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Smallest possible code snippet that triggers the bug. Inline is fine; a link to a public repro repo is better.
+      render: ts
+      placeholder: |
+        import { applyVideoEffects } from 'react-native-webrtc-kaleidoscope';
+        applyVideoEffects(track, ['blur']);
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include error messages and stack traces verbatim. For visual issues, attach a screenshot or short clip.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else; screenshots, adjacent attempts, suspected cause.
+    validations:
+      required: false

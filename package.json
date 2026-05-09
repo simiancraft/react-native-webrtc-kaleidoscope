@@ -1,0 +1,111 @@
+{
+  "name": "react-native-webrtc-kaleidoscope",
+  "version": "0.1.0-alpha.2",
+  "description": "Live video effects (mirror, blur, more) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. v0.1: mirror + blur on iOS, Android, and web.",
+  "keywords": [
+    "react-native",
+    "react-native-webrtc",
+    "webrtc",
+    "expo",
+    "expo-module",
+    "video",
+    "video-effects",
+    "video-frame-processor",
+    "blur",
+    "background-blur",
+    "mirror",
+    "kaleidoscope"
+  ],
+  "author": "the-simian <info@simiancraft.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/simiancraft/react-native-webrtc-kaleidoscope#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simiancraft/react-native-webrtc-kaleidoscope.git"
+  },
+  "bugs": {
+    "url": "https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "module": "./dist/index.js",
+  "react-native": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
+      "browser": "./dist/index.web.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./app.plugin.js": "./app.plugin.js",
+    "./expo-module.config.json": "./expo-module.config.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "plugin/build",
+    "android",
+    "ios",
+    "app.plugin.js",
+    "expo-module.config.json",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist plugin/build",
+    "build": "bun run clean && tsgo && tsc -p plugin/",
+    "typecheck": "tsgo --noEmit",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "format": "biome format --write .",
+    "test": "bun test",
+    "check:package": "publint && attw --pack --profile esm-only",
+    "check:knip": "knip",
+    "demo": "cd demo && bun run start",
+    "demo:ios": "cd demo && bun run ios",
+    "demo:android": "cd demo && bun run android",
+    "demo:web": "cd demo && bun run web",
+    "build:web": "cd demo && bunx expo export -p web",
+    "prepublishOnly": "bun run build && bun run check:package"
+  },
+  "peerDependencies": {
+    "expo": ">=51.0.0",
+    "react": ">=18.2.0",
+    "react-native": ">=0.74.0",
+    "react-native-webrtc": ">=124.0.0"
+  },
+  "optionalDependencies": {
+    "@mediapipe/selfie_segmentation": "^0.1.1675465747"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@biomejs/biome": "^2.4.13",
+    "@expo/config-plugins": "^9.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/npm": "^13.1.5",
+    "@types/bun": "^1.3.12",
+    "@types/react": "^18.3.12",
+    "@typescript/native-preview": "7.0.0-dev.20260417.1",
+    "expo": "^51.0.0",
+    "expo-modules-core": "^1.12.0",
+    "knip": "^6.5.0",
+    "publint": "^0.3.18",
+    "react": "18.3.1",
+    "react-native": "0.74.5",
+    "react-native-webrtc": "^124.0.7",
+    "semantic-release": "^25.0.3",
+    "typescript": "^5.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,4 @@
+[test]
+coveragePathIgnorePatterns = ["**/dist/**", "dist/**", "**/dist/*", "**/plugin/build/**", "**/demo/**"]
+coverageThreshold = 1.0
+coverageSkipTestFiles = true
