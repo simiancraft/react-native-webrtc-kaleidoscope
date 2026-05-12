@@ -6,12 +6,12 @@
 // carrying the transformed frames. Pass the returned track to a `<video>`
 // element or to `RTCRtpSender.replaceTrack(...)`.
 
-import type { ApplyVideoEffects, EffectName } from './types';
-import { blur } from './web/effects/blur';
-import { mirror } from './web/effects/mirror';
-import { applyEffectToTrack, type FrameTransform } from './web/insertable-streams';
+import type { ApplyVideoEffects, EffectName } from './types.js';
+import { blur } from './web/effects/blur.js';
+import { mirror } from './web/effects/mirror.js';
+import { applyEffectToTrack, type FrameTransform } from './web/insertable-streams.js';
 
-export type { ApplyVideoEffects, EffectName } from './types';
+export type { ApplyVideoEffects, EffectName } from './types.js';
 
 const transforms: Record<EffectName, FrameTransform> = {
   mirror,
