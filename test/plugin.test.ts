@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import withKaleidoscope from '../plugin/src/withKaleidoscope.ts';
+import withKaleidoscope from '../plugin/src/withKaleidoscope';
 
 describe('withKaleidoscope', () => {
   test('is a function', () => {

@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck (tsgo)
         run: bun run typecheck
 
+      - name: Typecheck tests (tsgo)
+        run: bun run typecheck:test
+
       - name: Build (library + config plugin)
         run: bun run build
 
