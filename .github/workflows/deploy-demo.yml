@@ -12,6 +12,9 @@ on:
       - 'app.plugin.js'
       - 'package.json'
       - '.github/workflows/deploy-demo.yml'
+  # Gate every PR on a clean demo Metro bundle; deploy still only runs on
+  # push to main so PRs do not publish to GitHub Pages.
+  pull_request:
   workflow_dispatch:
 
 # Required for actions/deploy-pages.
@@ -27,6 +30,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build demo bundle
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
@@ -63,7 +67,10 @@ jobs:
           path: ./demo/dist
 
   deploy:
+    name: Deploy to GitHub Pages
     needs: build
+    # Pages deploy is push-to-main only; PR runs stop after build.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
