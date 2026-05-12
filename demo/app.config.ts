@@ -7,7 +7,6 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   scheme: 'kaleidoscope-demo',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.simiancraft.kaleidoscope.demo',
