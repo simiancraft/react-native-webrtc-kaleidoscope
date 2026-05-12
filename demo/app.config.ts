@@ -3,6 +3,7 @@ import type { ExpoConfig } from 'expo/config';
 const config: ExpoConfig = {
   name: 'Kaleidoscope Demo',
   slug: 'react-native-webrtc-kaleidoscope-demo',
+  owner: 'simiancraft',
   version: '0.0.0',
   orientation: 'portrait',
   scheme: 'kaleidoscope-demo',
@@ -29,6 +30,11 @@ const config: ExpoConfig = {
   // 'react-native-webrtc-kaleidoscope' is a passthrough until Commit 8)
   // would be re-added before `bunx expo prebuild`.
   plugins: ['expo-router'],
+  extra: {
+    eas: {
+      projectId: '9fe25758-9912-408f-b8a6-7f0b6c15a5a0',
+    },
+  },
 };
 
 export default config;
