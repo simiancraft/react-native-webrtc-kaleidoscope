@@ -19,7 +19,6 @@ declare global {
   interface MediaStreamTrackProcessor {
     readonly readable: ReadableStream<VideoFrame>;
   }
-  // biome-ignore lint/suspicious/noRedeclare: ambient browser API
   var MediaStreamTrackProcessor: {
     prototype: MediaStreamTrackProcessor;
     new (init: MediaStreamTrackProcessorInit): MediaStreamTrackProcessor;
@@ -31,7 +30,6 @@ declare global {
   interface MediaStreamTrackGenerator extends MediaStreamTrack {
     readonly writable: WritableStream<VideoFrame>;
   }
-  // biome-ignore lint/suspicious/noRedeclare: ambient browser API
   var MediaStreamTrackGenerator: {
     prototype: MediaStreamTrackGenerator;
     new (init: MediaStreamTrackGeneratorInit): MediaStreamTrackGenerator;
@@ -78,7 +76,6 @@ export const applyEffectToTrack = (
     .catch((err) => {
       // Pipeline aborts when the source track ends or is replaced; not an error.
       if (err?.name !== 'AbortError') {
-        // biome-ignore lint/suspicious/noConsole: surface pipeline errors to the host page
         console.error('kaleidoscope: pipeline error', err);
       }
     });

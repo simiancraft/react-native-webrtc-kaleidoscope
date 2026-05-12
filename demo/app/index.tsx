@@ -26,7 +26,6 @@ export default function DemoScreen() {
     try {
       return applyVideoEffects(sourceTrack, names);
     } catch (err) {
-      // biome-ignore lint/suspicious/noConsole: surface to host page for debugging
       console.error(err);
       return sourceTrack;
     }
