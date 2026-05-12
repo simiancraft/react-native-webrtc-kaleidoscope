@@ -40,7 +40,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./app.plugin.js": "./app.plugin.js",
+    "./app.plugin.js": {
+      "types": "./app.plugin.d.ts",
+      "import": "./app.plugin.js",
+      "default": "./app.plugin.js"
+    },
     "./expo-module.config.json": "./expo-module.config.json",
     "./package.json": "./package.json"
   },
@@ -51,6 +55,7 @@
     "android",
     "ios",
     "app.plugin.js",
+    "app.plugin.d.ts",
     "expo-module.config.json",
     "README.md",
     "LICENSE",
