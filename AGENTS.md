@@ -82,6 +82,61 @@ Conventional Commits, imperative tense, succinct. `feat:` → minor release; `fi
 - **Release job is opt-in.** `vars.RELEASE_ENABLED` gates the semantic-release job in `ci.yml`. To activate: configure `APP_ID` + `APP_PRIVATE_KEY` repo secrets (GitHub App that can bypass main's ruleset for the `chore(release)` commit + tag), then `gh variable set RELEASE_ENABLED --body true`.
 - **Demo Metro picks up `src/` directly via `link:..`.** The demo's `package.json` resolves the workspace as `link:..` and Metro reads the package's `react-native` exports condition pointing at `src/index.ts`. Changes to `src/` take effect without a publish, but the demo's `bun run start` does NOT run `bun run build` first by default; the `demo*` scripts at the repo root prefix `bun run build &&` so they do.
 
+## Mobile dev builds (maintainer runbook)
+
+Native iteration uses **EAS Build** to produce a `expo-dev-client` binary, **installed on a real device**, with the JS bundle streamed over Metro from the laptop. No simulators, no local Xcode or Android Studio toolchains.
+
+The EAS project is owned by the `simiancraft` org:
+`@simiancraft/react-native-webrtc-kaleidoscope-demo`, ID `9fe25758-9912-408f-b8a6-7f0b6c15a5a0` (set in `demo/app.config.ts:extra.eas.projectId`).
+
+### First time on a new device
+
+```sh
+cd demo
+# 1. Authenticate (uses your Expo personal account; org access via membership).
+bunx eas-cli@latest login                       # interactive
+
+# 2. Register a real iOS device (one-time per device, lets EAS sign ad-hoc IPAs).
+bunx eas-cli@latest device:create               # follow the QR / link to register
+
+# 3. Build the dev client. ~$2 iOS, ~$1 Android. Apple credentials prompt on first iOS.
+bunx eas-cli@latest build -p ios --profile development
+bunx eas-cli@latest build -p android --profile development
+```
+
+When each build finishes EAS prints an install link; open it on the registered device and install the dev-client APK / IPA.
+
+### Day-to-day iteration
+
+```sh
+# From repo root: builds the lib first, then starts Metro in demo/.
+bun run demo                # interactive picker (i / a / w)
+bun run demo:ios            # launches Metro and the iOS dev-client (if connected)
+bun run demo:android        # ditto for Android
+bun run demo:web            # browser only; no native build needed
+```
+
+The dev-client on the device scans the QR code shown in the terminal, opens a tunnel or LAN connection to Metro, and pulls the JS bundle. Edits to `src/`, `src/web/`, or `demo/app/` hot-reload without rebuilding.
+
+### When to rebuild the dev client
+
+Rebuild **only** when the native footprint changes; JS-only edits never need a new binary.
+
+- Bumping `react-native-webrtc` (peer dep).
+- Adding or changing native modules in `android/` or `ios/` (effect factories, registration).
+- Changing the Expo config plugin's injection (`plugin/src/withKaleidoscope.ts`).
+- Bumping the Expo SDK in `demo/` or this lib.
+
+### Build provisioning hygiene
+
+- **Don't add `EXPO_TOKEN` to repo secrets.** Without it, no GitHub Actions workflow (yours or a fork's) can spend EAS minutes. Builds are manual from your laptop only.
+- **TestFlight is internal-testers-only.** No public install links. Same posture on Android: `eas device:create` registers your specific device for ad-hoc install.
+- **Don't share the EAS account credentials.** EAS holds the iOS cert and provisioning profile; that is the trust boundary.
+
+### A future chassis project
+
+When a second mobile-RN library lands and shares native deps with kaleidoscope, promote a copy of `demo/` into a separate `simiancraft-rn-chassis` (or per-stack `chassis-webrtc`) repo and dev-client into multiple libraries from one binary. Until then, the per-library `demo/` IS the chassis; YAGNI on building chassis infrastructure pre-emptively.
+
 ## Reference
 
 Sibling projects [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge) are the architectural specimens for OSS-hygiene boilerplate, CI, release tooling, and documentation patterns. Match their template; do not invent a new one.
