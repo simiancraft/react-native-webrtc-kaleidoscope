@@ -29,7 +29,19 @@ const config: ExpoConfig = {
   // ('react-native-webrtc' has no config plugin upstream as of 124.0.7;
   // 'react-native-webrtc-kaleidoscope' is a passthrough until Commit 8)
   // would be re-added before `bunx expo prebuild`.
-  plugins: ['expo-router'],
+  plugins: [
+    'expo-router',
+    // react-native-webrtc requires Android API 24+; without this, prebuild
+    // emits minSdkVersion=23 and the manifest merger rejects the AAR.
+    [
+      'expo-build-properties',
+      {
+        android: {
+          minSdkVersion: 24,
+        },
+      },
+    ],
+  ],
   extra: {
     eas: {
       projectId: '9fe25758-9912-408f-b8a6-7f0b6c15a5a0',
