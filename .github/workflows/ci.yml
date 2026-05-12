@@ -60,7 +60,10 @@ jobs:
   release:
     name: Release
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Opt-in gate: set repo variable RELEASE_ENABLED=true and configure the
+    # APP_ID / APP_PRIVATE_KEY secrets before flipping this on. Skipped by
+    # default so CI stays green on a pre-publish tree.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.RELEASE_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
