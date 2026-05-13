@@ -1,0 +1,15 @@
+# EAS Build ignores. Patterns are .gitignore-style.
+#
+# Bun's `file:..` for the workspace dep mirrors the parent dir into
+# demo/node_modules/react-native-webrtc-kaleidoscope/, including the
+# demo/ subdir, which contains another node_modules/react-native-webrtc-kaleidoscope
+# pointing back. eas-cli's compression walks into this infinite recursion
+# before any gitignore filter applies, hits ENAMETOOLONG, and fails the
+# upload. Excluding node_modules entirely is safe: EAS Build runs
+# `bun install --frozen-lockfile` from the uploaded bun.lock on the server.
+node_modules/
+
+# Prebuild outputs. Already in .gitignore, listed here defensively so
+# even a dirty working tree doesn't bloat the upload.
+android/
+ios/
