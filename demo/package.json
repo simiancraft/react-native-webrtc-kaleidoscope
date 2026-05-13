@@ -5,6 +5,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "start:wsl": "REACT_NATIVE_PACKAGER_HOSTNAME=\"$(powershell.exe -NoProfile -Command '$nic = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq \"Up\" -and $_.NetAdapter.HardwareInterface -eq $true -and $_.NetAdapter.InterfaceDescription -notmatch \"Hyper-V|WSL|Virtual|vEthernet|TAP|Loopback\" } | Select-Object -First 1; $nic.IPv4Address.IPAddress' | tr -d '\\r')\" METRO_LISTEN_ADDRESS=0.0.0.0 EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 bunx expo start --dev-client --host lan --port 8081 --clear",
     "ios": "expo run:ios",
     "android": "expo run:android",
     "web": "expo start --web",
