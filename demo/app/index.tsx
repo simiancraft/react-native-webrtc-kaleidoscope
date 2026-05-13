@@ -15,7 +15,11 @@ export default function DemoScreen() {
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
-    return stream.stream.getVideoTracks()[0] ?? null;
+    // Cast across the rn-webrtc / DOM MediaStreamTrack split. Both surfaces
+    // expose kind, stop, and the runtime _setVideoEffects extension; the
+    // remaining DOM-only properties (contentHint, on{ended,mute,unmute})
+    // are unused in the demo.
+    return (stream.stream.getVideoTracks()[0] ?? null) as unknown as MediaStreamTrack | null;
   }, [stream]);
 
   // Re-derive the displayed track when the source or the active set changes.
@@ -54,7 +58,7 @@ export default function DemoScreen() {
         <Text style={styles.errorLine}>camera error: {stream.error.message}</Text>
       )}
       {stream.status === 'idle' && Platform.OS !== 'web' && (
-        <Text style={styles.statusLine}>native camera wiring lands in Commit 9</Text>
+        <Text style={styles.statusLine}>initializing camera…</Text>
       )}
 
       <View style={styles.toggleRow}>

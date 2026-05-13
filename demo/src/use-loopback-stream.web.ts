@@ -1,9 +1,8 @@
-// Local MediaStream from getUserMedia, native variant. Uses
-// react-native-webrtc's mediaDevices on iOS / Android. Metro resolves the
-// .web.ts sibling for the web target.
+// Local MediaStream from getUserMedia, web variant. Metro picks this file
+// for the web target via the .web.ts extension; the default
+// use-loopback-stream.ts handles native.
 
 import { useEffect, useState } from 'react';
-import { type MediaStream, mediaDevices } from 'react-native-webrtc';
 
 type StreamState =
   | { status: 'idle' }
@@ -20,10 +19,9 @@ export const useLoopbackStream = (): StreamState => {
 
     setState({ status: 'pending' });
 
-    mediaDevices
-      .getUserMedia({ video: { facingMode: 'user' }, audio: false })
-      .then((raw) => {
-        const stream = raw as unknown as MediaStream;
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: false })
+      .then((stream) => {
         if (cancelled) {
           for (const t of stream.getTracks()) t.stop();
           return;
