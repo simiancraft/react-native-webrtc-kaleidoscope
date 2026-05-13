@@ -1,12 +1,30 @@
 // Native entry point. Metro picks this up via package.json "react-native"
 // and the "." subpath export's "react-native" condition.
 //
-// Implementation lands in Commit 7 of bootstrap-and-ship-v0-1.md.
+// Thin facade over `track._setVideoEffects(names)` from react-native-webrtc.
+// Native frame processors are registered at app boot by the Expo Module's
+// OnCreate hook (see android/.../KaleidoscopeModule.kt and ios/.../KaleidoscopeModule.swift);
+// this facade just dispatches into the existing upstream registry.
 
 import type { ApplyVideoEffects } from './types';
 
 export type { ApplyVideoEffects, EffectName } from './types';
 
-export const applyVideoEffects: ApplyVideoEffects = (_track, _names) => {
-  throw new Error('kaleidoscope: applyVideoEffects (native) is not implemented yet (Commit 7)');
+interface WebRTCTrackExtensions {
+  remote?: boolean;
+  _setVideoEffects?: (names: ReadonlyArray<string>) => void;
+}
+
+export const applyVideoEffects: ApplyVideoEffects = (track, names) => {
+  const t = track as MediaStreamTrack & WebRTCTrackExtensions;
+  if (t.remote) {
+    throw new Error('kaleidoscope: cannot apply effects to remote tracks');
+  }
+  if (typeof t._setVideoEffects !== 'function') {
+    throw new Error(
+      'kaleidoscope: track has no _setVideoEffects method (is react-native-webrtc >=124 installed?)',
+    );
+  }
+  t._setVideoEffects(names);
+  return track;
 };

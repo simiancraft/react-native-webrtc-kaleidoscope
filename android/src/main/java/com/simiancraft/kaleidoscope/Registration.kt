@@ -1,20 +1,16 @@
-// Frame-processor registration for Android.
-// Maps effect names to their VideoFrameProcessorFactoryInterface implementations
-// in the upstream react-native-webrtc registry.
-//
-// Implementations land in Commit 4 (mirror) and Commit 10 (blur) of
-// bootstrap-and-ship-v0-1.md.
+// Frame-processor registration for Android. Called from
+// KaleidoscopeModule.OnCreate at Expo Module init time, before any track
+// requests an effect by name.
 
 package com.simiancraft.kaleidoscope
 
-// import com.oney.WebRTCModule.videoEffects.ProcessorProvider
-// import com.simiancraft.kaleidoscope.effects.MirrorFactory
-// import com.simiancraft.kaleidoscope.effects.BlurFactory
+import com.oney.WebRTCModule.videoEffects.ProcessorProvider
+import com.simiancraft.kaleidoscope.effects.MirrorFactory
 
 object Registration {
   @JvmStatic
   fun registerAll() {
-    // TODO(Commit 4):  ProcessorProvider.addProcessor("mirror", MirrorFactory())
-    // TODO(Commit 10): ProcessorProvider.addProcessor("blur",   BlurFactory())
+    ProcessorProvider.addProcessor("mirror", MirrorFactory())
+    // TODO(Commit 10): ProcessorProvider.addProcessor("blur", BlurFactory())
   }
 }
