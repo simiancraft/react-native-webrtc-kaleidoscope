@@ -75,6 +75,7 @@
     "check:package": "publint && attw --pack --profile esm-only --ignore-rules internal-resolution-error",
     "check:knip": "knip",
     "demo": "bun run build && cd demo && bun run start",
+    "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",
     "demo:android": "bun run build && cd demo && bun run android",
     "demo:web": "bun run build && cd demo && bun run web",

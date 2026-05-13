@@ -65,6 +65,7 @@ bun run check:package        # publint + attw with internal-resolution-error ign
 bun run check:knip           # knip; flags unused deps and dead code
 bun run demo                 # build lib first, then start demo (interactive picker)
 bun run demo:web             # same, web only
+bun run demo:wsl             # WSL2-only: Metro binds 0.0.0.0 and reports the Windows-host LAN IP (see gotcha below)
 cd demo && bun run check:expo  # manual SDK-drift check; not in the aggregator (see gotcha below)
 ```
 
@@ -81,6 +82,7 @@ Conventional Commits, imperative tense, succinct. `feat:` → minor release; `fi
 - **Local `check:expo` can false-positive.** Doctor's `SupportPackageVersionCheck` shells out to `npm explain`, which walks the parent directories looking in every `node_modules` it finds. When this repo sits next to another Expo SDK project on disk (e.g. `~/Simiancraft_Programming/Lifeguides/`), `npm explain` reports the sibling's `@expo/config-plugins@54.x` as part of "our" tree. CI never sees this. The aggregator does not include `check:expo` for exactly this reason; run it manually when verifying Expo dep alignment.
 - **Release job is opt-in.** `vars.RELEASE_ENABLED` gates the semantic-release job in `ci.yml`. To activate: configure `APP_ID` + `APP_PRIVATE_KEY` repo secrets (GitHub App that can bypass main's ruleset for the `chore(release)` commit + tag), then `gh variable set RELEASE_ENABLED --body true`.
 - **Demo Metro picks up `src/` directly via `link:..`.** The demo's `package.json` resolves the workspace as `link:..` and Metro reads the package's `react-native` exports condition pointing at `src/index.ts`. Changes to `src/` take effect without a publish, but the demo's `bun run start` does NOT run `bun run build` first by default; the `demo*` scripts at the repo root prefix `bun run build &&` so they do.
+- **WSL2 Metro can't be reached by a real device through the WSL adapter.** A phone on the LAN cannot reach the WSL2 NAT interface; Metro must bind 0.0.0.0 AND report the Windows-host LAN IP (not the WSL veth) in its bundle URL so the dev client knows where to fetch. `bun run demo:wsl` shells out to PowerShell from WSL to find the Windows host's real LAN adapter (skipping Hyper-V / vEthernet / loopback / etc.), exports it as `REACT_NATIVE_PACKAGER_HOSTNAME`, sets `METRO_LISTEN_ADDRESS=0.0.0.0` + `EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0`, then runs `expo start --dev-client --host lan --port 8081`. The plain `bun run demo` works on macOS / Linux native; use `:wsl` only on Windows-WSL2.
 
 ## Mobile dev builds (maintainer runbook)
 
