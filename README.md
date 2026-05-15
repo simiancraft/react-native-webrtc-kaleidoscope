@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="./docs/kaleidoscope-logo.png" alt="react-native-webrtc-kaleidoscope logo" width="180" />
+</p>
+
+<p align="center">
   <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/">
     <img src="https://img.shields.io/badge/▶%20Live%20demo-mirror%20%2B%20blur%20a%20webcam-4f46e5?style=for-the-badge" alt="Live demo" />
   </a>
