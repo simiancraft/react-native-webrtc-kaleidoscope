@@ -33,6 +33,16 @@ bun add react-native-webrtc react-native-webrtc-kaleidoscope
 
 `react-native-webrtc` is a peer dependency. Install it explicitly.
 
+### Using LiveKit?
+
+If your project uses `@livekit/react-native` it pulls in `@livekit/react-native-webrtc` (a fork of upstream `react-native-webrtc` that preserves the same `videoEffects` native classes and the `_setVideoEffects` JS API). Kaleidoscope works against either fork; the Android Gradle script picks whichever one your autolinking surfaced.
+
+```sh
+bun add @livekit/react-native @livekit/react-native-webrtc react-native-webrtc-kaleidoscope
+```
+
+Pick one fork. Installing both upstream `react-native-webrtc` and `@livekit/react-native-webrtc` in the same app will cause native class collisions; that's your problem to resolve, not ours.
+
 ## Configure
 
 Add the config plugin to `app.config.ts`:

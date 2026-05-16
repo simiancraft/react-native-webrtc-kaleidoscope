@@ -86,7 +86,16 @@
     "expo": ">=51.0.0",
     "react": ">=18.2.0",
     "react-native": ">=0.74.0",
-    "react-native-webrtc": ">=124.0.0"
+    "react-native-webrtc": ">=124.0.0",
+    "@livekit/react-native-webrtc": ">=144.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native-webrtc": {
+      "optional": true
+    },
+    "@livekit/react-native-webrtc": {
+      "optional": true
+    }
   },
   "optionalDependencies": {
     "@mediapipe/selfie_segmentation": "^0.1.1675465747"

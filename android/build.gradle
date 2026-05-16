@@ -38,7 +38,20 @@ dependencies {
   // (ProcessorProvider, VideoFrameProcessor, VideoFrameProcessorFactoryInterface,
   // and the org.webrtc.* surface it bundles) at compile time only; the consumer
   // app provides the runtime via autolinking.
-  compileOnly project(':react-native-webrtc')
+  //
+  // Two forks ship the same classes under `com.oney.WebRTCModule.videoEffects.*`:
+  //   - react-native-webrtc/react-native-webrtc (upstream)
+  //   - livekit/react-native-webrtc (LiveKit fork, required by @livekit/react-native)
+  // Pick whichever the consumer's autolinking surfaced; throw if neither is present.
+  def rnWebrtcCandidates = [':react-native-webrtc', ':livekit_react-native-webrtc']
+  def rnWebrtcProject = rnWebrtcCandidates.find { rootProject.findProject(it) != null }
+  if (rnWebrtcProject == null) {
+    throw new GradleException(
+      'react-native-webrtc-kaleidoscope: install either react-native-webrtc ' +
+      'or @livekit/react-native-webrtc as a peer dependency.'
+    )
+  }
+  compileOnly project(rnWebrtcProject)
 
   // Person/background mask for the blur effect. The Google artifact ID is
   // `segmentation-selfie`, not `selfie-segmentation` (the plan and earlier
