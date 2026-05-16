@@ -1,9 +1,6 @@
 // Expo Module entry point for react-native-webrtc-kaleidoscope on Android.
-// Calls Registration.registerAll() at module init so frame-processor factories
-// land in ProcessorProvider before any track requests them.
-//
-// Implementation lands in Commit 4 (and finalized in Commit 8 wiring) of
-// bootstrap-and-ship-v0-1.md.
+// Calls Registration.registerAll(context) at module init so frame-processor
+// factories land in ProcessorProvider before any track requests them.
 
 package com.simiancraft.kaleidoscope
 
@@ -15,7 +12,9 @@ class KaleidoscopeModule : Module() {
     Name("RnWebrtcKaleidoscope")
 
     OnCreate {
-      Registration.registerAll()
+      val ctx = appContext.reactContext
+        ?: error("Kaleidoscope: no react context at OnCreate; cannot register Android effects")
+      Registration.registerAll(ctx)
     }
   }
 }

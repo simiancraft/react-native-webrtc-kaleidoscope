@@ -1,6 +1,4 @@
 // Android build script for react-native-webrtc-kaleidoscope.
-// Effect implementations land in Commits 4 (mirror) and 10 (blur) of
-// bootstrap-and-ship-v0-1.md.
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
@@ -42,10 +40,10 @@ dependencies {
   // app provides the runtime via autolinking.
   compileOnly project(':react-native-webrtc')
 
-  // MLKit Selfie Segmentation lands with Commit 10 (blur). The original
-  // pin `com.google.mlkit:selfie-segmentation:16.0.0-beta6` is not resolvable
-  // on Maven Central / Google Maven today; verify the current artifact name
-  // and version when wiring blur.
+  // Person/background mask for the blur effect. The Google artifact ID is
+  // `segmentation-selfie`, not `selfie-segmentation` (the plan and earlier
+  // notes had it inverted; that is why the pin would not resolve).
+  implementation 'com.google.mlkit:segmentation-selfie:16.0.0-beta6'
 }
 
 // Helper: gracefully read root project ext properties with a default.
