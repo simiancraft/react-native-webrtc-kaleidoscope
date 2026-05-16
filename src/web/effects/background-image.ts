@@ -87,9 +87,10 @@ void main() {
 
 // Composite: mix(background, original, mask).
 //
-// MediaPipe's segmentationMask is Y-flipped relative to the camera frame
-// and UNPACK_FLIP_Y_WEBGL has no visible effect on it at upload time.
-// Flip V here so the mask aligns with the original.
+// MediaPipe's segmentationMask and ImageBitmaps created from fetched PNGs
+// both arrive Y-flipped relative to the camera frame in our pipeline, and
+// UNPACK_FLIP_Y_WEBGL has no visible corrective effect on either source at
+// upload time. Flip V here so both align with the original.
 const COMPOSITE_FRAG_SRC = `#version 300 es
 precision mediump float;
 uniform sampler2D uOriginal;
@@ -98,9 +99,10 @@ uniform sampler2D uMask;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  float m = texture(uMask, vec2(vUv.x, 1.0 - vUv.y)).r;
+  vec2 flipped = vec2(vUv.x, 1.0 - vUv.y);
+  float m = texture(uMask, flipped).r;
   vec3 orig = texture(uOriginal, vUv).rgb;
-  vec3 bg = texture(uBackground, vUv).rgb;
+  vec3 bg = texture(uBackground, flipped).rgb;
   oColor = vec4(mix(bg, orig, m), 1.0);
 }
 `;
