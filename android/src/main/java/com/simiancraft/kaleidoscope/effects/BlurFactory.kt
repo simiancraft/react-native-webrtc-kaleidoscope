@@ -51,8 +51,13 @@ private class BlurProcessor(context: Context) : VideoFrameProcessor {
       .build(),
   )
 
-  override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame {
-    val src = frame.buffer.toI420() ?: return frame
+  // Upstream contract (see VideoEffectProcessor.onFrameCaptured): returning
+  // null tells the pipeline to forward the original frame and balance its
+  // own retain/release on the input. Echoing the input back from here works
+  // in steady state but races on effect tear-down (e.g. _setVideoEffects([]))
+  // and surfaces as a double-release on the texture buffer in EglRenderer.
+  override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
+    val src = frame.buffer.toI420() ?: return null
     val width = src.width
     val height = src.height
 
@@ -100,10 +105,10 @@ private class BlurProcessor(context: Context) : VideoFrameProcessor {
 
       VideoFrame(dst, frame.rotation, frame.timestampNs)
     } catch (e: Throwable) {
-      // Pipeline failure must not kill the call. Return the unmodified frame
-      // and surface enough to triage from `adb logcat`.
-      Log.w(TAG, "blur pipeline failed; returning original frame", e)
-      frame
+      // Returning null tells upstream to forward the original frame with
+      // correct refcount handling. Surface enough to triage from `adb logcat`.
+      Log.w(TAG, "blur pipeline failed; falling through to original frame", e)
+      null
     } finally {
       src.release()
     }
