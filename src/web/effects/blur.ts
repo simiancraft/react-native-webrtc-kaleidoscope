@@ -129,7 +129,11 @@ uniform sampler2D uMask;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  float m = texture(uMask, vec2(vUv.x, 1.0 - vUv.y)).r;
+  // smoothstep tightens MediaPipe's soft confidence map into a sharper
+  // edge. lo/hi narrower = harder cutout. Surfaces as a maskHardness
+  // parameter when the spec API gets uniforms wired through.
+  float raw = texture(uMask, vec2(vUv.x, 1.0 - vUv.y)).r;
+  float m = smoothstep(0.35, 0.65, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec3 blur = texture(uBlurred, vUv).rgb;
   oColor = vec4(mix(blur, orig, m), 1.0);
