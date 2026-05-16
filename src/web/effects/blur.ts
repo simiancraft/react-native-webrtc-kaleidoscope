@@ -116,6 +116,11 @@ void main() {
 
 // Composite: mix(blurred, original, mask). The mask comes in as a 4-channel
 // texture from MediaPipe — use the red channel (greyscale).
+//
+// MediaPipe's segmentationMask appears to be Y-flipped relative to the
+// camera frame, and UNPACK_FLIP_Y_WEBGL has no visible effect on it during
+// upload (probably because of how MediaPipe's WebGL surface gets handed to
+// texImage2D). Flip V here so the mask aligns with the original.
 const COMPOSITE_FRAG_SRC = `#version 300 es
 precision mediump float;
 uniform sampler2D uOriginal;
@@ -124,7 +129,7 @@ uniform sampler2D uMask;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  float m = texture(uMask, vUv).r;
+  float m = texture(uMask, vec2(vUv.x, 1.0 - vUv.y)).r;
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec3 blur = texture(uBlurred, vUv).rgb;
   oColor = vec4(mix(blur, orig, m), 1.0);
