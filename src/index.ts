@@ -12,7 +12,10 @@ export type { ApplyVideoEffects, EffectName } from './types';
 
 interface WebRTCTrackExtensions {
   remote?: boolean;
-  _setVideoEffects?: (names: ReadonlyArray<string>) => void;
+  // Upstream's typed signature is `string[]`, but the native bridge also
+  // accepts null and takes the `videoSource.setVideoProcessor(null)` branch,
+  // which is the only correct way to clear effects. See note below.
+  _setVideoEffects?: (names: ReadonlyArray<string> | null) => void;
 }
 
 export const applyVideoEffects: ApplyVideoEffects = (track, names) => {
@@ -25,6 +28,12 @@ export const applyVideoEffects: ApplyVideoEffects = (track, names) => {
       'kaleidoscope: track has no _setVideoEffects method (is react-native-webrtc >=124 installed?)',
     );
   }
-  t._setVideoEffects(names);
+  // rn-webrtc 124 has a bug where passing [] installs a VideoEffectProcessor
+  // with an empty processors list, and its onFrameCaptured then double-releases
+  // the input frame (retain once, release twice) which crashes the renderer.
+  // Passing null takes the upstream else-branch that clears the processor
+  // entirely. We translate at the boundary so consumers keep a clean array
+  // API and never see the workaround.
+  t._setVideoEffects(names.length === 0 ? null : names);
   return track;
 };
