@@ -1,19 +1,19 @@
 // Single demo screen. Local camera feed + a row of preset toggles. Each
 // preset maps to an EffectSpec passed to applyVideoEffects.
 
+import { Asset } from 'expo-asset';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { applyVideoEffects, type EffectSpec } from 'react-native-webrtc-kaleidoscope';
 import { EffectToggles } from '../src/effect-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-// Asset.fromModule isn't needed at this granularity — Image.resolveAssetSource
-// works cross-platform and gives us a URI string Metro has already bundled.
-const office1Uri =
-  Image.resolveAssetSource(require('../assets/backgrounds/office-1.png') as number)?.uri ?? '';
-const office2Uri =
-  Image.resolveAssetSource(require('../assets/backgrounds/office-2.png') as number)?.uri ?? '';
+// Asset.fromModule is the cross-platform way to resolve a bundled image's
+// URL. react-native-web does not implement Image.resolveAssetSource.
+// On native, .uri may be a remote URI before downloadAsync() runs.
+const office1Uri = Asset.fromModule(require('../assets/backgrounds/office-1.png')).uri;
+const office2Uri = Asset.fromModule(require('../assets/backgrounds/office-2.png')).uri;
 
 type PresetId = 'mirror' | 'blur' | 'office-1' | 'office-2' | 'gpu-passthrough';
 
