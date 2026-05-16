@@ -23,10 +23,12 @@ export default function DemoScreen() {
   }, [stream]);
 
   // Re-derive the displayed track when the source or the active set changes.
+  // Always dispatch the current name list (including empty) so untoggling
+  // clears effects on the upstream track instead of leaving stale processors
+  // attached. The plural _setVideoEffects API replaces the list on each call.
   const displayedTrack = useMemo<MediaStreamTrack | null>(() => {
     if (!sourceTrack) return null;
     const names = EFFECT_ORDER.filter((n) => active.has(n));
-    if (names.length === 0) return sourceTrack;
     try {
       return applyVideoEffects(sourceTrack, names);
     } catch (err) {
