@@ -9,6 +9,7 @@
 import type { ApplyVideoEffects, EffectName } from './types';
 import { blur } from './web/effects/blur';
 import { mirror } from './web/effects/mirror';
+import { passthrough } from './web/effects/passthrough';
 import { applyEffectToTrack, type FrameTransform } from './web/insertable-streams';
 
 export type { ApplyVideoEffects, EffectName } from './types';
@@ -16,6 +17,7 @@ export type { ApplyVideoEffects, EffectName } from './types';
 const transforms: Record<EffectName, FrameTransform> = {
   mirror,
   blur,
+  'gpu-passthrough': passthrough,
 };
 
 export const applyVideoEffects: ApplyVideoEffects = (track, names) => {

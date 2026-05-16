@@ -7,7 +7,9 @@ import { EffectToggles } from '../src/effect-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-const EFFECT_ORDER: ReadonlyArray<EffectName> = ['mirror', 'blur'];
+// gpu-passthrough is a temporary architecture-proof toggle for PLAN.md Commit
+// 3 verification; removed in the cleanup pass.
+const EFFECT_ORDER: ReadonlyArray<EffectName> = ['mirror', 'blur', 'gpu-passthrough'];
 
 export default function DemoScreen() {
   const stream = useLoopbackStream();

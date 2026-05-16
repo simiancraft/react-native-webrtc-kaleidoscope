@@ -5,7 +5,13 @@
  * `blur`   — person segmentation + Gaussian background blur.
  *            Backends: Apple Vision (iOS), MLKit (Android), MediaPipe WASM (web).
  */
-export type EffectName = 'mirror' | 'blur';
+/**
+ * `gpu-passthrough` is a temporary Commit-3 architecture-proof hook: it runs
+ * the OES camera texture through an identity GPU shader pass and emits a
+ * 2D-texture-backed VideoFrame. Removed in PLAN.md's cleanup pass before
+ * shipping; not part of the public effect catalog.
+ */
+export type EffectName = 'mirror' | 'blur' | 'gpu-passthrough';
 
 /**
  * Apply zero or more named effects to a local `MediaStreamTrack`.
