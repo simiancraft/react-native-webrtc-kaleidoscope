@@ -6,9 +6,18 @@
 // OnCreate hook (see android/.../KaleidoscopeModule.kt and ios/.../KaleidoscopeModule.swift);
 // this facade just dispatches into the existing upstream registry.
 
-import type { ApplyVideoEffects } from './types';
+import { type ApplyVideoEffects, toEffectSpec } from './types';
 
-export type { ApplyVideoEffects, EffectName } from './types';
+export type {
+  ApplyVideoEffects,
+  BackgroundImageSpec,
+  BlurSpec,
+  EffectInput,
+  EffectName,
+  EffectSpec,
+  MirrorSpec,
+  PassthroughSpec,
+} from './types';
 
 interface WebRTCTrackExtensions {
   remote?: boolean;
@@ -18,7 +27,7 @@ interface WebRTCTrackExtensions {
   _setVideoEffects?: (names: ReadonlyArray<string> | null) => void;
 }
 
-export const applyVideoEffects: ApplyVideoEffects = (track, names) => {
+export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const t = track as MediaStreamTrack & WebRTCTrackExtensions;
   if (t.remote) {
     throw new Error('kaleidoscope: cannot apply effects to remote tracks');
@@ -28,6 +37,10 @@ export const applyVideoEffects: ApplyVideoEffects = (track, names) => {
       'kaleidoscope: track has no _setVideoEffects method (is react-native-webrtc >=124 installed?)',
     );
   }
+  // Native side currently only consumes effect names. Spec parameters (blur
+  // sigma, background-image source) are dropped here; they wire through in a
+  // follow-up commit once the GPU effects accept uniforms.
+  const names = effects.map((e) => toEffectSpec(e).name);
   // rn-webrtc 124 has a bug where passing [] installs a VideoEffectProcessor
   // with an empty processors list, and its onFrameCaptured then double-releases
   // the input frame (retain once, release twice) which crashes the renderer.

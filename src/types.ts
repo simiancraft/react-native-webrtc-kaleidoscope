@@ -1,23 +1,53 @@
 /**
- * Built-in effect names shipped in v0.1.
+ * Effect specs are parameterized objects. Each effect's shape carries the
+ * uniforms its shader needs; the library exposes one shader per effect family
+ * (blur, background-image, etc.) and consumers pick uniform values per call.
  *
- * `mirror` — pixel-exact horizontal flip; no ML.
- * `blur`   — person segmentation + Gaussian background blur.
- *            Backends: Apple Vision (iOS), MLKit (Android), MediaPipe WASM (web).
+ * `gpu-passthrough` is a temporary Commit-3 architecture-proof hook and gets
+ * removed in PLAN.md's cleanup pass.
  */
-/**
- * `gpu-passthrough` is a temporary Commit-3 architecture-proof hook: it runs
- * the OES camera texture through an identity GPU shader pass and emits a
- * 2D-texture-backed VideoFrame. Removed in PLAN.md's cleanup pass before
- * shipping; not part of the public effect catalog.
- */
-export type EffectName = 'mirror' | 'blur' | 'gpu-passthrough';
+
+export type MirrorSpec = {
+  readonly name: 'mirror';
+};
+
+export type BlurSpec = {
+  readonly name: 'blur';
+  /** Gaussian σ. Higher = softer blur. Default 8.0. */
+  readonly sigma?: number;
+};
+
+export type BackgroundImageSpec = {
+  readonly name: 'background-image';
+  /** URL or data URI of the background image to composite behind the person. */
+  readonly source: string;
+};
+
+export type PassthroughSpec = {
+  readonly name: 'gpu-passthrough';
+};
+
+export type EffectSpec = MirrorSpec | BlurSpec | BackgroundImageSpec | PassthroughSpec;
 
 /**
- * Apply zero or more named effects to a local `MediaStreamTrack`.
+ * Legacy alias for the discriminant. Useful for typed switch statements and
+ * the bare-string call shape (`applyVideoEffects(track, ['blur'])`).
+ */
+export type EffectName = EffectSpec['name'];
+
+/**
+ * applyVideoEffects accepts either a bare effect name (no params; library
+ * picks sensible defaults) or a full EffectSpec object with parameters.
+ */
+export type EffectInput = EffectSpec | EffectName;
+
+/**
+ * Apply zero or more effects to a local `MediaStreamTrack`.
  *
  * - Native: thin facade over `track._setVideoEffects(names)` from
  *   `react-native-webrtc`. Returns the same track reference; mutation is in place.
+ *   Spec parameters are currently dropped on the native side — they'll wire
+ *   through in a follow-up commit once the GPU effects accept uniforms.
  * - Web: builds an Insertable-Streams pipeline with `MediaStreamTrackProcessor`
  *   and `MediaStreamTrackGenerator` and returns a NEW track carrying the
  *   transformed frames. Replace the upstream sender's track with the return value
@@ -28,4 +58,13 @@ export type EffectName = 'mirror' | 'blur' | 'gpu-passthrough';
  * (web: Insertable Streams; native: peer-dep `_setVideoEffects`), or non-video
  * tracks.
  */
-export type ApplyVideoEffects = (track: MediaStreamTrack, names: EffectName[]) => MediaStreamTrack;
+export type ApplyVideoEffects = (
+  track: MediaStreamTrack,
+  effects: ReadonlyArray<EffectInput>,
+) => MediaStreamTrack;
+
+/**
+ * Normalize an EffectInput (bare name or spec) into an EffectSpec.
+ */
+export const toEffectSpec = (input: EffectInput): EffectSpec =>
+  typeof input === 'string' ? ({ name: input } as EffectSpec) : input;
