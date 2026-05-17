@@ -27,6 +27,19 @@ interface WebRTCTrackExtensions {
   _setVideoEffects?: (names: ReadonlyArray<string> | null) => void;
 }
 
+// Effect names registered native-side in Registration.kt / Registration.swift.
+// Anything not in this list gets filtered out before reaching upstream,
+// because rn-webrtc's setVideoEffects calls ProcessorProvider.getProcessor()
+// and filters nulls into an empty list, which then hits the
+// VideoEffectProcessor empty-processors-list bug (refcount goes negative,
+// EglRenderer crashes one frame later). Until each effect ships a native
+// factory, dropping its name here is the safe behavior.
+const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set([
+  'mirror',
+  'blur',
+  'gpu-passthrough',
+]);
+
 export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const t = track as MediaStreamTrack & WebRTCTrackExtensions;
   if (t.remote) {
@@ -40,7 +53,15 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   // Native side currently only consumes effect names. Spec parameters (blur
   // sigma, background-image source) are dropped here; they wire through in a
   // follow-up commit once the GPU effects accept uniforms.
-  const names = effects.map((e) => toEffectSpec(e).name);
+  const allNames = effects.map((e) => toEffectSpec(e).name);
+  const names = allNames.filter((n) => NATIVE_REGISTERED_EFFECTS.has(n));
+  const dropped = allNames.filter((n) => !NATIVE_REGISTERED_EFFECTS.has(n));
+  if (dropped.length > 0) {
+    console.warn(
+      `kaleidoscope: dropping effects not registered on this native platform: ${dropped.join(', ')}. ` +
+        'Web has its own registry; this is a native-only filter.',
+    );
+  }
   // rn-webrtc 124 has a bug where passing [] installs a VideoEffectProcessor
   // with an empty processors list, and its onFrameCaptured then double-releases
   // the input frame (retain once, release twice) which crashes the renderer.
