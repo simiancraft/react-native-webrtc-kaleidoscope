@@ -65,8 +65,10 @@ private class BackgroundImageProcessor(
   private var yuvConverter: YuvConverter? = null
 
   // Background image cached as a 2D GL texture; loaded lazily on the first
-  // successful frame to ensure GL setup is ready.
+  // successful frame to ensure GL setup is ready. Aspect ratio captured at
+  // load time so the composite shader can center-crop into the output.
   private var backgroundTextureId = 0
+  private var backgroundAspect: Float = 1f
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
     return try {
@@ -129,6 +131,8 @@ private class BackgroundImageProcessor(
       origFbo.bind()
       oes.use()
       oes.setInt("uTex", 0)
+      val texMatrix = Egl.matrixToGl(inputBuffer.transformMatrix)
+      GLES30.glUniformMatrix4fv(oes.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
@@ -160,6 +164,23 @@ private class BackgroundImageProcessor(
       GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
       GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTexId)
       composite.setInt("uMask", 2)
+
+      // Center-crop cover fit so the bg image fills the output without
+      // distortion. If bg is wider than output, crop horizontally; if
+      // taller, crop vertically.
+      val outAspect = width.toFloat() / height.toFloat()
+      val bgAspect = backgroundAspect
+      if (bgAspect > outAspect) {
+        // bg is wider -> shrink u-range, full v-range
+        val scaleX = outAspect / bgAspect
+        composite.setVec2("uBgUvScale", scaleX, 1.0f)
+        composite.setVec2("uBgUvOffset", (1f - scaleX) * 0.5f, 0.0f)
+      } else {
+        // bg is taller -> full u-range, shrink v-range
+        val scaleY = bgAspect / outAspect
+        composite.setVec2("uBgUvScale", 1.0f, scaleY)
+        composite.setVec2("uBgUvOffset", 0.0f, (1f - scaleY) * 0.5f)
+      }
 
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("bgImage composite pass")
@@ -266,7 +287,11 @@ private class BackgroundImageProcessor(
       GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
       GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bmp, 0)
       GlDebug.check("bgImage background upload")
-      Log.i(TAG, "background asset '$assetName' loaded; size=${bmp.width}x${bmp.height}")
+      backgroundAspect = bmp.width.toFloat() / bmp.height.toFloat()
+      Log.i(
+        TAG,
+        "background asset '$assetName' loaded; size=${bmp.width}x${bmp.height} aspect=$backgroundAspect",
+      )
     } finally {
       bmp.recycle()
     }

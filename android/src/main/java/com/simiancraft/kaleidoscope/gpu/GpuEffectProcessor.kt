@@ -105,6 +105,8 @@ internal class GpuEffectProcessor : VideoFrameProcessor {
       fbo.bind()
       prog.use()
       prog.setInt("uTex", 0)
+      val texMatrix = Egl.matrixToGl(inputBuffer.transformMatrix)
+      GLES30.glUniformMatrix4fv(prog.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)

@@ -27,14 +27,22 @@ void main() {
 
   // Sample the OES external camera texture and emit as 2D RGBA. The first
   // pass of every effect runs this so subsequent passes can use sampler2D.
+  //
+  // The camera's TextureBuffer carries a transform matrix that encodes the
+  // selfie mirror (front cameras), sensor orientation correction, and any
+  // crop. The renderer applies it when displaying the raw OES; we have to
+  // apply it ourselves before sampling, otherwise our 2D output is the raw
+  // sensor view instead of the screen-aligned view.
   const val OES_PASSTHROUGH_FRAG = """#version 300 es
 #extension GL_OES_EGL_image_external_essl3 : require
 precision mediump float;
 uniform samplerExternalOES uTex;
+uniform mat4 uTexMatrix;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  oColor = texture(uTex, vUv);
+  vec4 transformed = uTexMatrix * vec4(vUv, 0.0, 1.0);
+  oColor = texture(uTex, transformed.xy);
 }
 """
 
@@ -74,11 +82,19 @@ void main() {
   //
   // smoothstep tightens the soft confidence map. Hardcoded for now; surfaces
   // as a maskHardness uniform when the spec API plumbs parameters end-to-end.
+  //
+  // uBgUvScale and uBgUvOffset control how the background texture is mapped
+  // onto the output. For blur, they are (1,1) and (0,0) — sample the full
+  // blurred copy. For background-image, the caller computes them to perform
+  // a cover-fit center crop so an arbitrarily-shaped image fills the output
+  // without distortion.
   const val COMPOSITE_FRAG = """#version 300 es
 precision mediump float;
 uniform sampler2D uOriginal;
 uniform sampler2D uBackground;
 uniform sampler2D uMask;
+uniform vec2 uBgUvScale;
+uniform vec2 uBgUvOffset;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
@@ -86,7 +102,8 @@ void main() {
   float raw = texture(uMask, flipped).r;
   float m = smoothstep(0.35, 0.65, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
-  vec3 bg = texture(uBackground, vUv).rgb;
+  vec2 bgUv = vUv * uBgUvScale + uBgUvOffset;
+  vec3 bg = texture(uBackground, bgUv).rgb;
   oColor = vec4(mix(bg, orig, m), 1.0);
 }
 """

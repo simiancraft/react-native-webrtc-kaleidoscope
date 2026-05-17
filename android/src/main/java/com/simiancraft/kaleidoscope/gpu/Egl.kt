@@ -12,6 +12,30 @@ internal object Egl {
   private const val GL_TEXTURE_BINDING_EXTERNAL_OES = 0x8D67
   private const val GL_TEXTURE_EXTERNAL_OES = 0x8D65
 
+  /**
+   * Convert an android.graphics.Matrix (3x3 row-major affine) into a flat 16-
+   * element column-major float array suitable for glUniformMatrix4fv. Z row
+   * and column become identity.
+   *
+   * android.graphics.Matrix values layout (from Matrix.getValues):
+   *   [m00 m01 m02]   [a b c]
+   *   [m10 m11 m12] = [d e f]
+   *   [m20 m21 m22]   [g h i]
+   *
+   * Caller is responsible for the float array's lifetime (no per-call alloc
+   * mitigation here; if it matters, reuse a buffer).
+   */
+  fun matrixToGl(matrix: android.graphics.Matrix): FloatArray {
+    val v = FloatArray(9)
+    matrix.getValues(v)
+    return floatArrayOf(
+      v[0], v[3], 0f, v[6],
+      v[1], v[4], 0f, v[7],
+      0f,   0f,   1f, 0f,
+      v[2], v[5], 0f, v[8],
+    )
+  }
+
   data class State(
     val viewport: IntArray,
     val activeTexture: Int,

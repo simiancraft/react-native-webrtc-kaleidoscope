@@ -124,6 +124,8 @@ private class BlurProcessor : VideoFrameProcessor {
       origFbo.bind()
       oes.use()
       oes.setInt("uTex", 0)
+      val texMatrix = Egl.matrixToGl(inputBuffer.transformMatrix)
+      GLES30.glUniformMatrix4fv(oes.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
@@ -177,6 +179,11 @@ private class BlurProcessor : VideoFrameProcessor {
       GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
       GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTexId)
       composite.setInt("uMask", 2)
+
+      // The blurred background is the same dimensions as the original; no
+      // cover-fit needed. Identity UV transform.
+      composite.setVec2("uBgUvScale", 1.0f, 1.0f)
+      composite.setVec2("uBgUvOffset", 0.0f, 0.0f)
 
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur composite pass")
