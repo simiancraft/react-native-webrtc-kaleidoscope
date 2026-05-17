@@ -12,9 +12,15 @@
 //   - VNImageRequestHandler is created per frame with the correct
 //     CGImagePropertyOrientation for the camera position; Vision aligns
 //     the mask to the image, so no manual V-flip is needed (unlike the
-//     Android side with MLKit).
+//     Android side with MLKit). The orientation argument must be derived
+//     from RTCVideoFrame.rotation plus the source AVCaptureDevice.Position;
+//     rn-webrtc's rotation is the post-rotation display angle, not the
+//     raw sensor orientation, so the mapping is non-trivial and is the
+//     easiest place for an implementer to silently produce a transposed
+//     mask.
 //   - Reuse a single VNGeneratePersonSegmentationRequest across frames;
-//     Apple documents it as not thread-safe but reusable across calls.
+//     it is not safe to run concurrently from multiple threads, but serial
+//     reuse on the worker queue is supported.
 
 import Foundation
 import CoreImage

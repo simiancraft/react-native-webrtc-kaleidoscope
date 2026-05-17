@@ -35,7 +35,8 @@ android/src/main/java/com/simiancraft/kaleidoscope/
 │   ├── Fbo.kt                           FBO + texture allocator
 │   ├── GlProgram.kt                     shader compile/link
 │   ├── GlDebug.kt                       glGetError logging
-│   ├── GpuEffectProcessor.kt            architecture-proof passthrough (v0.1 cleanup target)
+│   ├── GpuEffectFactory.kt              architecture-proof passthrough factory (v0.1 cleanup target)
+│   ├── GpuEffectProcessor.kt            architecture-proof passthrough processor (v0.1 cleanup target)
 │   └── Shaders.kt                       all GLSL source for every Android effect
 └── segmentation/                      person-segmentation helpers (MLKit on Android)
     ├── Mask.kt                          async MLKit worker + last-known-mask cache
@@ -72,7 +73,7 @@ files with a Metro transformer + Android asset-loader is a v0.2 conversation.
 
 ### Where a new effect goes
 
-Three things, in order:
+Four things, in order:
 
 1. **Spec**: add a new branch to `EffectSpec` in `src/types.ts`. Add the
    discriminant string to `ANDROID_REGISTERED_EFFECTS` in `src/index.ts`.

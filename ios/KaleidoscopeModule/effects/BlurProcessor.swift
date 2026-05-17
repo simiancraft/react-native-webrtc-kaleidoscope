@@ -1,6 +1,6 @@
 // iOS blur effect.
 //
-// Planned shape (mirrors android/.../effects/BlurFactory.kt + gpu/Mask.kt):
+// Planned shape (mirrors android/.../effects/BlurFactory.kt + segmentation/Mask.kt):
 //   1. RTCVideoFrame buffer (RTCCVPixelBuffer) -> CVPixelBuffer -> CIImage.
 //   2. VNGeneratePersonSegmentationRequest (qualityLevel: .fast) on a
 //      dedicated serial DispatchQueue with an NSLock-guarded inFlight flag
