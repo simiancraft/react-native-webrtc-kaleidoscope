@@ -5,8 +5,9 @@
 //
 // Implementations are not yet ported. Until they land, this is a no-op and
 // the JS facade (src/index.ts) gates NATIVE_REGISTERED_EFFECTS on Platform.OS
-// so iOS consumers do not reach an empty processor list (which the upstream
-// rn-webrtc registry mishandles).
+// so iOS consumers do not reach an empty processor list, which the upstream
+// rn-webrtc registry mishandles by crashing the EglRenderer one frame later
+// (refcount goes negative; see the rationale at src/index.ts:80-86).
 
 import Foundation
 

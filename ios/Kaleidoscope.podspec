@@ -23,8 +23,10 @@ Pod::Spec.new do |s|
   # would either pin a version (`s.dependency 'react-native-webrtc'`) or
   # mis-use system-framework linkage (`s.weak_framework 'WebRTC'`, which is
   # for OS-shipped frameworks). Swift `import WebRTC` from our sources
-  # requires the consumer to enable modular headers for react-native-webrtc;
-  # see README iOS integration notes.
+  # requires the consumer to enable modular headers for react-native-webrtc
+  # in their Podfile, either via
+  #   pod 'react-native-webrtc', :modular_headers => true
+  # or a global `use_modular_headers!`. The library ships no bridging header.
 
   s.frameworks = 'CoreImage', 'CoreVideo', 'Metal', 'Vision'
 
