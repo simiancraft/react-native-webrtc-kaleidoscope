@@ -8,7 +8,6 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
-      "prebuildCommand": "expo prebuild --no-install",
       "ios": {
         "simulator": false
       }
