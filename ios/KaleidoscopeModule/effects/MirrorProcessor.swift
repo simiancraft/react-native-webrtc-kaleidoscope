@@ -1,7 +1,12 @@
-// iOS mirror effect: CIImage.transformed(by: scaleX: -1, y: 1) → CIContext render
-// → new RTCVideoFrame, preserving rotation and timestamp.
+// iOS mirror effect.
 //
-// Implementation lands in Commit 5 of bootstrap-and-ship-v0-1.md.
+// Planned shape: conform to the RTCVideoFrameProcessor protocol declared
+// in react-native-webrtc/ios/RCTWebRTC/videoEffects/VideoFrameProcessor.h
+// from an @objc-exposed subclass of NSObject; implement process(_:) to
+// return a horizontally-flipped frame via
+//   CIImage.transformed(by: CGAffineTransform(scaleX: -1, y: 1))
+// rendered through a shared CIContext into a pooled CVPixelBuffer, then
+// wrapped back into an RTCVideoFrame preserving rotation and timestamp.
 
 import Foundation
 import CoreImage
@@ -9,7 +14,4 @@ import CoreImage
 // import WebRTC
 
 public final class MirrorProcessor /* : RTCVideoFrameProcessor */ {
-  // TODO(Commit 5): conform to the RTCVideoFrameProcessor protocol declared in
-  // react-native-webrtc/ios/RCTWebRTC/videoEffects/VideoFrameProcessor.h.
-  // Implement process(_:) to return a horizontally-flipped frame.
 }

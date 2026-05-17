@@ -6,6 +6,7 @@
 // OnCreate hook (see android/.../KaleidoscopeModule.kt and ios/.../KaleidoscopeModule.swift);
 // this facade just dispatches into the existing upstream registry.
 
+import { Platform } from 'react-native';
 import { type ApplyVideoEffects, toEffectSpec } from './types';
 
 export type {
@@ -38,13 +39,22 @@ interface WebRTCTrackExtensions {
 // Background-image variants are registered one per source preset (the
 // rn-webrtc native registry is keyed by flat strings; parameterization
 // via uniforms is a follow-up).
-const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set([
-  'mirror',
-  'blur',
-  'gpu-passthrough',
-  'background-image-office-1',
-  'background-image-office-2',
-]);
+//
+// iOS native processors are not yet ported; ios/.../Registration.swift is a
+// no-op until they land. Until then, the iOS allowlist is empty so consumers
+// get a console.warn (instead of an empty-processors-list crash) when an
+// effect is requested on iOS.
+const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(
+  Platform.OS === 'android'
+    ? [
+        'mirror',
+        'blur',
+        'gpu-passthrough',
+        'background-image-office-1',
+        'background-image-office-2',
+      ]
+    : [],
+);
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // background-image uses one registered factory per source preset.

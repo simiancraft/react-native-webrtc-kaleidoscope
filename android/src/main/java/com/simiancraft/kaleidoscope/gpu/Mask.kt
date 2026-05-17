@@ -33,6 +33,7 @@ import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 internal class Mask {
   private var segmenter: Segmenter? = null
@@ -57,9 +58,10 @@ internal class Mask {
   private val isProcessing = AtomicBoolean(false)
 
   // Worker -> GL thread handoff: a Bitmap ready to upload as the mask
-  // texture. Volatile so the GL thread sees recent writes; the GL thread
-  // takes ownership when it reads non-null and clears the field.
-  @Volatile private var pendingMaskBitmap: Bitmap? = null
+  // texture. AtomicReference makes the read+clear (GL thread) and
+  // write+read-prev (worker thread) atomic, so there is no window in which
+  // both threads can observe the same bitmap reference.
+  private val pendingMaskBitmap = AtomicReference<Bitmap?>(null)
 
   // Pre-allocated readback buffer (resized only on input-dim change).
   private var pixelByteBuffer: ByteBuffer? = null
@@ -76,10 +78,10 @@ internal class Mask {
     sourceHeight: Int,
     downsampleSize: Int = 256,
   ): Int {
-    // Step 1: drain any pending mask the worker has produced.
-    val pending = pendingMaskBitmap
+    // Step 1: drain any pending mask the worker has produced. getAndSet
+    // claims the bitmap atomically; the GL thread is now its sole owner.
+    val pending = pendingMaskBitmap.getAndSet(null)
     if (pending != null) {
-      pendingMaskBitmap = null
       try {
         uploadMaskBitmap(pending)
       } catch (t: Throwable) {
@@ -125,8 +127,7 @@ internal class Mask {
       downsampleProgram = null
       segmenter?.close()
       segmenter = null
-      pendingMaskBitmap?.recycle()
-      pendingMaskBitmap = null
+      pendingMaskBitmap.getAndSet(null)?.recycle()
     } catch (t: Throwable) {
       Log.w(TAG, "Mask.release encountered an error; resources may leak", t)
     }
@@ -201,10 +202,10 @@ internal class Mask {
       val outBmp = Bitmap.createBitmap(maskW, maskH, Bitmap.Config.ARGB_8888)
       outBmp.setPixels(outPixels, 0, maskW, 0, 0, maskW, maskH)
 
-      // Hand off to GL thread. If a previous pending bitmap was never
-      // consumed (renderer behind), recycle it to avoid leaking.
-      val prev = pendingMaskBitmap
-      pendingMaskBitmap = outBmp
+      // Hand off to GL thread. getAndSet atomically claims any previously
+      // unconsumed bitmap as `prev` so we own the recycle; the GL thread
+      // can never observe the same reference we are about to free.
+      val prev = pendingMaskBitmap.getAndSet(outBmp)
       prev?.recycle()
     } catch (t: Throwable) {
       Log.e(TAG, "runSegmentation failed on worker", t)

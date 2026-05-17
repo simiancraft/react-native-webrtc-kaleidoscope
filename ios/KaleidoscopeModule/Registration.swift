@@ -1,9 +1,12 @@
 // Frame-processor registration for iOS.
-// Maps effect names to their RTCVideoFrameProcessor implementations in the
-// upstream react-native-webrtc registry.
+// Mirrors android/.../Registration.kt: maps effect names to their
+// RTCVideoFrameProcessor implementations in the upstream react-native-webrtc
+// registry. Called from KaleidoscopeModule.OnCreate, before any JS code runs.
 //
-// Implementations land in Commit 5 (mirror) and Commit 11 (blur) of
-// bootstrap-and-ship-v0-1.md.
+// Implementations are not yet ported. Until they land, this is a no-op and
+// the JS facade (src/index.ts) gates NATIVE_REGISTERED_EFFECTS on Platform.OS
+// so iOS consumers do not reach an empty processor list (which the upstream
+// rn-webrtc registry mishandles).
 
 import Foundation
 
@@ -11,7 +14,7 @@ import Foundation
 
 public enum Registration {
   public static func registerAll() {
-    // TODO(Commit 5):  ProcessorProvider.addProcessor("mirror", MirrorProcessor())
-    // TODO(Commit 11): ProcessorProvider.addProcessor("blur",   BlurProcessor())
+    // ProcessorProvider.addProcessor("mirror", MirrorProcessor())
+    // ProcessorProvider.addProcessor("blur",   BlurProcessor())
   }
 }

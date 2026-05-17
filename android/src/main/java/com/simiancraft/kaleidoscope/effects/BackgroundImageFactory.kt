@@ -32,6 +32,7 @@ import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.GlDebug
 import com.simiancraft.kaleidoscope.gpu.GlProgram
 import com.simiancraft.kaleidoscope.gpu.Mask
+import com.simiancraft.kaleidoscope.gpu.MaskTuning
 import com.simiancraft.kaleidoscope.gpu.Shaders
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.TextureBufferImpl
@@ -64,10 +65,9 @@ private class BackgroundImageProcessor(
   private val maskHi: Float
 
   init {
-    val clamped = maskHardness.coerceIn(0f, 1f)
-    val width = 0.6f * (1f - clamped) + 0.02f
-    maskLo = 0.5f - width * 0.5f
-    maskHi = 0.5f + width * 0.5f
+    val (lo, hi) = MaskTuning.smoothstepRange(maskHardness)
+    maskLo = lo
+    maskHi = hi
   }
 
   private var oesToTwoD: GlProgram? = null
