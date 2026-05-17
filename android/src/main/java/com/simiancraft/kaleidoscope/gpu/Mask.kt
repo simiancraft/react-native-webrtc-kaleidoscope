@@ -1,21 +1,29 @@
-// Mask production: render a downsampled snapshot of the camera, hand it to
-// MLKit Selfie Segmentation, upload the returned confidence map as a 2D GL
-// texture the composite shader samples.
+// Mask production: async MLKit Selfie Segmentation on a worker thread,
+// last-known-mask cache, mask uploaded to a 2D GL texture for the composite
+// shader to sample.
 //
-// v0.1 runs segmentation synchronously per frame on the GL thread (blocking
-// Tasks.await). MLKit at downsampled resolution is the dominant per-frame
-// cost (~20-40 ms on a midrange device); a worker-thread variant with a
-// last-known-mask cache is queued for PLAN.md Commit 5 and will cut effective
-// latency by one frame.
+// Per-frame flow on the GL thread:
+//   1. If the worker produced a new mask bitmap since the last frame,
+//      upload it to the cached mask GL texture.
+//   2. If no segmentation is currently in flight, render a small downsample
+//      snapshot of the input, post it to the worker, set isProcessing=true.
+//   3. Return the current mask GL texture handle (or -1 if no mask has
+//      completed yet — caller falls through to the original frame).
 //
-// All failure paths log to adb logcat under Kaleidoscope.Mask and return -1
-// for the mask texture; callers must treat -1 as "no mask this frame" and
-// either skip the composite or use a fallback white mask.
+// The worker thread is the bottleneck (~20-50 ms per MLKit call); decoupling
+// it from the frame thread keeps render at the camera's frame rate while
+// the mask updates ~10-20 Hz. One frame of latency on mask updates is
+// acceptable for this use case.
+//
+// All failure paths log under Kaleidoscope.Mask and return -1 (or a stale
+// mask if one was previously computed).
 
 package com.simiancraft.kaleidoscope.gpu
 
 import android.graphics.Bitmap
 import android.opengl.GLES30
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
@@ -24,6 +32,7 @@ import com.google.mlkit.vision.segmentation.Segmenter
 import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class Mask {
   private var segmenter: Segmenter? = null
@@ -37,19 +46,29 @@ internal class Mask {
   private var maskTexWidth: Int = 0
   private var maskTexHeight: Int = 0
 
-  // Pre-allocated buffers to reduce per-frame GC churn.
+  // Worker thread for blocking MLKit calls. Started lazily on first frame.
+  private val workerThread: HandlerThread = HandlerThread("Kaleidoscope.MaskWorker").apply {
+    start()
+  }
+  private val workerHandler: Handler = Handler(workerThread.looper)
+
+  // Throttle to a single in-flight segmentation at a time. Set true on
+  // kickoff (GL thread), reset false when the worker finishes.
+  private val isProcessing = AtomicBoolean(false)
+
+  // Worker -> GL thread handoff: a Bitmap ready to upload as the mask
+  // texture. Volatile so the GL thread sees recent writes; the GL thread
+  // takes ownership when it reads non-null and clears the field.
+  @Volatile private var pendingMaskBitmap: Bitmap? = null
+
+  // Pre-allocated readback buffer (resized only on input-dim change).
   private var pixelByteBuffer: ByteBuffer? = null
-  private var inputBitmap: Bitmap? = null
-  private var maskOutBitmap: Bitmap? = null
 
   /**
-   * Produce a mask GL texture from `source2D` (a sampler2D-compatible RGBA
-   * texture, i.e. the camera frame after OES->2D conversion). The mask is at
-   * `targetW x targetH` (whatever MLKit decides) and uses RGBA where R=G=B=
-   * confidence and A=255.
-   *
-   * Returns the mask GL texture ID, or -1 if any step failed. Callers must
-   * fall through to a default behavior (no composite or solid white mask).
+   * Per-frame mask production. Always returns immediately (no MLKit blocking
+   * on the GL thread). Returns the GL texture handle of the latest available
+   * mask, or -1 if no segmentation has completed yet. Callers must treat -1
+   * as "no mask this frame" and fall through to the original frame.
    */
   fun produce(
     source2D: Int,
@@ -57,10 +76,72 @@ internal class Mask {
     sourceHeight: Int,
     downsampleSize: Int = 256,
   ): Int {
+    // Step 1: drain any pending mask the worker has produced.
+    val pending = pendingMaskBitmap
+    if (pending != null) {
+      pendingMaskBitmap = null
+      try {
+        uploadMaskBitmap(pending)
+      } catch (t: Throwable) {
+        Log.e(TAG, "uploadMaskBitmap failed", t)
+      } finally {
+        pending.recycle()
+      }
+    }
+
+    // Step 2: kick off a new segmentation if the worker is idle.
+    if (isProcessing.compareAndSet(false, true)) {
+      try {
+        val downsampleBmp = renderAndReadback(source2D, sourceWidth, sourceHeight, downsampleSize)
+        if (downsampleBmp != null) {
+          workerHandler.post { runSegmentation(downsampleBmp) }
+        } else {
+          isProcessing.set(false)
+        }
+      } catch (t: Throwable) {
+        Log.e(TAG, "Mask kickoff failed", t)
+        isProcessing.set(false)
+      }
+    }
+
+    return if (maskTextureId == 0) -1 else maskTextureId
+  }
+
+  /**
+   * Release MLKit + worker thread + GL resources. Call from the GL thread.
+   * Not currently invoked by any caller because VideoFrameProcessor has no
+   * explicit teardown hook; worker thread leaks for the app's lifetime.
+   */
+  fun release() {
     try {
-      // 1. Render source into the small downsample FBO.
+      workerThread.quitSafely()
+      if (maskTextureId != 0) {
+        GLES30.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
+        maskTextureId = 0
+      }
+      downsampleFbo?.delete()
+      downsampleFbo = null
+      downsampleProgram?.delete()
+      downsampleProgram = null
+      segmenter?.close()
+      segmenter = null
+      pendingMaskBitmap?.recycle()
+      pendingMaskBitmap = null
+    } catch (t: Throwable) {
+      Log.w(TAG, "Mask.release encountered an error; resources may leak", t)
+    }
+  }
+
+  // --- GL thread -----------------------------------------------------------
+
+  private fun renderAndReadback(
+    source2D: Int,
+    sourceWidth: Int,
+    sourceHeight: Int,
+    downsampleSize: Int,
+  ): Bitmap? {
+    return try {
       val dsW = downsampleSize
-      // Preserve aspect to keep MLKit happier. Round to even pixels for safety.
       val dsH = (downsampleSize.toLong() * sourceHeight / sourceWidth).toInt().coerceAtLeast(16).let {
         if (it % 2 == 0) it else it - 1
       }
@@ -76,19 +157,32 @@ internal class Mask {
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("mask downsample render")
 
-      // 2. Read back the downsample into a Bitmap.
       val byteCount = dsW * dsH * 4
       val pixelBuf = ensurePixelByteBuffer(byteCount)
       GLES30.glReadPixels(0, 0, dsW, dsH, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, pixelBuf)
-      GlDebug.check("mask glReadPixels")
 
-      val inputBmp = ensureInputBitmap(dsW, dsH)
+      val bmp = Bitmap.createBitmap(dsW, dsH, Bitmap.Config.ARGB_8888)
       pixelBuf.rewind()
-      inputBmp.copyPixelsFromBuffer(pixelBuf)
+      bmp.copyPixelsFromBuffer(pixelBuf)
+      bmp
+    } catch (t: Throwable) {
+      Log.e(TAG, "renderAndReadback failed", t)
+      null
+    }
+  }
 
-      // 3. Run MLKit Selfie Segmentation synchronously.
+  private fun uploadMaskBitmap(bmp: Bitmap) {
+    ensureMaskTexture(bmp.width, bmp.height)
+    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTextureId)
+    android.opengl.GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bmp, 0)
+    GlDebug.check("mask upload texImage2D")
+  }
+
+  // --- Worker thread -------------------------------------------------------
+
+  private fun runSegmentation(inputBmp: Bitmap) {
+    try {
       val seg = ensureSegmenter()
       val inputImage = InputImage.fromBitmap(inputBmp, 0)
       val rawMask = Tasks.await(seg.process(inputImage))
@@ -97,52 +191,30 @@ internal class Mask {
       val maskW = rawMask.width
       val maskH = rawMask.height
 
-      // 4. Convert FloatBuffer -> ARGB int[] -> Bitmap -> GL texture.
-      val outBmp = ensureMaskOutBitmap(maskW, maskH)
       val outPixels = IntArray(maskW * maskH)
       maskBuffer.rewind()
       for (i in 0 until maskW * maskH) {
         val c = (maskBuffer.get().coerceIn(0f, 1f) * 255f + 0.5f).toInt() and 0xFF
         outPixels[i] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
       }
+
+      val outBmp = Bitmap.createBitmap(maskW, maskH, Bitmap.Config.ARGB_8888)
       outBmp.setPixels(outPixels, 0, maskW, 0, 0, maskW, maskH)
 
-      // 5. Upload to the cached mask GL texture.
-      ensureMaskTexture(maskW, maskH)
-      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTextureId)
-      android.opengl.GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, outBmp, 0)
-      GlDebug.check("mask upload texImage2D")
-
-      return maskTextureId
+      // Hand off to GL thread. If a previous pending bitmap was never
+      // consumed (renderer behind), recycle it to avoid leaking.
+      val prev = pendingMaskBitmap
+      pendingMaskBitmap = outBmp
+      prev?.recycle()
     } catch (t: Throwable) {
-      Log.e(
-        TAG,
-        "Mask.produce failed; effect will fall through. sourceTex=$source2D ${sourceWidth}x${sourceHeight}",
-        t,
-      )
-      return -1
+      Log.e(TAG, "runSegmentation failed on worker", t)
+    } finally {
+      inputBmp.recycle()
+      isProcessing.set(false)
     }
   }
 
-  /**
-   * Release all GL and MLKit resources. Call from the GL thread.
-   */
-  fun release() {
-    try {
-      if (maskTextureId != 0) {
-        GLES30.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
-        maskTextureId = 0
-      }
-      downsampleFbo?.delete()
-      downsampleFbo = null
-      downsampleProgram?.delete()
-      downsampleProgram = null
-      segmenter?.close()
-      segmenter = null
-    } catch (t: Throwable) {
-      Log.w(TAG, "Mask.release encountered an error; resources may leak", t)
-    }
-  }
+  // --- Lazy init helpers ---------------------------------------------------
 
   private fun ensureSegmenter(): Segmenter {
     val existing = segmenter
@@ -150,6 +222,10 @@ internal class Mask {
     val seg = Segmentation.getClient(
       SelfieSegmenterOptions.Builder()
         .setDetectorMode(SelfieSegmenterOptions.STREAM_MODE)
+        // Raw model resolution; MLKit returns the mask at the segmenter's
+        // native size instead of upsampling internally. Faster per call;
+        // the composite shader's smoothstep softens the coarser edge.
+        .enableRawSizeMask()
         .build(),
     )
     segmenter = seg
@@ -168,7 +244,6 @@ internal class Mask {
   private fun ensureDownsampleProgram(): GlProgram {
     val existing = downsampleProgram
     if (existing != null) return existing
-    // Downsample is just sampling a 2D texture at smaller viewport.
     val prog = GlProgram(Shaders.PASSTHROUGH_VERT, TWO_D_PASSTHROUGH_FRAG)
     downsampleProgram = prog
     return prog
@@ -185,28 +260,6 @@ internal class Mask {
     return buf
   }
 
-  private fun ensureInputBitmap(w: Int, h: Int): Bitmap {
-    val existing = inputBitmap
-    if (existing != null && existing.width == w && existing.height == h && !existing.isRecycled) {
-      return existing
-    }
-    existing?.recycle()
-    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-    inputBitmap = bmp
-    return bmp
-  }
-
-  private fun ensureMaskOutBitmap(w: Int, h: Int): Bitmap {
-    val existing = maskOutBitmap
-    if (existing != null && existing.width == w && existing.height == h && !existing.isRecycled) {
-      return existing
-    }
-    existing?.recycle()
-    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-    maskOutBitmap = bmp
-    return bmp
-  }
-
   private fun ensureMaskTexture(w: Int, h: Int) {
     if (maskTextureId != 0 && maskTexWidth == w && maskTexHeight == h) return
     if (maskTextureId != 0) {
@@ -218,34 +271,15 @@ internal class Mask {
     maskTexWidth = w
     maskTexHeight = h
     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTextureId)
-    GLES30.glTexParameteri(
-      GLES30.GL_TEXTURE_2D,
-      GLES30.GL_TEXTURE_MIN_FILTER,
-      GLES30.GL_LINEAR,
-    )
-    GLES30.glTexParameteri(
-      GLES30.GL_TEXTURE_2D,
-      GLES30.GL_TEXTURE_MAG_FILTER,
-      GLES30.GL_LINEAR,
-    )
-    GLES30.glTexParameteri(
-      GLES30.GL_TEXTURE_2D,
-      GLES30.GL_TEXTURE_WRAP_S,
-      GLES30.GL_CLAMP_TO_EDGE,
-    )
-    GLES30.glTexParameteri(
-      GLES30.GL_TEXTURE_2D,
-      GLES30.GL_TEXTURE_WRAP_T,
-      GLES30.GL_CLAMP_TO_EDGE,
-    )
+    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
   }
 
   companion object {
     private const val TAG = "Kaleidoscope.Mask"
 
-    // Plain sampler2D passthrough used to downsample the camera into a
-    // small FBO for segmentation. Keep separate from the OES version
-    // because the OES extension requires its own #extension directive.
     private const val TWO_D_PASSTHROUGH_FRAG = """#version 300 es
 precision mediump float;
 uniform sampler2D uTex;

@@ -42,19 +42,33 @@ import org.webrtc.YuvConverter
  * @param context Used to read the PNG asset.
  * @param assetName Filename (without `.png`) under `assets/backgrounds/`.
  *                   E.g. "office-1" -> assets/backgrounds/office-1.png.
+ * @param maskHardness 0.0 (soft halo) to 1.0 (hard edge). Default 0.5
+ *                     reproduces the prior hardcoded smoothstep(0.35, 0.65).
  */
 class BackgroundImageFactory(
   private val context: Context,
   private val assetName: String,
+  private val maskHardness: Float = 0.5f,
 ) : VideoFrameProcessorFactoryInterface {
-  override fun build(): VideoFrameProcessor = BackgroundImageProcessor(context, assetName)
+  override fun build(): VideoFrameProcessor =
+    BackgroundImageProcessor(context, assetName, maskHardness)
 }
 
 private class BackgroundImageProcessor(
   private val context: Context,
   private val assetName: String,
+  maskHardness: Float,
 ) : VideoFrameProcessor {
   private val lock = Any()
+  private val maskLo: Float
+  private val maskHi: Float
+
+  init {
+    val clamped = maskHardness.coerceIn(0f, 1f)
+    val width = 0.6f * (1f - clamped) + 0.02f
+    maskLo = 0.5f - width * 0.5f
+    maskHi = 0.5f + width * 0.5f
+  }
 
   private var oesToTwoD: GlProgram? = null
   private var compositeProgram: GlProgram? = null
@@ -187,6 +201,9 @@ private class BackgroundImageProcessor(
         composite.setVec2("uBgUvScale", 1.0f, scaleY)
         composite.setVec2("uBgUvOffset", 0.0f, (1f - scaleY) * 0.5f)
       }
+
+      GLES30.glUniform1f(composite.uniformLocation("uMaskLo"), maskLo)
+      GLES30.glUniform1f(composite.uniformLocation("uMaskHi"), maskHi)
 
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("bgImage composite pass")

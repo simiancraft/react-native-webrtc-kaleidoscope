@@ -18,9 +18,8 @@
 //
 // Replaces the CPU implementation (manual Kotlin YUV/ARGB conversion +
 // MLKit + RenderScript). The CPU path was ~5-10 FPS at 720p; the GPU path
-// should sit at ~25-30 FPS bottlenecked by MLKit segmentation (CPU, runs
-// synchronously per frame in v0.1; async + last-known-mask cache lands in
-// a follow-up).
+// now runs MLKit on a worker thread (see Mask.kt) with a last-known-mask
+// cache, so the render thread is no longer gated on segmentation.
 
 package com.simiancraft.kaleidoscope.effects
 
@@ -41,11 +40,30 @@ import org.webrtc.TextureBufferImpl
 import org.webrtc.VideoFrame
 import org.webrtc.YuvConverter
 
-class BlurFactory(private val context: Context) : VideoFrameProcessorFactoryInterface {
-  override fun build(): VideoFrameProcessor = BlurProcessor()
+/**
+ * @param context Currently unused; held for parity with BackgroundImageFactory
+ *                and for future GPU resources that need a Context.
+ * @param maskHardness 0.0 (soft halo) to 1.0 (hard edge). Default 0.5
+ *                     reproduces the prior hardcoded smoothstep(0.35, 0.65).
+ */
+class BlurFactory(
+  private val context: Context,
+  private val maskHardness: Float = 0.5f,
+) : VideoFrameProcessorFactoryInterface {
+  override fun build(): VideoFrameProcessor = BlurProcessor(maskHardness)
 }
 
-private class BlurProcessor : VideoFrameProcessor {
+private class BlurProcessor(maskHardness: Float) : VideoFrameProcessor {
+  private val maskLo: Float
+  private val maskHi: Float
+
+  init {
+    val clamped = maskHardness.coerceIn(0f, 1f)
+    val width = 0.6f * (1f - clamped) + 0.02f
+    maskLo = 0.5f - width * 0.5f
+    maskHi = 0.5f + width * 0.5f
+  }
+
   private val lock = Any()
 
   private var oesToTwoD: GlProgram? = null
@@ -215,6 +233,9 @@ private class BlurProcessor : VideoFrameProcessor {
       // cover-fit needed. Identity UV transform.
       composite.setVec2("uBgUvScale", 1.0f, 1.0f)
       composite.setVec2("uBgUvOffset", 0.0f, 0.0f)
+
+      GLES30.glUniform1f(composite.uniformLocation("uMaskLo"), maskLo)
+      GLES30.glUniform1f(composite.uniformLocation("uMaskHi"), maskHi)
 
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur composite pass")

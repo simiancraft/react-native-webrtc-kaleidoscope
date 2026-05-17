@@ -83,11 +83,13 @@ void main() {
   // opposite Y orientation from the rendered original. Same workaround as
   // the web side; keep consistent if changing either.
   //
-  // smoothstep tightens the soft confidence map. Hardcoded for now; surfaces
-  // as a maskHardness uniform when the spec API plumbs parameters end-to-end.
+  // uMaskLo / uMaskHi parameterize the smoothstep transition over the raw
+  // confidence map. The processor computes them from a maskHardness factor
+  // (0 = soft halo, 1 = hard edge) so callers do not have to think in lo/hi
+  // pairs.
   //
   // uBgUvScale and uBgUvOffset control how the background texture is mapped
-  // onto the output. For blur, they are (1,1) and (0,0) — sample the full
+  // onto the output. For blur, they are (1,1) and (0,0); sample the full
   // blurred copy. For background-image, the caller computes them to perform
   // a cover-fit center crop so an arbitrarily-shaped image fills the output
   // without distortion.
@@ -98,12 +100,14 @@ uniform sampler2D uBackground;
 uniform sampler2D uMask;
 uniform vec2 uBgUvScale;
 uniform vec2 uBgUvOffset;
+uniform float uMaskLo;
+uniform float uMaskHi;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
   vec2 flipped = vec2(vUv.x, 1.0 - vUv.y);
   float raw = texture(uMask, flipped).r;
-  float m = smoothstep(0.35, 0.65, raw);
+  float m = smoothstep(uMaskLo, uMaskHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec2 bgUv = vUv * uBgUvScale + uBgUvOffset;
   vec3 bg = texture(uBackground, bgUv).rgb;
