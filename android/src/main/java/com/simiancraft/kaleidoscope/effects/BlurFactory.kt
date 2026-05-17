@@ -46,6 +46,8 @@ class BlurFactory(private val context: Context) : VideoFrameProcessorFactoryInte
 }
 
 private class BlurProcessor : VideoFrameProcessor {
+  private val lock = Any()
+
   private var oesToTwoD: GlProgram? = null
   private var blurProgram: GlProgram? = null
   private var compositeProgram: GlProgram? = null
@@ -61,11 +63,38 @@ private class BlurProcessor : VideoFrameProcessor {
   private val mask = Mask()
   private var yuvConverter: YuvConverter? = null
 
-  // Sigma is hardcoded for v0.1; surfaces as a BlurSpec.sigma uniform when
-  // the JS spec parameters land on the native side.
-  private val sigma: Float = 8.0f
+  // Pre-computed 9-tap Gaussian kernel. Sigma + spacing pick the visual
+  // weight of the blur; both are hardcoded for v0.1 and become BlurSpec
+  // uniforms when the parameterized API plumbs through.
+  //   sigma=8, tapSpacing=2 -> kernel covers ~+/-16 pixels, smooth falloff.
+  private val blurWeights: FloatArray
+  private val blurOffsets: FloatArray
+
+  init {
+    val taps = 9
+    val sigma = 8.0
+    val tapSpacing = 2.0
+    val w = FloatArray(taps)
+    val o = FloatArray(taps)
+    for (i in 0 until taps) {
+      o[i] = (i * tapSpacing).toFloat()
+      val x = o[i].toDouble()
+      w[i] = Math.exp(-(x * x) / (2.0 * sigma * sigma)).toFloat()
+    }
+    // Normalize: center contributes once, each side tap contributes twice
+    // because the shader samples vUv +/- offset and adds each.
+    var sum = w[0]
+    for (i in 1 until taps) sum += 2f * w[i]
+    for (i in 0 until taps) w[i] = w[i] / sum
+    blurWeights = w
+    blurOffsets = o
+  }
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
+    return synchronized(lock) { processOuter(frame, textureHelper) }
+  }
+
+  private fun processOuter(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
     return try {
       processInner(frame, textureHelper)
     } catch (t: Throwable) {
@@ -144,8 +173,9 @@ private class BlurProcessor : VideoFrameProcessor {
       blurA.bind()
       blur.use()
       blur.setInt("uTex", 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), 9, blurWeights, 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), 9, blurOffsets, 0)
       GLES30.glUniform2f(blur.uniformLocation("uAxis"), 1.0f / width, 0.0f)
-      blur.setFloat("uSigma", sigma)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur horizontal pass")
 
@@ -155,8 +185,9 @@ private class BlurProcessor : VideoFrameProcessor {
       blurB.bind()
       blur.use()
       blur.setInt("uTex", 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), 9, blurWeights, 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), 9, blurOffsets, 0)
       GLES30.glUniform2f(blur.uniformLocation("uAxis"), 0.0f, 1.0f / height)
-      blur.setFloat("uSigma", sigma)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur vertical pass")
 

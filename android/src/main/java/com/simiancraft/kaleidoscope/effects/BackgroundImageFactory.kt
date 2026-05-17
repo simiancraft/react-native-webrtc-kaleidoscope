@@ -54,6 +54,8 @@ private class BackgroundImageProcessor(
   private val context: Context,
   private val assetName: String,
 ) : VideoFrameProcessor {
+  private val lock = Any()
+
   private var oesToTwoD: GlProgram? = null
   private var compositeProgram: GlProgram? = null
 
@@ -71,6 +73,10 @@ private class BackgroundImageProcessor(
   private var backgroundAspect: Float = 1f
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
+    return synchronized(lock) { processOuter(frame, textureHelper) }
+  }
+
+  private fun processOuter(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
     return try {
       processInner(frame, textureHelper)
     } catch (t: Throwable) {

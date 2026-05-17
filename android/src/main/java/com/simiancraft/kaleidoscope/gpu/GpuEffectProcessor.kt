@@ -25,10 +25,16 @@ import org.webrtc.VideoFrame
 import org.webrtc.YuvConverter
 
 internal class GpuEffectProcessor : VideoFrameProcessor {
+  private val lock = Any()
+
   private var program: GlProgram? = null
   private var yuvConverter: YuvConverter? = null
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
+    return synchronized(lock) { processOuter(frame, textureHelper) }
+  }
+
+  private fun processOuter(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
     return try {
       processInner(frame, textureHelper)
     } catch (t: Throwable) {
