@@ -59,11 +59,31 @@ internal class GpuEffectProcessor : VideoFrameProcessor {
       GLES30.glDisable(GLES30.GL_BLEND)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
 
-      // Hand the output texture to downstream as a TextureBuffer. The release
-      // callback fires when refcount hits zero and runs on the GL thread; we
-      // delete both the texture and the FBO there.
+      // Block until the GPU has actually written the output texture. Without
+      // this, the renderer's EGL context may sample the texture while our
+      // context's draw is still pending, producing flickering / RGB-noise
+      // frames. Heavy (~ms of stall) but correct; sync objects (glFenceSync)
+      // would be cheaper as a future optimization.
+      GLES30.glFinish()
+
+      // Detach the texture from the FBO before handing it off. Sampling a
+      // texture that is still attached as a framebuffer color attachment is
+      // undefined behavior per the GL spec.
+      GLES30.glFramebufferTexture2D(
+        GLES30.GL_FRAMEBUFFER,
+        GLES30.GL_COLOR_ATTACHMENT0,
+        GLES30.GL_TEXTURE_2D,
+        0,
+        0,
+      )
+
+      // Capture the GL handles, then delete the FBO immediately. The output
+      // texture stays alive — the VideoFrame owns it and its release callback
+      // deletes it when the refcount hits zero.
       val outputTextureId = fbo.texture
       val fboHandle = fbo.framebuffer
+      GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+      GLES30.glDeleteFramebuffers(1, intArrayOf(fboHandle), 0)
 
       val outputBuffer = TextureBufferImpl(
         width,
@@ -75,10 +95,7 @@ internal class GpuEffectProcessor : VideoFrameProcessor {
         // Lazy on first frame so construction happens on the GL thread.
         yuvConverter ?: YuvConverter().also { yuvConverter = it },
         Runnable {
-          val texIds = intArrayOf(outputTextureId)
-          val fboIds = intArrayOf(fboHandle)
-          GLES30.glDeleteTextures(1, texIds, 0)
-          GLES30.glDeleteFramebuffers(1, fboIds, 0)
+          GLES30.glDeleteTextures(1, intArrayOf(outputTextureId), 0)
         },
       )
 
