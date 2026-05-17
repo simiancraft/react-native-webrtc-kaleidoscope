@@ -34,11 +34,26 @@ interface WebRTCTrackExtensions {
 // VideoEffectProcessor empty-processors-list bug (refcount goes negative,
 // EglRenderer crashes one frame later). Until each effect ships a native
 // factory, dropping its name here is the safe behavior.
+//
+// Background-image variants are registered one per source preset (the
+// rn-webrtc native registry is keyed by flat strings; parameterization
+// via uniforms is a follow-up).
 const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set([
   'mirror',
   'blur',
   'gpu-passthrough',
+  'background-image-office-1',
+  'background-image-office-2',
 ]);
+
+const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
+  // background-image uses one registered factory per source preset.
+  // {name: 'background-image', source: 'office-1'} -> 'background-image-office-1'
+  if (spec.name === 'background-image') {
+    return `background-image-${spec.source}`;
+  }
+  return spec.name;
+};
 
 export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const t = track as MediaStreamTrack & WebRTCTrackExtensions;
@@ -51,9 +66,9 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
     );
   }
   // Native side currently only consumes effect names. Spec parameters (blur
-  // sigma, background-image source) are dropped here; they wire through in a
-  // follow-up commit once the GPU effects accept uniforms.
-  const allNames = effects.map((e) => toEffectSpec(e).name);
+  // sigma, etc.) are dropped here; they wire through in a follow-up commit
+  // once the GPU effects accept uniforms.
+  const allNames = effects.map((e) => specToNativeName(toEffectSpec(e)));
   const names = allNames.filter((n) => NATIVE_REGISTERED_EFFECTS.has(n));
   const dropped = allNames.filter((n) => !NATIVE_REGISTERED_EFFECTS.has(n));
   if (dropped.length > 0) {

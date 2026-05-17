@@ -9,11 +9,19 @@ import { EffectToggles } from '../src/effect-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-// Asset.fromModule is the cross-platform way to resolve a bundled image's
-// URL. react-native-web does not implement Image.resolveAssetSource.
-// On native, .uri may be a remote URI before downloadAsync() runs.
-const office1Uri = Asset.fromModule(require('../assets/backgrounds/office-1.png')).uri;
-const office2Uri = Asset.fromModule(require('../assets/backgrounds/office-2.png')).uri;
+// Web: load the bundled PNG via Metro's asset URL so the JS fetch+ImageBitmap
+// pipeline can read it. Native: pass the asset name; the library's native
+// side loads from its own bundled assets/backgrounds/{name}.png. The two
+// platforms have different image-loading conventions; the kaleidoscope spec
+// API treats `source` as opaque and each platform interprets it accordingly.
+const office1Source =
+  Platform.OS === 'web'
+    ? Asset.fromModule(require('../assets/backgrounds/office-1.png')).uri
+    : 'office-1';
+const office2Source =
+  Platform.OS === 'web'
+    ? Asset.fromModule(require('../assets/backgrounds/office-2.png')).uri
+    : 'office-2';
 
 type PresetId = 'mirror' | 'blur' | 'office-1' | 'office-2' | 'gpu-passthrough';
 
@@ -24,9 +32,9 @@ const presetToSpec = (id: PresetId): EffectSpec => {
     case 'blur':
       return { name: 'blur' };
     case 'office-1':
-      return { name: 'background-image', source: office1Uri };
+      return { name: 'background-image', source: office1Source };
     case 'office-2':
-      return { name: 'background-image', source: office2Uri };
+      return { name: 'background-image', source: office2Source };
     case 'gpu-passthrough':
       return { name: 'gpu-passthrough' };
   }
