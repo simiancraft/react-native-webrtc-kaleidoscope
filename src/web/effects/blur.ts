@@ -3,142 +3,16 @@
 // Same shape as the Android GLES 3.0 path: separable Gaussian blur into a
 // ping-pong FBO, then a composite pass that mixes blurred and original via
 // a segmentation mask. The mask still comes from MediaPipe Selfie
-// Segmentation loaded from CDN — there is no GPU-resident segmenter for
+// Segmentation loaded from CDN; there is no GPU-resident segmenter for
 // the web yet.
 //
-// GLSL ES 3.00 source is shared in shape with android/.../gpu/Shaders.kt;
-// keep the math in sync manually for now. Extracts to a shared file when
-// shader count earns it.
+// Shader source lives in src/web/shaders.ts; MediaPipe loader in
+// src/web/segmenter.ts. This file owns only the per-effect GL state and
+// the per-frame transform.
 
 import type { FrameTransform } from '../insertable-streams';
-
-// --- segmentation -----------------------------------------------------------
-
-const CDN_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation';
-
-type SegmenterResults = {
-  image: CanvasImageSource;
-  segmentationMask: CanvasImageSource;
-};
-type SegmenterOptions = { selfieMode?: boolean; modelSelection?: number };
-type Segmenter = {
-  initialize(): Promise<void>;
-  setOptions(opts: SegmenterOptions): void;
-  onResults(cb: (r: SegmenterResults) => void): void;
-  send(input: { image: CanvasImageSource }): Promise<void>;
-  close(): Promise<void>;
-};
-type SegmenterCtor = new (config: { locateFile: (file: string) => string }) => Segmenter;
-
-let segmenterPromise: Promise<Segmenter> | null = null;
-
-const loadScript = (src: string): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      if (existing.getAttribute('data-loaded') === 'true') {
-        resolve();
-        return;
-      }
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error(`failed to load ${src}`)), {
-        once: true,
-      });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = src;
-    script.crossOrigin = 'anonymous';
-    script.addEventListener('load', () => {
-      script.setAttribute('data-loaded', 'true');
-      resolve();
-    });
-    script.addEventListener('error', () => reject(new Error(`failed to load ${src}`)));
-    document.head.appendChild(script);
-  });
-
-const loadSegmenter = (): Promise<Segmenter> => {
-  if (segmenterPromise) return segmenterPromise;
-  segmenterPromise = (async () => {
-    await loadScript(`${CDN_BASE}/selfie_segmentation.js`);
-    const SegCtor = (globalThis as unknown as { SelfieSegmentation?: SegmenterCtor })
-      .SelfieSegmentation;
-    if (!SegCtor) {
-      throw new Error(
-        'kaleidoscope: MediaPipe Selfie Segmentation script loaded but SelfieSegmentation global is missing',
-      );
-    }
-    const seg = new SegCtor({ locateFile: (file) => `${CDN_BASE}/${file}` });
-    seg.setOptions({ modelSelection: 1, selfieMode: false });
-    await seg.initialize();
-    return seg;
-  })();
-  return segmenterPromise;
-};
-
-// --- WebGL2 plumbing --------------------------------------------------------
-
-const VERT_SRC = `#version 300 es
-precision highp float;
-out vec2 vUv;
-void main() {
-  vec2 p = vec2(float((gl_VertexID & 1) << 1), float(gl_VertexID & 2));
-  vUv = p * 0.5;
-  gl_Position = vec4(p - 1.0, 0.0, 1.0);
-}
-`;
-
-// Separable 1D Gaussian. uAxis is (1/width, 0) for horizontal, (0, 1/height)
-// for vertical. RADIUS is capped at 20 taps per side; uniform sigma controls
-// the effective falloff. Taps beyond ~3*sigma contribute ~0 so high RADIUS
-// with small sigma is wasteful but visually correct.
-const BLUR_FRAG_SRC = `#version 300 es
-precision mediump float;
-uniform sampler2D uTex;
-uniform vec2 uAxis;
-uniform float uSigma;
-in vec2 vUv;
-out vec4 oColor;
-const int RADIUS = 20;
-void main() {
-  float sigma2 = uSigma * uSigma;
-  vec4 sum = vec4(0.0);
-  float wSum = 0.0;
-  for (int i = -RADIUS; i <= RADIUS; i++) {
-    float fi = float(i);
-    float w = exp(-0.5 * fi * fi / sigma2);
-    sum += texture(uTex, vUv + fi * uAxis) * w;
-    wSum += w;
-  }
-  oColor = sum / wSum;
-}
-`;
-
-// Composite: mix(blurred, original, mask). The mask comes in as a 4-channel
-// texture from MediaPipe — use the red channel (greyscale).
-//
-// MediaPipe's segmentationMask appears to be Y-flipped relative to the
-// camera frame, and UNPACK_FLIP_Y_WEBGL has no visible effect on it during
-// upload (probably because of how MediaPipe's WebGL surface gets handed to
-// texImage2D). Flip V here so the mask aligns with the original.
-const COMPOSITE_FRAG_SRC = `#version 300 es
-precision mediump float;
-uniform sampler2D uOriginal;
-uniform sampler2D uBlurred;
-uniform sampler2D uMask;
-in vec2 vUv;
-out vec4 oColor;
-void main() {
-  // smoothstep tightens MediaPipe's soft confidence map into a sharper
-  // edge. lo/hi narrower = harder cutout. Surfaces as a maskHardness
-  // parameter when the spec API gets uniforms wired through.
-  float raw = texture(uMask, vec2(vUv.x, 1.0 - vUv.y)).r;
-  float m = smoothstep(0.35, 0.65, raw);
-  vec3 orig = texture(uOriginal, vUv).rgb;
-  vec3 blur = texture(uBlurred, vUv).rgb;
-  oColor = vec4(mix(blur, orig, m), 1.0);
-}
-`;
+import { loadSegmenter, type SegmenterResults } from '../segmenter';
+import { BLUR_FRAG_SRC, COMPOSITE_BLUR_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 
 const BLUR_SIGMA = 8.0;
 
@@ -257,8 +131,8 @@ const ensureState = (width: number, height: number): GpuState => {
   }
 
   const programs = {
-    blur: linkProgram(gl, VERT_SRC, BLUR_FRAG_SRC),
-    composite: linkProgram(gl, VERT_SRC, COMPOSITE_FRAG_SRC),
+    blur: linkProgram(gl, PASSTHROUGH_VERT_SRC, BLUR_FRAG_SRC),
+    composite: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_BLUR_FRAG_SRC),
   };
   const textures = {
     original: createTexture(gl, width, height),
@@ -295,8 +169,6 @@ const uploadTexture = (
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 };
-
-// --- the effect ------------------------------------------------------------
 
 export const blur: FrameTransform = async (frame) => {
   const segmenter = await loadSegmenter();

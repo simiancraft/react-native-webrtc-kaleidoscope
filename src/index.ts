@@ -7,8 +7,10 @@
 // this facade just dispatches into the existing upstream registry.
 
 import { Platform } from 'react-native';
+import { BACKGROUND_PRESETS } from './backgrounds';
 import { type ApplyVideoEffects, toEffectSpec } from './types';
 
+export type { BackgroundPresetName } from './backgrounds';
 export type {
   ApplyVideoEffects,
   BackgroundImageSpec,
@@ -36,24 +38,24 @@ interface WebRTCTrackExtensions {
 // EglRenderer crashes one frame later). Until each effect ships a native
 // factory, dropping its name here is the safe behavior.
 //
-// Background-image variants are registered one per source preset (the
-// rn-webrtc native registry is keyed by flat strings; parameterization
-// via uniforms is a follow-up).
+// Background-image preset names come from src/backgrounds.ts; the encoder
+// turns `{name:'background-image', source:'office-1'}` into the flat-string
+// `'background-image-office-1'` because the rn-webrtc native registry is
+// keyed by flat strings (parameterization via uniforms is a follow-up).
 //
 // iOS native processors are not yet ported; ios/.../Registration.swift is a
 // no-op until they land. Until then, the iOS allowlist is empty so consumers
 // get a console.warn (instead of an empty-processors-list crash) when an
 // effect is requested on iOS.
+const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
+  'mirror',
+  'blur',
+  'gpu-passthrough',
+  ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
+];
+
 const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(
-  Platform.OS === 'android'
-    ? [
-        'mirror',
-        'blur',
-        'gpu-passthrough',
-        'background-image-office-1',
-        'background-image-office-2',
-      ]
-    : [],
+  Platform.OS === 'android' ? ANDROID_REGISTERED_EFFECTS : [],
 );
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {

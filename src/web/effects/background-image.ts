@@ -6,111 +6,13 @@
 // Difference from blur: instead of generating the background from two
 // Gaussian passes on the camera, the background is a still image loaded
 // once from the URL the consumer passes in. Cached per-source URL.
+//
+// Shader source lives in src/web/shaders.ts; MediaPipe loader in
+// src/web/segmenter.ts.
 
 import type { FrameTransform } from '../insertable-streams';
-
-// --- segmentation (shared shape with blur.ts; will extract later) ----------
-
-const CDN_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation';
-
-type SegmenterResults = {
-  image: CanvasImageSource;
-  segmentationMask: CanvasImageSource;
-};
-type SegmenterOptions = { selfieMode?: boolean; modelSelection?: number };
-type Segmenter = {
-  initialize(): Promise<void>;
-  setOptions(opts: SegmenterOptions): void;
-  onResults(cb: (r: SegmenterResults) => void): void;
-  send(input: { image: CanvasImageSource }): Promise<void>;
-  close(): Promise<void>;
-};
-type SegmenterCtor = new (config: { locateFile: (file: string) => string }) => Segmenter;
-
-let segmenterPromise: Promise<Segmenter> | null = null;
-
-const loadScript = (src: string): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      if (existing.getAttribute('data-loaded') === 'true') {
-        resolve();
-        return;
-      }
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error(`failed to load ${src}`)), {
-        once: true,
-      });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = src;
-    script.crossOrigin = 'anonymous';
-    script.addEventListener('load', () => {
-      script.setAttribute('data-loaded', 'true');
-      resolve();
-    });
-    script.addEventListener('error', () => reject(new Error(`failed to load ${src}`)));
-    document.head.appendChild(script);
-  });
-
-const loadSegmenter = (): Promise<Segmenter> => {
-  if (segmenterPromise) return segmenterPromise;
-  segmenterPromise = (async () => {
-    await loadScript(`${CDN_BASE}/selfie_segmentation.js`);
-    const SegCtor = (globalThis as unknown as { SelfieSegmentation?: SegmenterCtor })
-      .SelfieSegmentation;
-    if (!SegCtor) {
-      throw new Error(
-        'kaleidoscope: MediaPipe Selfie Segmentation script loaded but SelfieSegmentation global is missing',
-      );
-    }
-    const seg = new SegCtor({ locateFile: (file) => `${CDN_BASE}/${file}` });
-    seg.setOptions({ modelSelection: 1, selfieMode: false });
-    await seg.initialize();
-    return seg;
-  })();
-  return segmenterPromise;
-};
-
-// --- WebGL2 shaders --------------------------------------------------------
-
-const VERT_SRC = `#version 300 es
-precision highp float;
-out vec2 vUv;
-void main() {
-  vec2 p = vec2(float((gl_VertexID & 1) << 1), float(gl_VertexID & 2));
-  vUv = p * 0.5;
-  gl_Position = vec4(p - 1.0, 0.0, 1.0);
-}
-`;
-
-// Composite: mix(background, original, mask).
-//
-// MediaPipe's segmentationMask and ImageBitmaps created from fetched PNGs
-// both arrive Y-flipped relative to the camera frame in our pipeline, and
-// UNPACK_FLIP_Y_WEBGL has no visible corrective effect on either source at
-// upload time. Flip V here so both align with the original.
-const COMPOSITE_FRAG_SRC = `#version 300 es
-precision mediump float;
-uniform sampler2D uOriginal;
-uniform sampler2D uBackground;
-uniform sampler2D uMask;
-in vec2 vUv;
-out vec4 oColor;
-void main() {
-  // smoothstep tightens MediaPipe's soft confidence map into a sharper
-  // edge. lo/hi narrower = harder cutout.
-  vec2 flipped = vec2(vUv.x, 1.0 - vUv.y);
-  float raw = texture(uMask, flipped).r;
-  float m = smoothstep(0.35, 0.65, raw);
-  vec3 orig = texture(uOriginal, vUv).rgb;
-  vec3 bg = texture(uBackground, flipped).rgb;
-  oColor = vec4(mix(bg, orig, m), 1.0);
-}
-`;
-
-// --- WebGL plumbing --------------------------------------------------------
+import { loadSegmenter, type SegmenterResults } from '../segmenter';
+import { COMPOSITE_BG_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 
 type GpuState = {
   gl: WebGL2RenderingContext;
@@ -232,7 +134,7 @@ const ensureState = (entry: CacheEntry, width: number, height: number): GpuState
     canvas,
     width,
     height,
-    program: linkProgram(gl, VERT_SRC, COMPOSITE_FRAG_SRC),
+    program: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_BG_FRAG_SRC),
     textures: {
       original: createTexture(gl, width, height),
       mask: createTexture(gl, width, height),

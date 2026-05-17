@@ -2,7 +2,7 @@
 // Encapsulated as an object so callers do not have to think about the
 // smoothstep range; they just pick a hardness in [0, 1].
 
-package com.simiancraft.kaleidoscope.gpu
+package com.simiancraft.kaleidoscope.segmentation
 
 internal object MaskTuning {
   /**

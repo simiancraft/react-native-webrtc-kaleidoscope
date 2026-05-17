@@ -33,9 +33,9 @@ import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.GlDebug
 import com.simiancraft.kaleidoscope.gpu.GlProgram
-import com.simiancraft.kaleidoscope.gpu.Mask
-import com.simiancraft.kaleidoscope.gpu.MaskTuning
 import com.simiancraft.kaleidoscope.gpu.Shaders
+import com.simiancraft.kaleidoscope.segmentation.Mask
+import com.simiancraft.kaleidoscope.segmentation.MaskTuning
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.TextureBufferImpl
 import org.webrtc.VideoFrame

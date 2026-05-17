@@ -18,7 +18,7 @@
 // All failure paths log under Kaleidoscope.Mask and return -1 (or a stale
 // mask if one was previously computed).
 
-package com.simiancraft.kaleidoscope.gpu
+package com.simiancraft.kaleidoscope.segmentation
 
 import android.graphics.Bitmap
 import android.opengl.GLES30
@@ -30,6 +30,10 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.Segmentation
 import com.google.mlkit.vision.segmentation.Segmenter
 import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
+import com.simiancraft.kaleidoscope.gpu.Fbo
+import com.simiancraft.kaleidoscope.gpu.GlDebug
+import com.simiancraft.kaleidoscope.gpu.GlProgram
+import com.simiancraft.kaleidoscope.gpu.Shaders
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean

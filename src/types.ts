@@ -3,9 +3,11 @@
  * uniforms its shader needs; the library exposes one shader per effect family
  * (blur, background-image, etc.) and consumers pick uniform values per call.
  *
- * `gpu-passthrough` is a temporary Commit-3 architecture-proof hook and gets
- * removed in PLAN.md's cleanup pass.
+ * `gpu-passthrough` is a temporary architecture-proof hook and gets
+ * removed in the v0.1 cleanup pass.
  */
+
+import type { BackgroundPresetName } from './backgrounds';
 
 export type MirrorSpec = {
   readonly name: 'mirror';
@@ -19,8 +21,16 @@ export type BlurSpec = {
 
 export type BackgroundImageSpec = {
   readonly name: 'background-image';
-  /** URL or data URI of the background image to composite behind the person. */
-  readonly source: string;
+  /**
+   * Either a bundled preset name (autocompleted; see src/backgrounds.ts) or
+   * a free-form URL / data URI. Web accepts both; native only resolves
+   * bundled preset names because the upstream rn-webrtc registry takes flat
+   * strings, not URIs.
+   *
+   * The `string & {}` trick preserves preset-name autocomplete while still
+   * permitting arbitrary URL inputs without a separate union branch.
+   */
+  readonly source: BackgroundPresetName | (string & {});
 };
 
 export type PassthroughSpec = {

@@ -13,6 +13,7 @@ import { mirror } from './web/effects/mirror';
 import { passthrough } from './web/effects/passthrough';
 import { applyEffectToTrack, type FrameTransform } from './web/insertable-streams';
 
+export type { BackgroundPresetName } from './backgrounds';
 export type {
   ApplyVideoEffects,
   BackgroundImageSpec,
