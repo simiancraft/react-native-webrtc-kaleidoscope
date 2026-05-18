@@ -79,9 +79,16 @@ void main() {
   // texture you bind to uBackground (a blurred copy, an image, a procedural
   // shader's output). Mask comes in as a single-channel image (we read .r).
   //
-  // Mask sampling is V-flipped because MLKit returns the mask with the
-  // opposite Y orientation from the rendered original. Same workaround as
-  // the web side; keep consistent if changing either.
+  // The mask is sampled at vUv directly, with no V-flip. The readback path
+  // (origFbo -> glReadPixels -> Bitmap -> MLKit -> mask Bitmap -> texImage2D)
+  // round-trips two Y-flips (glReadPixels is bottom-up, Bitmap is top-down,
+  // GLUtils.texImage2D treats the bitmap's first row as the texture's first
+  // row), landing the mask in the same axis frame as origFbo. The previous
+  // shader V-flip was masked in portrait because the renderer's 90-degree
+  // rotation turned the shader-Y misalignment into a screen-X mirror, which
+  // person symmetry hides; landscape exposes it as upside-down video. The
+  // web composite (src/web/shaders.ts) DOES need its V-flip; do not mirror
+  // this change there.
   //
   // uMaskLo / uMaskHi parameterize the smoothstep transition over the raw
   // confidence map. The processor computes them from a maskHardness factor
@@ -105,8 +112,7 @@ uniform float uMaskHi;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  vec2 flipped = vec2(vUv.x, 1.0 - vUv.y);
-  float raw = texture(uMask, flipped).r;
+  float raw = texture(uMask, vUv).r;
   float m = smoothstep(uMaskLo, uMaskHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec2 bgUv = vUv * uBgUvScale + uBgUvOffset;
