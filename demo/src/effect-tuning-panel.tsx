@@ -22,7 +22,7 @@ function TuningRow({ label, value, min, max, step, onChange }: TuningRowProps) {
     <View style={styles.row}>
       <View style={styles.labelLine}>
         <Text style={styles.label}>{label}</Text>
-        <Text style={styles.value}>{value.toFixed(2)}</Text>
+        <Text style={styles.value}>{(value ?? 0).toFixed(2)}</Text>
       </View>
       <Slider
         style={styles.slider}
@@ -78,7 +78,7 @@ export function EffectTuningPanel() {
           <TuningRow
             label="Mask hardness"
             value={maskHardness}
-            min={0}
+            min={0.01}
             max={1}
             step={0.01}
             onChange={onMaskHardness}
