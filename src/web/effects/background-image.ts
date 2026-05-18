@@ -243,7 +243,14 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     // OffscreenCanvas and the bg through one too (the bg canvas was
     // populated at load time inside loadImage). The shader then samples
     // every texture at vUv directly; no V-flips.
+    //
+    // clearRect on the mask canvas is required: MediaPipe's segmentationMask
+    // carries alpha < 255 in non-person regions, so drawImage source-over
+    // leaves the previous frame's mask pixels visible. Without clearRect,
+    // each frame's mask accumulates and produces the "permanent powerwash"
+    // symptom where erased background never returns.
     const maskCtx = ensureMaskCanvas(e, w, h);
+    maskCtx.clearRect(0, 0, w, h);
     maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
     uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
     uploadTexture(gl, textures.mask, e.maskCanvas2D as unknown as TexImageSource, true);

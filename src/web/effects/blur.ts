@@ -211,7 +211,15 @@ export const blur: FrameTransform = async (frame) => {
   // stage the mask through an OffscreenCanvas first. The shader then
   // samples every texture at vUv directly; no V-flips. See
   // COMPOSITE_FRAG_SRC docstring for the cross-platform contract.
+  //
+  // clearRect is required: MediaPipe's segmentationMask carries alpha < 255
+  // in non-person regions, so drawImage source-over leaves the previous
+  // frame's mask pixels visible. Without clearRect, each frame's mask
+  // accumulates on the canvas; the mask grows looser over time, and
+  // anywhere the person ever stood stays flagged as "person" permanently
+  // (the "powerwash erases the blur" symptom).
   const maskCtx = ensureMaskCanvas(w, h);
+  maskCtx.clearRect(0, 0, w, h);
   maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
   uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
   uploadTexture(gl, textures.mask, maskCanvas2D as unknown as TexImageSource, true);
