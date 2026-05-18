@@ -13,8 +13,7 @@
 import type { FrameTransform } from '../insertable-streams';
 import { loadSegmenter, type SegmenterResults } from '../segmenter';
 import { BLUR_FRAG_SRC, COMPOSITE_BLUR_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
-
-const BLUR_SIGMA = 8.0;
+import { maskHardnessRange, tuning } from '../tuning';
 
 type GpuState = {
   gl: WebGL2RenderingContext;
@@ -213,7 +212,7 @@ export const blur: FrameTransform = async (frame) => {
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
   gl.uniform1i(gl.getUniformLocation(programs.blur, 'uTex'), 0);
   gl.uniform2f(gl.getUniformLocation(programs.blur, 'uAxis'), 1 / w, 0);
-  gl.uniform1f(gl.getUniformLocation(programs.blur, 'uSigma'), BLUR_SIGMA);
+  gl.uniform1f(gl.getUniformLocation(programs.blur, 'uSigma'), tuning.blurSigma);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   // Pass 2: vertical blur of blurA -> blurB
@@ -236,6 +235,9 @@ export const blur: FrameTransform = async (frame) => {
   gl.activeTexture(gl.TEXTURE2);
   gl.bindTexture(gl.TEXTURE_2D, textures.mask);
   gl.uniform1i(gl.getUniformLocation(programs.composite, 'uMask'), 2);
+  const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
+  gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskLo'), maskLo);
+  gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskHi'), maskHi);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   // Wrap the canvas as an output VideoFrame.

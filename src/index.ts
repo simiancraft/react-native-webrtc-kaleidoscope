@@ -6,9 +6,45 @@
 // OnCreate hook (see android/.../KaleidoscopeModule.kt and ios/.../KaleidoscopeModule.swift);
 // this facade just dispatches into the existing upstream registry.
 
+import { requireNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 import { BACKGROUND_PRESETS } from './backgrounds';
 import { type ApplyVideoEffects, toEffectSpec } from './types';
+
+interface KaleidoscopeNativeModule {
+  setBlurSigma: (value: number) => void;
+  setMaskHardness: (value: number) => void;
+  resetEffectTuning: () => void;
+}
+
+// Lazy because the module is not available during pure-JS tests; the
+// getter throws if you call a setter outside a real native runtime, which
+// is the right failure mode.
+const nativeModule = (): KaleidoscopeNativeModule =>
+  requireNativeModule<KaleidoscopeNativeModule>('RnWebrtcKaleidoscope');
+
+/**
+ * Set the Gaussian sigma for the blur effect. Higher = softer blur.
+ * Clamped to [0.5, 64] native-side. Default 8.
+ */
+export const setBlurSigma = (value: number): void => {
+  nativeModule().setBlurSigma(value);
+};
+
+/**
+ * Set the mask smoothstep hardness for blur and background-image
+ * composites, in [0, 1]. 0 = soft halo, 1 = near-step edge. Default 0.5.
+ */
+export const setMaskHardness = (value: number): void => {
+  nativeModule().setMaskHardness(value);
+};
+
+/**
+ * Reset all effect tuning parameters to library defaults.
+ */
+export const resetEffectTuning = (): void => {
+  nativeModule().resetEffectTuning();
+};
 
 export type { BackgroundPresetName } from './backgrounds';
 export type {

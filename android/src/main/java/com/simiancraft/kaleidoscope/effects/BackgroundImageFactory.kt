@@ -27,6 +27,7 @@ import android.opengl.GLUtils
 import android.util.Log
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessor
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
+import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.GlDebug
@@ -43,32 +44,24 @@ import org.webrtc.YuvConverter
  * @param context Used to read the PNG asset.
  * @param assetName Filename (without `.png`) under `assets/backgrounds/`.
  *                   E.g. "office-1" -> assets/backgrounds/office-1.png.
- * @param maskHardness 0.0 (soft halo) to 1.0 (hard edge). Default 0.5
- *                     reproduces the prior hardcoded smoothstep(0.35, 0.65).
+ *
+ * maskHardness is read per frame from com.simiancraft.kaleidoscope.EffectTuning
+ * so JS callers can tune the smoothstep edge via the Expo Module's
+ * setMaskHardness function without rebuilding the processor.
  */
 class BackgroundImageFactory(
   private val context: Context,
   private val assetName: String,
-  private val maskHardness: Float = 0.5f,
 ) : VideoFrameProcessorFactoryInterface {
   override fun build(): VideoFrameProcessor =
-    BackgroundImageProcessor(context, assetName, maskHardness)
+    BackgroundImageProcessor(context, assetName)
 }
 
 private class BackgroundImageProcessor(
   private val context: Context,
   private val assetName: String,
-  maskHardness: Float,
 ) : VideoFrameProcessor {
   private val lock = Any()
-  private val maskLo: Float
-  private val maskHi: Float
-
-  init {
-    val (lo, hi) = MaskTuning.smoothstepRange(maskHardness)
-    maskLo = lo
-    maskHi = hi
-  }
 
   private var oesToTwoD: GlProgram? = null
   private var compositeProgram: GlProgram? = null
@@ -202,6 +195,7 @@ private class BackgroundImageProcessor(
         composite.setVec2("uBgUvOffset", 0.0f, (1f - scaleY) * 0.5f)
       }
 
+      val (maskLo, maskHi) = MaskTuning.smoothstepRange(EffectTuning.maskHardness)
       GLES30.glUniform1f(composite.uniformLocation("uMaskLo"), maskLo)
       GLES30.glUniform1f(composite.uniformLocation("uMaskHi"), maskHi)
 

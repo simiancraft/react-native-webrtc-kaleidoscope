@@ -29,6 +29,7 @@ import android.opengl.GLES30
 import android.util.Log
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessor
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
+import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.GlDebug
@@ -44,26 +45,19 @@ import org.webrtc.YuvConverter
 /**
  * @param context Currently unused; held for parity with BackgroundImageFactory
  *                and for future GPU resources that need a Context.
- * @param maskHardness 0.0 (soft halo) to 1.0 (hard edge). Default 0.5
- *                     reproduces the prior hardcoded smoothstep(0.35, 0.65).
+ *
+ * Runtime parameters (sigma, maskHardness) live on
+ * com.simiancraft.kaleidoscope.EffectTuning and are read per frame; JS
+ * tweaks them via the Expo Module's setBlurSigma / setMaskHardness
+ * functions without rebuilding the processor.
  */
 class BlurFactory(
   private val context: Context,
-  private val maskHardness: Float = 0.5f,
 ) : VideoFrameProcessorFactoryInterface {
-  override fun build(): VideoFrameProcessor = BlurProcessor(maskHardness)
+  override fun build(): VideoFrameProcessor = BlurProcessor()
 }
 
-private class BlurProcessor(maskHardness: Float) : VideoFrameProcessor {
-  private val maskLo: Float
-  private val maskHi: Float
-
-  init {
-    val (lo, hi) = MaskTuning.smoothstepRange(maskHardness)
-    maskLo = lo
-    maskHi = hi
-  }
-
+private class BlurProcessor : VideoFrameProcessor {
   private val lock = Any()
 
   private var oesToTwoD: GlProgram? = null
@@ -81,31 +75,29 @@ private class BlurProcessor(maskHardness: Float) : VideoFrameProcessor {
   private val mask = Mask()
   private var yuvConverter: YuvConverter? = null
 
-  // Pre-computed 9-tap Gaussian kernel. Sigma + spacing pick the visual
-  // weight of the blur; both are hardcoded for v0.1 and become BlurSpec
-  // uniforms when the parameterized API plumbs through.
-  //   sigma=8, tapSpacing=2 -> kernel covers ~+/-16 pixels, smooth falloff.
-  private val blurWeights: FloatArray
-  private val blurOffsets: FloatArray
+  // 9-tap separable Gaussian kernel. tapSpacing is fixed; sigma comes from
+  // EffectTuning at frame time and the kernel is rebuilt on the CPU only
+  // when sigma changes. At sigma=8 the kernel covers ~+/-16 pixels with a
+  // smooth falloff.
+  private val blurWeights = FloatArray(KERNEL_TAPS)
+  private val blurOffsets = FloatArray(KERNEL_TAPS)
+  private var cachedKernelSigma: Float = Float.NaN
 
-  init {
-    val taps = 9
-    val sigma = 8.0
+  private fun ensureKernel(sigma: Float) {
+    if (sigma == cachedKernelSigma) return
     val tapSpacing = 2.0
-    val w = FloatArray(taps)
-    val o = FloatArray(taps)
-    for (i in 0 until taps) {
-      o[i] = (i * tapSpacing).toFloat()
-      val x = o[i].toDouble()
-      w[i] = Math.exp(-(x * x) / (2.0 * sigma * sigma)).toFloat()
+    val sigmaD = sigma.toDouble()
+    for (i in 0 until KERNEL_TAPS) {
+      blurOffsets[i] = (i * tapSpacing).toFloat()
+      val x = blurOffsets[i].toDouble()
+      blurWeights[i] = Math.exp(-(x * x) / (2.0 * sigmaD * sigmaD)).toFloat()
     }
     // Normalize: center contributes once, each side tap contributes twice
     // because the shader samples vUv +/- offset and adds each.
-    var sum = w[0]
-    for (i in 1 until taps) sum += 2f * w[i]
-    for (i in 0 until taps) w[i] = w[i] / sum
-    blurWeights = w
-    blurOffsets = o
+    var sum = blurWeights[0]
+    for (i in 1 until KERNEL_TAPS) sum += 2f * blurWeights[i]
+    for (i in 0 until KERNEL_TAPS) blurWeights[i] = blurWeights[i] / sum
+    cachedKernelSigma = sigma
   }
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
@@ -158,6 +150,8 @@ private class BlurProcessor(maskHardness: Float) : VideoFrameProcessor {
     return try {
       ensurePrograms()
       ensureIntermediates(width, height)
+      ensureKernel(EffectTuning.blurSigma)
+      val (maskLo, maskHi) = MaskTuning.smoothstepRange(EffectTuning.maskHardness)
       val origFbo = originalFbo ?: error("originalFbo null after ensure")
       val blurA = blurAFbo ?: error("blurAFbo null after ensure")
       val blurB = blurBFbo ?: error("blurBFbo null after ensure")
@@ -191,8 +185,8 @@ private class BlurProcessor(maskHardness: Float) : VideoFrameProcessor {
       blurA.bind()
       blur.use()
       blur.setInt("uTex", 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), 9, blurWeights, 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), 9, blurOffsets, 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
       GLES30.glUniform2f(blur.uniformLocation("uAxis"), 1.0f / width, 0.0f)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur horizontal pass")
@@ -203,8 +197,8 @@ private class BlurProcessor(maskHardness: Float) : VideoFrameProcessor {
       blurB.bind()
       blur.use()
       blur.setInt("uTex", 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), 9, blurWeights, 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), 9, blurOffsets, 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
+      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
       GLES30.glUniform2f(blur.uniformLocation("uAxis"), 0.0f, 1.0f / height)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur vertical pass")
@@ -332,5 +326,6 @@ private class BlurProcessor(maskHardness: Float) : VideoFrameProcessor {
   companion object {
     private const val TAG = "Kaleidoscope.Blur"
     private const val GL_TEXTURE_EXTERNAL_OES = 0x8D65
+    private const val KERNEL_TAPS = 9
   }
 }

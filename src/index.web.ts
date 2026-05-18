@@ -12,6 +12,30 @@ import { blur } from './web/effects/blur';
 import { mirror } from './web/effects/mirror';
 import { passthrough } from './web/effects/passthrough';
 import { applyEffectToTrack, type FrameTransform } from './web/insertable-streams';
+import { tuning } from './web/tuning';
+
+/**
+ * Set the Gaussian sigma for the blur effect. Higher = softer blur.
+ * Clamped to [0.5, 64]. Default 8.
+ */
+export const setBlurSigma = (value: number): void => {
+  tuning.setBlurSigma(value);
+};
+
+/**
+ * Set the mask smoothstep hardness for blur and background-image
+ * composites, in [0, 1]. 0 = soft halo, 1 = near-step edge. Default 0.5.
+ */
+export const setMaskHardness = (value: number): void => {
+  tuning.setMaskHardness(value);
+};
+
+/**
+ * Reset all effect tuning parameters to library defaults.
+ */
+export const resetEffectTuning = (): void => {
+  tuning.reset();
+};
 
 export type { BackgroundPresetName } from './backgrounds';
 export type {

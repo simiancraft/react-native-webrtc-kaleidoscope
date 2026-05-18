@@ -127,6 +127,41 @@ any `Function`/`AsyncFunction`/`Property`/`Events` declarations the JS
 facade calls into. Long lists of `Function` definitions get extracted into
 sibling files when count earns it; none today.
 
+### Where new runtime effect parameters go
+
+Effect parameters that callers should be able to tweak at runtime (blur
+sigma, mask hardness, etc.) flow through a three-tier mirror:
+
+1. **Native state**: `android/.../EffectTuning.kt` and
+   `ios/.../EffectTuning.swift` hold the mutable values with custom
+   setters that clamp to valid ranges. Per-frame processors read these
+   values each frame, so changes take effect on the next frame without
+   re-registering processors.
+2. **Web state**: `src/web/tuning.ts` mirrors the same shape; per-frame
+   `FrameTransform`s in `src/web/effects/*.ts` read from it when uploading
+   uniforms.
+3. **JS facade**: `src/index.ts` and `src/index.web.ts` export the same
+   `set<Param>(value)` functions, native versions calling
+   `requireNativeModule('RnWebrtcKaleidoscope').setX(value)`, web versions
+   mutating `src/web/tuning.ts` directly.
+
+The Expo Module's `Function("setX") { value -> EffectTuning.x = value }`
+declarations in `KaleidoscopeModule.{kt,swift}` provide the bridge between
+JS and native state. This side-channels the upstream rn-webrtc
+flat-string registry, which has no concept of effect parameters; the
+registry stays as it is and parameters travel through the Expo Module API.
+
+To add a new parameter:
+- Add a `var` with a clamping custom setter to all three `EffectTuning`
+  files (Kotlin object, Swift enum, TS class).
+- Add a `Function("setNewParam") { value -> EffectTuning.newParam = value }`
+  to both `KaleidoscopeModule` files.
+- Add a `setNewParam(value: number)` export to both `src/index.ts` and
+  `src/index.web.ts`.
+- Have the relevant processor / `FrameTransform` read the new value when
+  uploading its uniforms.
+- Add a slider row in `demo/src/effect-tuning-panel.tsx`.
+
 ## Out-of-scope organization
 
 These were considered and rejected for the current scale; revisit when

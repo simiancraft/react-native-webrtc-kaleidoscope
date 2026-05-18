@@ -53,21 +53,24 @@ void main() {
 //
 // MediaPipe's segmentationMask is Y-flipped relative to the camera frame,
 // and UNPACK_FLIP_Y_WEBGL has no visible effect at upload time. Flip V
-// here so the mask aligns with the original.
+// here so the mask aligns with the original. (The Android side does NOT
+// have this flip; see android/.../gpu/Shaders.kt for why.)
 //
-// smoothstep tightens the soft confidence map. Surfaces as a maskHardness
-// uniform when the spec API plumbs parameters end-to-end (cf. the Android
-// side's MaskTuning helper).
+// uMaskLo / uMaskHi parameterize the smoothstep transition over the raw
+// confidence map; the caller derives them from a hardness factor via
+// `maskHardnessRange` in src/web/tuning.ts.
 export const COMPOSITE_BLUR_FRAG_SRC = `#version 300 es
 precision mediump float;
 uniform sampler2D uOriginal;
 uniform sampler2D uBlurred;
 uniform sampler2D uMask;
+uniform float uMaskLo;
+uniform float uMaskHi;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
   float raw = texture(uMask, vec2(vUv.x, 1.0 - vUv.y)).r;
-  float m = smoothstep(0.35, 0.65, raw);
+  float m = smoothstep(uMaskLo, uMaskHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec3 blur = texture(uBlurred, vUv).rgb;
   oColor = vec4(mix(blur, orig, m), 1.0);
@@ -83,12 +86,14 @@ precision mediump float;
 uniform sampler2D uOriginal;
 uniform sampler2D uBackground;
 uniform sampler2D uMask;
+uniform float uMaskLo;
+uniform float uMaskHi;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
   vec2 flipped = vec2(vUv.x, 1.0 - vUv.y);
   float raw = texture(uMask, flipped).r;
-  float m = smoothstep(0.35, 0.65, raw);
+  float m = smoothstep(uMaskLo, uMaskHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec3 bg = texture(uBackground, flipped).rgb;
   oColor = vec4(mix(bg, orig, m), 1.0);

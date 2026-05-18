@@ -13,6 +13,7 @@
 import type { FrameTransform } from '../insertable-streams';
 import { loadSegmenter, type SegmenterResults } from '../segmenter';
 import { COMPOSITE_BG_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
+import { maskHardnessRange, tuning } from '../tuning';
 
 type GpuState = {
   gl: WebGL2RenderingContext;
@@ -218,6 +219,9 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, textures.mask);
     gl.uniform1i(gl.getUniformLocation(program, 'uMask'), 2);
+    const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
+    gl.uniform1f(gl.getUniformLocation(program, 'uMaskLo'), maskLo);
+    gl.uniform1f(gl.getUniformLocation(program, 'uMaskHi'), maskHi);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     const out = new VideoFrame(canvas as unknown as CanvasImageSource, {

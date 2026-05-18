@@ -12,5 +12,17 @@ public class KaleidoscopeModule: Module {
     OnCreate {
       Registration.registerAll()
     }
+
+    Function("setBlurSigma") { (value: Float) in
+      EffectTuning.blurSigma = value
+    }
+
+    Function("setMaskHardness") { (value: Float) in
+      EffectTuning.maskHardness = value
+    }
+
+    Function("resetEffectTuning") {
+      EffectTuning.reset()
+    }
   }
 }

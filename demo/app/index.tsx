@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { applyVideoEffects, type EffectSpec } from 'react-native-webrtc-kaleidoscope';
 import { EffectToggles } from '../src/effect-toggles';
+import { EffectTuningPanel } from '../src/effect-tuning-panel';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
@@ -112,6 +113,8 @@ export default function DemoScreen() {
           disabled={!sourceTrack}
         />
       </View>
+
+      <EffectTuningPanel />
     </View>
   );
 }
