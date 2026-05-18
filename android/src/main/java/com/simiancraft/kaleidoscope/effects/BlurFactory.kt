@@ -151,7 +151,8 @@ private class BlurProcessor : VideoFrameProcessor {
       ensurePrograms()
       ensureIntermediates(width, height)
       ensureKernel(EffectTuning.blurSigma)
-      val (maskLo, maskHi) = MaskTuning.smoothstepRange(EffectTuning.maskHardness)
+      val (maskLo, maskHi) =
+        MaskTuning.smoothstepRange(EffectTuning.maskHardness, EffectTuning.maskThreshold)
       val origFbo = originalFbo ?: error("originalFbo null after ensure")
       val blurA = blurAFbo ?: error("blurAFbo null after ensure")
       val blurB = blurBFbo ?: error("blurBFbo null after ensure")

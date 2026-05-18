@@ -21,6 +21,10 @@ public class KaleidoscopeModule: Module {
       EffectTuning.maskHardness = value
     }
 
+    Function("setMaskThreshold") { (value: Float) in
+      EffectTuning.maskThreshold = value
+    }
+
     Function("resetEffectTuning") {
       EffectTuning.reset()
     }

@@ -196,7 +196,8 @@ private class BackgroundImageProcessor(
         composite.setVec2("uBgUvOffset", 0.0f, (1f - scaleY) * 0.5f)
       }
 
-      val (maskLo, maskHi) = MaskTuning.smoothstepRange(EffectTuning.maskHardness)
+      val (maskLo, maskHi) =
+        MaskTuning.smoothstepRange(EffectTuning.maskHardness, EffectTuning.maskThreshold)
       // Identity mask UV — round-trip leaves mask aligned with origFbo.
       composite.setVec2("uMaskUvScale", 1.0f, 1.0f)
       composite.setVec2("uMaskUvOffset", 0.0f, 0.0f)

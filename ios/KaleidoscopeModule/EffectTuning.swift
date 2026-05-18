@@ -19,6 +19,7 @@ public enum EffectTuning {
 
   private static var _blurSigma: Float = 8.0
   private static var _maskHardness: Float = 0.5
+  private static var _maskThreshold: Float = 0.5
 
   public static var blurSigma: Float {
     get {
@@ -48,10 +49,25 @@ public enum EffectTuning {
     }
   }
 
+  public static var maskThreshold: Float {
+    get {
+      os_unfair_lock_lock(&unsafeLock)
+      defer { os_unfair_lock_unlock(&unsafeLock) }
+      return _maskThreshold
+    }
+    set {
+      let clamped = min(max(newValue, 0.05), 0.95)
+      os_unfair_lock_lock(&unsafeLock)
+      _maskThreshold = clamped
+      os_unfair_lock_unlock(&unsafeLock)
+    }
+  }
+
   public static func reset() {
     os_unfair_lock_lock(&unsafeLock)
     _blurSigma = 8.0
     _maskHardness = 0.5
+    _maskThreshold = 0.5
     os_unfair_lock_unlock(&unsafeLock)
   }
 }

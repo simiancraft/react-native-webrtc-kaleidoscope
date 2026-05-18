@@ -31,6 +31,17 @@ export const setMaskHardness = (value: number): void => {
 };
 
 /**
+ * Set the mask smoothstep threshold (center of the transition) in
+ * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
+ * pixels; lower values are more inclusive. Optimal value is platform-
+ * specific because each segmentation model has a different confidence
+ * distribution.
+ */
+export const setMaskThreshold = (value: number): void => {
+  tuning.setMaskThreshold(value);
+};
+
+/**
  * Reset all effect tuning parameters to library defaults.
  */
 export const resetEffectTuning = (): void => {

@@ -13,7 +13,7 @@
 import type { FrameTransform } from '../insertable-streams';
 import { loadSegmenter, type SegmenterResults } from '../segmenter';
 import { COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
-import { maskHardnessRange, tuning } from '../tuning';
+import { maskSmoothstepRange, tuning } from '../tuning';
 
 type GpuState = {
   gl: WebGL2RenderingContext;
@@ -262,7 +262,7 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     // Mask V-flip via sampling uniforms; see comment on the upload above.
     gl.uniform2f(gl.getUniformLocation(program, 'uMaskUvScale'), 1, -1);
     gl.uniform2f(gl.getUniformLocation(program, 'uMaskUvOffset'), 0, 1);
-    const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
+    const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
     gl.uniform1f(gl.getUniformLocation(program, 'uMaskLo'), maskLo);
     gl.uniform1f(gl.getUniformLocation(program, 'uMaskHi'), maskHi);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

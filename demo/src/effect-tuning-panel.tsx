@@ -6,7 +6,12 @@
 import Slider from '@react-native-community/slider';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { resetEffectTuning, setBlurSigma, setMaskHardness } from 'react-native-webrtc-kaleidoscope';
+import {
+  resetEffectTuning,
+  setBlurSigma,
+  setMaskHardness,
+  setMaskThreshold,
+} from 'react-native-webrtc-kaleidoscope';
 
 type TuningRowProps = {
   label: string;
@@ -43,6 +48,7 @@ export function EffectTuningPanel() {
   const [expanded, setExpanded] = useState(false);
   const [blurSigma, setBlurSigmaLocal] = useState(8);
   const [maskHardness, setMaskHardnessLocal] = useState(0.5);
+  const [maskThreshold, setMaskThresholdLocal] = useState(0.5);
 
   const onBlurSigma = (next: number) => {
     setBlurSigmaLocal(next);
@@ -54,9 +60,15 @@ export function EffectTuningPanel() {
     setMaskHardness(next);
   };
 
+  const onMaskThreshold = (next: number) => {
+    setMaskThresholdLocal(next);
+    setMaskThreshold(next);
+  };
+
   const onReset = () => {
     setBlurSigmaLocal(8);
     setMaskHardnessLocal(0.5);
+    setMaskThresholdLocal(0.5);
     resetEffectTuning();
   };
 
@@ -82,6 +94,14 @@ export function EffectTuningPanel() {
             max={1}
             step={0.01}
             onChange={onMaskHardness}
+          />
+          <TuningRow
+            label="Mask threshold"
+            value={maskThreshold}
+            min={0.05}
+            max={0.95}
+            step={0.01}
+            onChange={onMaskThreshold}
           />
           <Pressable onPress={onReset} style={styles.resetButton}>
             <Text style={styles.resetText}>Reset to defaults</Text>

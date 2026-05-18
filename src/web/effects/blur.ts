@@ -13,7 +13,7 @@
 import type { FrameTransform } from '../insertable-streams';
 import { loadSegmenter, type SegmenterResults } from '../segmenter';
 import { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
-import { maskHardnessRange, tuning } from '../tuning';
+import { maskSmoothstepRange, tuning } from '../tuning';
 
 type GpuState = {
   gl: WebGL2RenderingContext;
@@ -241,7 +241,7 @@ export const blur: FrameTransform = async (frame) => {
   // the shader stays byte-identical with Android (which uses identity here).
   gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvScale'), 1, -1);
   gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvOffset'), 0, 1);
-  const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
+  const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
   gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskLo'), maskLo);
   gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskHi'), maskHi);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

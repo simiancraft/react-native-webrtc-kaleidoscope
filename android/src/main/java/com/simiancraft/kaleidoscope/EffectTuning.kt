@@ -34,8 +34,24 @@ internal object EffectTuning {
       field = value.coerceIn(0f, 1f)
     }
 
+  /**
+   * Mask smoothstep center for blur and background-image composites,
+   * in [0, 1]; the threshold at which a pixel's raw confidence flips from
+   * "background" to "person". Default 0.5 reproduces the historical
+   * smoothstep centered on the confidence midpoint. Higher values reject
+   * low-confidence edges (chair backs, hair flyaway); lower values are
+   * more inclusive. Clamped to a workable range below to keep the
+   * smoothstep transition non-degenerate.
+   */
+  @Volatile
+  var maskThreshold: Float = 0.5f
+    set(value) {
+      field = value.coerceIn(0.05f, 0.95f)
+    }
+
   fun reset() {
     blurSigma = 8f
     maskHardness = 0.5f
+    maskThreshold = 0.5f
   }
 }

@@ -14,6 +14,7 @@ import { type ApplyVideoEffects, toEffectSpec } from './types';
 interface KaleidoscopeNativeModule {
   setBlurSigma: (value: number) => void;
   setMaskHardness: (value: number) => void;
+  setMaskThreshold: (value: number) => void;
   resetEffectTuning: () => void;
 }
 
@@ -37,6 +38,18 @@ export const setBlurSigma = (value: number): void => {
  */
 export const setMaskHardness = (value: number): void => {
   nativeModule().setMaskHardness(value);
+};
+
+/**
+ * Set the mask smoothstep threshold (center of the transition) in
+ * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
+ * pixels (helps tighten the silhouette against chair-edge noise);
+ * lower values are more inclusive. Optimal value is platform-specific
+ * because each segmentation model (MediaPipe on web, MLKit on Android,
+ * Vision on iOS) produces a different confidence distribution.
+ */
+export const setMaskThreshold = (value: number): void => {
+  nativeModule().setMaskThreshold(value);
 };
 
 /**
