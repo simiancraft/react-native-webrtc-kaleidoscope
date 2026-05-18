@@ -93,20 +93,39 @@ const uploadTexture = (
 
 type CacheEntry = {
   state: GpuState | null;
-  imagePromise: Promise<ImageBitmap>;
+  // The bg image is staged onto an OffscreenCanvas at load time because
+  // UNPACK_FLIP_Y_WEBGL is silently a no-op on ImageBitmaps; we want
+  // flipY to actually flip on upload, and it works on canvas sources.
+  imagePromise: Promise<{ canvas: OffscreenCanvas; width: number; height: number }>;
   inputCanvas2D: OffscreenCanvas | null;
   inputCtx2D: OffscreenCanvasRenderingContext2D | null;
+  // Same canvas-staging trick for the mask, which suffers the same flipY
+  // no-op behavior as the ImageBitmap.
+  maskCanvas2D: OffscreenCanvas | null;
+  maskCtx2D: OffscreenCanvasRenderingContext2D | null;
 };
 
 const cache = new Map<string, CacheEntry>();
 
-const loadImage = (source: string): Promise<ImageBitmap> =>
+const loadImage = (
+  source: string,
+): Promise<{ canvas: OffscreenCanvas; width: number; height: number }> =>
   fetch(source, { mode: 'cors' })
     .then((r) => {
       if (!r.ok) throw new Error(`kaleidoscope: failed to fetch background image: ${r.status}`);
       return r.blob();
     })
-    .then((blob) => createImageBitmap(blob));
+    .then((blob) => createImageBitmap(blob))
+    .then((bitmap) => {
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('kaleidoscope: bg OffscreenCanvas 2D context unavailable');
+      ctx.drawImage(bitmap, 0, 0);
+      const width = bitmap.width;
+      const height = bitmap.height;
+      bitmap.close();
+      return { canvas, width, height };
+    });
 
 const ensureState = (entry: CacheEntry, width: number, height: number): GpuState => {
   if (entry.state && entry.state.width === width && entry.state.height === height) {
@@ -164,6 +183,25 @@ const ensureInputCanvas = (
   return entry.inputCtx2D as OffscreenCanvasRenderingContext2D;
 };
 
+const ensureMaskCanvas = (
+  entry: CacheEntry,
+  width: number,
+  height: number,
+): OffscreenCanvasRenderingContext2D => {
+  if (
+    !entry.maskCanvas2D ||
+    entry.maskCanvas2D.width !== width ||
+    entry.maskCanvas2D.height !== height
+  ) {
+    entry.maskCanvas2D = new OffscreenCanvas(width, height);
+    entry.maskCtx2D = entry.maskCanvas2D.getContext('2d');
+    if (!entry.maskCtx2D) {
+      throw new Error('kaleidoscope: mask OffscreenCanvas 2D context unavailable');
+    }
+  }
+  return entry.maskCtx2D as OffscreenCanvasRenderingContext2D;
+};
+
 // --- The effect factory ----------------------------------------------------
 
 export const makeBackgroundImage = (source: string): FrameTransform => {
@@ -174,13 +212,15 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
       imagePromise: loadImage(source),
       inputCanvas2D: null,
       inputCtx2D: null,
+      maskCanvas2D: null,
+      maskCtx2D: null,
     };
     cache.set(source, entry);
   }
   const e = entry;
 
   return async (frame) => {
-    const [segmenter, image] = await Promise.all([loadSegmenter(), e.imagePromise]);
+    const [segmenter, bg] = await Promise.all([loadSegmenter(), e.imagePromise]);
     const w = frame.displayWidth;
     const h = frame.displayHeight;
 
@@ -197,11 +237,17 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     const { gl, canvas, program, textures } = s;
 
     // Texture-orientation convention: every input lands with semantic "top
-    // of source image" at GL v=1 by uploading with UNPACK_FLIP_Y_WEBGL=true.
-    // The composite shader samples every texture at vUv directly, no V-flips.
+    // of source image" at GL v=1. UNPACK_FLIP_Y_WEBGL works on regular
+    // canvas sources but is silently a no-op on ImageBitmaps and on
+    // MediaPipe's segmentationMask, so we stage the mask through an
+    // OffscreenCanvas and the bg through one too (the bg canvas was
+    // populated at load time inside loadImage). The shader then samples
+    // every texture at vUv directly; no V-flips.
+    const maskCtx = ensureMaskCanvas(e, w, h);
+    maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
     uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
-    uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, true);
-    uploadTexture(gl, textures.background, image as unknown as TexImageSource, true);
+    uploadTexture(gl, textures.mask, e.maskCanvas2D as unknown as TexImageSource, true);
+    uploadTexture(gl, textures.background, bg.canvas as unknown as TexImageSource, true);
 
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
@@ -221,7 +267,7 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     // Cover-fit center crop: scale the smaller axis to fit, offset to
     // center. Mirrors android/.../effects/BackgroundImageFactory.kt.
     const outAspect = w / h;
-    const bgAspect = image.width / image.height;
+    const bgAspect = bg.width / bg.height;
     let bgScaleX: number;
     let bgScaleY: number;
     let bgOffsetX: number;
