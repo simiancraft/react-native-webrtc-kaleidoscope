@@ -67,9 +67,38 @@ it imports the constant.
 - Android: `android/.../gpu/Shaders.kt`. Exports `const val` strings on the `Shaders` object.
 - iOS: no GLSL; iOS uses CoreImage filter chains or Vision requests. The equivalent of "where do I add a new shader" is "where do I add a new CIFilter / VNRequest", which is inside the effect file.
 
-The Android and web GLSL shapes are kept in sync manually; a comment in
-`Shaders.kt` references `src/web/shaders.ts`. Extracting to shared `.frag`
-files with a Metro transformer + Android asset-loader is a v0.2 conversation.
+The composite shader (`COMPOSITE_FRAG` on Android, `COMPOSITE_FRAG_SRC` on
+web) is kept byte-identical between the two platforms. Per-effect shaders
+(`BLUR_FRAG`, future Simianlights / Nebula) currently still differ
+implementation-by-implementation; lifting them to a shared `.frag` source
+with a transpiler pipeline is the next architectural step.
+
+### Texture-orientation convention
+
+Every input texture in the GLSL pipeline lands with its semantic "top of
+source image" at GL `v=1`. The composite samples every texture at `vUv`
+directly with no V-flips at sample time. Each platform's host code picks
+the right upload flag or pre-flip to enforce the convention:
+
+- **Web original / mask / background**: `UNPACK_FLIP_Y_WEBGL = true` on
+  `gl.texImage2D` (DOM sources are top-down; the flip lands `v=1` at top).
+- **Android original**: the OES->2D pass with `uTexMatrix` lands the
+  displayable top at GL `v=1` already.
+- **Android mask**: the readback round-trip cancels out (`glReadPixels`
+  bottom-up plus Bitmap top-down plus `GLUtils.texImage2D` preserving row
+  order); mask texture lands head at `v=1` without any extra step.
+- **Android background**: pre-flip the bitmap via
+  `Bitmap.createBitmap(bmp, 0, 0, w, h, Matrix(preScale(1, -1)), false)`
+  before `GLUtils.texImage2D`. Android OpenGL ES has no `UNPACK_FLIP_Y`
+  flag, so the flip has to happen on the bitmap.
+- **iOS** (when it lands): `CVMetalTextureCacheCreateTextureFromImage`
+  produces a top-down texture by default; pre-flip at upload (or run a
+  one-pass blit through a flipped intermediate) to land `v=1` = top.
+
+The convention is enforced upstream of the shader so the shader stays
+genuinely cross-platform. If a future texture source does not naturally
+land "top at v=1", the right fix is at the upload boundary, not in the
+shader.
 
 ### Where a new effect goes
 

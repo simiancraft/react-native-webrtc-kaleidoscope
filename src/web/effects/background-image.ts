@@ -12,7 +12,7 @@
 
 import type { FrameTransform } from '../insertable-streams';
 import { loadSegmenter, type SegmenterResults } from '../segmenter';
-import { COMPOSITE_BG_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
+import { COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskHardnessRange, tuning } from '../tuning';
 
 type GpuState = {
@@ -135,7 +135,7 @@ const ensureState = (entry: CacheEntry, width: number, height: number): GpuState
     canvas,
     width,
     height,
-    program: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_BG_FRAG_SRC),
+    program: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_FRAG_SRC),
     textures: {
       original: createTexture(gl, width, height),
       mask: createTexture(gl, width, height),
@@ -196,12 +196,11 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     const s = ensureState(e, w, h);
     const { gl, canvas, program, textures } = s;
 
-    // Same flip semantics as blur: camera frame is DOM-coord, flip on upload.
-    // Mask is MediaPipe-internal (WebGL Y-up already), do not flip.
-    // Background image: depends on source orientation; ImageBitmap from blob
-    // is DOM-coord, flip on upload to match the camera.
+    // Texture-orientation convention: every input lands with semantic "top
+    // of source image" at GL v=1 by uploading with UNPACK_FLIP_Y_WEBGL=true.
+    // The composite shader samples every texture at vUv directly, no V-flips.
     uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
-    uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, false);
+    uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, true);
     uploadTexture(gl, textures.background, image as unknown as TexImageSource, true);
 
     gl.disable(gl.BLEND);
@@ -219,6 +218,27 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, textures.mask);
     gl.uniform1i(gl.getUniformLocation(program, 'uMask'), 2);
+    // Cover-fit center crop: scale the smaller axis to fit, offset to
+    // center. Mirrors android/.../effects/BackgroundImageFactory.kt.
+    const outAspect = w / h;
+    const bgAspect = image.width / image.height;
+    let bgScaleX: number;
+    let bgScaleY: number;
+    let bgOffsetX: number;
+    let bgOffsetY: number;
+    if (bgAspect > outAspect) {
+      bgScaleX = outAspect / bgAspect;
+      bgScaleY = 1.0;
+      bgOffsetX = (1 - bgScaleX) * 0.5;
+      bgOffsetY = 0;
+    } else {
+      bgScaleX = 1.0;
+      bgScaleY = bgAspect / outAspect;
+      bgOffsetX = 0;
+      bgOffsetY = (1 - bgScaleY) * 0.5;
+    }
+    gl.uniform2f(gl.getUniformLocation(program, 'uBgUvScale'), bgScaleX, bgScaleY);
+    gl.uniform2f(gl.getUniformLocation(program, 'uBgUvOffset'), bgOffsetX, bgOffsetY);
     const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
     gl.uniform1f(gl.getUniformLocation(program, 'uMaskLo'), maskLo);
     gl.uniform1f(gl.getUniformLocation(program, 'uMaskHi'), maskHi);

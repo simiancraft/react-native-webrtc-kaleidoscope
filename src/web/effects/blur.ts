@@ -12,7 +12,7 @@
 
 import type { FrameTransform } from '../insertable-streams';
 import { loadSegmenter, type SegmenterResults } from '../segmenter';
-import { BLUR_FRAG_SRC, COMPOSITE_BLUR_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
+import { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskHardnessRange, tuning } from '../tuning';
 
 type GpuState = {
@@ -131,7 +131,7 @@ const ensureState = (width: number, height: number): GpuState => {
 
   const programs = {
     blur: linkProgram(gl, PASSTHROUGH_VERT_SRC, BLUR_FRAG_SRC),
-    composite: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_BLUR_FRAG_SRC),
+    composite: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_FRAG_SRC),
   };
   const textures = {
     original: createTexture(gl, width, height),
@@ -189,17 +189,13 @@ export const blur: FrameTransform = async (frame) => {
   const s = ensureState(w, h);
   const { gl, canvas, programs, textures, fbos } = s;
 
-  // OffscreenCanvas and MediaPipe's mask image are both valid TexImageSource
-  // at runtime; the lib.dom type narrowing on CanvasImageSource (which
-  // includes SVGImageElement) is overly broad for our usage.
-  //
-  // flipY semantics: the input frame is in DOM coordinates (top-left origin)
-  // so we flip it on upload to match WebGL's Y-up sampling. MediaPipe's
-  // segmentationMask is already in WebGL Y-up internally; flipping it again
-  // would double-flip it relative to the original and put the cutout above
-  // the user's actual position in the frame.
+  // Texture-orientation convention: every input lands with semantic "top
+  // of source image" at GL v=1. We achieve that by uploading every source
+  // with UNPACK_FLIP_Y_WEBGL=true. The composite shader then samples at
+  // vUv directly, no V-flips. See COMPOSITE_FRAG_SRC docstring for the
+  // cross-platform contract.
   uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
-  uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, false);
+  uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, true);
 
   gl.disable(gl.BLEND);
   gl.disable(gl.DEPTH_TEST);
@@ -231,10 +227,14 @@ export const blur: FrameTransform = async (frame) => {
   gl.uniform1i(gl.getUniformLocation(programs.composite, 'uOriginal'), 0);
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, textures.blurB);
-  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uBlurred'), 1);
+  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uBackground'), 1);
   gl.activeTexture(gl.TEXTURE2);
   gl.bindTexture(gl.TEXTURE_2D, textures.mask);
   gl.uniform1i(gl.getUniformLocation(programs.composite, 'uMask'), 2);
+  // The blurred background is the same dimensions as the original; identity
+  // UV transform on uBgUvScale / uBgUvOffset.
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvScale'), 1, 1);
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvOffset'), 0, 0);
   const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
   gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskLo'), maskLo);
   gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskHi'), maskHi);

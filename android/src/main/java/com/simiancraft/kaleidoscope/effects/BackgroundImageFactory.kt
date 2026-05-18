@@ -20,6 +20,7 @@
 package com.simiancraft.kaleidoscope.effects
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.opengl.GLES30
@@ -293,6 +294,13 @@ private class BackgroundImageProcessor(
       Log.e(TAG, "BitmapFactory returned null for backgrounds/$assetName.png")
       return
     }
+    // Pre-flip vertically so the texture lands in the shared convention
+    // (semantic top of source image at GL v=1). Android OpenGL ES has no
+    // UNPACK_FLIP_Y equivalent, so we do the flip on the bitmap before
+    // GLUtils.texImage2D copies it into the texture. One-time cost at
+    // load; per-frame sampling stays at vUv with no shader-side V-flip.
+    val flipMatrix = Matrix().apply { preScale(1f, -1f) }
+    val flippedBmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, flipMatrix, false)
     try {
       val ids = IntArray(1)
       GLES30.glGenTextures(1, ids, 0)
@@ -302,7 +310,7 @@ private class BackgroundImageProcessor(
       GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
       GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
       GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-      GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bmp, 0)
+      GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, flippedBmp, 0)
       GlDebug.check("bgImage background upload")
       backgroundAspect = bmp.width.toFloat() / bmp.height.toFloat()
       Log.i(
@@ -310,6 +318,7 @@ private class BackgroundImageProcessor(
         "background asset '$assetName' loaded; size=${bmp.width}x${bmp.height} aspect=$backgroundAspect",
       )
     } finally {
+      flippedBmp.recycle()
       bmp.recycle()
     }
   }

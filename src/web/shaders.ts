@@ -48,54 +48,49 @@ void main() {
 }
 `;
 
-// Composite for the blur effect: mix(blurred, original, mask). The mask
-// comes in as a 4-channel texture from MediaPipe; we read the red channel.
+// Composite: mix(background, original, mask). One shader, byte-identical
+// to android/.../gpu/Shaders.kt's COMPOSITE_FRAG so the same canonical
+// GLSL source serves both platforms (and post-transpile, iOS Metal).
 //
-// MediaPipe's segmentationMask is Y-flipped relative to the camera frame,
-// and UNPACK_FLIP_Y_WEBGL has no visible effect at upload time. Flip V
-// here so the mask aligns with the original. (The Android side does NOT
-// have this flip; see android/.../gpu/Shaders.kt for why.)
+// Texture-orientation convention: every input texture lands with its
+// semantic "top of source image" at GL v=1. Each platform's host code
+// picks the upload flags or pre-flip to achieve this:
+//   - Web original / mask / bg: UNPACK_FLIP_Y_WEBGL=true on upload.
+//   - Android original: OES->2D pass with transformMatrix lands head at v=1.
+//   - Android mask: the readback round-trip (glReadPixels bottom-up plus
+//     Bitmap top-down plus GLUtils.texImage2D preserving rows) cancels out.
+//   - Android bg: Bitmap pre-flip via Matrix(preScale(1, -1)) before
+//     GLUtils.texImage2D, because Android OpenGL ES has no flipY flag.
+// With that convention enforced upstream, the composite samples every
+// texture at vUv directly. No V-flips at sample time.
+//
+// uBackground is whatever you bind to it: a blurred copy, a sampled PNG,
+// or a procedural shader's output. uBgUvScale / uBgUvOffset perform a
+// cover-fit center crop when the background's aspect ratio differs from
+// the output; the caller computes them from aspect ratios. For a
+// full-size background (blur output), pass (1, 1) and (0, 0).
 //
 // uMaskLo / uMaskHi parameterize the smoothstep transition over the raw
 // confidence map; the caller derives them from a hardness factor via
-// `maskHardnessRange` in src/web/tuning.ts.
-export const COMPOSITE_BLUR_FRAG_SRC = `#version 300 es
-precision mediump float;
-uniform sampler2D uOriginal;
-uniform sampler2D uBlurred;
-uniform sampler2D uMask;
-uniform float uMaskLo;
-uniform float uMaskHi;
-in vec2 vUv;
-out vec4 oColor;
-void main() {
-  float raw = texture(uMask, vec2(vUv.x, 1.0 - vUv.y)).r;
-  float m = smoothstep(uMaskLo, uMaskHi, raw);
-  vec3 orig = texture(uOriginal, vUv).rgb;
-  vec3 blur = texture(uBlurred, vUv).rgb;
-  oColor = vec4(mix(blur, orig, m), 1.0);
-}
-`;
-
-// Composite for the background-image effect: mix(background, original, mask).
-// Both mask and background are V-flipped because MediaPipe's mask is
-// Y-flipped and ImageBitmaps created from fetched PNGs arrive in DOM
-// coordinates (top-left origin) that GL samples upside-down.
-export const COMPOSITE_BG_FRAG_SRC = `#version 300 es
+// `maskHardnessRange` in src/web/tuning.ts (mirrors MaskTuning.smoothstepRange
+// on Android).
+export const COMPOSITE_FRAG_SRC = `#version 300 es
 precision mediump float;
 uniform sampler2D uOriginal;
 uniform sampler2D uBackground;
 uniform sampler2D uMask;
+uniform vec2 uBgUvScale;
+uniform vec2 uBgUvOffset;
 uniform float uMaskLo;
 uniform float uMaskHi;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  vec2 flipped = vec2(vUv.x, 1.0 - vUv.y);
-  float raw = texture(uMask, flipped).r;
+  float raw = texture(uMask, vUv).r;
   float m = smoothstep(uMaskLo, uMaskHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
-  vec3 bg = texture(uBackground, flipped).rgb;
+  vec2 bgUv = vUv * uBgUvScale + uBgUvOffset;
+  vec3 bg = texture(uBackground, bgUv).rgb;
   oColor = vec4(mix(bg, orig, m), 1.0);
 }
 `;
