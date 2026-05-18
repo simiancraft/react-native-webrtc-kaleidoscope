@@ -288,7 +288,7 @@ internal class Mask {
     private const val TWO_D_PASSTHROUGH_FRAG = """#version 300 es
 precision mediump float;
 uniform sampler2D uTex;
-in vec2 vUv;
+in highp vec2 vUv;
 out vec4 oColor;
 void main() {
   oColor = texture(uTex, vUv);

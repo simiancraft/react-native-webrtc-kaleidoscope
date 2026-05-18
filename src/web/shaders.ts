@@ -31,7 +31,7 @@ precision mediump float;
 uniform sampler2D uTex;
 uniform vec2 uAxis;
 uniform float uSigma;
-in vec2 vUv;
+in highp vec2 vUv;
 out vec4 oColor;
 const int RADIUS = 20;
 void main() {
@@ -93,14 +93,15 @@ uniform vec2 uMaskUvScale;
 uniform vec2 uMaskUvOffset;
 uniform float uMaskLo;
 uniform float uMaskHi;
-in vec2 vUv;
+in highp vec2 vUv;
 out vec4 oColor;
 void main() {
   vec2 maskUv = vUv * uMaskUvScale + uMaskUvOffset;
   float raw = texture(uMask, maskUv).r;
-  float m = smoothstep(uMaskLo, uMaskHi, raw);
+  float safeHi = max(uMaskHi, uMaskLo + 0.001);
+  float m = smoothstep(uMaskLo, safeHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
-  vec2 bgUv = vUv * uBgUvScale + uBgUvOffset;
+  vec2 bgUv = clamp(vUv * uBgUvScale + uBgUvOffset, 0.0, 1.0);
   vec3 bg = texture(uBackground, bgUv).rgb;
   oColor = vec4(mix(bg, orig, m), 1.0);
 }
