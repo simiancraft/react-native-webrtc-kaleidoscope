@@ -52,17 +52,25 @@ void main() {
 // to android/.../gpu/Shaders.kt's COMPOSITE_FRAG so the same canonical
 // GLSL source serves both platforms (and post-transpile, iOS Metal).
 //
-// Texture-orientation convention: every input texture lands with its
-// semantic "top of source image" at GL v=1. Each platform's host code
-// picks the upload flags or pre-flip to achieve this:
-//   - Web original / mask / bg: UNPACK_FLIP_Y_WEBGL=true on upload.
+// uOriginal and uBackground are expected to land with semantic "top of
+// source image" at GL v=1; the shader samples both at vUv directly.
+// Each platform's host code picks the right upload flag or pre-flip:
+//   - Web original / bg: UNPACK_FLIP_Y_WEBGL=true on upload (bg is staged
+//     through OffscreenCanvas first since flipY does not apply to
+//     ImageBitmap; canvas works).
 //   - Android original: OES->2D pass with transformMatrix lands head at v=1.
-//   - Android mask: the readback round-trip (glReadPixels bottom-up plus
-//     Bitmap top-down plus GLUtils.texImage2D preserving rows) cancels out.
 //   - Android bg: Bitmap pre-flip via Matrix(preScale(1, -1)) before
 //     GLUtils.texImage2D, because Android OpenGL ES has no flipY flag.
-// With that convention enforced upstream, the composite samples every
-// texture at vUv directly. No V-flips at sample time.
+//
+// uMask is parameterized via uMaskUvScale / uMaskUvOffset because we
+// cannot canvas-stage the mask on web. Canvas premultiplied-alpha mangles
+// the soft confidence values in MediaPipe's segmentationMask alpha
+// channel, collapsing the mask to near-binary and breaking the smoothstep
+// hardness slider. We therefore direct-upload the mask on web with
+// flipY=false and use the uniforms to V-flip the SAMPLING in shader.
+// On Android the readback round-trip leaves the mask correctly oriented;
+// the uniforms are identity. The uniforms keep the shader byte-identical
+// across platforms; per-platform orientation lives in the uniforms.
 //
 // uBackground is whatever you bind to it: a blurred copy, a sampled PNG,
 // or a procedural shader's output. uBgUvScale / uBgUvOffset perform a
@@ -81,12 +89,15 @@ uniform sampler2D uBackground;
 uniform sampler2D uMask;
 uniform vec2 uBgUvScale;
 uniform vec2 uBgUvOffset;
+uniform vec2 uMaskUvScale;
+uniform vec2 uMaskUvOffset;
 uniform float uMaskLo;
 uniform float uMaskHi;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  float raw = texture(uMask, vUv).r;
+  vec2 maskUv = vUv * uMaskUvScale + uMaskUvOffset;
+  float raw = texture(uMask, maskUv).r;
   float m = smoothstep(uMaskLo, uMaskHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec2 bgUv = vUv * uBgUvScale + uBgUvOffset;

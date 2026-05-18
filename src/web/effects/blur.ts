@@ -43,13 +43,6 @@ let state: GpuState | null = null;
 let inputCanvas2D: OffscreenCanvas | null = null;
 let inputCtx2D: OffscreenCanvasRenderingContext2D | null = null;
 
-// Staging canvas for the mask. UNPACK_FLIP_Y_WEBGL is silently a no-op
-// on MediaPipe's segmentationMask source (and on ImageBitmaps generally),
-// so we drawImage the mask onto a regular OffscreenCanvas first; flipY
-// applies correctly to canvas sources during texImage2D upload.
-let maskCanvas2D: OffscreenCanvas | null = null;
-let maskCtx2D: OffscreenCanvasRenderingContext2D | null = null;
-
 const compileShader = (gl: WebGL2RenderingContext, type: number, source: string): WebGLShader => {
   const shader = gl.createShader(type);
   if (!shader) throw new Error('kaleidoscope: gl.createShader returned null');
@@ -164,15 +157,6 @@ const ensureInputCanvas = (width: number, height: number): OffscreenCanvasRender
   return inputCtx2D as OffscreenCanvasRenderingContext2D;
 };
 
-const ensureMaskCanvas = (width: number, height: number): OffscreenCanvasRenderingContext2D => {
-  if (!maskCanvas2D || maskCanvas2D.width !== width || maskCanvas2D.height !== height) {
-    maskCanvas2D = new OffscreenCanvas(width, height);
-    maskCtx2D = maskCanvas2D.getContext('2d');
-    if (!maskCtx2D) throw new Error('kaleidoscope: mask OffscreenCanvas 2D context unavailable');
-  }
-  return maskCtx2D as OffscreenCanvasRenderingContext2D;
-};
-
 const uploadTexture = (
   gl: WebGL2RenderingContext,
   tex: WebGLTexture,
@@ -205,24 +189,15 @@ export const blur: FrameTransform = async (frame) => {
   const s = ensureState(w, h);
   const { gl, canvas, programs, textures, fbos } = s;
 
-  // Texture-orientation convention: every input lands with semantic "top
-  // of source image" at GL v=1. flipY=true works for OffscreenCanvas
-  // sources but is silently a no-op on MediaPipe's segmentationMask, so
-  // stage the mask through an OffscreenCanvas first. The shader then
-  // samples every texture at vUv directly; no V-flips. See
-  // COMPOSITE_FRAG_SRC docstring for the cross-platform contract.
-  //
-  // clearRect is required: MediaPipe's segmentationMask carries alpha < 255
-  // in non-person regions, so drawImage source-over leaves the previous
-  // frame's mask pixels visible. Without clearRect, each frame's mask
-  // accumulates on the canvas; the mask grows looser over time, and
-  // anywhere the person ever stood stays flagged as "person" permanently
-  // (the "powerwash erases the blur" symptom).
-  const maskCtx = ensureMaskCanvas(w, h);
-  maskCtx.clearRect(0, 0, w, h);
-  maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+  // Upload original with flipY=true (DOM-coord source → GL v=1 = top).
+  // Upload mask with flipY=false: UNPACK_FLIP_Y_WEBGL is a no-op on
+  // MediaPipe's segmentationMask (also on ImageBitmaps in general), so the
+  // mask lands in its natural orientation. The composite shader compensates
+  // with the uMaskUvScale=(1,-1) / uMaskUvOffset=(0,1) V-flip uniforms set
+  // below; this also avoids the canvas-premultiplied-alpha problem that
+  // collapses soft confidence values and makes the mask binary.
   uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
-  uploadTexture(gl, textures.mask, maskCanvas2D as unknown as TexImageSource, true);
+  uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, false);
 
   gl.disable(gl.BLEND);
   gl.disable(gl.DEPTH_TEST);
@@ -258,10 +233,14 @@ export const blur: FrameTransform = async (frame) => {
   gl.activeTexture(gl.TEXTURE2);
   gl.bindTexture(gl.TEXTURE_2D, textures.mask);
   gl.uniform1i(gl.getUniformLocation(programs.composite, 'uMask'), 2);
-  // The blurred background is the same dimensions as the original; identity
-  // UV transform on uBgUvScale / uBgUvOffset.
+  // Blurred background is full-size; identity UV transform.
   gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvScale'), 1, 1);
   gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvOffset'), 0, 0);
+  // Mask V-flip: direct upload with flipY=false leaves mask Y-inverted
+  // relative to the original. Encode the flip in the sampling uniforms so
+  // the shader stays byte-identical with Android (which uses identity here).
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvScale'), 1, -1);
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvOffset'), 0, 1);
   const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
   gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskLo'), maskLo);
   gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskHi'), maskHi);

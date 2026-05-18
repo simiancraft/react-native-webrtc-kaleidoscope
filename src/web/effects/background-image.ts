@@ -99,10 +99,6 @@ type CacheEntry = {
   imagePromise: Promise<{ canvas: OffscreenCanvas; width: number; height: number }>;
   inputCanvas2D: OffscreenCanvas | null;
   inputCtx2D: OffscreenCanvasRenderingContext2D | null;
-  // Same canvas-staging trick for the mask, which suffers the same flipY
-  // no-op behavior as the ImageBitmap.
-  maskCanvas2D: OffscreenCanvas | null;
-  maskCtx2D: OffscreenCanvasRenderingContext2D | null;
 };
 
 const cache = new Map<string, CacheEntry>();
@@ -183,25 +179,6 @@ const ensureInputCanvas = (
   return entry.inputCtx2D as OffscreenCanvasRenderingContext2D;
 };
 
-const ensureMaskCanvas = (
-  entry: CacheEntry,
-  width: number,
-  height: number,
-): OffscreenCanvasRenderingContext2D => {
-  if (
-    !entry.maskCanvas2D ||
-    entry.maskCanvas2D.width !== width ||
-    entry.maskCanvas2D.height !== height
-  ) {
-    entry.maskCanvas2D = new OffscreenCanvas(width, height);
-    entry.maskCtx2D = entry.maskCanvas2D.getContext('2d');
-    if (!entry.maskCtx2D) {
-      throw new Error('kaleidoscope: mask OffscreenCanvas 2D context unavailable');
-    }
-  }
-  return entry.maskCtx2D as OffscreenCanvasRenderingContext2D;
-};
-
 // --- The effect factory ----------------------------------------------------
 
 export const makeBackgroundImage = (source: string): FrameTransform => {
@@ -212,8 +189,6 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
       imagePromise: loadImage(source),
       inputCanvas2D: null,
       inputCtx2D: null,
-      maskCanvas2D: null,
-      maskCtx2D: null,
     };
     cache.set(source, entry);
   }
@@ -236,24 +211,16 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     const s = ensureState(e, w, h);
     const { gl, canvas, program, textures } = s;
 
-    // Texture-orientation convention: every input lands with semantic "top
-    // of source image" at GL v=1. UNPACK_FLIP_Y_WEBGL works on regular
-    // canvas sources but is silently a no-op on ImageBitmaps and on
-    // MediaPipe's segmentationMask, so we stage the mask through an
-    // OffscreenCanvas and the bg through one too (the bg canvas was
-    // populated at load time inside loadImage). The shader then samples
-    // every texture at vUv directly; no V-flips.
-    //
-    // clearRect on the mask canvas is required: MediaPipe's segmentationMask
-    // carries alpha < 255 in non-person regions, so drawImage source-over
-    // leaves the previous frame's mask pixels visible. Without clearRect,
-    // each frame's mask accumulates and produces the "permanent powerwash"
-    // symptom where erased background never returns.
-    const maskCtx = ensureMaskCanvas(e, w, h);
-    maskCtx.clearRect(0, 0, w, h);
-    maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+    // Upload original and bg with flipY=true (DOM-coord → GL v=1 = top).
+    // Bg is staged through OffscreenCanvas (loaded at bg-image load time)
+    // because UNPACK_FLIP_Y_WEBGL is a no-op on raw ImageBitmaps; canvas
+    // sources flip correctly. Mask is uploaded with flipY=false for the
+    // same reason (no-op on MediaPipe's segmentationMask source) AND to
+    // preserve the soft confidence values — canvas premultiplied-alpha math
+    // would collapse them to near-binary. The composite shader compensates
+    // via uMaskUvScale=(1,-1) / uMaskUvOffset=(0,1) set below.
     uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
-    uploadTexture(gl, textures.mask, e.maskCanvas2D as unknown as TexImageSource, true);
+    uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, false);
     uploadTexture(gl, textures.background, bg.canvas as unknown as TexImageSource, true);
 
     gl.disable(gl.BLEND);
@@ -292,6 +259,9 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     }
     gl.uniform2f(gl.getUniformLocation(program, 'uBgUvScale'), bgScaleX, bgScaleY);
     gl.uniform2f(gl.getUniformLocation(program, 'uBgUvOffset'), bgOffsetX, bgOffsetY);
+    // Mask V-flip via sampling uniforms; see comment on the upload above.
+    gl.uniform2f(gl.getUniformLocation(program, 'uMaskUvScale'), 1, -1);
+    gl.uniform2f(gl.getUniformLocation(program, 'uMaskUvOffset'), 0, 1);
     const [maskLo, maskHi] = maskHardnessRange(tuning.maskHardness);
     gl.uniform1f(gl.getUniformLocation(program, 'uMaskLo'), maskLo);
     gl.uniform1f(gl.getUniformLocation(program, 'uMaskHi'), maskHi);

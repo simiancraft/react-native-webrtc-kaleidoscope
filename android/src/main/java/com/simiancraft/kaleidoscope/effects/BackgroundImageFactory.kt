@@ -197,6 +197,10 @@ private class BackgroundImageProcessor(
       }
 
       val (maskLo, maskHi) = MaskTuning.smoothstepRange(EffectTuning.maskHardness)
+      // Identity mask UV — round-trip leaves mask aligned with origFbo.
+      composite.setVec2("uMaskUvScale", 1.0f, 1.0f)
+      composite.setVec2("uMaskUvOffset", 0.0f, 0.0f)
+
       GLES30.glUniform1f(composite.uniformLocation("uMaskLo"), maskLo)
       GLES30.glUniform1f(composite.uniformLocation("uMaskHi"), maskHi)
 

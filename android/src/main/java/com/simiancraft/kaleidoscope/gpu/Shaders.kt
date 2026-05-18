@@ -75,20 +75,22 @@ void main() {
 }
 """
 
-  // Composite: mix(background, original, mask). The background is whatever
-  // texture you bind to uBackground (a blurred copy, an image, a procedural
-  // shader's output). Mask comes in as a single-channel image (we read .r).
+  // Composite: mix(background, original, mask). One shader, byte-identical
+  // to src/web/shaders.ts's COMPOSITE_FRAG_SRC.
   //
-  // The mask is sampled at vUv directly, with no V-flip. The readback path
-  // (origFbo -> glReadPixels -> Bitmap -> MLKit -> mask Bitmap -> texImage2D)
-  // round-trips two Y-flips (glReadPixels is bottom-up, Bitmap is top-down,
-  // GLUtils.texImage2D treats the bitmap's first row as the texture's first
-  // row), landing the mask in the same axis frame as origFbo. The previous
-  // shader V-flip was masked in portrait because the renderer's 90-degree
-  // rotation turned the shader-Y misalignment into a screen-X mirror, which
-  // person symmetry hides; landscape exposes it as upside-down video. The
-  // web composite (src/web/shaders.ts) DOES need its V-flip; do not mirror
-  // this change there.
+  // uOriginal and uBackground are expected to land with semantic "top of
+  // source image" at GL v=1; the shader samples both at vUv directly. On
+  // Android the OES->2D pass with transformMatrix lands the original at
+  // v=1, and the bg PNG is pre-flipped via Bitmap matrix before
+  // GLUtils.texImage2D since Android OpenGL ES has no flipY flag.
+  //
+  // uMask is sampled at vUv * uMaskUvScale + uMaskUvOffset. On Android,
+  // those are identity (1,1) and (0,0) because the readback round-trip
+  // (glReadPixels bottom-up plus Bitmap top-down plus GLUtils.texImage2D
+  // row-preserving) leaves the mask aligned with origFbo. On web they are
+  // (1,-1) and (0,1) to encode a V-flip on the mask sampling, because
+  // canvas-staging the mask there would mangle the soft confidence values
+  // in alpha (premultiplied-alpha math).
   //
   // uMaskLo / uMaskHi parameterize the smoothstep transition over the raw
   // confidence map. The processor computes them from a maskHardness factor
@@ -107,12 +109,15 @@ uniform sampler2D uBackground;
 uniform sampler2D uMask;
 uniform vec2 uBgUvScale;
 uniform vec2 uBgUvOffset;
+uniform vec2 uMaskUvScale;
+uniform vec2 uMaskUvOffset;
 uniform float uMaskLo;
 uniform float uMaskHi;
 in vec2 vUv;
 out vec4 oColor;
 void main() {
-  float raw = texture(uMask, vUv).r;
+  vec2 maskUv = vUv * uMaskUvScale + uMaskUvOffset;
+  float raw = texture(uMask, maskUv).r;
   float m = smoothstep(uMaskLo, uMaskHi, raw);
   vec3 orig = texture(uOriginal, vUv).rgb;
   vec2 bgUv = vUv * uBgUvScale + uBgUvOffset;

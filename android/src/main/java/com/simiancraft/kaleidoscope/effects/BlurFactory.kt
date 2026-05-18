@@ -227,6 +227,10 @@ private class BlurProcessor : VideoFrameProcessor {
       // cover-fit needed. Identity UV transform.
       composite.setVec2("uBgUvScale", 1.0f, 1.0f)
       composite.setVec2("uBgUvOffset", 0.0f, 0.0f)
+      // Mask round-trip (glReadPixels + Bitmap + texImage2D) leaves mask
+      // aligned with origFbo; identity UV transform — no flip needed.
+      composite.setVec2("uMaskUvScale", 1.0f, 1.0f)
+      composite.setVec2("uMaskUvOffset", 0.0f, 0.0f)
 
       GLES30.glUniform1f(composite.uniformLocation("uMaskLo"), maskLo)
       GLES30.glUniform1f(composite.uniformLocation("uMaskHi"), maskHi)
