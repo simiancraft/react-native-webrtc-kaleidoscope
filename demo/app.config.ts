@@ -26,10 +26,10 @@ const config: ExpoConfig = {
     // No favicon shipped with v0.1; referencing a path here makes Expo's
     // FaviconMiddleware throw ENOENT when assets/ exists but the file does not.
   },
-  // For web export, only expo-router is needed. Native-only plugins
-  // ('react-native-webrtc' has no config plugin upstream as of 124.0.7;
-  // 'react-native-webrtc-kaleidoscope' is a passthrough until Commit 8)
-  // would be re-added before `bunx expo prebuild`.
+  // For web export, only expo-router is needed. react-native-webrtc has
+  // no config plugin upstream as of 124.0.7; react-native-webrtc-kaleidoscope's
+  // plugin is currently a passthrough. Add either explicitly before
+  // `bunx expo prebuild` when the consumer's fork ships one.
   plugins: [
     'expo-router',
     // react-native-webrtc requires Android API 24+; without this, prebuild

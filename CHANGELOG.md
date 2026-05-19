@@ -6,4 +6,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Initial scaffold; v0.1 bring-up. See [`bootstrap-and-ship-v0-1.md`](./bootstrap-and-ship-v0-1.md) for the full plan.
+Pre-1.0 development. Entries land here automatically on the first `semantic-release` cut.

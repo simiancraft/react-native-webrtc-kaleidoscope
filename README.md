@@ -4,6 +4,7 @@
 
 # react-native-webrtc-kaleidoscope
 
+[![status: alpha](https://img.shields.io/badge/status-alpha-orange)](#status)
 [![npm version](https://img.shields.io/npm/v/react-native-webrtc-kaleidoscope?color=cb3837&logo=npm)](https://www.npmjs.com/package/react-native-webrtc-kaleidoscope)
 [![Types: included](https://img.shields.io/npm/types/react-native-webrtc-kaleidoscope?color=3178c6&logo=typescript)](https://www.npmjs.com/package/react-native-webrtc-kaleidoscope)
 [![CI](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/actions/workflows/ci.yml/badge.svg)](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/actions/workflows/ci.yml)
@@ -20,14 +21,14 @@
 - **Mirror** (horizontal flip).
 - **Blur** (background blur, person stays sharp).
 - **Background replacement** (composite a still PNG behind the segmented person; two bundled office presets, library-side asset pipeline).
-- **Runtime tuning** via `setBlurSigma`, `setMaskHardness`, `setMaskThreshold`, exposed through the Expo Module API.
+- **Runtime tuning** of the GLSL effects; see the [Use](#use) section.
 
 | Platform | Mirror | Blur | Background replacement | Notes |
 |---|---|---|---|---|
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
 | Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MLKit Selfie Segmentation |
 | iOS (≥ 15) | — | — | — | Coming soon; transpilation pipeline in place, host implementation pending |
-| Safari / Firefox | partial | — | — | No Insertable Streams; capability-check before calling |
+| Safari / Firefox | — | — | — | No Insertable Streams; `applyVideoEffects` throws a typed error |
 
 ### Coming soon
 
@@ -60,10 +61,12 @@ Add the config plugin to `app.config.ts`:
 ```ts
 export default {
   expo: {
-    plugins: ['react-native-webrtc', 'react-native-webrtc-kaleidoscope'],
+    plugins: ['react-native-webrtc-kaleidoscope'],
   },
 };
 ```
+
+(`react-native-webrtc` 124.x does not ship a config plugin upstream; do not list it in `plugins`. If you are on a fork that adds one, add it explicitly.)
 
 Then rebuild native code:
 
@@ -91,16 +94,16 @@ applyVideoEffects(track, [{ name: 'background-image', source: 'office-1' }]);
 applyVideoEffects(track, []); // clear all effects
 
 // Runtime tuning (effects pick up the new values on the next frame):
-setBlurSigma(25);        // Gaussian σ; 0.5 to 64, default 8.
-setMaskHardness(0.2);    // smoothstep transition width; 0 = soft halo, 1 = near-step. Default 0.5.
-setMaskThreshold(0.7);   // smoothstep center; higher rejects low-confidence pixels. Default 0.5.
+setBlurSigma(25);        // Gaussian σ; clamped to [0.5, 64], default 8.
+setMaskHardness(0.2);    // smoothstep transition width; clamped to [0, 1]. 0 = soft halo, 1 = near-step. Default 0.5.
+setMaskThreshold(0.7);   // smoothstep center; clamped to [0.05, 0.95]. Higher rejects low-confidence pixels. Default 0.5.
 ```
 
 Effects chain in array order.
 
 **Tuning note:** optimal values are platform-specific because each segmentation model (MediaPipe on web, MLKit on Android, Vision when iOS lands) produces a different confidence distribution. Working defaults on a typical well-lit scene:
 
-| | Blur sigma | Mask hardness | Mask threshold |
+| Platform | Blur sigma | Mask hardness | Mask threshold |
 |---|---|---|---|
 | Web (MediaPipe) | 25 | 0.2 | 0.85 |
 | Android (MLKit) | 30 | 0.2 | 0.6 |
@@ -135,3 +138,7 @@ See [`PATTERNS.md`](./PATTERNS.md) for the file-layout conventions, texture-orie
 - [SECURITY.md](./SECURITY.md): security policy and reporting.
 - [NOTICE.md](./NOTICE.md): third-party attributions.
 - Sibling projects: [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge); same OSS-hygiene template.
+
+---
+
+MIT licensed. © 2026 Jesse Harlin / [Simiancraft](https://github.com/simiancraft).
