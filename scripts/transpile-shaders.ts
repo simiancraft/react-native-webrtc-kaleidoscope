@@ -24,7 +24,7 @@ const GLSL_DIR = join(REPO_ROOT, 'shaders');
 const METAL_OUT_DIR = join(REPO_ROOT, 'ios/KaleidoscopeModule/shaders');
 const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 
-const REQUIRED_TOOLS = ['glslangValidator', 'spirv-val', 'spirv-cross'] as const;
+const REQUIRED_TOOLS = ['glslangValidator', 'spirv-val', 'spirv-opt', 'spirv-cross'] as const;
 
 async function whichOrFail(): Promise<void> {
   const missing: string[] = [];
@@ -53,17 +53,27 @@ async function transpileOne(filename: string): Promise<void> {
   }
   const inputPath = join(GLSL_DIR, filename);
   const spvPath = join(TMP_DIR, `${name}.spv`);
+  const optSpvPath = join(TMP_DIR, `${name}.opt.spv`);
   const metalPath = join(METAL_OUT_DIR, `${name}.metal`);
 
-  // 1. GLSL -> SPIR-V (validates syntax + types + uniforms).
+  // 1. GLSL -> SPIR-V. `-V` targets Vulkan-flavored SPIR-V, which is the
+  // canonical input for spirv-cross's MSL backend. (`--client opengl`
+  // emits OpenGL-flavored SPIR-V that the MSL path is not the primary
+  // consumer of.) Validates syntax, types, uniform decorations.
   await $`glslangValidator -V -S ${stage} ${inputPath} -o ${spvPath}`.quiet();
 
   // 2. Validate the SPIR-V (catches malformed output between tools).
   await $`spirv-val ${spvPath}`.quiet();
 
-  // 3. SPIR-V -> MSL. --msl-version 20100 targets Metal 2.1 (iOS 12+; safe
-  // floor since our podspec requires iOS 15).
-  await $`spirv-cross --msl --msl-version 20100 --output ${metalPath} ${spvPath}`.quiet();
+  // 3. Optimize the SPIR-V (dead-code elimination, constant folding,
+  // simplification). spirv-cross's MSL output is cleaner from optimized
+  // input, and the round-trip catches any pathological constructs.
+  await $`spirv-opt -O ${spvPath} -o ${optSpvPath}`.quiet();
+
+  // 4. SPIR-V -> MSL. --msl-version 20100 targets Metal 2.1 (iOS 12+; safe
+  // floor since our podspec requires iOS 15). --emit-line-directives
+  // preserves source-line mapping for Metal-side debugger.
+  await $`spirv-cross --msl --msl-version 20100 --emit-line-directives --output ${metalPath} ${optSpvPath}`.quiet();
 
   console.log(`  ok:   ${filename}  ->  ${metalPath.replace(REPO_ROOT, '.')}`);
 }
