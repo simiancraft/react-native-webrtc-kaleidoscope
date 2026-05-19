@@ -1,31 +1,30 @@
-// Android blur effect — GPU pipeline.
+// Android background-image effect — GPU pipeline.
 //
 // Per frame:
-//   1. Render the input OES camera texture through an OES->2D passthrough
-//      shader into a cached intermediate FBO (the "original 2D" copy).
-//   2. Produce a mask via Mask.produce (which downsamples the original 2D,
-//      reads it back to a Bitmap, runs MLKit Selfie Segmentation, uploads
-//      the confidence map as a 2D GL texture).
-//   3. Run two separable Gaussian blur passes on the "original 2D" copy
-//      using ping-pong FBOs.
-//   4. Composite original + blurred + mask into a fresh output texture via
+//   1. Render the input OES camera texture into a cached "original 2D" FBO.
+//   2. Lazy-load the named PNG asset (e.g. "office-1") from the library's
+//      android/src/main/assets/backgrounds/ on first frame; upload as a 2D
+//      GL texture; cache for subsequent frames.
+//   3. Produce a mask via Mask.produce (downsample, MLKit, upload).
+//   4. Composite original + image + mask into a fresh output texture via
 //      COMPOSITE_FRAG.
 //   5. Wrap the fresh output texture in a TextureBufferImpl and return a
 //      VideoFrame.
 //
-// Every observable failure logs to adb logcat under Kaleidoscope.Blur and
-// returns null so upstream forwards the original frame instead of crashing.
+// Each registered name (e.g. "background-image-office-1") gets its own
+// factory keyed by an asset name; multiple factories can coexist if the
+// consumer registers multiple variants.
 //
-// Replaces the CPU implementation (manual Kotlin YUV/ARGB conversion +
-// MLKit + RenderScript). The CPU path was ~5-10 FPS at 720p; the GPU path
-// now runs MLKit on a worker thread (see Mask.kt) with a last-known-mask
-// cache, so the render thread is no longer gated on segmentation.
+// All failure paths log under Kaleidoscope.BgImage and fall through.
 
 package com.simiancraft.kaleidoscope.effects
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.opengl.GLES30
+import android.opengl.GLUtils
 import android.util.Log
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessor
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
@@ -43,62 +42,43 @@ import org.webrtc.VideoFrame
 import org.webrtc.YuvConverter
 
 /**
- * @param context Currently unused; held for parity with BackgroundImageFactory
- *                and for future GPU resources that need a Context.
+ * @param context Used to read the PNG asset.
+ * @param assetName Filename (without `.png`) under `assets/backgrounds/`.
+ *                   E.g. "office-1" -> assets/backgrounds/office-1.png.
  *
- * Runtime parameters (sigma, maskHardness) live on
- * com.simiancraft.kaleidoscope.EffectTuning and are read per frame; JS
- * tweaks them via the Expo Module's setBlurSigma / setMaskHardness
- * functions without rebuilding the processor.
+ * maskHardness is read per frame from com.simiancraft.kaleidoscope.EffectTuning
+ * so JS callers can tune the smoothstep edge via the Expo Module's
+ * setMaskHardness function without rebuilding the processor.
  */
-class BlurFactory(
+class BackgroundImageFactory(
   private val context: Context,
+  private val assetName: String,
 ) : VideoFrameProcessorFactoryInterface {
-  override fun build(): VideoFrameProcessor = BlurProcessor()
+  override fun build(): VideoFrameProcessor =
+    BackgroundImageProcessor(context, assetName)
 }
 
-private class BlurProcessor : VideoFrameProcessor {
+private class BackgroundImageProcessor(
+  private val context: Context,
+  private val assetName: String,
+) : VideoFrameProcessor {
   private val lock = Any()
 
   private var oesToTwoD: GlProgram? = null
-  private var blurProgram: GlProgram? = null
   private var compositeProgram: GlProgram? = null
 
-  // Cached intermediate textures + FBOs (full input resolution). Reused
-  // across frames; recreated on resolution change.
   private var originalFbo: Fbo? = null
-  private var blurAFbo: Fbo? = null
-  private var blurBFbo: Fbo? = null
   private var cachedWidth = 0
   private var cachedHeight = 0
 
   private val mask = Mask()
   private var yuvConverter: YuvConverter? = null
 
-  // 9-tap separable Gaussian kernel. tapSpacing is fixed; sigma comes from
-  // EffectTuning at frame time and the kernel is rebuilt on the CPU only
-  // when sigma changes. At sigma=8 the kernel covers ~+/-16 pixels with a
-  // smooth falloff.
-  private val blurWeights = FloatArray(KERNEL_TAPS)
-  private val blurOffsets = FloatArray(KERNEL_TAPS)
-  private var cachedKernelSigma: Float = Float.NaN
-
-  private fun ensureKernel(sigma: Float) {
-    if (sigma == cachedKernelSigma) return
-    val tapSpacing = 2.0
-    val sigmaD = sigma.toDouble()
-    for (i in 0 until KERNEL_TAPS) {
-      blurOffsets[i] = (i * tapSpacing).toFloat()
-      val x = blurOffsets[i].toDouble()
-      blurWeights[i] = Math.exp(-(x * x) / (2.0 * sigmaD * sigmaD)).toFloat()
-    }
-    // Normalize: center contributes once, each side tap contributes twice
-    // because the shader samples vUv +/- offset and adds each.
-    var sum = blurWeights[0]
-    for (i in 1 until KERNEL_TAPS) sum += 2f * blurWeights[i]
-    for (i in 0 until KERNEL_TAPS) blurWeights[i] = blurWeights[i] / sum
-    cachedKernelSigma = sigma
-  }
+  // Background image cached as a 2D GL texture; loaded lazily on the first
+  // successful frame to ensure GL setup is ready. Aspect ratio captured at
+  // load time so the composite shader can center-crop into the output.
+  private var backgroundTextureId = 0
+  private var backgroundAspect: Float = 1f
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
     return synchronized(lock) { processOuter(frame, textureHelper) }
@@ -110,7 +90,7 @@ private class BlurProcessor : VideoFrameProcessor {
     } catch (t: Throwable) {
       Log.e(
         TAG,
-        "process() threw; falling through to original frame. " +
+        "process() threw; falling through. assetName=$assetName " +
           "frame=${frame.buffer.width}x${frame.buffer.height} " +
           "rotation=${frame.rotation} bufferClass=${frame.buffer.javaClass.simpleName}",
         t,
@@ -128,12 +108,12 @@ private class BlurProcessor : VideoFrameProcessor {
       return null
     }
     val inputBuffer = frame.buffer
-    if (inputBuffer !is VideoFrame.TextureBuffer) {
-      // Chained after a CPU effect (mirror) emitting I420 — silently forward.
-      return null
-    }
+    if (inputBuffer !is VideoFrame.TextureBuffer) return null
     if (inputBuffer.type != VideoFrame.TextureBuffer.Type.OES) {
-      Log.w(TAG, "TextureBuffer type is ${inputBuffer.type}; expected OES. Forwarding original.")
+      Log.w(
+        TAG,
+        "TextureBuffer type is ${inputBuffer.type}; expected OES. Forwarding.",
+      )
       return null
     }
     val width = inputBuffer.width
@@ -143,24 +123,23 @@ private class BlurProcessor : VideoFrameProcessor {
       return null
     }
 
-    GlDebug.check("blur entry")
+    GlDebug.check("bgImage entry")
     val saved = Egl.save()
     var outputTextureId = 0
     var outputFboHandle = 0
     return try {
       ensurePrograms()
       ensureIntermediates(width, height)
-      ensureKernel(EffectTuning.blurSigma)
-      val (maskLo, maskHi) =
-        MaskTuning.smoothstepRange(EffectTuning.maskHardness, EffectTuning.maskThreshold)
+      ensureBackgroundTexture()
+      if (backgroundTextureId == 0) {
+        Log.w(TAG, "background texture unavailable (asset '$assetName' load failed); falling through.")
+        return null
+      }
       val origFbo = originalFbo ?: error("originalFbo null after ensure")
-      val blurA = blurAFbo ?: error("blurAFbo null after ensure")
-      val blurB = blurBFbo ?: error("blurBFbo null after ensure")
-      val oes = oesToTwoD ?: error("oesToTwoD program null after ensure")
-      val blur = blurProgram ?: error("blurProgram null after ensure")
+      val oes = oesToTwoD ?: error("oesToTwoD null after ensure")
       val composite = compositeProgram ?: error("compositeProgram null after ensure")
 
-      // ===== Pass 1: OES camera -> "original 2D" cached intermediate =====
+      // OES camera -> 2D original
       GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
       GLES30.glBindTexture(GL_TEXTURE_EXTERNAL_OES, inputBuffer.textureId)
       origFbo.bind()
@@ -171,40 +150,16 @@ private class BlurProcessor : VideoFrameProcessor {
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("blur OES->2D")
+      GlDebug.check("bgImage OES->2D")
 
-      // ===== Mask production from the "original 2D" =====
+      // Mask from the 2D original
       val maskTexId = mask.produce(origFbo.texture, width, height)
       if (maskTexId == -1) {
         Log.w(TAG, "Mask production failed; falling through.")
         return null
       }
 
-      // ===== Pass 2: horizontal blur =====
-      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, origFbo.texture)
-      blurA.bind()
-      blur.use()
-      blur.setInt("uTex", 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
-      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 1.0f / width, 0.0f)
-      GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("blur horizontal pass")
-
-      // ===== Pass 3: vertical blur =====
-      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, blurA.texture)
-      blurB.bind()
-      blur.use()
-      blur.setInt("uTex", 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
-      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 0.0f, 1.0f / height)
-      GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("blur vertical pass")
-
-      // ===== Pass 4: composite (orig + blurred + mask -> fresh output) =====
+      // Composite into a fresh output texture
       val outputFbo = Fbo(width, height)
       outputTextureId = outputFbo.texture
       outputFboHandle = outputFbo.framebuffer
@@ -217,19 +172,33 @@ private class BlurProcessor : VideoFrameProcessor {
       composite.setInt("uOriginal", 0)
 
       GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
-      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, blurB.texture)
+      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, backgroundTextureId)
       composite.setInt("uBackground", 1)
 
       GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
       GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTexId)
       composite.setInt("uMask", 2)
 
-      // The blurred background is the same dimensions as the original; no
-      // cover-fit needed. Identity UV transform.
-      composite.setVec2("uBgUvScale", 1.0f, 1.0f)
-      composite.setVec2("uBgUvOffset", 0.0f, 0.0f)
-      // Mask round-trip (glReadPixels + Bitmap + texImage2D) leaves mask
-      // aligned with origFbo; identity UV transform — no flip needed.
+      // Center-crop cover fit so the bg image fills the output without
+      // distortion. If bg is wider than output, crop horizontally; if
+      // taller, crop vertically.
+      val outAspect = width.toFloat() / height.toFloat()
+      val bgAspect = backgroundAspect
+      if (bgAspect > outAspect) {
+        // bg is wider -> shrink u-range, full v-range
+        val scaleX = outAspect / bgAspect
+        composite.setVec2("uBgUvScale", scaleX, 1.0f)
+        composite.setVec2("uBgUvOffset", (1f - scaleX) * 0.5f, 0.0f)
+      } else {
+        // bg is taller -> full u-range, shrink v-range
+        val scaleY = bgAspect / outAspect
+        composite.setVec2("uBgUvScale", 1.0f, scaleY)
+        composite.setVec2("uBgUvOffset", 0.0f, (1f - scaleY) * 0.5f)
+      }
+
+      val (maskLo, maskHi) =
+        MaskTuning.smoothstepRange(EffectTuning.maskHardness, EffectTuning.maskThreshold)
+      // Identity mask UV — round-trip leaves mask aligned with origFbo.
       composite.setVec2("uMaskUvScale", 1.0f, 1.0f)
       composite.setVec2("uMaskUvOffset", 0.0f, 0.0f)
 
@@ -237,14 +206,10 @@ private class BlurProcessor : VideoFrameProcessor {
       GLES30.glUniform1f(composite.uniformLocation("uMaskHi"), maskHi)
 
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("blur composite pass")
+      GlDebug.check("bgImage composite pass")
 
-      // Synchronize before handing the output texture to the renderer's
-      // EGL context.
       GLES30.glFinish()
 
-      // Detach the texture from the FBO and free the FBO. The texture lives
-      // with the VideoFrame and gets deleted in the release callback.
       GLES30.glFramebufferTexture2D(
         GLES30.GL_FRAMEBUFFER,
         GLES30.GL_COLOR_ATTACHMENT0,
@@ -255,7 +220,7 @@ private class BlurProcessor : VideoFrameProcessor {
       GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
       GLES30.glDeleteFramebuffers(1, intArrayOf(outputFboHandle), 0)
       outputFboHandle = 0
-      GlDebug.check("blur output cleanup")
+      GlDebug.check("bgImage output cleanup")
 
       val yc = yuvConverter ?: run {
         val c = YuvConverter()
@@ -303,34 +268,68 @@ private class BlurProcessor : VideoFrameProcessor {
   private fun ensurePrograms() {
     if (oesToTwoD == null) {
       oesToTwoD = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.OES_PASSTHROUGH_FRAG)
-      GlDebug.check("oesToTwoD program compile/link")
-    }
-    if (blurProgram == null) {
-      blurProgram = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.BLUR_FRAG)
-      GlDebug.check("blur program compile/link")
+      GlDebug.check("oesToTwoD compile/link")
     }
     if (compositeProgram == null) {
       compositeProgram = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.COMPOSITE_FRAG)
-      GlDebug.check("composite program compile/link")
+      GlDebug.check("composite compile/link")
     }
   }
 
   private fun ensureIntermediates(width: Int, height: Int) {
     if (cachedWidth == width && cachedHeight == height && originalFbo != null) return
     originalFbo?.delete()
-    blurAFbo?.delete()
-    blurBFbo?.delete()
     originalFbo = Fbo(width, height)
-    blurAFbo = Fbo(width, height)
-    blurBFbo = Fbo(width, height)
     cachedWidth = width
     cachedHeight = height
-    GlDebug.check("blur intermediates allocated")
+    GlDebug.check("bgImage intermediates allocated")
+  }
+
+  private fun ensureBackgroundTexture() {
+    if (backgroundTextureId != 0) return
+    val bmp = try {
+      context.assets.open("backgrounds/$assetName.png").use { stream ->
+        BitmapFactory.decodeStream(stream)
+      }
+    } catch (t: Throwable) {
+      Log.e(TAG, "failed to load asset backgrounds/$assetName.png", t)
+      return
+    }
+    if (bmp == null) {
+      Log.e(TAG, "BitmapFactory returned null for backgrounds/$assetName.png")
+      return
+    }
+    // Pre-flip vertically so the texture lands in the shared convention
+    // (semantic top of source image at GL v=1). Android OpenGL ES has no
+    // UNPACK_FLIP_Y equivalent, so we do the flip on the bitmap before
+    // GLUtils.texImage2D copies it into the texture. One-time cost at
+    // load; per-frame sampling stays at vUv with no shader-side V-flip.
+    val flipMatrix = Matrix().apply { preScale(1f, -1f) }
+    val flippedBmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, flipMatrix, false)
+    try {
+      val ids = IntArray(1)
+      GLES30.glGenTextures(1, ids, 0)
+      backgroundTextureId = ids[0]
+      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, backgroundTextureId)
+      GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+      GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+      GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+      GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+      GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, flippedBmp, 0)
+      GlDebug.check("bgImage background upload")
+      backgroundAspect = bmp.width.toFloat() / bmp.height.toFloat()
+      Log.i(
+        TAG,
+        "background asset '$assetName' loaded; size=${bmp.width}x${bmp.height} aspect=$backgroundAspect",
+      )
+    } finally {
+      flippedBmp.recycle()
+      bmp.recycle()
+    }
   }
 
   companion object {
-    private const val TAG = "Kaleidoscope.Blur"
+    private const val TAG = "Kaleidoscope.BgImage"
     private const val GL_TEXTURE_EXTERNAL_OES = 0x8D65
-    private const val KERNEL_TAPS = 9
   }
 }

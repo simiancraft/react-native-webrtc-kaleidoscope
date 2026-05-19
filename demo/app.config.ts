@@ -23,7 +23,8 @@ const config: ExpoConfig = {
   web: {
     bundler: 'metro',
     output: 'static',
-    favicon: './assets/favicon.png',
+    // No favicon shipped with v0.1; referencing a path here makes Expo's
+    // FaviconMiddleware throw ENOENT when assets/ exists but the file does not.
   },
   // For web export, only expo-router is needed. Native-only plugins
   // ('react-native-webrtc' has no config plugin upstream as of 124.0.7;

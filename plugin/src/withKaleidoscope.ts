@@ -1,18 +1,17 @@
-// Expo config plugin: injects native registration calls into MainApplication
-// (Android) and AppDelegate (iOS) at prebuild time.
+// Expo config plugin. Currently a passthrough; native registration happens
+// via the Expo Module's OnCreate hook (see android/.../KaleidoscopeModule.kt
+// and ios/.../KaleidoscopeModule.swift), not through a plugin-time mod.
 //
-// Implementation lands in Commit 8 of bootstrap-and-ship-v0-1.md.
+// Substantive functionality would land here if we needed to:
+//   - bundle background images into the consumer app outside the AAR
+//     (withDangerousMod copying assets),
+//   - inject build properties (minSdk, JVM target) that we cannot express
+//     in our own android/build.gradle,
+//   - write Info.plist privacy strings (react-native-webrtc handles these
+//     today, so we do not duplicate).
 
 import type { ConfigPlugin } from '@expo/config-plugins';
 
-const withKaleidoscope: ConfigPlugin = (config) => {
-  // TODO(Commit 8):
-  //   - withMainApplication: import com.simiancraft.kaleidoscope.Registration;
-  //                           call Registration.registerAll() inside onCreate.
-  //   - withAppDelegate:     import header; call [KaleidoscopeRegistration registerAll]
-  //                           (or Swift bridge equivalent) inside
-  //                           application:didFinishLaunchingWithOptions:.
-  return config;
-};
+const withKaleidoscope: ConfigPlugin = (config) => config;
 
 export default withKaleidoscope;

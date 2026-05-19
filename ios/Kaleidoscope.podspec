@@ -17,11 +17,18 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
-  # react-native-webrtc is a peer dependency. Its pod is provided by the
-  # consumer's app and links automatically when present in the build graph.
-  s.weak_framework = 'WebRTC'
+  # react-native-webrtc is a peer dependency. Its WebRTC.framework is
+  # provided by the consumer's Podfile (auto-linked via the JS package) and
+  # links into the final app. We do not declare it here, because doing so
+  # would either pin a version (`s.dependency 'react-native-webrtc'`) or
+  # mis-use system-framework linkage (`s.weak_framework 'WebRTC'`, which is
+  # for OS-shipped frameworks). Swift `import WebRTC` from our sources
+  # requires the consumer to enable modular headers for react-native-webrtc
+  # in their Podfile, either via
+  #   pod 'react-native-webrtc', :modular_headers => true
+  # or a global `use_modular_headers!`. The library ships no bridging header.
 
-  s.frameworks = 'CoreImage', 'CoreVideo', 'Vision'
+  s.frameworks = 'CoreImage', 'CoreVideo', 'Metal', 'Vision'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',

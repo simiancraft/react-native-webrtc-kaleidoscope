@@ -1,9 +1,13 @@
 // Expo Module entry point for react-native-webrtc-kaleidoscope on Android.
-// Calls Registration.registerAll() at module init so frame-processor factories
-// land in ProcessorProvider before any track requests them.
+// Calls Registration.registerAll(context) at module init so frame-processor
+// factories land in ProcessorProvider before any track requests them.
 //
-// Implementation lands in Commit 4 (and finalized in Commit 8 wiring) of
-// bootstrap-and-ship-v0-1.md.
+// Also exposes setBlurSigma / setMaskHardness / resetEffectTuning JS
+// functions that mutate com.simiancraft.kaleidoscope.EffectTuning at
+// runtime; the per-frame processors read those values each frame, so
+// changes take effect without re-registering or rebuilding processors.
+// This side-channels the upstream react-native-webrtc registry, which only
+// accepts flat-string effect names; spec parameters flow through here.
 
 package com.simiancraft.kaleidoscope
 
@@ -15,7 +19,25 @@ class KaleidoscopeModule : Module() {
     Name("RnWebrtcKaleidoscope")
 
     OnCreate {
-      Registration.registerAll()
+      val ctx = appContext.reactContext
+        ?: error("Kaleidoscope: no react context at OnCreate; cannot register Android effects")
+      Registration.registerAll(ctx)
+    }
+
+    Function("setBlurSigma") { value: Float ->
+      EffectTuning.blurSigma = value
+    }
+
+    Function("setMaskHardness") { value: Float ->
+      EffectTuning.maskHardness = value
+    }
+
+    Function("setMaskThreshold") { value: Float ->
+      EffectTuning.maskThreshold = value
+    }
+
+    Function("resetEffectTuning") {
+      EffectTuning.reset()
     }
   }
 }

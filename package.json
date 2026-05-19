@@ -74,6 +74,9 @@
     "check": "bun run lint:fix && bun run typecheck && bun run typecheck:test && bun run typecheck:demo && bun run build && (cd demo && bun run build) && bun run test && bun run check:knip && bun run check:package",
     "check:package": "publint && attw --pack --profile esm-only --ignore-rules internal-resolution-error",
     "check:knip": "knip",
+    "refresh:android": "cd demo && npm install",
+    "prebuild:android": "bun run refresh:android && cd demo && bunx expo prebuild --platform android --no-install",
+    "check:android": "cd demo/android && ./gradlew :react-native-webrtc-kaleidoscope:compileDebugKotlin",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",
@@ -86,7 +89,16 @@
     "expo": ">=51.0.0",
     "react": ">=18.2.0",
     "react-native": ">=0.74.0",
-    "react-native-webrtc": ">=124.0.0"
+    "react-native-webrtc": ">=124.0.0",
+    "@livekit/react-native-webrtc": ">=144.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native-webrtc": {
+      "optional": true
+    },
+    "@livekit/react-native-webrtc": {
+      "optional": true
+    }
   },
   "optionalDependencies": {
     "@mediapipe/selfie_segmentation": "^0.1.1675465747"

@@ -1,41 +1,85 @@
-// Single demo screen. Renders local camera feed and toggles for mirror / blur.
+// Single demo screen. Local camera feed + a row of preset toggles. Each
+// preset maps to an EffectSpec passed to applyVideoEffects.
 
+import { Asset } from 'expo-asset';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { applyVideoEffects, type EffectName } from 'react-native-webrtc-kaleidoscope';
+import { applyVideoEffects, type EffectSpec } from 'react-native-webrtc-kaleidoscope';
 import { EffectToggles } from '../src/effect-toggles';
+import { EffectTuningPanel } from '../src/effect-tuning-panel';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-const EFFECT_ORDER: ReadonlyArray<EffectName> = ['mirror', 'blur'];
+// Web: load the bundled PNG via Metro's asset URL so the JS fetch+ImageBitmap
+// pipeline can read it. Native: pass the asset name; the library's native
+// side loads from its own bundled assets/backgrounds/{name}.png. The two
+// platforms have different image-loading conventions; the kaleidoscope spec
+// API treats `source` as opaque and each platform interprets it accordingly.
+const office1Source =
+  Platform.OS === 'web'
+    ? Asset.fromModule(require('../assets/backgrounds/office-1.png')).uri
+    : 'office-1';
+const office2Source =
+  Platform.OS === 'web'
+    ? Asset.fromModule(require('../assets/backgrounds/office-2.png')).uri
+    : 'office-2';
+
+type PresetId = 'mirror' | 'blur' | 'office-1' | 'office-2' | 'gpu-passthrough';
+
+const presetToSpec = (id: PresetId): EffectSpec => {
+  switch (id) {
+    case 'mirror':
+      return { name: 'mirror' };
+    case 'blur':
+      return { name: 'blur' };
+    case 'office-1':
+      return { name: 'background-image', source: office1Source };
+    case 'office-2':
+      return { name: 'background-image', source: office2Source };
+    case 'gpu-passthrough':
+      return { name: 'gpu-passthrough' };
+  }
+};
+
+const PRESETS: ReadonlyArray<{ id: PresetId; label: string }> = [
+  { id: 'mirror', label: 'Mirror' },
+  { id: 'blur', label: 'Blur' },
+  { id: 'office-1', label: 'Office 1' },
+  { id: 'office-2', label: 'Office 2' },
+  { id: 'gpu-passthrough', label: 'GPU passthrough' },
+];
+
+// Order matters because chained transforms compose left-to-right. Mirror
+// first (cheap) so the segmentation pass sees a flipped image (which it
+// handles fine).
+const APPLY_ORDER: ReadonlyArray<PresetId> = [
+  'mirror',
+  'blur',
+  'office-1',
+  'office-2',
+  'gpu-passthrough',
+];
 
 export default function DemoScreen() {
   const stream = useLoopbackStream();
-  const [active, setActive] = useState<ReadonlySet<EffectName>>(new Set());
+  const [active, setActive] = useState<ReadonlySet<PresetId>>(new Set());
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
-    // Cast across the rn-webrtc / DOM MediaStreamTrack split. Both surfaces
-    // expose kind, stop, and the runtime _setVideoEffects extension; the
-    // remaining DOM-only properties (contentHint, on{ended,mute,unmute})
-    // are unused in the demo.
     return (stream.stream.getVideoTracks()[0] ?? null) as unknown as MediaStreamTrack | null;
   }, [stream]);
 
-  // Re-derive the displayed track when the source or the active set changes.
   const displayedTrack = useMemo<MediaStreamTrack | null>(() => {
     if (!sourceTrack) return null;
-    const names = EFFECT_ORDER.filter((n) => active.has(n));
-    if (names.length === 0) return sourceTrack;
+    const specs = APPLY_ORDER.filter((id) => active.has(id)).map(presetToSpec);
     try {
-      return applyVideoEffects(sourceTrack, names);
+      return applyVideoEffects(sourceTrack, specs);
     } catch (err) {
       console.error(err);
       return sourceTrack;
     }
   }, [sourceTrack, active]);
 
-  // Stop generated tracks when they're swapped out so we don't leak pipelines.
   useEffect(() => {
     return () => {
       if (displayedTrack && displayedTrack !== sourceTrack) {
@@ -47,7 +91,7 @@ export default function DemoScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>react-native-webrtc-kaleidoscope</Text>
-      <Text style={styles.subtitle}>v0.1 demo · mirror + blur</Text>
+      <Text style={styles.subtitle}>v0.1 demo · mirror, blur, background image</Text>
 
       <VideoPreview track={displayedTrack} />
 
@@ -62,8 +106,15 @@ export default function DemoScreen() {
       )}
 
       <View style={styles.toggleRow}>
-        <EffectToggles active={active} onChange={setActive} disabled={!sourceTrack} />
+        <EffectToggles
+          presets={PRESETS}
+          active={active}
+          onChange={setActive}
+          disabled={!sourceTrack}
+        />
       </View>
+
+      <EffectTuningPanel />
     </View>
   );
 }

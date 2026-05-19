@@ -1,138 +1,253 @@
-// Web blur effect. Loads MediaPipe Selfie Segmentation from CDN on first call
-// (the npm copy ships a self-decorating IIFE that doesn't bundle the WASM/data
-// files, so a CDN script tag is the path of least resistance), runs the model
-// on each frame, and composites the original (person) over a blurred copy
-// (background) using the segmentation mask.
+// Web blur effect, WebGL2 pipeline.
 //
-// Composite pattern (mask-as-alpha): drawImage(mask) → source-in original →
-// destination-over blurred. See the MediaPipe docs for the canonical demo.
+// Same shape as the Android GLES 3.0 path: separable Gaussian blur into a
+// ping-pong FBO, then a composite pass that mixes blurred and original via
+// a segmentation mask. The mask still comes from MediaPipe Selfie
+// Segmentation loaded from CDN; there is no GPU-resident segmenter for
+// the web yet.
+//
+// Shader source lives in src/web/shaders.ts; MediaPipe loader in
+// src/web/segmenter.ts. This file owns only the per-effect GL state and
+// the per-frame transform.
 
 import type { FrameTransform } from '../insertable-streams';
+import { loadSegmenter, type SegmenterResults } from '../segmenter';
+import { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
+import { maskSmoothstepRange, tuning } from '../tuning';
 
-const CDN_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation';
-const BLUR_RADIUS_PX = 15;
-
-// Minimal type for the global SelfieSegmentation surface we use here.
-// (The npm package's index.d.ts declares the same shape but the runtime is
-// loaded via CDN, not imported, so we keep a local structural type.)
-type SegmenterResults = {
-  image: CanvasImageSource;
-  segmentationMask: CanvasImageSource;
-};
-type SegmenterOptions = { selfieMode?: boolean; modelSelection?: number };
-type Segmenter = {
-  initialize(): Promise<void>;
-  setOptions(opts: SegmenterOptions): void;
-  onResults(cb: (r: SegmenterResults) => void): void;
-  send(input: { image: CanvasImageSource }): Promise<void>;
-  close(): Promise<void>;
-};
-type SegmenterCtor = new (config: { locateFile: (file: string) => string }) => Segmenter;
-
-let segmenterPromise: Promise<Segmenter> | null = null;
-
-const loadScript = (src: string): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      if (existing.getAttribute('data-loaded') === 'true') {
-        resolve();
-        return;
-      }
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error(`failed to load ${src}`)), {
-        once: true,
-      });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = src;
-    script.crossOrigin = 'anonymous';
-    script.addEventListener('load', () => {
-      script.setAttribute('data-loaded', 'true');
-      resolve();
-    });
-    script.addEventListener('error', () => reject(new Error(`failed to load ${src}`)));
-    document.head.appendChild(script);
-  });
-
-const loadSegmenter = (): Promise<Segmenter> => {
-  if (segmenterPromise) return segmenterPromise;
-  segmenterPromise = (async () => {
-    await loadScript(`${CDN_BASE}/selfie_segmentation.js`);
-    const SegCtor = (globalThis as unknown as { SelfieSegmentation?: SegmenterCtor })
-      .SelfieSegmentation;
-    if (!SegCtor) {
-      throw new Error(
-        'kaleidoscope: MediaPipe Selfie Segmentation script loaded but SelfieSegmentation global is missing',
-      );
-    }
-    const seg = new SegCtor({ locateFile: (file) => `${CDN_BASE}/${file}` });
-    seg.setOptions({ modelSelection: 1, selfieMode: false });
-    await seg.initialize();
-    return seg;
-  })();
-  return segmenterPromise;
-};
-
-let inputCanvas: OffscreenCanvas | null = null;
-let inputCtx: OffscreenCanvasRenderingContext2D | null = null;
-let outputCanvas: OffscreenCanvas | null = null;
-let outputCtx: OffscreenCanvasRenderingContext2D | null = null;
-
-const ensureBuffers = (
-  width: number,
-  height: number,
-): { input: OffscreenCanvasRenderingContext2D; output: OffscreenCanvasRenderingContext2D } => {
-  if (!inputCanvas || inputCanvas.width !== width || inputCanvas.height !== height) {
-    inputCanvas = new OffscreenCanvas(width, height);
-    inputCtx = inputCanvas.getContext('2d');
-    outputCanvas = new OffscreenCanvas(width, height);
-    outputCtx = outputCanvas.getContext('2d');
-    if (!inputCtx || !outputCtx) {
-      throw new Error('kaleidoscope: OffscreenCanvas 2D context unavailable');
-    }
-  }
-  return {
-    input: inputCtx as OffscreenCanvasRenderingContext2D,
-    output: outputCtx as OffscreenCanvasRenderingContext2D,
+type GpuState = {
+  gl: WebGL2RenderingContext;
+  canvas: OffscreenCanvas;
+  width: number;
+  height: number;
+  programs: {
+    blur: WebGLProgram;
+    composite: WebGLProgram;
   };
+  textures: {
+    original: WebGLTexture;
+    mask: WebGLTexture;
+    blurA: WebGLTexture;
+    blurB: WebGLTexture;
+  };
+  fbos: {
+    blurA: WebGLFramebuffer;
+    blurB: WebGLFramebuffer;
+  };
+};
+
+let state: GpuState | null = null;
+
+// MediaPipe needs a 2D canvas as input; we stage the VideoFrame there each
+// frame, then point both MediaPipe and the GL upload at it.
+let inputCanvas2D: OffscreenCanvas | null = null;
+let inputCtx2D: OffscreenCanvasRenderingContext2D | null = null;
+
+const compileShader = (gl: WebGL2RenderingContext, type: number, source: string): WebGLShader => {
+  const shader = gl.createShader(type);
+  if (!shader) throw new Error('kaleidoscope: gl.createShader returned null');
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(shader) ?? '(no info log)';
+    gl.deleteShader(shader);
+    throw new Error(`kaleidoscope: shader compile failed: ${log}\n---\n${source}`);
+  }
+  return shader;
+};
+
+const linkProgram = (
+  gl: WebGL2RenderingContext,
+  vertSrc: string,
+  fragSrc: string,
+): WebGLProgram => {
+  const vs = compileShader(gl, gl.VERTEX_SHADER, vertSrc);
+  const fs = compileShader(gl, gl.FRAGMENT_SHADER, fragSrc);
+  const prog = gl.createProgram();
+  if (!prog) throw new Error('kaleidoscope: gl.createProgram returned null');
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  gl.detachShader(prog, vs);
+  gl.detachShader(prog, fs);
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    const log = gl.getProgramInfoLog(prog) ?? '(no info log)';
+    gl.deleteProgram(prog);
+    throw new Error(`kaleidoscope: program link failed: ${log}`);
+  }
+  return prog;
+};
+
+const createTexture = (gl: WebGL2RenderingContext, width: number, height: number): WebGLTexture => {
+  const tex = gl.createTexture();
+  if (!tex) throw new Error('kaleidoscope: gl.createTexture returned null');
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return tex;
+};
+
+const createFbo = (gl: WebGL2RenderingContext, tex: WebGLTexture): WebGLFramebuffer => {
+  const fbo = gl.createFramebuffer();
+  if (!fbo) throw new Error('kaleidoscope: gl.createFramebuffer returned null');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if (status !== gl.FRAMEBUFFER_COMPLETE) {
+    throw new Error(`kaleidoscope: FBO incomplete: 0x${status.toString(16)}`);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return fbo;
+};
+
+const ensureState = (width: number, height: number): GpuState => {
+  if (state && state.width === width && state.height === height) return state;
+
+  // Tear down previous state if dimensions changed.
+  if (state) {
+    const { gl } = state;
+    gl.deleteProgram(state.programs.blur);
+    gl.deleteProgram(state.programs.composite);
+    gl.deleteTexture(state.textures.original);
+    gl.deleteTexture(state.textures.mask);
+    gl.deleteTexture(state.textures.blurA);
+    gl.deleteTexture(state.textures.blurB);
+    gl.deleteFramebuffer(state.fbos.blurA);
+    gl.deleteFramebuffer(state.fbos.blurB);
+  }
+
+  const canvas = state?.canvas ?? new OffscreenCanvas(width, height);
+  canvas.width = width;
+  canvas.height = height;
+  const gl = canvas.getContext('webgl2');
+  if (!gl) {
+    throw new Error('kaleidoscope: WebGL2 not available; blur requires a WebGL2-capable browser');
+  }
+
+  const programs = {
+    blur: linkProgram(gl, PASSTHROUGH_VERT_SRC, BLUR_FRAG_SRC),
+    composite: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_FRAG_SRC),
+  };
+  const textures = {
+    original: createTexture(gl, width, height),
+    mask: createTexture(gl, width, height),
+    blurA: createTexture(gl, width, height),
+    blurB: createTexture(gl, width, height),
+  };
+  const fbos = {
+    blurA: createFbo(gl, textures.blurA),
+    blurB: createFbo(gl, textures.blurB),
+  };
+
+  state = { gl, canvas, width, height, programs, textures, fbos };
+  return state;
+};
+
+const ensureInputCanvas = (width: number, height: number): OffscreenCanvasRenderingContext2D => {
+  if (!inputCanvas2D || inputCanvas2D.width !== width || inputCanvas2D.height !== height) {
+    inputCanvas2D = new OffscreenCanvas(width, height);
+    inputCtx2D = inputCanvas2D.getContext('2d');
+    if (!inputCtx2D) throw new Error('kaleidoscope: OffscreenCanvas 2D context unavailable');
+  }
+  return inputCtx2D as OffscreenCanvasRenderingContext2D;
+};
+
+const uploadTexture = (
+  gl: WebGL2RenderingContext,
+  tex: WebGLTexture,
+  source: TexImageSource,
+  flipY: boolean,
+): void => {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flipY);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 };
 
 export const blur: FrameTransform = async (frame) => {
   const segmenter = await loadSegmenter();
   const w = frame.displayWidth;
   const h = frame.displayHeight;
-  const { input, output } = ensureBuffers(w, h);
 
-  // Stage the incoming VideoFrame on a canvas (MediaPipe accepts a canvas as input).
-  input.drawImage(frame, 0, 0, w, h);
+  // Stage on a 2D canvas so MediaPipe can ingest it.
+  const inputCtx = ensureInputCanvas(w, h);
+  inputCtx.drawImage(frame, 0, 0, w, h);
+  const inputCanvas = inputCanvas2D as unknown as CanvasImageSource;
 
-  // Bridge MediaPipe's onResults (callback) into a promise scoped to this frame.
+  // Get the mask from MediaPipe.
   const results: SegmenterResults = await new Promise((resolve) => {
     segmenter.onResults((r) => resolve(r));
-    void segmenter.send({ image: inputCanvas as unknown as HTMLCanvasElement });
+    void segmenter.send({ image: inputCanvas });
   });
 
-  // Composite: paint mask alpha → fill mask area with original → fill remainder with blur.
-  output.save();
-  output.clearRect(0, 0, w, h);
+  // Run the GPU pipeline.
+  const s = ensureState(w, h);
+  const { gl, canvas, programs, textures, fbos } = s;
 
-  output.globalCompositeOperation = 'source-over';
-  output.drawImage(results.segmentationMask, 0, 0, w, h);
+  // Upload original with flipY=true (DOM-coord source → GL v=1 = top).
+  // Upload mask with flipY=false: UNPACK_FLIP_Y_WEBGL is a no-op on
+  // MediaPipe's segmentationMask (also on ImageBitmaps in general), so the
+  // mask lands in its natural orientation. The composite shader compensates
+  // with the uMaskUvScale=(1,-1) / uMaskUvOffset=(0,1) V-flip uniforms set
+  // below; this also avoids the canvas-premultiplied-alpha problem that
+  // collapses soft confidence values and makes the mask binary.
+  uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
+  uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, false);
 
-  output.globalCompositeOperation = 'source-in';
-  output.drawImage(inputCanvas as unknown as CanvasImageSource, 0, 0, w, h);
+  gl.disable(gl.BLEND);
+  gl.disable(gl.DEPTH_TEST);
 
-  output.globalCompositeOperation = 'destination-over';
-  output.filter = `blur(${BLUR_RADIUS_PX}px)`;
-  output.drawImage(inputCanvas as unknown as CanvasImageSource, 0, 0, w, h);
-  output.filter = 'none';
+  // Pass 1: horizontal blur of original -> blurA
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurA);
+  gl.viewport(0, 0, w, h);
+  gl.useProgram(programs.blur);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, textures.original);
+  gl.uniform1i(gl.getUniformLocation(programs.blur, 'uTex'), 0);
+  gl.uniform2f(gl.getUniformLocation(programs.blur, 'uAxis'), 1 / w, 0);
+  gl.uniform1f(gl.getUniformLocation(programs.blur, 'uSigma'), tuning.blurSigma);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-  output.restore();
-  output.globalCompositeOperation = 'source-over';
+  // Pass 2: vertical blur of blurA -> blurB
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurB);
+  gl.viewport(0, 0, w, h);
+  gl.bindTexture(gl.TEXTURE_2D, textures.blurA);
+  gl.uniform2f(gl.getUniformLocation(programs.blur, 'uAxis'), 0, 1 / h);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-  const out = new VideoFrame(outputCanvas as unknown as CanvasImageSource, {
+  // Pass 3: composite original + blurB + mask -> default framebuffer (canvas)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, w, h);
+  gl.useProgram(programs.composite);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, textures.original);
+  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uOriginal'), 0);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, textures.blurB);
+  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uBackground'), 1);
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, textures.mask);
+  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uMask'), 2);
+  // Blurred background is full-size; identity UV transform.
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvScale'), 1, 1);
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvOffset'), 0, 0);
+  // Mask V-flip: direct upload with flipY=false leaves mask Y-inverted
+  // relative to the original. Encode the flip in the sampling uniforms so
+  // the shader stays byte-identical with Android (which uses identity here).
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvScale'), 1, -1);
+  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvOffset'), 0, 1);
+  const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
+  gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskLo'), maskLo);
+  gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskHi'), maskHi);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  // Wrap the canvas as an output VideoFrame.
+  const out = new VideoFrame(canvas as unknown as CanvasImageSource, {
     timestamp: frame.timestamp,
     ...(frame.duration != null ? { duration: frame.duration } : {}),
   });
