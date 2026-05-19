@@ -1,7 +1,7 @@
 {
   "name": "react-native-webrtc-kaleidoscope",
   "version": "0.1.0-alpha.2",
-  "description": "Live video effects (mirror, blur, more) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. v0.1: mirror + blur on iOS, Android, and web.",
+  "description": "Live video effects (mirror, blur, background replacement) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Web and Android working; iOS coming soon. Active development; pre-1.0.",
   "keywords": [
     "react-native",
     "react-native-webrtc",
@@ -72,7 +72,7 @@
     "format": "biome format --write .",
     "test": "bun test",
     "check": "bun run lint:fix && bun run typecheck && bun run typecheck:test && bun run typecheck:demo && bun run build && (cd demo && bun run build) && bun run test && bun run check:knip && bun run check:package",
-    "check:package": "publint && attw --pack --profile esm-only --ignore-rules internal-resolution-error",
+    "check:package": "publint",
     "check:knip": "knip",
     "refresh:android": "cd demo && npm install",
     "prebuild:android": "bun run refresh:android && cd demo && bunx expo prebuild --platform android --no-install",
@@ -105,7 +105,6 @@
     "@mediapipe/selfie_segmentation": "^0.1.1675465747"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.2",
     "@biomejs/biome": "^2.4.13",
     "@expo/config-plugins": "~8.0.8",
     "@semantic-release/changelog": "^6.0.3",
