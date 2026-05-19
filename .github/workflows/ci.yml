@@ -41,7 +41,7 @@ jobs:
       - name: Build (library + config plugin)
         run: bun run build
 
-      - name: Package hygiene (publint + attw)
+      - name: Package hygiene (publint)
         run: bun run check:package
 
       - name: Dead code (knip)
