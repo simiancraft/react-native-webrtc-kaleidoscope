@@ -60,18 +60,44 @@ plugin/
 
 ### Where a new GLSL shader goes
 
-Each platform has one file. Add the source string there; the effect that uses
-it imports the constant.
+Canonical GLSL lives in `shaders/*.frag` and `shaders/*.vert` at the repo
+root. That is the single source of truth across platforms. Today the
+Android Kotlin and web TypeScript inline string constants still exist
+and are kept manually in sync against the `.frag` / `.vert` source;
+extracting them to read directly from the files (Android via
+`assets/shaders/`, web via a Metro transformer) is a follow-up.
 
-- Web: `src/web/shaders.ts`. Exports `*_SRC` constants.
-- Android: `android/.../gpu/Shaders.kt`. Exports `const val` strings on the `Shaders` object.
-- iOS: no GLSL; iOS uses CoreImage filter chains or Vision requests. The equivalent of "where do I add a new shader" is "where do I add a new CIFilter / VNRequest", which is inside the effect file.
+For iOS, the `.frag` / `.vert` source goes through a transpiler:
 
-The composite shader (`COMPOSITE_FRAG` on Android, `COMPOSITE_FRAG_SRC` on
-web) is kept byte-identical between the two platforms. Per-effect shaders
-(`BLUR_FRAG`, future Simianlights / Nebula) currently still differ
-implementation-by-implementation; lifting them to a shared `.frag` source
-with a transpiler pipeline is the next architectural step.
+```
+GLSL ES 3.00  ->  SPIR-V         ->  MSL (Metal Shading Language)
+              glslangValidator         spirv-cross --msl
+```
+
+The script `scripts/transpile-shaders.ts` runs the chain, validates each
+step (`spirv-val` between stages), and writes `.metal` files into
+`ios/KaleidoscopeModule/shaders/`. The committed `.metal` files are what
+the iOS build consumes; the EAS macOS host does not need the transpiler
+binaries installed.
+
+Tool install:
+- Debian/Ubuntu/WSL: `sudo apt install -y glslang-tools spirv-tools spirv-cross`
+- macOS: `brew install glslang spirv-tools spirv-cross`
+
+Run after editing any `.frag` / `.vert`:
+- `bun run transpile:shaders`
+
+Per-platform locations of the GLSL source strings (still hand-maintained
+mirrors of the canonical `shaders/*` files):
+- Web: `src/web/shaders.ts` (`*_SRC` constants)
+- Android: `android/.../gpu/Shaders.kt` (`const val` strings on `Shaders`)
+- iOS: `ios/KaleidoscopeModule/shaders/*.metal` (auto-generated; do not edit)
+
+The composite shader (`shaders/composite.frag`) is the canonical mix-with-
+mask shader; every effect category (blur, background-image, future
+procedural backgrounds like Simianlights and Nebula) uses it unchanged.
+Per-effect shaders (currently `shaders/blur.frag`) live as separate files
+under `shaders/`.
 
 ### Texture-orientation convention
 

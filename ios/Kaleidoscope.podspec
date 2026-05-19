@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.platforms      = { :ios => '15.0' } # Apple Vision person segmentation requires iOS 15+
   s.swift_version  = '5.9'
   s.source         = { :git => 'https://github.com/simiancraft/react-native-webrtc-kaleidoscope.git', :tag => "v#{s.version}" }
-  s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift}'
+  s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift,metal}'
 
   s.dependency 'ExpoModulesCore'
 

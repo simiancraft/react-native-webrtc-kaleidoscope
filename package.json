@@ -77,6 +77,7 @@
     "refresh:android": "cd demo && npm install",
     "prebuild:android": "bun run refresh:android && cd demo && bunx expo prebuild --platform android --no-install",
     "check:android": "cd demo/android && ./gradlew :react-native-webrtc-kaleidoscope:compileDebugKotlin",
+    "transpile:shaders": "bun run scripts/transpile-shaders.ts",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",

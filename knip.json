@@ -2,12 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["plugin/src/withKaleidoscope.ts"],
   "ignore": ["demo/**"],
-  "ignoreDependencies": [
-    "@semantic-release/.*",
-    "@types/react",
-    "expo-modules-core",
-    "react",
-    "react-native",
-    "react-native-webrtc"
-  ]
+  "ignoreDependencies": ["@semantic-release/.*", "react-native-webrtc"],
+  "ignoreBinaries": ["which", "glslangValidator", "spirv-val", "spirv-opt", "spirv-cross"]
 }
