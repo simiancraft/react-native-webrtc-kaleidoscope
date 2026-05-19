@@ -1,6 +1,6 @@
 {
   "name": "react-native-webrtc-kaleidoscope",
-  "version": "0.1.0-alpha.2",
+  "version": "1.0.0",
   "description": "Live video effects (mirror, blur, background replacement) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Web and Android working; iOS coming soon. Active development; pre-1.0.",
   "keywords": [
     "react-native",
