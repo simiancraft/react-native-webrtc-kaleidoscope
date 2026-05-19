@@ -39,7 +39,9 @@ async function whichOrFail(): Promise<void> {
   console.error(`Missing required tools: ${missing.join(', ')}`);
   console.error('');
   console.error('Install via:');
-  console.error('  sudo apt install -y glslang-tools spirv-tools spirv-cross   # Debian/Ubuntu/WSL');
+  console.error(
+    '  sudo apt install -y glslang-tools spirv-tools spirv-cross   # Debian/Ubuntu/WSL',
+  );
   console.error('  brew install glslang spirv-tools spirv-cross                # macOS');
   process.exit(2);
 }
