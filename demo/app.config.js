@@ -48,9 +48,14 @@ const config = {
         },
       },
     ],
-    // Resolves via demo/node_modules/react-native-webrtc-kaleidoscope -> ../..
-    // to the repo root app.plugin.js, which performs the iOS Podfile patch.
-    'react-native-webrtc-kaleidoscope',
+    // Reference the plugin by its explicit app.plugin.js subpath rather than the
+    // bare package name. Expo's plugin resolver resolves the bare name through
+    // the package "." export (-> dist/index.js), which does not exist in this
+    // monorepo demo (dist is a gitignored build artifact, and EAS never builds
+    // the library; it consumes it via file:..). The subpath resolves through the
+    // "./app.plugin.js" export, which needs no build, and the resolver treats a
+    // one-slash module id as a direct file reference.
+    'react-native-webrtc-kaleidoscope/app.plugin.js',
   ],
   extra: {
     eas: {

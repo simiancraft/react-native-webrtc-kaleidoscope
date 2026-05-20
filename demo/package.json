@@ -10,8 +10,7 @@
     "android": "expo run:android",
     "web": "expo start --web",
     "build": "expo export -p web",
-    "check:expo": "npx expo install --check && npx expo-doctor --verbose",
-    "eas-build-post-install": "echo '===KSCOPE PROBE START==='; EXPO_DEBUG=1 node node_modules/expo/bin/cli config --json 1>/tmp/kscope.out 2>/tmp/kscope.err; echo \"KSCOPE_PROBE_EXIT=$?\"; echo '---KSCOPE STDERR---'; cat /tmp/kscope.err; echo '---KSCOPE STDOUT HEAD---'; head -c 400 /tmp/kscope.out; echo; echo '===KSCOPE PROBE END==='"
+    "check:expo": "npx expo install --check && npx expo-doctor --verbose"
   },
   "dependencies": {
     "@react-native-community/slider": "4.5.2",
