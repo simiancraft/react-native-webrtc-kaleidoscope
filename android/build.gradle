@@ -4,7 +4,9 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 group = 'com.simiancraft.kaleidoscope'
-version = '0.1.0-alpha.1'
+// Single source of truth for the version is package.json (the iOS podspec reads
+// it the same way), so the three platforms cannot drift apart.
+version = new groovy.json.JsonSlurper().parseText(file("../package.json").text).version
 
 def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
 if (expoModulesCorePlugin.exists()) {

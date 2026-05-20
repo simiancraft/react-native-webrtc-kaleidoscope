@@ -1,5 +1,8 @@
-// Web entry point. Metro's `.web.ts` resolution picks this up over `index.ts`
-// when an Expo app builds for the web target.
+// Web entry point (source). This builds to `dist/index.web.js`, which web
+// bundlers resolve through the package's `browser` export condition. With an
+// `exports` map present, that condition supersedes platform-extension
+// resolution; the `.web.ts` suffix here is just our source convention, not what
+// selects this file at consume time.
 //
 // applyVideoEffects(track, effects) wires an Insertable-Streams pipeline that
 // chains each effect's transform and returns a new MediaStreamTrack carrying

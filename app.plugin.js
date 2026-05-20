@@ -34,10 +34,12 @@
 // the returned value to be the config object (it asserts `.mods` exists).
 //
 // This file is CommonJS, and the package is deliberately `type: commonjs`:
-// under Node 18 (used by EAS Build workers) `require()` of an ESM file throws
-// ERR_REQUIRE_ESM, so the entry, and therefore the package default, stays
-// CommonJS. The ESM-authored library source lives in `src/` and is consumed by
-// Metro via the `react-native` export condition, never loaded by Node.
+// Expo's plugin resolver loads app.plugin.js with `require()`, and a CommonJS
+// entry sidesteps ESM-interop variance across the Node versions EAS workers run
+// (older SDK images run Node 18, which cannot `require()` an ESM module at all;
+// newer images run Node 20/22). The ESM-authored library source lives in `src/`
+// and is consumed by Metro via the `react-native` export condition, never
+// loaded by Node.
 
 const fs = require('node:fs');
 const path = require('node:path');
