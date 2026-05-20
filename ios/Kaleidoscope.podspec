@@ -13,13 +13,28 @@ Pod::Spec.new do |s|
   s.platforms      = { :ios => '15.0' } # Apple Vision person segmentation requires iOS 15+
   s.swift_version  = '5.9'
   s.source         = { :git => 'https://github.com/simiancraft/react-native-webrtc-kaleidoscope.git', :tag => "v#{s.version}" }
-  s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift,metal}'
+  # Note: .metal is intentionally NOT globbed into source_files. All three
+  # transpiled shaders export the entry point `main0` (spirv-cross emits that
+  # for every stage); compiling them into the default metallib would collide
+  # on that duplicate symbol and fail the build. They ship as bundle resources
+  # instead and are compiled per-file at runtime via makeLibrary(source:).
+  s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift}'
 
   # Bundled background-image presets (mirrors android/src/main/assets/
-  # backgrounds/). Loaded at runtime via the Kaleidoscope.bundle; the
-  # BackgroundImageProcessor resolves "office-1" -> office-1.png inside it.
+  # backgrounds/) plus the transpiled Metal shader SOURCE. Both are loaded at
+  # runtime from the Kaleidoscope.bundle:
+  #   - BackgroundImageProcessor resolves "office-1" -> office-1.png.
+  #   - ShaderLibrary reads passthrough/blur/composite.metal as TEXT and
+  #     compiles each into its own MTLLibrary via makeLibrary(source:). This
+  #     is required because all three shaders export the entry point `main0`
+  #     (spirv-cross emits that for every stage), so they cannot share a
+  #     single metallib; per-file runtime compilation keeps each `main0` in
+  #     its own namespace and survives transpiler regeneration.
   s.resource_bundles = {
-    'Kaleidoscope' => ['KaleidoscopeModule/resources/**/*']
+    'Kaleidoscope' => [
+      'KaleidoscopeModule/resources/**/*',
+      'KaleidoscopeModule/shaders/*.metal',
+    ]
   }
 
   s.dependency 'ExpoModulesCore'

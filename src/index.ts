@@ -92,10 +92,11 @@ interface WebRTCTrackExtensions {
 // `'background-image-office-1'` because the rn-webrtc native registry is
 // keyed by flat strings (parameterization via uniforms is a follow-up).
 //
-// iOS native processors are not yet ported; ios/.../Registration.swift is a
-// no-op until they land. Until then, the iOS allowlist is empty so consumers
-// get a console.warn (instead of an empty-processors-list crash) when an
-// effect is requested on iOS.
+// iOS registers the same effects via ios/.../Registration.swift, minus the
+// Android-only "gpu-passthrough" architecture-proof hook. Each platform's
+// allowlist matches exactly what its native Registration installs; anything
+// else is filtered out before reaching upstream so a name with no registered
+// processor never triggers the empty-processors-list crash.
 const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
   'mirror',
   'blur',
@@ -103,9 +104,19 @@ const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];
 
-const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(
-  Platform.OS === 'android' ? ANDROID_REGISTERED_EFFECTS : [],
-);
+const IOS_REGISTERED_EFFECTS: readonly string[] = [
+  'mirror',
+  'blur',
+  ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
+];
+
+const registeredForPlatform = (): readonly string[] => {
+  if (Platform.OS === 'android') return ANDROID_REGISTERED_EFFECTS;
+  if (Platform.OS === 'ios') return IOS_REGISTERED_EFFECTS;
+  return [];
+};
+
+const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlatform());
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // background-image uses one registered factory per source preset.
