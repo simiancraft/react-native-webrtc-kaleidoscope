@@ -1,6 +1,12 @@
-import type { ExpoConfig } from 'expo/config';
+// Plain CommonJS on purpose. EAS Build reads the app config with a Node-based
+// reader (its own bundled @expo/config on the build worker) that does not
+// transform TypeScript or ESM the way the local bun-driven CLI does; an
+// app.config.ts with `import` syntax fails there with "Cannot use import
+// statement outside a module". A CJS module.exports config needs no transform
+// and is read identically by every tool, local or on EAS.
 
-const config: ExpoConfig = {
+/** @type {import('expo/config').ExpoConfig} */
+const config = {
   name: 'Kaleidoscope Demo',
   slug: 'react-native-webrtc-kaleidoscope-demo',
   owner: 'simiancraft',
@@ -43,7 +49,7 @@ const config: ExpoConfig = {
       },
     ],
     // Resolves via demo/node_modules/react-native-webrtc-kaleidoscope -> ../..
-    // to the repo root app.plugin.js, which loads plugin/build/withKaleidoscope.js.
+    // to the repo root app.plugin.js, which performs the iOS Podfile patch.
     'react-native-webrtc-kaleidoscope',
   ],
   extra: {
@@ -53,4 +59,4 @@ const config: ExpoConfig = {
   },
 };
 
-export default config;
+module.exports = config;

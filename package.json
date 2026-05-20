@@ -26,7 +26,7 @@
   "bugs": {
     "url": "https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues"
   },
-  "type": "module",
+  "type": "commonjs",
   "sideEffects": false,
   "main": "./src/index.ts",
   "module": "./dist/index.js",
@@ -42,7 +42,7 @@
     },
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
-      "import": "./app.plugin.js",
+      "require": "./app.plugin.js",
       "default": "./app.plugin.js"
     },
     "./expo-module.config.json": "./expo-module.config.json",

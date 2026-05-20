@@ -18,18 +18,25 @@
 // that ship non-modular umbrella headers. A single per-pod opt-in is the narrow,
 // supported fix that react-native-webrtc's own docs recommend.
 //
-// This file is plain JavaScript on purpose: Expo loads it directly at prebuild
-// time, so it must not depend on a compile step or any gitignored build output.
+// This file is CommonJS on purpose, and the package is deliberately
+// `type: commonjs`, not `type: module`. Expo's plugin resolver hardcodes the
+// entry filename to `app.plugin.js` (see @expo/config-plugins plugin-resolver)
+// and loads it with `require()`. Under the Node 18 used by EAS Build workers,
+// `require()` of an ESM file throws "Cannot use import statement outside a
+// module" (ERR_REQUIRE_ESM). A `type: module` package would make this `.js`
+// file ESM and break the load on EAS, so the entry, and therefore the package
+// default, stays CommonJS. The ESM-authored library source lives in `src/` and
+// is consumed by Metro via the `react-native` export condition, never loaded by
+// Node, so the package `type` does not affect it. We must NOT plant a
+// `dist/package.json` to mark the build output ESM: Expo resolves the plugin by
+// walking `find-up` from the resolved package main (`dist/index.js`), and a
+// `dist/package.json` would become the nearest package root, sending the
+// `app.plugin.js` lookup into `dist/` where it does not exist and silently
+// disabling the plugin.
 
-import fs from 'node:fs';
-import path from 'node:path';
-// @expo/config-plugins is published as CommonJS. Under our ESM package (Node16),
-// destructuring named bindings off it at import time is not statically
-// resolvable, so we import the module namespace and pull `withDangerousMod` off
-// it at runtime.
-import configPlugins from '@expo/config-plugins';
-
-const { withDangerousMod } = configPlugins;
+const fs = require('node:fs');
+const path = require('node:path');
+const { withDangerousMod } = require('@expo/config-plugins');
 
 // A sentinel comment lets us find our own injection on re-prebuilds and stay
 // idempotent regardless of how Expo regenerates the surrounding Podfile.
@@ -82,4 +89,4 @@ const withKaleidoscope = (config) => {
   ]);
 };
 
-export default withKaleidoscope;
+module.exports = withKaleidoscope;
