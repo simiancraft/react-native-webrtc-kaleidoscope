@@ -15,6 +15,13 @@ Pod::Spec.new do |s|
   s.source         = { :git => 'https://github.com/simiancraft/react-native-webrtc-kaleidoscope.git', :tag => "v#{s.version}" }
   s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift,metal}'
 
+  # Bundled background-image presets (mirrors android/src/main/assets/
+  # backgrounds/). Loaded at runtime via the Kaleidoscope.bundle; the
+  # BackgroundImageProcessor resolves "office-1" -> office-1.png inside it.
+  s.resource_bundles = {
+    'Kaleidoscope' => ['KaleidoscopeModule/resources/**/*']
+  }
+
   s.dependency 'ExpoModulesCore'
 
   # react-native-webrtc is a peer dependency. Its WebRTC.framework is
@@ -28,7 +35,7 @@ Pod::Spec.new do |s|
   #   pod 'react-native-webrtc', :modular_headers => true
   # or a global `use_modular_headers!`. The library ships no bridging header.
 
-  s.frameworks = 'CoreImage', 'CoreVideo', 'Metal', 'Vision'
+  s.frameworks = 'CoreImage', 'CoreVideo', 'Metal', 'MetalKit', 'Vision'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
