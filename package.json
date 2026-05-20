@@ -40,6 +40,12 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./livekit": {
+      "types": "./dist/livekit.d.ts",
+      "browser": "./dist/livekit.js",
+      "import": "./dist/livekit.js",
+      "default": "./dist/livekit.js"
+    },
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
       "require": "./app.plugin.js",
@@ -91,13 +97,17 @@
     "react": ">=18.2.0",
     "react-native": ">=0.74.0",
     "react-native-webrtc": ">=124.0.0",
-    "@livekit/react-native-webrtc": ">=144.0.0"
+    "@livekit/react-native-webrtc": ">=144.0.0",
+    "livekit-client": ">=2.0.0"
   },
   "peerDependenciesMeta": {
     "react-native-webrtc": {
       "optional": true
     },
     "@livekit/react-native-webrtc": {
+      "optional": true
+    },
+    "livekit-client": {
       "optional": true
     }
   },
@@ -116,6 +126,7 @@
     "expo": "^51.0.0",
     "expo-modules-core": "^1.12.0",
     "knip": "^6.5.0",
+    "livekit-client": "^2.0.0",
     "publint": "^0.3.18",
     "react": "18.2.0",
     "react-native": "0.74.5",

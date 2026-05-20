@@ -9,12 +9,16 @@
 // the transformed frames. Pass the returned track to a `<video>` element or
 // to `RTCRtpSender.replaceTrack(...)`.
 
-import { type ApplyVideoEffects, type EffectSpec, toEffectSpec } from './types';
+import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
 import { mirror } from './web/effects/mirror';
 import { passthrough } from './web/effects/passthrough';
-import { applyEffectToTrack, type FrameTransform } from './web/insertable-streams';
+import {
+  applyEffectToTrack,
+  type DisposablePipeline,
+  type FrameTransform,
+} from './web/insertable-streams';
 import { tuning } from './web/tuning';
 
 /**
@@ -78,19 +82,44 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
   }
 };
 
-export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
+/**
+ * Like `applyVideoEffects`, but also returns a `dispose()` that tears down every
+ * Insertable-Streams stage (stops each generator and aborts each pipe). The
+ * LiveKit adapter (`react-native-webrtc-kaleidoscope/livekit`) uses this so a
+ * camera flip (restart) or unpublish (destroy) does not leak generators. The
+ * page-shared segmenter and WebGL state are module singletons reused across
+ * stages, so they are intentionally NOT torn down here.
+ */
+export const applyVideoEffectsDisposable = (
+  track: MediaStreamTrack,
+  effects: ReadonlyArray<EffectInput>,
+): DisposablePipeline => {
   if (!track || track.kind !== 'video') {
     throw new Error('kaleidoscope: applyVideoEffects requires a video MediaStreamTrack');
   }
   if (effects.length === 0) {
-    return track;
+    return { track, dispose: () => {} };
   }
 
   let current = track;
+  const disposers: Array<() => void> = [];
   for (const input of effects) {
     const spec = toEffectSpec(input);
     const transform = specToTransform(spec);
-    current = applyEffectToTrack(current, transform);
+    const stage = applyEffectToTrack(current, transform);
+    current = stage.track;
+    disposers.push(stage.dispose);
   }
-  return current;
+  return {
+    track: current,
+    dispose: () => {
+      // Tear down in reverse so downstream stages stop before their sources.
+      for (const dispose of disposers.reverse()) {
+        dispose();
+      }
+    },
+  };
 };
+
+export const applyVideoEffects: ApplyVideoEffects = (track, effects) =>
+  applyVideoEffectsDisposable(track, effects).track;
