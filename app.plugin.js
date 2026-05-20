@@ -11,32 +11,36 @@
 // default in a React Native / Expo app, so a default prebuild produces Swift
 // that fails to compile with "no such module 'react_native_webrtc'".
 //
-// We fix this at prebuild time with a withDangerousMod that patches the generated
-// iOS Podfile to declare `pod 'react-native-webrtc', :modular_headers => true`.
-// We deliberately do NOT emit a global `use_modular_headers!`: that flips every
-// pod to build as a Clang module, which regularly breaks React Native core pods
-// that ship non-modular umbrella headers. A single per-pod opt-in is the narrow,
-// supported fix that react-native-webrtc's own docs recommend.
+// We fix this at prebuild time by registering an iOS "dangerous" mod that
+// patches the generated Podfile to declare
+// `pod 'react-native-webrtc', :modular_headers => true`. We deliberately do NOT
+// emit a global `use_modular_headers!`: that flips every pod to build as a
+// Clang module, which regularly breaks React Native core pods that ship
+// non-modular umbrella headers. A single per-pod opt-in is the narrow, supported
+// fix that react-native-webrtc's own docs recommend.
 //
-// This file is CommonJS on purpose, and the package is deliberately
-// `type: commonjs`, not `type: module`. Expo's plugin resolver hardcodes the
-// entry filename to `app.plugin.js` (see @expo/config-plugins plugin-resolver)
-// and loads it with `require()`. Under the Node 18 used by EAS Build workers,
-// `require()` of an ESM file throws "Cannot use import statement outside a
-// module" (ERR_REQUIRE_ESM). A `type: module` package would make this `.js`
-// file ESM and break the load on EAS, so the entry, and therefore the package
-// default, stays CommonJS. The ESM-authored library source lives in `src/` and
-// is consumed by Metro via the `react-native` export condition, never loaded by
-// Node, so the package `type` does not affect it. We must NOT plant a
-// `dist/package.json` to mark the build output ESM: Expo resolves the plugin by
-// walking `find-up` from the resolved package main (`dist/index.js`), and a
-// `dist/package.json` would become the nearest package root, sending the
-// `app.plugin.js` lookup into `dist/` where it does not exist and silently
-// disabling the plugin.
+// WHY this file requires nothing but Node builtins (no @expo/config-plugins):
+// Expo's plugin resolver hardcodes the entry filename to `app.plugin.js` and
+// loads it with `require()` from the file's REAL path. In the demo we consume
+// this library via `file:..`, so on EAS the realpath is the repo root, where
+// there is no node_modules (EAS only installs the demo subdirectory). A
+// top-level `require('@expo/config-plugins')` therefore throws
+// "Cannot find module '@expo/config-plugins'" on the EAS worker. Registering
+// the dangerous mod by mutating `config.mods.ios.dangerous` directly removes
+// that dependency, so the plugin loads identically from the symlinked demo, a
+// normally-installed external consumer, and the EAS worker. The mod contract is
+// the one @expo/config-plugins' own dangerous base provider calls: it invokes
+// our mod as `nextMod({ ...config, modResults, modRequest })` and only requires
+// the returned value to be the config object (it asserts `.mods` exists).
+//
+// This file is CommonJS, and the package is deliberately `type: commonjs`:
+// under Node 18 (used by EAS Build workers) `require()` of an ESM file throws
+// ERR_REQUIRE_ESM, so the entry, and therefore the package default, stays
+// CommonJS. The ESM-authored library source lives in `src/` and is consumed by
+// Metro via the `react-native` export condition, never loaded by Node.
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { withDangerousMod } = require('@expo/config-plugins');
 
 // A sentinel comment lets us find our own injection on re-prebuilds and stay
 // idempotent regardless of how Expo regenerates the surrounding Podfile.
@@ -68,10 +72,22 @@ function patchPodfile(contents) {
 }
 
 const withKaleidoscope = (config) => {
-  return withDangerousMod(config, [
-    'ios',
-    (modConfig) => {
-      const podfilePath = path.join(modConfig.modRequest.platformProjectRoot, 'Podfile');
+  if (!config.mods) {
+    config.mods = {};
+  }
+  if (!config.mods.ios) {
+    config.mods.ios = {};
+  }
+
+  // Chain any previously registered iOS dangerous mod so we cooperate with
+  // other plugins instead of clobbering them.
+  const previousMod = config.mods.ios.dangerous;
+
+  config.mods.ios.dangerous = async (modConfig) => {
+    const result = typeof previousMod === 'function' ? await previousMod(modConfig) : modConfig;
+    const platformProjectRoot = result.modRequest && result.modRequest.platformProjectRoot;
+    if (platformProjectRoot) {
+      const podfilePath = path.join(platformProjectRoot, 'Podfile');
       try {
         const original = fs.readFileSync(podfilePath, 'utf8');
         const patched = patchPodfile(original);
@@ -84,9 +100,11 @@ const withKaleidoscope = (config) => {
           `[react-native-webrtc-kaleidoscope] Could not patch the Podfile to build react-native-webrtc with modular headers; add "pod 'react-native-webrtc', :modular_headers => true" inside your app target manually. ${String(error)}`,
         );
       }
-      return modConfig;
-    },
-  ]);
+    }
+    return result;
+  };
+
+  return config;
 };
 
 module.exports = withKaleidoscope;
