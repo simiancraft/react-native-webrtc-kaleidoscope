@@ -10,15 +10,22 @@
 // thread-safe (see each processor's os_unfair_lock).
 //
 // ProcessorProvider and the VideoFrameProcessorDelegate protocol come from
-// react-native-webrtc's Obj-C sources. They are imported as a Clang module:
-// the consumer enables `pod 'react-native-webrtc', :modular_headers => true`
-// (documented in Kaleidoscope.podspec), which makes the pod's public headers
-// importable as the `react_native_webrtc` module. WebRTC types (RTCVideoFrame
-// etc.) come from WebRTC.framework via `import WebRTC`.
+// react-native-webrtc's Obj-C sources, imported as a Clang module (the consumer
+// enables `:modular_headers => true`; see Kaleidoscope.podspec and app.plugin.js).
+// Two forks ship the same Obj-C class and protocol names under different module
+// names, mirroring how android/build.gradle probes both Gradle projects:
+//   - react-native-webrtc/react-native-webrtc -> module `react_native_webrtc`
+//   - livekit/react-native-webrtc (@livekit/react-native) -> `livekit_react_native_webrtc`
+// We import whichever is present; the symbols are identical either way. WebRTC
+// types (RTCVideoFrame etc.) come from WebRTC.framework via `import WebRTC`.
 
 import Foundation
 import WebRTC
+#if canImport(livekit_react_native_webrtc)
+import livekit_react_native_webrtc
+#elseif canImport(react_native_webrtc)
 import react_native_webrtc
+#endif
 
 public enum Registration {
   public static func registerAll() {

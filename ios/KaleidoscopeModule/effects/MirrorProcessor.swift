@@ -18,7 +18,13 @@ import CoreImage
 import CoreVideo
 import os.log
 import WebRTC
+// Import whichever react-native-webrtc fork is present; both expose the same
+// VideoFrameProcessorDelegate / ProcessorProvider symbols. See Registration.swift.
+#if canImport(livekit_react_native_webrtc)
+import livekit_react_native_webrtc
+#elseif canImport(react_native_webrtc)
 import react_native_webrtc
+#endif
 
 @objc(KaleidoscopeMirrorProcessor)
 public final class MirrorProcessor: NSObject, VideoFrameProcessorDelegate {
