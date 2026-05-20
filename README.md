@@ -14,7 +14,7 @@
 
 ## Status
 
-**Active development; not yet production-ready.** Published to npm as `0.1.0-alpha.x` for name reservation and integration testing. The npm presentation, marketing, and release-quality polish will come in a later pass; right now the README's job is to tell the truth about what works.
+**Active development; not yet production-ready.** Published to npm at `1.0.0` (semantic-release cut the first tag at 1.0.0; the number reflects release automation, not a maturity claim). The npm presentation, marketing, and release-quality polish will come in a later pass; right now the README's job is to tell the truth about what works.
 
 ### What works today
 
@@ -27,12 +27,12 @@
 |---|---|---|---|---|
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
 | Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MLKit Selfie Segmentation |
-| iOS (≥ 15) | — | — | — | Coming soon; transpilation pipeline in place, host implementation pending |
+| iOS (≥ 15) | — | — | — | Metal + Vision host implemented; not yet verified on device (first signed build pending) |
 | Safari / Firefox | — | — | — | No Insertable Streams; `applyVideoEffects` throws a typed error |
 
 ### Coming soon
 
-- **iOS support**, via the canonical GLSL transpiled to Metal Shading Language (`glslangValidator` → `spirv-cross --msl`). The pipeline is in the repo at `scripts/transpile-shaders.ts` and the GLSL canonical source lives in `shaders/`. The Swift host code that loads the metallib and runs the Metal pipeline is the next chunk of work.
+- **iOS verification.** The Swift host (Metal renderer, Vision person segmentation, the three frame processors) is implemented in `ios/`, and the canonical GLSL is transpiled to Metal Shading Language (`glslangValidator` → `spirv-cross --msl`; see `scripts/transpile-shaders.ts`). What remains is the first signed on-device build to confirm it runs; until then iOS stays marked unverified above.
 - **Procedural backgrounds** (animated shaders behind the person, not just still images). Same composite path; the only new piece is each effect's background producer.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
@@ -53,6 +53,24 @@ bun add @livekit/react-native @livekit/react-native-webrtc react-native-webrtc-k
 ```
 
 Pick one fork. Installing both upstream `react-native-webrtc` and `@livekit/react-native-webrtc` in the same app will cause native class collisions; that's the consumer's problem to resolve.
+
+**Native wiring.** `@livekit/react-native` hands you a `LocalVideoTrack`; apply effects to its underlying `MediaStreamTrack`:
+
+```ts
+import { applyVideoEffects } from 'react-native-webrtc-kaleidoscope';
+
+applyVideoEffects(localCameraTrack.mediaStreamTrack, ['blur']);
+```
+
+**Web wiring.** On web, LiveKit owns the `RTCRtpSender`, so you cannot swap the track yourself; go through LiveKit's processor API instead. The opt-in `/livekit` subpath ships a ready-made processor (it needs `livekit-client`, which a LiveKit app already has):
+
+```ts
+import { KaleidoscopeProcessor } from 'react-native-webrtc-kaleidoscope/livekit';
+
+await localVideoTrack.setProcessor(new KaleidoscopeProcessor(['blur']), true);
+```
+
+The second argument shows the processed stream in your local preview. The processor tears down its Insertable-Streams pipeline on camera flip (`restart`) and unpublish (`destroy`), so repeated flips do not leak generators.
 
 ## Configure
 
@@ -110,6 +128,16 @@ Effects chain in array order.
 
 The library ships neutral defaults (8, 0.5, 0.5) and consumers tune at runtime via the API above; whether to ship the dialed-in values as platform-specific defaults is an open question waiting on iOS data.
 
+## Web and native differences
+
+The API surface is the same across platforms, but the runtimes differ in ways worth knowing before you wire effects in:
+
+- **Effect parameters.** Web reads tuning from the global setters (`setBlurSigma`, `setMaskHardness`, `setMaskThreshold`) on the next frame. Native currently ignores per-call `EffectSpec` parameters such as `{ name: 'blur', sigma: 12 }`; tuning is global through the same setters. Per-call uniforms through the native registry are a follow-up.
+- **Background source.** `background-image.source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
+- **Background assets on web.** The npm `files` allowlist excludes `backgrounds/`, so the bundled office PNGs ship inside the Android AAR and the iOS resource bundle, not the JS tarball. Web consumers must supply their own image URL: `applyVideoEffects(track, [{ name: 'background-image', source: 'https://example.com/bg.jpg' }])`.
+- **Segmentation model on web.** The web blur and background-image effects load MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
+- **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers; Safari and Firefox throw a typed capability error.
+
 ## What this isn't
 
 - **Not a fork of `react-native-webrtc`.** A thin layer over its undocumented `_setVideoEffects` registry on native, and `MediaStreamTrackProcessor` on web. Install alongside `react-native-webrtc`.
@@ -124,7 +152,7 @@ The codebase lives across four surfaces:
 - `src/` — JS facade and shared types. `applyVideoEffects(track, effects)` plus runtime tuning setters.
 - `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. One shader file per stage in `src/web/shaders.ts`.
 - `android/` — OpenGL ES 3.0 pipeline. MLKit segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
-- `ios/` — Scaffold only; the canonical GLSL in `shaders/` will transpile to Metal Shading Language for the iOS path.
+- `ios/` — Metal pipeline (Swift) with Vision person segmentation. The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/transpile-shaders.ts`. Implemented; pending first on-device verification.
 
 The composite shader (`shaders/composite.frag`) is the same GLSL source for every effect category (blur, background-image, future procedural backgrounds). Per-effect difference is upstream of the composite: how the `uBackground` texture gets produced.
 
