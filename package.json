@@ -83,6 +83,7 @@
     "demo:android": "bun run build && cd demo && bun run android",
     "demo:web": "bun run build && cd demo && bun run web",
     "build:web": "bun run build && cd demo && bunx expo export -p web",
+    "prepack": "bun run build",
     "prepublishOnly": "bun run build && bun run check:package"
   },
   "peerDependencies": {
