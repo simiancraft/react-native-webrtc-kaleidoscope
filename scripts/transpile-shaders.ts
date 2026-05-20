@@ -15,7 +15,7 @@
 // transpiler runs at dev time (or in a `bun run check:shaders` lane that
 // verifies the committed Metal output is fresh against the GLSL source).
 
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, parse } from 'node:path';
 import { $ } from 'bun';
 
@@ -54,15 +54,34 @@ async function transpileOne(filename: string): Promise<void> {
     return;
   }
   const inputPath = join(GLSL_DIR, filename);
+  const preprocessedPath = join(TMP_DIR, filename);
   const spvPath = join(TMP_DIR, `${name}.spv`);
   const optSpvPath = join(TMP_DIR, `${name}.opt.spv`);
   const metalPath = join(METAL_OUT_DIR, `${name}.metal`);
 
-  // 1. GLSL -> SPIR-V. `-V` targets Vulkan-flavored SPIR-V, which is the
-  // canonical input for spirv-cross's MSL backend. (`--client opengl`
-  // emits OpenGL-flavored SPIR-V that the MSL path is not the primary
-  // consumer of.) Validates syntax, types, uniform decorations.
-  await $`glslangValidator -V -S ${stage} ${inputPath} -o ${spvPath}`.quiet();
+  // 0. Preprocess for the SPIR-V path. The canonical .frag/.vert files are
+  // GLSL ES 3.00 with a leading comment header (matching the WebGL2 and
+  // Android GLES 3.0 runtimes). glslangValidator's ES profile is stricter:
+  //   - #version must be the literal first token (no comments before it),
+  //   - GLSL ES -> SPIR-V requires #version 310 es or higher.
+  // Both are transpile-only concerns; 3.10 is a strict superset of 3.00 for
+  // the constructs we use (texture(), smoothstep, mix, clamp, uniform
+  // arrays, in/out varyings), so the emitted MSL is equivalent. We rewrite
+  // a temp copy and feed that to glslang; the committed source stays 3.00.
+  const rawSrc = readFileSync(inputPath, 'utf8');
+  const fromVersion = rawSrc.replace(/^[\s\S]*?(#version)/, '$1');
+  const bumped = fromVersion.replace('#version 300 es', '#version 310 es');
+  writeFileSync(preprocessedPath, bumped);
+
+  // 1. GLSL -> SPIR-V under OpenGL semantics (`-G`). Our canonical source is
+  // OpenGL-ES-style: bare non-opaque uniforms (vec2/float), no UBO blocks,
+  // no explicit layout(binding=). Vulkan SPIR-V (`-V`) rejects all three;
+  // OpenGL SPIR-V (`-G`) accepts them, and spirv-cross's MSL backend
+  // consumes OpenGL-flavored SPIR-V fine. `--auto-map-bindings` /
+  // `--auto-map-locations` fill in the binding/location decorations
+  // spirv-cross needs to assign MSL [[texture(n)]] / [[buffer(n)]] /
+  // [[stage_in]] slots. Validates syntax, types, uniforms.
+  await $`glslangValidator -G --auto-map-bindings --auto-map-locations -S ${stage} ${preprocessedPath} -o ${spvPath}`.quiet();
 
   // 2. Validate the SPIR-V (catches malformed output between tools).
   await $`spirv-val ${spvPath}`.quiet();
