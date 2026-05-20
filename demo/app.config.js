@@ -20,6 +20,10 @@ const config = {
     infoPlist: {
       NSCameraUsageDescription: 'Kaleidoscope demo uses your camera to apply mirror and blur effects locally.',
       NSMicrophoneUsageDescription: 'Required by react-native-webrtc; no audio is recorded or transmitted in this demo.',
+      // The demo uses only standard, exemption-qualifying encryption (HTTPS,
+      // WebRTC). Declaring this avoids the manual App Store Connect compliance
+      // prompt that otherwise blocks internal testing.
+      ITSAppUsesNonExemptEncryption: false,
     },
   },
   android: {
