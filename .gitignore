@@ -19,7 +19,6 @@ coverage/
 .expo/
 .expo-shared/
 *.tsbuildinfo
-plugin/build/
 demo/.expo/
 demo/dist/
 demo/web-build/

@@ -27,9 +27,9 @@ const config: ExpoConfig = {
     // FaviconMiddleware throw ENOENT when assets/ exists but the file does not.
   },
   // For web export, only expo-router is needed. react-native-webrtc has
-  // no config plugin upstream as of 124.0.7; react-native-webrtc-kaleidoscope's
-  // plugin is currently a passthrough. Add either explicitly before
-  // `bunx expo prebuild` when the consumer's fork ships one.
+  // no config plugin upstream as of 124.0.7. react-native-webrtc-kaleidoscope's
+  // plugin patches the iOS Podfile so react-native-webrtc builds with modular
+  // headers, which our Swift `import react_native_webrtc` requires.
   plugins: [
     'expo-router',
     // react-native-webrtc requires Android API 24+; without this, prebuild
@@ -42,6 +42,9 @@ const config: ExpoConfig = {
         },
       },
     ],
+    // Resolves via demo/node_modules/react-native-webrtc-kaleidoscope -> ../..
+    // to the repo root app.plugin.js, which loads plugin/build/withKaleidoscope.js.
+    'react-native-webrtc-kaleidoscope',
   ],
   extra: {
     eas: {

@@ -51,7 +51,6 @@
   "files": [
     "src",
     "dist",
-    "plugin/build",
     "android",
     "ios",
     "app.plugin.js",
@@ -62,8 +61,8 @@
     "NOTICE.md"
   ],
   "scripts": {
-    "clean": "rm -rf dist plugin/build",
-    "build": "bun run clean && tsgo && tsc -p plugin/",
+    "clean": "rm -rf dist",
+    "build": "bun run clean && tsgo",
     "typecheck": "tsgo --noEmit",
     "typecheck:test": "tsgo --noEmit --project tsconfig.test.json",
     "typecheck:demo": "cd demo && bunx tsc --noEmit",
