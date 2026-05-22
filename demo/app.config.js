@@ -56,6 +56,17 @@ const config = {
         android: {
           minSdkVersion: 24,
         },
+        // The library's plugin raises Podfile.properties.json's
+        // ios.deploymentTarget so the Pods platform is 15.0 (Apple Vision
+        // person segmentation requires iOS 15+), but the consumer app
+        // target's IPHONEOS_DEPLOYMENT_TARGET is set by Expo's prebuild
+        // independently; without this expo-build-properties entry it stays
+        // at the Expo default (13.4), and the iOS link step fails with
+        // "compiling for iOS 13.4, but module 'Kaleidoscope' has a minimum
+        // deployment target of iOS 15.0".
+        ios: {
+          deploymentTarget: '15.0',
+        },
       },
     ],
     // Reference the plugin by its explicit app.plugin.js subpath rather than the
