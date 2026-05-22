@@ -13,6 +13,20 @@ import {
   setMaskThreshold,
 } from 'react-native-webrtc-kaleidoscope';
 
+// Defense in depth: when the native module is missing (a misconfigured EAS
+// build, a fresh dev-client that hasn't been rebuilt after a podspec bump,
+// etc.) every setter throws. Swallow that here so the slider still tracks
+// the user's drag — visual feedback works even when no pixels are being
+// re-tuned native-side. The state setters in each handler MUST stay
+// OUTSIDE this wrapper for that to hold.
+const safeCall = (fn: () => void) => {
+  try {
+    fn();
+  } catch (err) {
+    console.warn('[kaleidoscope demo] effect-tuning call failed; native module unavailable?', err);
+  }
+};
+
 type TuningRowProps = {
   label: string;
   value: number;
@@ -52,24 +66,24 @@ export function EffectTuningPanel() {
 
   const onBlurSigma = (next: number) => {
     setBlurSigmaLocal(next);
-    setBlurSigma(next);
+    safeCall(() => setBlurSigma(next));
   };
 
   const onMaskHardness = (next: number) => {
     setMaskHardnessLocal(next);
-    setMaskHardness(next);
+    safeCall(() => setMaskHardness(next));
   };
 
   const onMaskThreshold = (next: number) => {
     setMaskThresholdLocal(next);
-    setMaskThreshold(next);
+    safeCall(() => setMaskThreshold(next));
   };
 
   const onReset = () => {
     setBlurSigmaLocal(8);
     setMaskHardnessLocal(0.5);
     setMaskThresholdLocal(0.5);
-    resetEffectTuning();
+    safeCall(() => resetEffectTuning());
   };
 
   return (
