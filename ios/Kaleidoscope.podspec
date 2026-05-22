@@ -55,18 +55,41 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
-  # react-native-webrtc (or the @livekit/react-native-webrtc fork) is a peer
-  # dependency. Its WebRTC.framework is provided by the consumer's Podfile
-  # (auto-linked via the JS package) and links into the final app. We do not
-  # declare it here, because doing so would either pin a version
-  # (`s.dependency 'react-native-webrtc'`) or mis-use system-framework linkage
-  # (`s.weak_framework 'WebRTC'`, which is for OS-shipped frameworks). Our Swift
-  # imports the pod's videoEffects classes as a Clang module, which requires
-  # modular headers on whichever fork is installed. The bundled config plugin
-  # (app.plugin.js) detects the fork and patches the Podfile with
-  #   pod '<react-native-webrtc | livekit-react-native-webrtc>', :modular_headers => true
-  # automatically, so consumers using the plugin need no manual Podfile edit.
-  # The library ships no bridging header.
+  # Fork-resolving dependency on react-native-webrtc. The Kaleidoscope target
+  # needs FRAMEWORK_SEARCH_PATHS pointing at WebRTC.framework so the Swift
+  # `import WebRTC` in Registration.swift, FrameBridge.swift, and the three
+  # Processor files resolves at compile time. We do not declare the framework
+  # directly (it is not OS-shipped, so `s.weak_framework` is wrong; and it is
+  # vended by two different forks at two different paths). Instead we depend
+  # on whichever rn-webrtc fork the consumer installed, and CocoaPods
+  # propagates the framework search paths transitively through the
+  # `Kaleidoscope -> <fork> -> <fork's WebRTC framework>` dependency edge via
+  # the inherited xcconfig chain.
+  #
+  # Ordering MUST stay LiveKit-first to match (a) app.plugin.js:resolveWebrtcPod
+  # (LiveKit fork preferred when both are installed) and (b) the Swift
+  # `#if canImport(livekit_react_native_webrtc)` chains in Registration.swift
+  # and the three Processor files. Android's build.gradle is upstream-first
+  # (pre-existing inconsistency, tracked separately); do NOT mirror Android
+  # here — the iOS Swift code unconditionally imports the LiveKit module first
+  # when present, and the chosen dependency must match what Swift imports.
+  #
+  # The plugin's `pod ... :modular_headers => true` Podfile patch
+  # (app.plugin.js) is still required and is NOT subsumed by this dependency:
+  # modular_headers can only be requested at the Podfile declaration site, not
+  # via a podspec dependency edge. The two declarations of the same pod merge
+  # in CocoaPods' dependency graph.
+  #
+  # `__dir__` here is `<consumer>/node_modules/react-native-webrtc-kaleidoscope/
+  # ios/` at pod-install time, so `../../@livekit/react-native-webrtc`
+  # resolves to `<consumer>/node_modules/@livekit/react-native-webrtc` —
+  # the same probe app.plugin.js performs at `:117`.
+  livekit_fork_path = File.expand_path('../../@livekit/react-native-webrtc', __dir__)
+  if File.directory?(livekit_fork_path)
+    s.dependency 'livekit-react-native-webrtc'
+  else
+    s.dependency 'react-native-webrtc'
+  end
 
   s.frameworks = 'CoreImage', 'CoreVideo', 'Metal', 'MetalKit', 'Vision'
 
