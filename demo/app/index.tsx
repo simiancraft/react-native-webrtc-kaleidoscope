@@ -41,17 +41,27 @@ const presetToSpec = (id: PresetId): EffectSpec => {
   }
 };
 
+// gpu-passthrough is an Android-only architecture-proof hook (also handled
+// on web via its own registry); iOS does not register it (see
+// src/index.ts:IOS_REGISTERED_EFFECTS and Registration.swift). Hide the
+// preset on iOS so users don't trigger the library's "dropping unregistered
+// effects" warning by pressing a button that does nothing on this platform.
 const PRESETS: ReadonlyArray<{ id: PresetId; label: string }> = [
   { id: 'mirror', label: 'Mirror' },
   { id: 'blur', label: 'Blur' },
   { id: 'office-1', label: 'Office 1' },
   { id: 'office-2', label: 'Office 2' },
-  { id: 'gpu-passthrough', label: 'GPU passthrough' },
+  ...(Platform.OS === 'ios'
+    ? []
+    : ([{ id: 'gpu-passthrough', label: 'GPU passthrough' }] as const)),
 ];
 
 // Order matters because chained transforms compose left-to-right. Mirror
 // first (cheap) so the segmentation pass sees a flipped image (which it
-// handles fine).
+// handles fine). gpu-passthrough is last because it's a no-op pass on
+// platforms that register it; on iOS it's filtered out of PRESETS above
+// and applying it from the active set is a no-op via the JS facade's
+// platform filter.
 const APPLY_ORDER: ReadonlyArray<PresetId> = [
   'mirror',
   'blur',
