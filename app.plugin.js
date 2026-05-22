@@ -49,38 +49,47 @@ const path = require('node:path');
 const SENTINEL = '# react-native-webrtc-kaleidoscope: modular headers (managed)';
 
 // Resolve which react-native-webrtc fork the consumer installed, and return its
-// CocoaPods pod name. Two forks ship the same JS/native surface under different
-// names (mirrors the dual probe in android/build.gradle):
+// CocoaPods pod name + npm package directory (used to build the `:path` for
+// the Podfile declaration). Two forks ship the same JS/native surface under
+// different names (mirrors the dual probe in android/build.gradle):
 //   - @livekit/react-native-webrtc -> pod `livekit-react-native-webrtc`
 //   - react-native-webrtc          -> pod `react-native-webrtc`
 // We prefer the fork when both are present, matching the Swift import order
 // (`#if canImport(livekit_react_native_webrtc)` first). Declaring a pod for a
 // package that is not installed would break `pod install`, so we return null
 // (and skip patching) when neither is found.
-function resolveWebrtcPodName(projectRoot) {
+function resolveWebrtcPod(projectRoot) {
   if (!projectRoot) {
-    return 'react-native-webrtc';
+    return { podName: 'react-native-webrtc', packageDir: 'react-native-webrtc' };
   }
   const fork = path.join(projectRoot, 'node_modules', '@livekit', 'react-native-webrtc');
   const upstream = path.join(projectRoot, 'node_modules', 'react-native-webrtc');
   if (fs.existsSync(fork)) {
-    return 'livekit-react-native-webrtc';
+    return { podName: 'livekit-react-native-webrtc', packageDir: '@livekit/react-native-webrtc' };
   }
   if (fs.existsSync(upstream)) {
-    return 'react-native-webrtc';
+    return { podName: 'react-native-webrtc', packageDir: 'react-native-webrtc' };
   }
   return null;
 }
 
 // Ensure the Podfile builds the resolved react-native-webrtc pod with modular
-// headers so our Swift can `import` it as a Clang module. Idempotent: running
-// prebuild twice neither duplicates the line nor corrupts the Podfile.
-function patchPodfile(contents, podName) {
+// headers so our Swift can `import` it as a Clang module. Declare with an
+// explicit `:path` (instead of a bare `pod 'name'`) so the build works even
+// when RN autolinking does not register the pod for us — e.g. react-native-webrtc's
+// own `react-native.config.js` only sets `module.exports` under
+// `--use-react-native-macos`, and on EAS workers `use_native_modules!` has been
+// observed to skip the pod entirely as a result. With `:path` provided here,
+// CocoaPods resolves the local podspec directly; when autolinking also picks
+// it up, the two identical-path declarations are merged and modular_headers
+// is applied. Idempotent: running prebuild twice neither duplicates the line
+// nor corrupts the Podfile.
+function patchPodfile(contents, pod) {
   if (contents.includes(SENTINEL)) {
     return contents;
   }
 
-  const block = `${SENTINEL}\n  pod '${podName}', :modular_headers => true`;
+  const block = `${SENTINEL}\n  pod '${pod.podName}', :path => '../node_modules/${pod.packageDir}', :modular_headers => true`;
   const lines = contents.split('\n');
 
   // Insert just inside the first `target ... do` block so the per-pod
@@ -112,19 +121,20 @@ const withKaleidoscope = (config) => {
     const result = typeof previousMod === 'function' ? await previousMod(modConfig) : modConfig;
     const modRequest = result.modRequest || {};
     const platformProjectRoot = modRequest.platformProjectRoot;
-    const podName = resolveWebrtcPodName(modRequest.projectRoot);
-    if (platformProjectRoot && podName) {
+    const pod = resolveWebrtcPod(modRequest.projectRoot);
+    if (platformProjectRoot && pod) {
       const podfilePath = path.join(platformProjectRoot, 'Podfile');
       try {
         const original = fs.readFileSync(podfilePath, 'utf8');
-        const patched = patchPodfile(original, podName);
+        const patched = patchPodfile(original, pod);
         if (patched !== original) {
           fs.writeFileSync(podfilePath, patched);
         }
       } catch (error) {
         // Non-fatal: surface a clear instruction rather than failing prebuild.
+        const manualLine = `pod '${pod.podName}', :path => '../node_modules/${pod.packageDir}', :modular_headers => true`;
         console.warn(
-          `[react-native-webrtc-kaleidoscope] Could not patch the Podfile to build ${podName} with modular headers; add "pod '${podName}', :modular_headers => true" inside your app target manually. ${String(error)}`,
+          `[react-native-webrtc-kaleidoscope] Could not patch the Podfile to build ${pod.podName} with modular headers; add "${manualLine}" inside your app target manually. ${String(error)}`,
         );
       }
     }
