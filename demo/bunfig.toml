@@ -1,0 +1,16 @@
+# Disable bun's install cache for the demo. Bun 1.1.13 (the version shipped on
+# the EAS Sonoma image as of this writing) intermittently fails the second
+# `bun install` that EAS runs after `expo prebuild` with
+#   "FileNotFound installing .. (copying files from cache to destination)"
+# for the `react-native-webrtc-kaleidoscope: file:..` workspace dep. The first
+# install (INSTALL_DEPENDENCIES) succeeds and populates the cache; something
+# during the prebuild phase (likely config-plugin path resolution touching the
+# library root) invalidates the cache key, and the second install's cache-hit
+# path then short-circuits with a missing-source error before falling back to
+# copying from `..`. Disabling the install cache makes every `bun install`
+# copy directly from source, sidestepping the bug entirely.
+#
+# Cost: each cold install on the worker is a few seconds slower because nothing
+# is reused across runs. Acceptable trade for a successful build.
+[install.cache]
+disable = true
