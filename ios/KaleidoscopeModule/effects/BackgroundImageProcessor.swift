@@ -63,7 +63,7 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
   @objc(capturer:didCaptureVideoFrame:)
   public func capturer(
     _ capturer: RTCVideoCapturer,
-    didCaptureVideoFrame frame: RTCVideoFrame
+    didCapture frame: RTCVideoFrame
   ) -> RTCVideoFrame {
     os_unfair_lock_lock(&unsafeLock)
     defer { os_unfair_lock_unlock(&unsafeLock) }

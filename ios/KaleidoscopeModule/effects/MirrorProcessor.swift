@@ -45,15 +45,20 @@ public final class MirrorProcessor: NSObject, VideoFrameProcessorDelegate {
     super.init()
   }
 
-  // Pin the exact Obj-C selector the protocol declares
-  // (capturer:didCaptureVideoFrame:). Swift would otherwise import the
-  // RTCVideoFrame-typed selector as capturer(_:didCapture:) by analogy with
-  // RTCVideoCapturerDelegate, which would NOT satisfy this distinct protocol;
-  // the explicit @objc selector removes that ambiguity.
+  // Two-name bridge for VideoFrameProcessorDelegate. The Obj-C selector is
+  // `capturer:didCaptureVideoFrame:` (from VideoFrameProcessor.h), but Swift's
+  // Obj-C importer trims `VideoFrame` off the label because the parameter
+  // type is RTCVideoFrame (noun-trim-by-type-name). On the Swift side the
+  // protocol is therefore imported as requiring `capturer(_:didCapture:)`,
+  // and our function MUST use that label to satisfy Swift's conformance
+  // check. The explicit @objc(...) attribute pins the EMITTED Obj-C
+  // selector back to `capturer:didCaptureVideoFrame:` so the runtime
+  // dispatch from VideoEffectProcessor still finds this method. Same
+  // pattern in BlurProcessor and BackgroundImageProcessor.
   @objc(capturer:didCaptureVideoFrame:)
   public func capturer(
     _ capturer: RTCVideoCapturer,
-    didCaptureVideoFrame frame: RTCVideoFrame
+    didCapture frame: RTCVideoFrame
   ) -> RTCVideoFrame {
     os_unfair_lock_lock(&unsafeLock)
     defer { os_unfair_lock_unlock(&unsafeLock) }
