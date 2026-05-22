@@ -14,6 +14,12 @@ const config = {
   orientation: 'portrait',
   scheme: 'kaleidoscope-demo',
   userInterfaceStyle: 'automatic',
+  updates: {
+    url: 'https://u.expo.dev/9fe25758-9912-408f-b8a6-7f0b6c15a5a0',
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.simiancraft.kaleidoscope.demo',
