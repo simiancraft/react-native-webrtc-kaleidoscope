@@ -2,8 +2,35 @@
 // OnCreate hook (see android/.../KaleidoscopeModule.kt and
 // ios/.../KaleidoscopeModule.swift), not through a plugin-time mod.
 //
-// The one thing we cannot express in the Expo Module itself is an iOS build
-// requirement on a sibling pod: our Swift sources do `import react_native_webrtc`
+// This plugin's job is narrowly scoped: patch the consumer's iOS build to
+// satisfy this library's hard requirements that cannot be expressed in the
+// Expo Module manifest or the podspec alone. Today that means two patches,
+// both installed by a single iOS `dangerous` mod:
+//
+//   1. Declare `pod 'react-native-webrtc', :modular_headers => true` in the
+//      generated Podfile so Swift sources can `import react_native_webrtc`
+//      (see modular-headers detail below).
+//   2. Raise `ios.deploymentTarget` in `Podfile.properties.json` to the value
+//      required by `ios/Kaleidoscope.podspec`. The default Expo Podfile
+//      platform (iOS 13.4) is lower than this library's minimum (iOS 15.0
+//      for Apple Vision person segmentation), and `expo-modules-autolinking`
+//      silently drops pods whose declared minimum exceeds the Podfile
+//      platform — the library would build, install, and then be absent from
+//      the generated `ExpoModulesProvider.swift` at runtime.
+//
+// Bounding invariant for future patches in this mod:
+//   Every patch this mod installs must be (a) idempotent across re-prebuilds,
+//   (b) non-downgrading (never reduce a value the consumer or another plugin
+//   set higher), and (c) recoverable via a logged manual instruction on I/O
+//   failure (no throwing — prebuild must keep going).
+//
+// Ordering note: this mod must run AFTER any consumer plugin that writes the
+// same files (notably `expo-build-properties`). Expo executes plugins in
+// declaration order from `plugins[]`, so consumers must list this plugin
+// AFTER `expo-build-properties` in their `app.config.js`. The demo's
+// `app.config.js` already does so.
+//
+// Modular-headers detail: our Swift sources do `import react_native_webrtc`
 // to reach the Obj-C `ProcessorProvider` class and `VideoFrameProcessorDelegate`
 // protocol that live inside the react-native-webrtc pod. For a Swift target to
 // `import` an Objective-C CocoaPod as a Clang module, that pod must be built with
@@ -11,13 +38,10 @@
 // default in a React Native / Expo app, so a default prebuild produces Swift
 // that fails to compile with "no such module 'react_native_webrtc'".
 //
-// We fix this at prebuild time by registering an iOS "dangerous" mod that
-// patches the generated Podfile to declare
-// `pod 'react-native-webrtc', :modular_headers => true`. We deliberately do NOT
-// emit a global `use_modular_headers!`: that flips every pod to build as a
-// Clang module, which regularly breaks React Native core pods that ship
-// non-modular umbrella headers. A single per-pod opt-in is the narrow, supported
-// fix that react-native-webrtc's own docs recommend.
+// We deliberately do NOT emit a global `use_modular_headers!`: that flips every
+// pod to build as a Clang module, which regularly breaks React Native core
+// pods that ship non-modular umbrella headers. A single per-pod opt-in is the
+// narrow, supported fix that react-native-webrtc's own docs recommend.
 //
 // WHY this file requires nothing but Node builtins (no @expo/config-plugins):
 // Expo's plugin resolver hardcodes the entry filename to `app.plugin.js` and
@@ -47,6 +71,34 @@ const path = require('node:path');
 // A sentinel comment lets us find our own injection on re-prebuilds and stay
 // idempotent regardless of how Expo regenerates the surrounding Podfile.
 const SENTINEL = '# react-native-webrtc-kaleidoscope: modular headers (managed)';
+
+// Mirrors ios/Kaleidoscope.podspec :ios => '15.0'. Bumping the podspec
+// requires bumping this constant; the drift cost is a silent pod-install
+// drop (the bug this plan fixes).
+const IOS_DEPLOYMENT_TARGET = '15.0';
+
+// Compare two dotted version strings element-wise. Returns true iff `existing`
+// is strictly less than `target`. Missing/empty existing counts as "less than".
+// We avoid `semver` so this file stays dependency-free for EAS workers that
+// don't install the library's node_modules. The library's iOS deployment
+// target is a plain three-part version like '15.0' (or '15.0.1' if Apple ever
+// requires it); pre-release/build metadata is not part of the contract.
+function isVersionLessThan(existing, target) {
+  if (typeof existing !== 'string' || existing.length === 0) {
+    return true;
+  }
+  const toParts = (s) => s.split('.').map((part) => Number(part) || 0);
+  const a = toParts(existing);
+  const b = toParts(target);
+  const max = Math.max(a.length, b.length);
+  for (let i = 0; i < max; i += 1) {
+    const av = a[i] || 0;
+    const bv = b[i] || 0;
+    if (av < bv) return true;
+    if (av > bv) return false;
+  }
+  return false; // equal
+}
 
 // Resolve which react-native-webrtc fork the consumer installed, and return its
 // CocoaPods pod name + npm package directory (used to build the `:path` for
@@ -135,6 +187,62 @@ const withKaleidoscope = (config) => {
         const manualLine = `pod '${pod.podName}', :path => '../node_modules/${pod.packageDir}', :modular_headers => true`;
         console.warn(
           `[react-native-webrtc-kaleidoscope] Could not patch the Podfile to build ${pod.podName} with modular headers; add "${manualLine}" inside your app target manually. ${String(error)}`,
+        );
+      }
+    }
+    if (platformProjectRoot) {
+      // Raise the consumer's iOS deployment target via Podfile.properties.json.
+      // The generated Podfile reads `podfile_properties['ios.deploymentTarget']`
+      // at the top, so this is the canonical, no-Podfile-edit override seam.
+      // `expo-modules-autolinking`'s package-filter silently drops any pod
+      // whose declared minimum platform exceeds the Podfile platform; without
+      // this bump the Kaleidoscope pod is dropped and the runtime module
+      // lookup throws.
+      const propsPath = path.join(platformProjectRoot, 'Podfile.properties.json');
+      try {
+        let parsed = {};
+        try {
+          const raw = fs.readFileSync(propsPath, 'utf8');
+          try {
+            const candidate = JSON.parse(raw);
+            if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+              parsed = candidate;
+            }
+          } catch (jsonError) {
+            // Corrupt JSON: warn but proceed with `{}` so the build still gets
+            // the bump it needs. The next prebuild will fully regenerate the
+            // file anyway.
+            console.warn(
+              `[react-native-webrtc-kaleidoscope] Could not parse ${propsPath}; rewriting with defaults. ${String(jsonError)}`,
+            );
+            parsed = {};
+          }
+        } catch (readError) {
+          if (readError && readError.code === 'ENOENT') {
+            parsed = {};
+          } else {
+            // Transient I/O failure (EACCES, EMFILE, ...). Don't clobber the
+            // file when we couldn't actually read it; warn and bail.
+            console.warn(
+              `[react-native-webrtc-kaleidoscope] Could not read ${propsPath}; skipping iOS deployment-target bump. ${String(readError)}`,
+            );
+            return result;
+          }
+        }
+        // Explicit own-key copy into a fresh object to foreclose
+        // `__proto__`-as-literal-key surprises from JSON.parse.
+        const next = {};
+        for (const key of Object.keys(parsed)) {
+          next[key] = parsed[key];
+        }
+        const existing = next['ios.deploymentTarget'];
+        if (isVersionLessThan(existing, IOS_DEPLOYMENT_TARGET)) {
+          next['ios.deploymentTarget'] = IOS_DEPLOYMENT_TARGET;
+        }
+        fs.writeFileSync(propsPath, `${JSON.stringify(next, null, 2)}\n`);
+      } catch (error) {
+        console.warn(
+          `[react-native-webrtc-kaleidoscope] Could not patch ${propsPath} to raise iOS deployment target; add "ios.deploymentTarget": "${IOS_DEPLOYMENT_TARGET}" to Podfile.properties.json under your demo/ios directory manually. ${String(error)}`,
         );
       }
     }
