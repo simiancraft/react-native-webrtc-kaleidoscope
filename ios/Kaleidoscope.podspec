@@ -13,27 +13,43 @@ Pod::Spec.new do |s|
   s.platforms      = { :ios => '15.0' } # Apple Vision person segmentation requires iOS 15+
   s.swift_version  = '5.9'
   s.source         = { :git => 'https://github.com/simiancraft/react-native-webrtc-kaleidoscope.git', :tag => "v#{s.version}" }
-  # Note: .metal is intentionally NOT globbed into source_files. All three
-  # transpiled shaders export the entry point `main0` (spirv-cross emits that
-  # for every stage); compiling them into the default metallib would collide
-  # on that duplicate symbol and fail the build. They ship as bundle resources
-  # instead and are compiled per-file at runtime via makeLibrary(source:).
+  # Note: the transpiled shader sources are intentionally NOT globbed into
+  # source_files, AND they use a custom `.metalsrc` extension instead of
+  # `.metal`. Both halves of that constraint are load-bearing:
+  #
+  #   (a) All three transpiled shaders (passthrough, blur, composite) export
+  #       the entry point `main0` because spirv-cross emits `main0` for every
+  #       stage. Three identical symbols cannot coexist in one metallib.
+  #   (b) Excluding them from source_files prevents the main target's default
+  #       metallib from compiling and colliding on `main0`.
+  #   (c) Renaming the extension from `.metal` to `.metalsrc` prevents Xcode's
+  #       MetalCompile build phase on the resource_bundles target (below) from
+  #       compiling them into a `default.metallib` inside Kaleidoscope.bundle
+  #       and hitting the exact same duplicate-symbol collision at link time
+  #       (air-lld errors). Xcode only recognises `.metal` as a compilable
+  #       Metal source; `.metalsrc` is treated as opaque data and copied as-is.
+  #   (d) The Swift loader (ShaderLibrary.swift) reads each `.metalsrc` file
+  #       as TEXT via String(contentsOf:) and compiles it into its own
+  #       standalone MTLLibrary via device.makeLibrary(source:) at runtime,
+  #       so each `main0` stays in its own namespace.
   s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift}'
 
   # Bundled background-image presets (mirrors android/src/main/assets/
   # backgrounds/) plus the transpiled Metal shader SOURCE. Both are loaded at
   # runtime from the Kaleidoscope.bundle:
   #   - BackgroundImageProcessor resolves "office-1" -> office-1.png.
-  #   - ShaderLibrary reads passthrough/blur/composite.metal as TEXT and
-  #     compiles each into its own MTLLibrary via makeLibrary(source:). This
-  #     is required because all three shaders export the entry point `main0`
-  #     (spirv-cross emits that for every stage), so they cannot share a
-  #     single metallib; per-file runtime compilation keeps each `main0` in
-  #     its own namespace and survives transpiler regeneration.
+  #   - ShaderLibrary reads passthrough/blur/composite.metalsrc as TEXT and
+  #     compiles each into its own MTLLibrary via makeLibrary(source:). The
+  #     `.metalsrc` extension (not `.metal`) is required so Xcode's
+  #     MetalCompile build phase does not auto-compile them into a
+  #     `default.metallib` inside the bundle and hit the same `main0`
+  #     duplicate-symbol collision the source_files exclusion already avoids
+  #     for the main target. Per-file runtime compilation keeps each `main0`
+  #     in its own namespace and survives transpiler regeneration.
   s.resource_bundles = {
     'Kaleidoscope' => [
       'KaleidoscopeModule/resources/**/*',
-      'KaleidoscopeModule/shaders/*.metal',
+      'KaleidoscopeModule/shaders/*.metalsrc',
     ]
   }
 

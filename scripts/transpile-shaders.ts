@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // GLSL -> SPIR-V -> MSL transpiler. Reads `.frag` and `.vert` files under
-// `shaders/` and writes `.metal` files into `ios/KaleidoscopeModule/shaders/`.
+// `shaders/` and writes `.metalsrc` files into `ios/KaleidoscopeModule/shaders/`.
 //
 // Pipeline:
 //   1. glslangValidator -V -S {frag,vert} input.{frag,vert} -o temp.spv
@@ -11,7 +11,7 @@
 //   sudo apt install -y glslang-tools spirv-tools spirv-cross
 // On macOS: brew install glslang spirv-tools spirv-cross.
 //
-// The committed `.metal` files are what the iOS build consumes. The
+// The committed `.metalsrc` files are what the iOS build consumes. The
 // transpiler runs at dev time (or in a `bun run check:shaders` lane that
 // verifies the committed Metal output is fresh against the GLSL source).
 
@@ -57,7 +57,7 @@ async function transpileOne(filename: string): Promise<void> {
   const preprocessedPath = join(TMP_DIR, filename);
   const spvPath = join(TMP_DIR, `${name}.spv`);
   const optSpvPath = join(TMP_DIR, `${name}.opt.spv`);
-  const metalPath = join(METAL_OUT_DIR, `${name}.metal`);
+  const metalPath = join(METAL_OUT_DIR, `${name}.metalsrc`);
 
   // 0. Preprocess for the SPIR-V path. The canonical .frag/.vert files are
   // GLSL ES 3.00 with a leading comment header (matching the WebGL2 and

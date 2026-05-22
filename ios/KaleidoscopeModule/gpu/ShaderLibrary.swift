@@ -1,4 +1,4 @@
-// Loads a single transpiled .metal file into its own MTLLibrary at runtime.
+// Loads a single transpiled .metalsrc file into its own MTLLibrary at runtime.
 //
 // WHY runtime makeLibrary(source:) instead of makeDefaultLibrary():
 //   All three shaders (passthrough, blur, composite) export the SAME entry
@@ -7,7 +7,7 @@
 //   library that the build phase compiles from the globbed *.metal files
 //   would have a name collision. Renaming the entry points is fragile because
 //   the next run of scripts/transpile-shaders.ts would regenerate `main0` and
-//   silently undo the rename. Compiling each .metal source separately at
+//   silently undo the rename. Compiling each .metalsrc source separately at
 //   runtime keeps each `main0` in its own namespace and survives transpiler
 //   regeneration with zero coupling to the build phase.
 //
@@ -15,12 +15,17 @@
 // renderer construction (a few ms each). Acceptable; it happens once, off the
 // per-frame path, the first time an effect runs.
 //
-// The .metal files ship as resources inside the Kaleidoscope.bundle: the
-// podspec's resource_bundles glob copies KaleidoscopeModule/shaders/*.metal
-// into the bundle, and we read that SOURCE TEXT here. They are also still in
-// source_files so the build phase validates that they compile, but the
-// compiled metallib that produces is unused (it would collide on `main0`
-// anyway). See Kaleidoscope.podspec.
+// The files ship as resources inside the Kaleidoscope.bundle using a custom
+// `.metalsrc` extension precisely because `.metal` files in a resource bundle
+// trigger Xcode's MetalCompile build phase for the bundle target, which would
+// compile all three into a single `default.metallib` inside the bundle and
+// collide on the three `main0` entry points (air-lld duplicate-symbol errors
+// at link time) — exactly the collision the source_files exclusion already
+// avoids for the main target. The podspec's resource_bundles glob copies
+// KaleidoscopeModule/shaders/*.metalsrc into the bundle as plain text, and we
+// read that SOURCE TEXT here via String(contentsOf:), then hand it to
+// device.makeLibrary(source:) so each `main0` lives in its own MTLLibrary.
+// See Kaleidoscope.podspec.
 
 import Foundation
 import Metal
@@ -29,25 +34,25 @@ import os.log
 struct ShaderLibrary {
   private let library: MTLLibrary
 
-  /// Compiles `<fileName>.metal` (read from the Kaleidoscope bundle) into a
+  /// Compiles `<fileName>.metalsrc` (read from the Kaleidoscope bundle) into a
   /// standalone MTLLibrary.
   init(device: MTLDevice, bundle: Bundle, fileName: String) throws {
     guard let url = ShaderLibrary.locate(fileName: fileName, bundle: bundle) else {
-      throw RendererError.libraryCompileFailed("\(fileName).metal not found in bundle")
+      throw RendererError.libraryCompileFailed("\(fileName).metalsrc not found in bundle")
     }
     let source: String
     do {
       source = try String(contentsOf: url, encoding: .utf8)
     } catch {
       throw RendererError.libraryCompileFailed(
-        "read \(fileName).metal failed: \(error.localizedDescription)"
+        "read \(fileName).metalsrc failed: \(error.localizedDescription)"
       )
     }
     do {
       self.library = try device.makeLibrary(source: source, options: nil)
     } catch {
       throw RendererError.libraryCompileFailed(
-        "compile \(fileName).metal failed: \(error.localizedDescription)"
+        "compile \(fileName).metalsrc failed: \(error.localizedDescription)"
       )
     }
   }
@@ -60,17 +65,17 @@ struct ShaderLibrary {
     return fn
   }
 
-  /// Resolve `<fileName>.metal`. Tries the nested Kaleidoscope resource bundle
+  /// Resolve `<fileName>.metalsrc`. Tries the nested Kaleidoscope resource bundle
   /// first (the normal install layout for an autolinked pod), then the given
   /// bundle directly, then `shaders/` subpaths under each. The breadth covers
   /// both the resource_bundles install layout and a flattened test layout.
   private static func locate(fileName: String, bundle: Bundle) -> URL? {
     let candidateBundles = [Bundle.kaleidoscopeResources(relativeTo: bundle), bundle].compactMap { $0 }
     for candidate in candidateBundles {
-      if let url = candidate.url(forResource: fileName, withExtension: "metal") {
+      if let url = candidate.url(forResource: fileName, withExtension: "metalsrc") {
         return url
       }
-      if let url = candidate.url(forResource: fileName, withExtension: "metal", subdirectory: "shaders") {
+      if let url = candidate.url(forResource: fileName, withExtension: "metalsrc", subdirectory: "shaders") {
         return url
       }
     }
