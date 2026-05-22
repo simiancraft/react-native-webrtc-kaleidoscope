@@ -120,7 +120,9 @@ final class MetalRenderer {
     self.passthroughVertex = try passthrough.function()
 
     // Both fragment pipelines reuse the passthrough vertex (fullscreen
-    // triangle generated from gl_VertexID; no vertex buffer).
+    // quad generated from gl_VertexID via TRIANGLE_STRIP; no vertex buffer).
+    // The shader is designed for FOUR vertices (see shaders/passthrough.vert);
+    // see drawFullscreen below for the matching drawPrimitives call.
     self.blurPipeline = try MetalRenderer.makePipeline(
       device: dev,
       vertex: passthroughVertex,
@@ -299,9 +301,14 @@ final class MetalRenderer {
     encoder.label = label
     encoder.setRenderPipelineState(pipeline)
     configure(encoder)
-    // 3 vertices: the fullscreen triangle is generated entirely from
-    // gl_VertexID in the vertex shader; no vertex buffer is bound.
-    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+    // Fullscreen quad via 4-vertex triangle strip. The passthrough vertex
+    // shader (shaders/passthrough.vert) computes both gl_Position and vUv
+    // from gl_VertexID alone for IDs 0..3, forming a quad that covers the
+    // full NDC viewport. A 3-vertex .triangle call here would draw only
+    // half the screen — the triangle ((-1,-1), (1,-1), (-1,1)) — with the
+    // hypotenuse cutting diagonally across the frame, the SYMPTOM that
+    // motivated this fix (half-black with diagonal staircase aliasing).
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     encoder.endEncoding()
   }
 
