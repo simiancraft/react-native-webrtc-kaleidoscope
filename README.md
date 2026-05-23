@@ -32,7 +32,7 @@
 
 ### Coming soon
 
-- **iOS verification.** The Swift host (Metal renderer, Vision person segmentation, the three frame processors) is implemented in `ios/`, and the canonical GLSL is transpiled to Metal Shading Language (`glslangValidator` → `spirv-cross --msl`; see `scripts/transpile-shaders.ts`). What remains is the first signed on-device build to confirm it runs; until then iOS stays marked unverified above.
+- **iOS verification.** The Swift host (Metal renderer, Vision person segmentation, the three frame processors) is implemented in `ios/`, and the canonical GLSL is transpiled to Metal Shading Language (`glslangValidator` → `spirv-cross --msl`; see `scripts/build-shaders.ts`). What remains is the first signed on-device build to confirm it runs; until then iOS stays marked unverified above.
 - **Procedural backgrounds** (animated shaders behind the person, not just still images). Same composite path; the only new piece is each effect's background producer.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
@@ -152,7 +152,7 @@ The codebase lives across four surfaces:
 - `src/` — JS facade and shared types. `applyVideoEffects(track, effects)` plus runtime tuning setters.
 - `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. One shader file per stage in `src/web/shaders.ts`.
 - `android/` — OpenGL ES 3.0 pipeline. MLKit segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
-- `ios/` — Metal pipeline (Swift) with Vision person segmentation. The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/transpile-shaders.ts`. Implemented; pending first on-device verification.
+- `ios/` — Metal pipeline (Swift) with Vision person segmentation. The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented; pending first on-device verification.
 
 The composite shader (`shaders/composite.frag`) is the same GLSL source for every effect category (blur, background-image, future procedural backgrounds). Per-effect difference is upstream of the composite: how the `uBackground` texture gets produced.
 

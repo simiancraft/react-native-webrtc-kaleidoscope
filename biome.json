@@ -14,7 +14,8 @@
       "demo/src/**",
       "app.plugin.js",
       "*.ts",
-      "*.json"
+      "*.json",
+      "!src/web/shaders.generated.ts"
     ]
   },
   "formatter": {
