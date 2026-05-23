@@ -85,6 +85,12 @@ Tool install:
 Run after editing any `.frag` / `.vert`, then commit the regenerated files:
 - `bun run build:shaders`
 
+CI enforces freshness with `bun run check:shaders` (regenerates and
+`git diff --exit-code`s the outputs); a `.frag` edit pushed without its
+regenerated `.metalsrc` / `ShadersGenerated.kt` / `shaders.generated.ts`
+fails the build. The check is CI-only so contributors who don't touch
+shaders need not install the glslang/spirv toolchain locally.
+
 Per-platform outputs (generated from the canonical `shaders/*` files; do
 not hand-edit):
 - Web: `src/web/shaders.generated.ts` (`*_SRC` consts), re-exported by
