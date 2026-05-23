@@ -1,3 +1,35 @@
+# [1.1.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v1.0.0...v1.1.0) (2026-05-23)
+
+
+### Bug Fixes
+
+* **backgrounds:** carry the *.webp ambient declaration in each loader ([5e777f4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/5e777f4d8000bc15e7e3b948e60ea51c52cd7f0a))
+* **backgrounds:** resolve web preset URL via expo-asset ([8a014c2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/8a014c210f1d400499baceff2457424a6c487173))
+* **demo:** guard effect-tuning slider handlers against missing native module ([35f0871](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/35f0871d95f913040b46adb31c8aba6509468256))
+* **demo:** hide GPU passthrough preset on iOS ([5980426](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/5980426ac425a40c2261db6ab9c78df27fdea00d))
+* **demo:** set ios.deploymentTarget to 15.0 in expo-build-properties ([4b3cf6b](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/4b3cf6bfeacf96848e8b74ecd6296aca58effb27))
+* **eas:** make app config and plugin load on the EAS Node 18 worker ([08528a2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/08528a200d209511fdc95b21c15b6ecb31d24d48))
+* **eas:** reference the config plugin by app.plugin.js subpath ([52e81b5](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/52e81b5504d539685434135d4095ade655a07b00))
+* **eas:** register the iOS Podfile mod without requiring @expo/config-plugins ([2884385](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/28843851c3f4e027e144bd036f99688e3d6b6cca))
+* **facade:** platform-split _setVideoEffects clear value (iOS=[], Android=null) ([fbdc56c](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/fbdc56cb79459452d5dc190e282fae6c9613c123))
+* **ios:** draw fullscreen quad as 4-vertex triangle strip, not 3-vertex triangle ([5c755db](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/5c755db8990544c7b3d7abd346fe0378d70395b5))
+* **ios:** propagate WebRTC.framework search path via fork-resolving s.dependency ([e339501](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e339501d8f6ead8cc025710ae866b896420a8e0b)), closes [#if](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/if)
+* **ios:** rename Swift parameter label to didCapture to satisfy VideoFrameProcessorDelegate ([6db3412](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/6db3412e4b9961d905448e62958bd48febcca3fd))
+* **ios:** rename transpiled shaders to .metalsrc to bypass Xcode resource-bundle auto-compile ([c3967a0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/c3967a054cff78481c014592c9bb9decc5dad92d))
+* **plugin:** emit :path on the react-native-webrtc Podfile declaration ([42b7194](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/42b7194373b02ea19c9db821e5b6406a4aada229))
+* **plugin:** raise consumer iOS deployment target to 15.0 via Podfile.properties.json ([11168ce](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/11168ce7f7abe620e91c5d74277228276a1d003d))
+
+
+### Features
+
+* **backgrounds:** add optimized WebP presets importable per preset ([ec6be4f](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/ec6be4fe9372dbb3c03df8bce71e42b93d977c13))
+* **ios:** bundle background-image PNGs as a pod resource bundle ([4a9bc58](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/4a9bc58fa0fb02db871140b0b26e1e0de41e097c))
+* **ios:** implement Metal effect pipeline (mirror, blur, background) ([8e4c9c0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/8e4c9c07a8edda587a16001189e15077e7fbb393))
+* **ios:** support the @livekit/react-native-webrtc fork ([e041cda](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e041cda6505029bc0a885e2132102e6705212ef4)), closes [#if](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/if) [#elseif](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/elseif)
+* **plugin:** patch iOS Podfile for react-native-webrtc modular headers ([5ada180](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/5ada180ab35c6644f3687ae94173efee866c7f1a))
+* **shaders:** add nebula and simianlights procedural backgrounds ([78f069a](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/78f069ac9c8b8c2a048360051f5c2e11dd6ef957))
+* **web:** add opt-in LiveKit TrackProcessor adapter ([202c6df](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/202c6df1d4e0429451b03399fba6afd0bb24a2e6))
+
 # 1.0.0 (2026-05-19)
 
 
