@@ -35,7 +35,7 @@ const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 // The shaders shared across web + Android + iOS, in deterministic emit order.
 // iOS transpiles everything in shaders/; these are the ones that also get
 // code-generated into the Android Kotlin and web TS layers.
-const SHARED_CODEGEN = ['passthrough.vert', 'composite.frag'] as const;
+const SHARED_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag'] as const;
 
 const REQUIRED_TOOLS = ['glslangValidator', 'spirv-val', 'spirv-opt', 'spirv-cross'] as const;
 
