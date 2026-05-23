@@ -1,10 +1,10 @@
 # react-native-webrtc-kaleidoscope — Agent Instructions
 
-A managed-Expo-friendly Expo Module that registers named video frame processors with `react-native-webrtc` and exposes a typed JS facade. v0.1 ships `mirror` and `blur`.
+A managed-Expo-friendly Expo Module that registers named video frame processors with `react-native-webrtc` and exposes a typed JS facade. Ships `mirror`, `blur`, and `background-image` effects.
 
 ## Status
 
-Pre-1.0. The bootstrap-and-ship plan in `bootstrap-and-ship-v0-1.md` (root, while it exists) is the source of truth for the v0.1 scope. Follow the Inspector Gadget Rule: that plan deletes itself when v0.1 ships.
+Pre-1.0, active development. v0.1 (mirror, blur, background replacement) has shipped on web, Android, and iOS. Durable conventions live in `PATTERNS.md`.
 
 ## Quick orientation
 
