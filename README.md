@@ -27,12 +27,11 @@
 |---|---|---|---|---|
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
 | Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MLKit Selfie Segmentation |
-| iOS (≥ 15) | — | — | — | Metal + Vision host implemented; not yet verified on device (first signed build pending) |
+| iOS (≥ 15) | ✓ | ✓ | ✓ | Metal + Vision (person segmentation), verified on device. Older A11 devices (iPhone X) run at a lower frame rate |
 | Safari / Firefox | — | — | — | No Insertable Streams; `applyVideoEffects` throws a typed error |
 
 ### Coming soon
 
-- **iOS verification.** The Swift host (Metal renderer, Vision person segmentation, the three frame processors) is implemented in `ios/`, and the canonical GLSL is transpiled to Metal Shading Language (`glslangValidator` → `spirv-cross --msl`; see `scripts/build-shaders.ts`). What remains is the first signed on-device build to confirm it runs; until then iOS stays marked unverified above.
 - **Procedural backgrounds** (animated shaders behind the person, not just still images). Same composite path; the only new piece is each effect's background producer.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
@@ -134,7 +133,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 - **Effect parameters.** Web reads tuning from the global setters (`setBlurSigma`, `setMaskHardness`, `setMaskThreshold`) on the next frame. Native currently ignores per-call `EffectSpec` parameters such as `{ name: 'blur', sigma: 12 }`; tuning is global through the same setters. Per-call uniforms through the native registry are a follow-up.
 - **Background source.** `background-image.source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
-- **Background assets on web.** The npm `files` allowlist excludes `backgrounds/`, so the bundled office PNGs ship inside the Android AAR and the iOS resource bundle, not the JS tarball. Web consumers must supply their own image URL: `applyVideoEffects(track, [{ name: 'background-image', source: 'https://example.com/bg.jpg' }])`.
+- **Background presets ship as tree-shakeable files.** Two example backgrounds (`office-1`, `office-2`) are importable per preset: `import { office1 } from 'react-native-webrtc-kaleidoscope/backgrounds/office-1'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers — and, since Metro doesn't tree-shake, simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
 - **Segmentation model on web.** The web blur and background-image effects load MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
 - **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers; Safari and Firefox throw a typed capability error.
 
@@ -152,7 +151,7 @@ The codebase lives across four surfaces:
 - `src/` — JS facade and shared types. `applyVideoEffects(track, effects)` plus runtime tuning setters.
 - `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. One shader file per stage in `src/web/shaders.ts`.
 - `android/` — OpenGL ES 3.0 pipeline. MLKit segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
-- `ios/` — Metal pipeline (Swift) with Vision person segmentation. The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented; pending first on-device verification.
+- `ios/` — Metal pipeline (Swift) with Vision person segmentation. The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
 
 The composite shader (`shaders/composite.frag`) is the same GLSL source for every effect category (blur, background-image, future procedural backgrounds). Per-effect difference is upstream of the composite: how the `uBackground` texture gets produced.
 
