@@ -85,11 +85,14 @@ Tool install:
 Run after editing any `.frag` / `.vert`, then commit the regenerated files:
 - `bun run build:shaders`
 
-CI enforces freshness with `bun run check:shaders` (regenerates and
-`git diff --exit-code`s the outputs); a `.frag` edit pushed without its
-regenerated `.metalsrc` / `ShadersGenerated.kt` / `shaders.generated.ts`
-fails the build. The check is CI-only so contributors who don't touch
-shaders need not install the glslang/spirv toolchain locally.
+CI enforces freshness with `bun run check:shaders`: it regenerates and
+`git diff --exit-code`s the **deterministic** codegen (`ShadersGenerated.kt`,
+`shaders.generated.ts`), so a `.frag` edit pushed without regenerating fails
+the build. The transpiled `.metalsrc` is intentionally NOT diffed — spirv-cross
+emits slightly different MSL across tool versions, so diffing it across
+machines would flag false drift; the Kotlin/TS copies already catch any stale
+`.frag`. The check is CI-only, so contributors who don't touch shaders need
+not install the glslang/spirv toolchain locally.
 
 Per-platform outputs (generated from the canonical `shaders/*` files; do
 not hand-edit):
