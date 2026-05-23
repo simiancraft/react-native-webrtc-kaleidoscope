@@ -2,9 +2,6 @@
  * Effect specs are parameterized objects. Each effect's shape carries the
  * uniforms its shader needs; the library exposes one shader per effect family
  * (blur, background-image, etc.) and consumers pick uniform values per call.
- *
- * `gpu-passthrough` is a temporary architecture-proof hook and gets
- * removed in the v0.1 cleanup pass.
  */
 
 import type { BackgroundPresetName } from './backgrounds';
@@ -15,8 +12,8 @@ export type MirrorSpec = {
 
 export type BlurSpec = {
   readonly name: 'blur';
-  /** Gaussian σ. Higher = softer blur. Default 8.0. */
-  readonly sigma?: number;
+  // Blur strength is tuned globally via the tuning setters (setBlurSigma),
+  // not per-call; there is no per-spec parameter.
 };
 
 export type BackgroundImageSpec = {
@@ -33,11 +30,7 @@ export type BackgroundImageSpec = {
   readonly source: BackgroundPresetName | (string & {});
 };
 
-export type PassthroughSpec = {
-  readonly name: 'gpu-passthrough';
-};
-
-export type EffectSpec = MirrorSpec | BlurSpec | BackgroundImageSpec | PassthroughSpec;
+export type EffectSpec = MirrorSpec | BlurSpec | BackgroundImageSpec;
 
 /**
  * Legacy alias for the discriminant. Useful for typed switch statements and
@@ -56,8 +49,8 @@ export type EffectInput = EffectSpec | EffectName;
  *
  * - Native: thin facade over `track._setVideoEffects(names)` from
  *   `react-native-webrtc`. Returns the same track reference; mutation is in place.
- *   Spec parameters are currently dropped on the native side — they'll wire
- *   through in a follow-up commit once the GPU effects accept uniforms.
+ *   Effects are tuned globally via the tuning setters (setBlurSigma, etc.),
+ *   not via per-call spec parameters.
  * - Web: builds an Insertable-Streams pipeline with `MediaStreamTrackProcessor`
  *   and `MediaStreamTrackGenerator` and returns a NEW track carrying the
  *   transformed frames. Replace the upstream sender's track with the return value

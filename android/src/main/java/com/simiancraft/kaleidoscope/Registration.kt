@@ -11,7 +11,6 @@ import com.oney.WebRTCModule.videoEffects.ProcessorProvider
 import com.simiancraft.kaleidoscope.effects.BackgroundImageFactory
 import com.simiancraft.kaleidoscope.effects.BlurFactory
 import com.simiancraft.kaleidoscope.effects.MirrorFactory
-import com.simiancraft.kaleidoscope.gpu.GpuEffectFactory
 
 object Registration {
   @JvmStatic
@@ -31,9 +30,5 @@ object Registration {
       "background-image-office-2",
       BackgroundImageFactory(context, "office-2"),
     )
-
-    // Temporary architecture-proof passthrough hook from the GPU bring-up.
-    // Removed in the cleanup pass before v0.1 ships.
-    ProcessorProvider.addProcessor("gpu-passthrough", GpuEffectFactory())
   }
 }

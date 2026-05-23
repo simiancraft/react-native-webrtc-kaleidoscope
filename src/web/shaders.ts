@@ -26,6 +26,6 @@
 //   - uBgUvScale / uBgUvOffset cover-fit center-crop the background when its
 //     aspect ratio differs from the output; (1,1)/(0,0) for a full-size bg.
 //   - uMaskLo / uMaskHi parameterize the smoothstep, derived from a hardness
-//     factor via maskHardnessRange in src/web/tuning.ts (mirrors Android's
+//     factor via maskSmoothstepRange in src/web/tuning.ts (mirrors Android's
 //     MaskTuning.smoothstepRange).
 export { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from './shaders.generated';
