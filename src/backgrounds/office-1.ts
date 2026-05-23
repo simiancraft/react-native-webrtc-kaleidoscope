@@ -1,3 +1,4 @@
+/// <reference path="./assets.d.ts" />
 import { Image, Platform } from 'react-native';
 import office1Asset from './office-1.webp';
 
