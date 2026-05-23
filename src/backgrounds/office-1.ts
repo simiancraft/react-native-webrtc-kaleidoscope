@@ -1,12 +1,6 @@
-/// <reference path="./assets.d.ts" />
-import { Asset } from 'expo-asset';
-import { Platform } from 'react-native';
-import office1Asset from './office-1.webp';
+import type { PresetSource } from './preset-source.types';
 
-// Ready-to-use `source` for the `background-image` effect.
-// - web: the bundled WebP's URL, which the web effect fetches. (Resolved with
-//   expo-asset; react-native-web has no Image.resolveAssetSource.)
-// - native: the bare preset name; the native module loads its own bundled
-//   resource, so the WebP import is unused at runtime on native.
-export const office1: string =
-  Platform.OS === 'web' ? Asset.fromModule(office1Asset).uri : 'office-1';
+// Native variant. The native module loads its own bundled resource by name, so
+// the source is just the preset name; no WebP import, no expo-asset on native.
+// Web is handled by office-1.web.ts.
+export const office1: PresetSource = 'office-1';

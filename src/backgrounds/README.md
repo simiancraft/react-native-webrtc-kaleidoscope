@@ -10,21 +10,24 @@ import { office1 } from 'react-native-webrtc-kaleidoscope/backgrounds/office-1';
 applyVideoEffects(track, [{ name: 'background-image', source: office1 }]);
 ```
 
-`office1` resolves per platform:
+`office1` resolves per platform via a build-time file split (`office-1.ts` for
+native, `office-1.web.ts` for web, with the shared contract in
+`preset-source.types.ts`); the bundler picks the variant, there is no runtime
+`Platform.OS` branch:
 
 - **Web:** the bundled WebP's URL, which the effect fetches and uploads as a texture.
 - **Native (iOS/Android):** the preset name (`'office-1'`); the native module
-  loads its own bundled copy from native resources.
+  loads its own bundled copy from native resources. The native variant imports
+  no WebP and no expo-asset, so native bundles neither.
 
-The barrel re-exports every preset:
+The barrel exports the preset catalog, not the sources:
 
 ```ts
-import { office1, office2 } from 'react-native-webrtc-kaleidoscope/backgrounds';
+import { BACKGROUND_PRESETS, type BackgroundPresetName } from 'react-native-webrtc-kaleidoscope/backgrounds';
 ```
 
-Prefer the per-preset path (`/backgrounds/office-1`) over the barrel. Metro does
-not tree-shake, so importing the barrel pulls every preset's WebP into your
-bundle; a per-preset import pulls only what you use.
+Sources are imported per preset on purpose. Metro does not tree-shake, so a
+per-preset import is the only way to pull just the WebP you use.
 
 For a non-Expo web bundler, import the asset URL directly:
 
@@ -64,8 +67,11 @@ convert in.png -resize "1280x720^" -gravity center -extent 1280x720 \
 
 1. Append the name to `BACKGROUND_PRESETS` in `presets.ts`.
 2. Drop the optimized `<name>.webp` here (recipe above).
-3. Add a `<name>.ts` loader mirroring `office-1.ts`, and re-export it from `index.ts`.
-4. Add the `./backgrounds/<name>` and `./backgrounds/<name>.webp` entries to the
+3. Add the loader pair mirroring `office-1`: `<name>.ts` (native, returns the
+   name) and `<name>.web.ts` (web, returns the WebP URL), both annotated with
+   `PresetSource` from `preset-source.types.ts`.
+4. Add the `./backgrounds/<name>` export (with `react-native`, `browser`,
+   `import`, `default` conditions) and `./backgrounds/<name>.webp` to the
    package `exports`.
 5. For native support, add `<name>.png` under `android/src/main/assets/backgrounds/`
    and `ios/KaleidoscopeModule/resources/backgrounds/`, and register the factory
