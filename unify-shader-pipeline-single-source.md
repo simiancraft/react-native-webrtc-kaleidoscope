@@ -1,9 +1,10 @@
 # Unify the shader pipeline to a single GLSL source of truth
 
-**Status:** Draft
+**Status:** In progress
 **Scope:** cross-stack
 **Date:** 2026-05-22
 **Last reviewed:** 2026-05-22
+**Progress:** Commits 1–3 shipped and verified (TS checks, Android `compileDebugKotlin`, drift gate). Remaining: visual verification of blur/background-image/composite on web + Android + iOS (web blur falloff changed in Commit 2), then Commit 4 (delete this plan).
 **Context:** The same shader logic is hand-maintained in three places (root `shaders/*.frag` → iOS, `android/.../gpu/Shaders.kt`, `src/web/shaders.ts`). The `composite` shader is byte-identical across all three, but `blur` has already drifted into two different algorithms, so editing a shader once does not propagate. Consolidating now is safe because all three copies currently render correctly.
 
 ## Goal
@@ -62,7 +63,7 @@ react-native-webrtc-kaleidoscope/
 
 ## Commits
 
-### Commit 1: Expand the transpiler into a multi-target shader build with Android + web codegen
+### ✅ Commit 1: Expand the transpiler into a multi-target shader build with Android + web codegen
 
 **Goal:** One script emits all three runtimes' artifacts from `shaders/`; the already-identical shaders (`passthrough`, `composite`) are switched to generated; blur is left untouched this commit.
 
@@ -83,7 +84,7 @@ react-native-webrtc-kaleidoscope/
 
 **Gate:** `bun run build:shaders` runs clean; `git diff` on the generated files is empty after a second run (determinism). `bun run check` passes (lint, typecheck, build, test, knip, publint). `bun run check:android` compiles.
 
-### Commit 2: Reconcile web blur onto the canonical 9-tap kernel
+### ✅ Commit 2: Reconcile web blur onto the canonical 9-tap kernel
 
 **Goal:** Web blur uses the same `blur.frag` as native; the divergence is gone.
 
@@ -97,7 +98,7 @@ react-native-webrtc-kaleidoscope/
 
 **Gate:** `bun run check` passes. `bun run build:shaders` regen leaves no diff. **Manual:** `bun run demo:web` blur still renders correctly (expected: slightly different falloff vs. before, matching native — verify it looks good, no banding/hard edge). Android/iOS unaffected (their blur was already canonical).
 
-### Commit 3: Add the drift gate
+### ✅ Commit 3: Add the drift gate
 
 **Goal:** CI fails if a generated artifact is stale relative to `shaders/`.
 
@@ -116,11 +117,11 @@ react-native-webrtc-kaleidoscope/
 
 ## Verification checklist
 
-- [ ] `bun run build:shaders` emits iOS `.metalsrc`, `ShadersGenerated.kt`, `shaders.generated.ts` deterministically.
-- [ ] `passthrough`, `blur`, `composite` come from `shaders/` for all three runtimes; only `OES_PASSTHROUGH_FRAG` / `TWO_D_PASSTHROUGH_FRAG` remain hand-written and Android-local.
-- [ ] Web blur uses the 9-tap kernel; `uSigma` is gone from `blur.ts`.
-- [ ] `bun run check` passes; `bun run check:android` compiles.
-- [ ] `check:shaders` is green and fails on an un-regenerated `.frag` edit.
+- [x] `bun run build:shaders` emits iOS `.metalsrc`, `ShadersGenerated.kt`, `shaders.generated.ts` deterministically.
+- [x] `passthrough`, `blur`, `composite` come from `shaders/` for all three runtimes; only `OES_PASSTHROUGH_FRAG` / `TWO_D_PASSTHROUGH_FRAG` remain hand-written and Android-local.
+- [x] Web blur uses the 9-tap kernel; `uSigma` is gone from `blur.ts`.
+- [x] `bun run check` passes; `bun run check:android` compiles.
+- [x] `check:shaders` is green and fails on an un-regenerated `.frag` edit.
 - [ ] Blur/background-image/composite render correctly on web, Android, and a real iOS device.
 - [ ] Plan file deleted (Inspector Gadget Rule).
 
