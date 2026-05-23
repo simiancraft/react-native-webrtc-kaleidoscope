@@ -32,8 +32,8 @@ object Registration {
       BackgroundImageFactory(context, "office-2"),
     )
 
-    // Architecture-proof hook from PLAN.md Commit 3. Removed in the cleanup
-    // pass before v0.1 ships.
+    // Temporary architecture-proof passthrough hook from the GPU bring-up.
+    // Removed in the cleanup pass before v0.1 ships.
     ProcessorProvider.addProcessor("gpu-passthrough", GpuEffectFactory())
   }
 }

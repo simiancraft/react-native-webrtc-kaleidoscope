@@ -2,7 +2,7 @@
 // invokes process() per frame on the SurfaceTextureHelper's GL thread, so
 // every GL call is implicitly on the correct context.
 //
-// Commit 3 of PLAN.md: this version is a passthrough — sample the OES
+// Initial GPU bring-up: this version is a passthrough — sample the OES
 // camera texture and emit it as a 2D-backed VideoFrame, no other math.
 // Architecture proof for the OES -> shader -> TextureBufferImpl -> renderer
 // round-trip. Effect-specific math (blur, composite, image background) lands

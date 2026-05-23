@@ -15,6 +15,37 @@ import { loadSegmenter, type SegmenterResults } from '../segmenter';
 import { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 
+// 9-tap separable Gaussian kernel computed on the CPU and uploaded as
+// uWeights/uOffsets, the same scheme as Android's BlurFactory so web, Android,
+// and iOS run the identical blur.frag. Ported from BlurFactory.ensureKernel:
+// tapSpacing 2.0, weight exp(-x^2 / 2 sigma^2), normalized by w0 + 2*sum(w[1..])
+// (center tap counts once, each side tap twice since the shader samples
+// vUv +/- offset). Cached; rebuilt only when sigma changes.
+const KERNEL_TAPS = 9;
+const kernelWeights = new Float32Array(KERNEL_TAPS);
+const kernelOffsets = new Float32Array(KERNEL_TAPS);
+let cachedKernelSigma = Number.NaN;
+
+const blurKernel = (sigma: number): { weights: Float32Array; offsets: Float32Array } => {
+  if (sigma !== cachedKernelSigma) {
+    const tapSpacing = 2;
+    const raw = new Array<number>(KERNEL_TAPS);
+    let sum = 0;
+    for (let i = 0; i < KERNEL_TAPS; i++) {
+      const x = i * tapSpacing;
+      const wi = Math.exp(-(x * x) / (2 * sigma * sigma));
+      kernelOffsets[i] = x;
+      raw[i] = wi;
+      sum += i === 0 ? wi : 2 * wi;
+    }
+    for (let i = 0; i < KERNEL_TAPS; i++) {
+      kernelWeights[i] = (raw[i] ?? 0) / sum;
+    }
+    cachedKernelSigma = sigma;
+  }
+  return { weights: kernelWeights, offsets: kernelOffsets };
+};
+
 type GpuState = {
   gl: WebGL2RenderingContext;
   canvas: OffscreenCanvas;
@@ -210,7 +241,11 @@ export const blur: FrameTransform = async (frame) => {
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
   gl.uniform1i(gl.getUniformLocation(programs.blur, 'uTex'), 0);
   gl.uniform2f(gl.getUniformLocation(programs.blur, 'uAxis'), 1 / w, 0);
-  gl.uniform1f(gl.getUniformLocation(programs.blur, 'uSigma'), tuning.blurSigma);
+  // Upload the precomputed kernel; persists into the vertical pass below
+  // (same program), which only swaps uAxis.
+  const { weights, offsets } = blurKernel(tuning.blurSigma);
+  gl.uniform1fv(gl.getUniformLocation(programs.blur, 'uWeights'), weights);
+  gl.uniform1fv(gl.getUniformLocation(programs.blur, 'uOffsets'), offsets);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   // Pass 2: vertical blur of blurA -> blurB

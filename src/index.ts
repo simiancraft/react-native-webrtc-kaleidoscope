@@ -73,9 +73,17 @@ export type {
 
 interface WebRTCTrackExtensions {
   remote?: boolean;
-  // Upstream's typed signature is `string[]`, but the native bridge also
-  // accepts null and takes the `videoSource.setVideoProcessor(null)` branch,
-  // which is the only correct way to clear effects. See note below.
+  // Upstream's typed signature is `string[]`, but the platforms diverge on
+  // how to clear effects:
+  //   - Android: passing `null` takes the
+  //     `videoSource.setVideoProcessor(null)` branch (the only correct clear
+  //     path); passing `[]` crashes EglRenderer.
+  //   - iOS: the Obj-C method declares `names` as `nonnull NSArray<NSString *>`,
+  //     so `null` violates the bridge contract; `[]` is the supported clear
+  //     value (iOS's `VideoEffectProcessor` with no processors is a
+  //     passthrough).
+  // We type the parameter as the union so the facade can platform-split at
+  // the call site. See `applyVideoEffects` below.
   _setVideoEffects?: (names: ReadonlyArray<string> | null) => void;
 }
 
@@ -92,10 +100,11 @@ interface WebRTCTrackExtensions {
 // `'background-image-office-1'` because the rn-webrtc native registry is
 // keyed by flat strings (parameterization via uniforms is a follow-up).
 //
-// iOS native processors are not yet ported; ios/.../Registration.swift is a
-// no-op until they land. Until then, the iOS allowlist is empty so consumers
-// get a console.warn (instead of an empty-processors-list crash) when an
-// effect is requested on iOS.
+// iOS registers the same effects via ios/.../Registration.swift, minus the
+// Android-only "gpu-passthrough" architecture-proof hook. Each platform's
+// allowlist matches exactly what its native Registration installs; anything
+// else is filtered out before reaching upstream so a name with no registered
+// processor never triggers the empty-processors-list crash.
 const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
   'mirror',
   'blur',
@@ -103,9 +112,19 @@ const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];
 
-const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(
-  Platform.OS === 'android' ? ANDROID_REGISTERED_EFFECTS : [],
-);
+const IOS_REGISTERED_EFFECTS: readonly string[] = [
+  'mirror',
+  'blur',
+  ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
+];
+
+const registeredForPlatform = (): readonly string[] => {
+  if (Platform.OS === 'android') return ANDROID_REGISTERED_EFFECTS;
+  if (Platform.OS === 'ios') return IOS_REGISTERED_EFFECTS;
+  return [];
+};
+
+const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlatform());
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // background-image uses one registered factory per source preset.
@@ -138,12 +157,21 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
         'Web has its own registry; this is a native-only filter.',
     );
   }
-  // rn-webrtc 124 has a bug where passing [] installs a VideoEffectProcessor
-  // with an empty processors list, and its onFrameCaptured then double-releases
-  // the input frame (retain once, release twice) which crashes the renderer.
-  // Passing null takes the upstream else-branch that clears the processor
-  // entirely. We translate at the boundary so consumers keep a clean array
-  // API and never see the workaround.
-  t._setVideoEffects(names.length === 0 ? null : names);
+  // Platforms diverge on how to clear effects:
+  //   - Android: rn-webrtc 124 has a bug where passing `[]` installs a
+  //     VideoEffectProcessor with an empty processors list, whose
+  //     onFrameCaptured then double-releases the input frame (retain once,
+  //     release twice) and crashes EglRenderer one frame later. The only
+  //     correct clear is `null`, which takes the upstream else-branch that
+  //     resets the processor via `videoSource.setVideoProcessor(null)`.
+  //   - iOS: the upstream Obj-C `_setVideoEffects` method declares
+  //     `names` as `(nonnull NSArray<NSString *> *)`, so passing `null`
+  //     violates the React Native bridge's nonnull contract. The supported
+  //     clear value is `[]`, which iOS's VideoEffectProcessor treats as a
+  //     passthrough (no double-release bug on this platform).
+  // The explicit type annotation is required — without it TS widens the
+  // empty-array literal to `never[] | null`.
+  const clearValue: ReadonlyArray<string> | null = Platform.OS === 'ios' ? [] : null;
+  t._setVideoEffects(names.length === 0 ? clearValue : names);
   return track;
 };

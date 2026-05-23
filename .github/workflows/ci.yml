@@ -47,6 +47,12 @@ jobs:
       - name: Dead code (knip)
         run: bun run check:knip
 
+      - name: Install shader toolchain
+        run: sudo apt-get update && sudo apt-get install -y glslang-tools spirv-tools spirv-cross
+
+      - name: Shader drift (canonical GLSL vs generated/transpiled outputs)
+        run: bun run check:shaders
+
       - name: Test with coverage
         run: bun test --coverage --coverage-reporter=lcov
 

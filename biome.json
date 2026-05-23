@@ -10,11 +10,12 @@
       "src/**",
       "test/**",
       "scripts/**",
-      "plugin/src/**",
       "demo/app/**",
       "demo/src/**",
+      "app.plugin.js",
       "*.ts",
-      "*.json"
+      "*.json",
+      "!src/web/shaders.generated.ts"
     ]
   },
   "formatter": {

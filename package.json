@@ -1,7 +1,7 @@
 {
   "name": "react-native-webrtc-kaleidoscope",
   "version": "1.0.0",
-  "description": "Live video effects (mirror, blur, background replacement) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Web and Android working; iOS coming soon. Active development; pre-1.0.",
+  "description": "Live video effects (mirror, blur, background replacement) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Working on web, Android, and iOS. Active development.",
   "keywords": [
     "react-native",
     "react-native-webrtc",
@@ -26,7 +26,7 @@
   "bugs": {
     "url": "https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues"
   },
-  "type": "module",
+  "type": "commonjs",
   "sideEffects": false,
   "main": "./src/index.ts",
   "module": "./dist/index.js",
@@ -40,9 +40,37 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./livekit": {
+      "types": "./dist/livekit.d.ts",
+      "browser": "./dist/livekit.js",
+      "import": "./dist/livekit.js",
+      "default": "./dist/livekit.js"
+    },
+    "./backgrounds": {
+      "types": "./dist/backgrounds/index.d.ts",
+      "react-native": "./src/backgrounds/index.ts",
+      "import": "./dist/backgrounds/index.js",
+      "default": "./dist/backgrounds/index.js"
+    },
+    "./backgrounds/office-1": {
+      "types": "./dist/backgrounds/office-1.d.ts",
+      "react-native": "./src/backgrounds/office-1.ts",
+      "browser": "./dist/backgrounds/office-1.web.js",
+      "import": "./dist/backgrounds/office-1.js",
+      "default": "./dist/backgrounds/office-1.js"
+    },
+    "./backgrounds/office-2": {
+      "types": "./dist/backgrounds/office-2.d.ts",
+      "react-native": "./src/backgrounds/office-2.ts",
+      "browser": "./dist/backgrounds/office-2.web.js",
+      "import": "./dist/backgrounds/office-2.js",
+      "default": "./dist/backgrounds/office-2.js"
+    },
+    "./backgrounds/office-1.webp": "./src/backgrounds/office-1.webp",
+    "./backgrounds/office-2.webp": "./src/backgrounds/office-2.webp",
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
-      "import": "./app.plugin.js",
+      "require": "./app.plugin.js",
       "default": "./app.plugin.js"
     },
     "./expo-module.config.json": "./expo-module.config.json",
@@ -51,7 +79,6 @@
   "files": [
     "src",
     "dist",
-    "plugin/build",
     "android",
     "ios",
     "app.plugin.js",
@@ -62,8 +89,8 @@
     "NOTICE.md"
   ],
   "scripts": {
-    "clean": "rm -rf dist plugin/build",
-    "build": "bun run clean && tsgo && tsc -p plugin/",
+    "clean": "rm -rf dist",
+    "build": "bun run clean && tsgo && mkdir -p dist/backgrounds && cp src/backgrounds/*.webp dist/backgrounds/",
     "typecheck": "tsgo --noEmit",
     "typecheck:test": "tsgo --noEmit --project tsconfig.test.json",
     "typecheck:demo": "cd demo && bunx tsc --noEmit",
@@ -77,27 +104,34 @@
     "refresh:android": "cd demo && npm install",
     "prebuild:android": "bun run refresh:android && cd demo && bunx expo prebuild --platform android --no-install",
     "check:android": "cd demo/android && ./gradlew :react-native-webrtc-kaleidoscope:compileDebugKotlin",
-    "transpile:shaders": "bun run scripts/transpile-shaders.ts",
+    "build:shaders": "bun run scripts/build-shaders.ts",
+    "check:shaders": "bun run build:shaders && git diff --exit-code -- android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt src/web/shaders.generated.ts",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",
     "demo:android": "bun run build && cd demo && bun run android",
     "demo:web": "bun run build && cd demo && bun run web",
     "build:web": "bun run build && cd demo && bunx expo export -p web",
+    "prepack": "bun run build",
     "prepublishOnly": "bun run build && bun run check:package"
   },
   "peerDependencies": {
     "expo": ">=51.0.0",
+    "expo-asset": ">=10.0.0",
     "react": ">=18.2.0",
     "react-native": ">=0.74.0",
     "react-native-webrtc": ">=124.0.0",
-    "@livekit/react-native-webrtc": ">=144.0.0"
+    "@livekit/react-native-webrtc": ">=144.0.0",
+    "livekit-client": ">=2.0.0"
   },
   "peerDependenciesMeta": {
     "react-native-webrtc": {
       "optional": true
     },
     "@livekit/react-native-webrtc": {
+      "optional": true
+    },
+    "livekit-client": {
       "optional": true
     }
   },
@@ -116,6 +150,7 @@
     "expo": "^51.0.0",
     "expo-modules-core": "^1.12.0",
     "knip": "^6.5.0",
+    "livekit-client": "^2.0.0",
     "publint": "^0.3.18",
     "react": "18.2.0",
     "react-native": "0.74.5",

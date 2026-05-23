@@ -40,10 +40,21 @@ const hasInsertableStreams = (): boolean =>
   typeof globalThis.MediaStreamTrackProcessor !== 'undefined' &&
   typeof globalThis.MediaStreamTrackGenerator !== 'undefined';
 
+/**
+ * A running Insertable-Streams stage. `track` is the generator track carrying
+ * transformed frames; `dispose` aborts the pipe and stops the generator so the
+ * stage can be torn down (e.g. on a LiveKit camera flip) without leaking the
+ * generator and its pull on the source track.
+ */
+export type DisposablePipeline = {
+  track: MediaStreamTrack;
+  dispose: () => void;
+};
+
 export const applyEffectToTrack = (
   track: MediaStreamTrack,
   transform: FrameTransform,
-): MediaStreamTrack => {
+): DisposablePipeline => {
   if (!hasInsertableStreams()) {
     throw new Error(
       'kaleidoscope: this browser lacks MediaStreamTrackProcessor / MediaStreamTrackGenerator (Insertable Streams). Effects require Chrome or Edge.',
@@ -69,16 +80,33 @@ export const applyEffectToTrack = (
     },
   });
 
-  // Fire-and-forget; pipeline lifetime is bound to the source track.
+  // Abort signal lets `dispose()` cancel the pipe: aborting cancels the
+  // readable (which stops the processor pulling from the source) and errors the
+  // writable, ending the generator.
+  const abort = new AbortController();
   processor.readable
     .pipeThrough(transformer)
-    .pipeTo(generator.writable)
+    .pipeTo(generator.writable, { signal: abort.signal })
     .catch((err) => {
-      // Pipeline aborts when the source track ends or is replaced; not an error.
+      // Pipeline aborts when the source track ends, is replaced, or dispose()
+      // is called; not an error.
       if (err?.name !== 'AbortError') {
         console.error('kaleidoscope: pipeline error', err);
       }
     });
 
-  return generator;
+  const dispose = (): void => {
+    try {
+      abort.abort();
+    } catch {
+      // already aborted
+    }
+    try {
+      generator.stop();
+    } catch {
+      // already stopped
+    }
+  };
+
+  return { track: generator, dispose };
 };

@@ -2,8 +2,8 @@
 //
 // Exists only to satisfy the exhaustiveness check on `Record<EffectName,
 // FrameTransform>` for the temporary native `gpu-passthrough` test hook
-// (PLAN.md Commit 3). Removed in the cleanup pass with the rest of the
-// gpu-passthrough scaffolding.
+// from the initial GPU bring-up. Removed in the cleanup pass with the rest
+// of the gpu-passthrough scaffolding.
 
 import type { FrameTransform } from '../insertable-streams';
 

@@ -61,11 +61,9 @@ plugin/
 ### Where a new GLSL shader goes
 
 Canonical GLSL lives in `shaders/*.frag` and `shaders/*.vert` at the repo
-root. That is the single source of truth across platforms. Today the
-Android Kotlin and web TypeScript inline string constants still exist
-and are kept manually in sync against the `.frag` / `.vert` source;
-extracting them to read directly from the files (Android via
-`assets/shaders/`, web via a Metro transformer) is a follow-up.
+root. That is the single source of truth across platforms. `bun run
+build:shaders` (`scripts/build-shaders.ts`) reads it and generates each
+runtime's artifacts; the generated outputs are never hand-edited.
 
 For iOS, the `.frag` / `.vert` source goes through a transpiler:
 
@@ -74,24 +72,37 @@ GLSL ES 3.00  ->  SPIR-V         ->  MSL (Metal Shading Language)
               glslangValidator         spirv-cross --msl
 ```
 
-The script `scripts/transpile-shaders.ts` runs the chain, validates each
-step (`spirv-val` between stages), and writes `.metal` files into
-`ios/KaleidoscopeModule/shaders/`. The committed `.metal` files are what
-the iOS build consumes; the EAS macOS host does not need the transpiler
-binaries installed.
+The script `scripts/build-shaders.ts` runs the chain, validates each
+step (`spirv-val` between stages), and writes `.metalsrc` files into
+`ios/KaleidoscopeModule/shaders/`. The committed `.metalsrc` files are what
+the iOS build compiles at runtime; the EAS macOS host does not need the
+transpiler binaries installed.
 
 Tool install:
 - Debian/Ubuntu/WSL: `sudo apt install -y glslang-tools spirv-tools spirv-cross`
 - macOS: `brew install glslang spirv-tools spirv-cross`
 
-Run after editing any `.frag` / `.vert`:
-- `bun run transpile:shaders`
+Run after editing any `.frag` / `.vert`, then commit the regenerated files:
+- `bun run build:shaders`
 
-Per-platform locations of the GLSL source strings (still hand-maintained
-mirrors of the canonical `shaders/*` files):
-- Web: `src/web/shaders.ts` (`*_SRC` constants)
-- Android: `android/.../gpu/Shaders.kt` (`const val` strings on `Shaders`)
-- iOS: `ios/KaleidoscopeModule/shaders/*.metal` (auto-generated; do not edit)
+CI enforces freshness with `bun run check:shaders`: it regenerates and
+`git diff --exit-code`s the **deterministic** codegen (`ShadersGenerated.kt`,
+`shaders.generated.ts`), so a `.frag` edit pushed without regenerating fails
+the build. The transpiled `.metalsrc` is intentionally NOT diffed — spirv-cross
+emits slightly different MSL across tool versions, so diffing it across
+machines would flag false drift; the Kotlin/TS copies already catch any stale
+`.frag`. The check is CI-only, so contributors who don't touch shaders need
+not install the glslang/spirv toolchain locally.
+
+Per-platform outputs (generated from the canonical `shaders/*` files; do
+not hand-edit):
+- Web: `src/web/shaders.generated.ts` (`*_SRC` consts), re-exported by
+  `src/web/shaders.ts`.
+- Android: `android/.../gpu/ShadersGenerated.kt` (`const val` strings),
+  delegated by `Shaders.kt`. Platform-local shaders with no cross-runtime
+  twin (OES external texture, 2D passthrough) stay hand-written in
+  `Shaders.kt` / `Mask.kt`.
+- iOS: `ios/KaleidoscopeModule/shaders/*.metalsrc`.
 
 The composite shader (`shaders/composite.frag`) is the canonical mix-with-
 mask shader; every effect category (blur, background-image, future

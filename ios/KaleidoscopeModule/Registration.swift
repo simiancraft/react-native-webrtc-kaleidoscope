@@ -1,21 +1,43 @@
-// Frame-processor registration for iOS.
-// Mirrors android/.../Registration.kt: maps effect names to their
-// RTCVideoFrameProcessor implementations in the upstream react-native-webrtc
-// registry. Called from KaleidoscopeModule.OnCreate, before any JS code runs.
+// Frame-processor registration for iOS. Mirrors android/.../Registration.kt.
+// Called from KaleidoscopeModule.OnCreate at Expo Module init time, before any
+// JS code runs, so processors are in the upstream react-native-webrtc registry
+// before any track requests an effect by name.
 //
-// Implementations are not yet ported. Until they land, this is a no-op and
-// the JS facade (src/index.ts) gates NATIVE_REGISTERED_EFFECTS on Platform.OS
-// so iOS consumers do not reach an empty processor list, which the upstream
-// rn-webrtc registry mishandles by crashing the EglRenderer one frame later
-// (refcount goes negative; see the rationale at src/index.ts:80-86).
+// Unlike Android (which registers a FACTORY and the upstream builds one
+// processor per track), iOS registers a single processor INSTANCE per name.
+// That instance's capturer:didCaptureVideoFrame: is invoked per frame, so each
+// processor holds its own cached Metal/Vision resources and is internally
+// thread-safe (see each processor's os_unfair_lock).
+//
+// ProcessorProvider and the VideoFrameProcessorDelegate protocol come from
+// react-native-webrtc's Obj-C sources, imported as a Clang module (the consumer
+// enables `:modular_headers => true`; see Kaleidoscope.podspec and app.plugin.js).
+// Two forks ship the same Obj-C class and protocol names under different module
+// names, mirroring how android/build.gradle probes both Gradle projects:
+//   - react-native-webrtc/react-native-webrtc -> module `react_native_webrtc`
+//   - livekit/react-native-webrtc (@livekit/react-native) -> `livekit_react_native_webrtc`
+// We import whichever is present; the symbols are identical either way. WebRTC
+// types (RTCVideoFrame etc.) come from WebRTC.framework via `import WebRTC`.
 
 import Foundation
-
-// import WebRTC
+import WebRTC
+#if canImport(livekit_react_native_webrtc)
+import livekit_react_native_webrtc
+#elseif canImport(react_native_webrtc)
+import react_native_webrtc
+#endif
 
 public enum Registration {
   public static func registerAll() {
-    // ProcessorProvider.addProcessor("mirror", MirrorProcessor())
-    // ProcessorProvider.addProcessor("blur",   BlurProcessor())
+    ProcessorProvider.addProcessor(MirrorProcessor(), forName: "mirror")
+    ProcessorProvider.addProcessor(BlurProcessor(), forName: "blur")
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "office-1"),
+      forName: "background-image-office-1"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "office-2"),
+      forName: "background-image-office-2"
+    )
   }
 }
