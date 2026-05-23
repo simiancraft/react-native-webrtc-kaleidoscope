@@ -10,40 +10,23 @@
 // src/web/segmenter.ts. This file owns only the per-effect GL state and
 // the per-frame transform.
 
+import { computeBlurKernel } from '../blur-kernel';
 import type { FrameTransform } from '../insertable-streams';
 import { loadSegmenter, type SegmenterResults } from '../segmenter';
 import { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 
-// 9-tap separable Gaussian kernel computed on the CPU and uploaded as
-// uWeights/uOffsets, the same scheme as Android's BlurFactory so web, Android,
-// and iOS run the identical blur.frag. Ported from BlurFactory.ensureKernel:
-// tapSpacing 2.0, weight exp(-x^2 / 2 sigma^2), normalized by w0 + 2*sum(w[1..])
-// (center tap counts once, each side tap twice since the shader samples
-// vUv +/- offset). Cached; rebuilt only when sigma changes.
-const KERNEL_TAPS = 9;
-const kernelWeights = new Float32Array(KERNEL_TAPS);
-const kernelOffsets = new Float32Array(KERNEL_TAPS);
+// Cache the kernel by sigma; the pure math lives in ../blur-kernel. Recomputed
+// only when the blur slider (setBlurSigma) moves, not per frame.
 let cachedKernelSigma = Number.NaN;
+let cachedKernel: { weights: Float32Array; offsets: Float32Array } | null = null;
 
 const blurKernel = (sigma: number): { weights: Float32Array; offsets: Float32Array } => {
-  if (sigma !== cachedKernelSigma) {
-    const tapSpacing = 2;
-    const raw = new Array<number>(KERNEL_TAPS);
-    let sum = 0;
-    for (let i = 0; i < KERNEL_TAPS; i++) {
-      const x = i * tapSpacing;
-      const wi = Math.exp(-(x * x) / (2 * sigma * sigma));
-      kernelOffsets[i] = x;
-      raw[i] = wi;
-      sum += i === 0 ? wi : 2 * wi;
-    }
-    for (let i = 0; i < KERNEL_TAPS; i++) {
-      kernelWeights[i] = (raw[i] ?? 0) / sum;
-    }
+  if (sigma !== cachedKernelSigma || cachedKernel === null) {
+    cachedKernel = computeBlurKernel(sigma);
     cachedKernelSigma = sigma;
   }
-  return { weights: kernelWeights, offsets: kernelOffsets };
+  return cachedKernel;
 };
 
 type GpuState = {
