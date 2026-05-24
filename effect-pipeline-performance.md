@@ -8,13 +8,13 @@
 
 ## Goal
 
-Make the library worth a download and ship-ready on the devices it will actually meet: the iPhone X (A11) is the defined floor, the user base is A15-class (iPhone 13/14). Three remaining moves: finish the perf rubric by removing the per-frame CPU↔GPU stall (R3), fix the background to cover-fit the displayed frame at natural scale, and add a self-classifying device-quality tier that scales processing resolution and segmentation quality to the hardware. Done looks like: identical/correct visual output; the per-frame `waitUntilCompleted`/`glFinish` replaced by returning the previous frame's completed output so CPU and GPU overlap; backgrounds fill the frame without over-zoom on both platforms; the transform ops read screen-consistent across web/Android/iOS; and a `QualityTier` that auto-downscales on the A11 floor while a 13/14 runs ambitious; all verified on an EAS build.
+Make the library worth a download and ship-ready on the devices it will actually meet: the iPhone X (A11) is the defined floor, the user base is A15-class (iPhone 13/14). Three remaining moves: finish the perf rubric by removing the per-frame CPU↔GPU stall (R3), fix the background to cover-fit the displayed frame at natural scale, and add a self-classifying device-quality tier that scales processing resolution and segmentation quality to the hardware. Done looks like: identical/correct visual output; the per-frame `waitUntilCompleted`/`glFinish` replaced by returning the previous frame's completed output so CPU and GPU overlap; backgrounds fill the frame without over-zoom on both platforms; the transform ops read screen-consistent across web/Android/iOS; and a `QualityTier` that auto-downscales on the A11 floor while a 13/14 runs ambitious; all verified on an EAS build. A through-line constraint: orientation correction is one minimal normalization applied at ingest and kept out of the effect shaders, so orientation and shader optimization never perturb each other.
 
 ## Domain context
 
 1. **The effect path.** Per frame: camera (OES texture on Android, NV12 `CVPixelBuffer` on iOS, `VideoFrame` on web) → "original 2D" copy → (blur: two separable Gaussian passes on a downscaled ping-pong) → `composite(original, background, mask)` → output buffer handed synchronously to WebRTC.
 2. **The 7-axis perf rubric.** R1 resolution, R2 sample/pass budget, R3 sync points, R4 allocation churn, R5 copies/conversions, R6 segmentation coupling, R7 precision. R1/R2/R5/R6 are shipped; **R3 is the one substantive rubric item left.**
-3. **Orientation (the shared fix).** Native effects run in the camera BUFFER space; the display rotates by `frame.rotation`. The per-platform `Orientation` helper (`gpu/Orientation.kt`, `gpu/Orientation.swift`) is the single place the rotation correction lives, mapping a screen-space op → a buffer-space `uUvTransform`. Android's GL/OES pipeline carries camera orientation; iOS works on the raw buffer and carries a Metal per-pass V-flip. Each helper has a documented one-line toggle for screenshot calibration.
+3. **Orientation as a single normalization layer (the target architecture).** Orientation correction must be ONE minimal transform applied early (at camera ingest), uniform across platforms, and kept OUT of the effect shaders — so (a) the input undergoes the fewest transforms possible with no compounding or conflicting flips (an "orientation cascade," CSS-specificity-style), and (b) shader/matrix optimization and orientation can each change without disturbing the other. Current state is not there yet: Android already normalizes at ingest (its OES→2D copy bakes in the camera `transformMatrix`), but iOS works on the raw buffer and compensates *per effect* (the blur composite's `bgUvScale=(1,-1)`, the transform op's V-flip toggle). The `Orientation` helper centralizes the rotation *math*; on iOS the *application* is still scattered. Target: normalize orientation once at the iOS ingest too, then delete the per-effect compensations so blur, composite, and transform all run in one canonical orientation and the flip/rotate matrices are identical across platforms.
 4. **Cover vs contain.** Cover-fit (aspectFill) fills the frame and crops the overflow axis, at natural object scale; against the **displayed** (rotation-corrected) aspect. The current over-zoom is cover-fit computed against the raw landscape buffer aspect, then re-cropped by the portrait display. Contain (the "chipmunk" shrink) is wrong.
 5. **`QualityTier`.** A never-user-facing enum (`Unsupported`/`Low`/`Medium`/`High`/`Superior`) auto-selected from *monotonic* capability thresholds (iOS `MTLDevice.supportsFamily`; Android RAM + cores), so a future faster phone self-classifies with no upkeep. It sets a device-agnostic **target processing resolution** plus a device-agnostic **quality level** each platform maps to its own segmentation control (iOS Vision `.fast`/`.balanced`/`.accurate`; web MediaPipe `modelSelection`; Android MLKit).
 
@@ -29,19 +29,20 @@ Make the library worth a download and ship-ready on the devices it will actually
 
 | File | Role | Phase |
 |------|------|-------|
-| `ios/.../effects/BackgroundImageProcessor.swift`, `android/.../effects/BackgroundImageFactory.kt`, `src/web/effects/background-image.ts` | Background cover-fit | 1 |
-| `gpu/Orientation.swift`, `gpu/Orientation.kt` | Reused for rotation-corrected aspect; calibration toggles | 1, 2 |
-| `src/backgrounds/presets.ts`, new `src/backgrounds/debug-grid.*`, `package.json` exports, native asset trees, `demo/app/index.tsx` | Debug-grid background preset | 1 |
-| `ios/.../gpu/MetalRenderer.swift`, `ios/.../effects/{Blur,BackgroundImage,Transform}Processor.swift` | iOS frame-pipelining (R3) + native GPU timing | 2 |
-| `android/.../effects/{Blur,BackgroundImage,Transform}Factory.kt` | Android frame-pipelining (R3) + native GPU timing | 2 |
-| new `src/quality-tier.ts`, `ios/.../KaleidoscopeModule.swift`, `android/.../KaleidoscopeModule.kt` | `QualityTier` + capability detection | 3 |
-| `EffectTuning.swift/.kt`, `src/web/tuning.ts`, `ios/.../segmentation/Segmenter.swift`, `android/.../segmentation/Mask.kt`, `src/web/segmenter.ts` | Per-tier quality + target-resolution downscale | 3 |
+| `src/backgrounds/presets.ts`, new `src/backgrounds/debug-grid.*`, `package.json` exports, native asset trees, `demo/app/index.tsx` | Debug-grid background preset (enables the orientation/fit probe) | 1 |
+| `ios/.../effects/BackgroundImageProcessor.swift`, `android/.../effects/BackgroundImageFactory.kt`, `src/web/effects/background-image.ts` | Background cover-fit (first cut → finalized) | 1, 2 |
+| `ios/.../gpu/TextureBridge.swift`, `ios/.../gpu/MetalRenderer.swift` (ingest path) | iOS ingest orientation normalization | 2 |
+| `gpu/Orientation.swift`, `gpu/Orientation.kt`, `ios/.../effects/BlurProcessor.swift` | Drop per-effect compensation; canonical, cross-platform flip/rotate matrices | 2 |
+| `ios/.../effects/{Blur,BackgroundImage,Transform}Processor.swift`, `ios/.../gpu/MetalRenderer.swift` | iOS frame-pipelining (R3) + native GPU timing | 3 |
+| `android/.../effects/{Blur,BackgroundImage,Transform}Factory.kt` | Android frame-pipelining (R3) + native GPU timing | 3 |
+| new `src/quality-tier.ts`, `ios/.../KaleidoscopeModule.swift`, `android/.../KaleidoscopeModule.kt` | `QualityTier` + capability detection | 4 |
+| `EffectTuning.swift/.kt`, `src/web/tuning.ts`, `ios/.../segmentation/Segmenter.swift`, `android/.../segmentation/Mask.kt`, `src/web/segmenter.ts` | Per-tier quality + target-resolution downscale | 4 |
 
 ## Commits
 
 ### Phase 1: Background cover-fit + debug-grid background
 
-**Goal:** Cover-fit the background against the displayed (rotation-corrected) aspect so it fills the frame at natural scale, reusing `Orientation`; and add a debug background carrying viewport-size markers so clipping/crop/scale are objectively verifiable on device.
+**Goal:** Cover-fit the background against the displayed (rotation-corrected) aspect so it fills the frame at natural scale, reusing `Orientation`; and add a debug background carrying viewport-size markers so clipping/crop/scale are objectively verifiable on device. This phase's EAS build is also the **orientation-truth probe**: the transform ops and the grid reveal exactly how each platform orients, feeding Phase 2's single normalization. The cover-fit here is a first cut; it is finalized in canonical space in Phase 2.
 
 **Files created:**
 - `src/backgrounds/debug-grid.ts` + `.web.ts` + `.webp`: third preset (the user-provided debug image with viewport-size markers).
@@ -53,7 +54,18 @@ Make the library worth a download and ship-ready on the devices it will actually
 
 **Gate:** `bun run check` passes; `bun run check:android` compiles; iOS via EAS. On device the background fills the frame at natural scale and the debug grid reads square (no over-zoom, correct crop).
 
-### Phase 2: Frame-pipelining (R3) + native GPU timing
+### Phase 2: Single-normalization orientation — decouple orientation from the shaders
+
+**Goal:** Collapse orientation correction to ONE minimal transform applied at camera ingest, uniform across platforms, so downstream effect shaders are orientation-agnostic and the per-effect compensations are deleted. This is correctness AND the architecture that lets the shader/matrix optimization in Phase 3 proceed without touching orientation, and vice versa. Android already normalizes at ingest; bring iOS to parity. Informed by Phase 1's EAS build (the current per-effect compensations are temporary scaffolding, read once to learn the real orientation, not calibrated to keep).
+
+**Files rewritten:**
+- iOS ingest (`gpu/TextureBridge.swift` / the `MetalRenderer` original-target path): normalize the NV12→BGRA "original" texture to display-upright using `frame.rotation` (plus the front-camera mirror), matching Android's OES-matrix ingest.
+- `ios/.../effects/BlurProcessor.swift` (composite `bgUvScale`/`bgUvOffset` → identity), `BackgroundImageProcessor.swift`, `gpu/Orientation.swift`: drop the per-effect V-flip compensation. `Orientation` then carries only the user-facing flip/rotate op matrices, in canonical space, identical to Android — the platform-divergent toggles disappear.
+- Background cover-fit finalized in canonical space (first cut was Phase 1).
+
+**Gate:** `bun run check:android` compiles; iOS via EAS. Every effect (blur, background, all four transform ops) reads orientation-correct and identical to web on both portrait phones, with NO orientation compensation left in any iOS processor (a grep for non-identity `bgUvScale`/per-effect flips in the iOS effects returns nothing).
+
+### Phase 3: Frame-pipelining (R3) + native GPU timing
 
 **Goal:** Stop blocking the capture thread on the GPU every frame. Submit the current frame's work without waiting and return the previous frame's completed output (one frame of added latency). Applies to all three native processors (blur, background-image, transform), which share the stall. Add the native per-pass timing that confirms the overlap.
 
@@ -64,7 +76,7 @@ Make the library worth a download and ship-ready on the devices it will actually
 
 **Gate:** `bun run check:android` compiles; iOS via EAS. Effect output still correct on device; the timing log shows CPU/GPU overlap and a higher sustained FPS than the pre-change baseline.
 
-### Phase 3: Device-tiered quality
+### Phase 4: Device-tiered quality
 
 **Goal:** Self-classify the device and scale processing resolution + segmentation quality to it, so the A11 floor degrades gracefully and a 13/14 runs ambitious, with zero library upkeep as new phones ship.
 
@@ -78,13 +90,13 @@ Make the library worth a download and ship-ready on the devices it will actually
 
 **Gate:** `bun run check` passes; `bun run check:android` compiles; iOS via EAS. `deviceCapabilityTier` returns Low on an iPhone X and High/Superior on an A15; lag/blob reduced on the X.
 
-### Phase 4: Delete this plan
+### Phase 5: Delete this plan
 
 Delete `effect-pipeline-performance.md` as its own commit once the verification checklist is green. The orientation rule stays in `PATTERNS.md` and the `Orientation` helpers.
 
 ## Scope boundaries (explicitly not in this plan)
 
-- **Root iOS orientation fix** (make the Metal passthrough negate Y so no per-effect compensation is needed): deferred; we keep the documented per-platform `Orientation` compensation.
+- **Negating `gl_Position.y` in the shared passthrough vertex** (an alternative to normalizing at the iOS ingest): not the chosen route. Normalizing at ingest (Phase 2) keeps the correction in one host-side place and OUT of the shared shader, which is precisely what decouples orientation from shader optimization; baking it into the passthrough would re-entangle them.
 - **Runtime-measured adaptive tiering** (downgrade by observed frame time): deferred; the static capability proxy ships first.
 - **R7 precision/bandwidth** and the CoreImage→YUV-in-shader ingest swap: deferred; gated on the Phase 2 timing numbers.
 - **Mirror as a shipped preset:** no; the transform ops are calibration tools.
@@ -92,9 +104,10 @@ Delete `effect-pipeline-performance.md` as its own commit once the verification 
 ## Verification checklist
 
 - [ ] Background cover-fits the displayed aspect (debug grid reads square, no over-zoom) on Android + iOS (Phase 1).
-- [ ] Transform ops (flip-x/y, rotate-cw/ccw) read screen-consistent with the web reference on both portrait phones; `Orientation` toggles calibrated (Phase 1 EAS build).
-- [ ] Per-frame GPU stall removed; native timing shows CPU/GPU overlap and higher sustained FPS (Phase 2).
-- [ ] `deviceCapabilityTier` sane on iPhone X (Low) and A15 (High/Superior); resolution + segmentation quality applied per tier (Phase 3).
+- [ ] Transform ops (flip-x/y, rotate-cw/ccw) read screen-consistent with the web reference on both portrait phones (Phase 1 probe → Phase 2).
+- [ ] Orientation is a single ingest normalization; NO per-effect orientation compensation remains in any iOS processor; the flip/rotate matrices are identical across platforms (Phase 2).
+- [ ] Per-frame GPU stall removed; native timing shows CPU/GPU overlap and higher sustained FPS (Phase 3).
+- [ ] `deviceCapabilityTier` sane on iPhone X (Low) and A15 (High/Superior); resolution + segmentation quality applied per tier (Phase 4).
 - [ ] R1/R2 perf wins confirmed on device (folded into the first EAS build).
 - [ ] `bun run check`, `bun run check:shaders`, `bun run check:android` green; iOS EAS build succeeds.
 - [ ] Plan file deleted (Inspector Gadget Rule).
