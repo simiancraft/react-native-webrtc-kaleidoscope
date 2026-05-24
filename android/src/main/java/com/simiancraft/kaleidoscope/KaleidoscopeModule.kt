@@ -36,6 +36,10 @@ class KaleidoscopeModule : Module() {
       EffectTuning.maskThreshold = value
     }
 
+    Function("setDebugTiming") { value: Boolean ->
+      EffectTuning.debugTiming = value
+    }
+
     Function("resetEffectTuning") {
       EffectTuning.reset()
     }

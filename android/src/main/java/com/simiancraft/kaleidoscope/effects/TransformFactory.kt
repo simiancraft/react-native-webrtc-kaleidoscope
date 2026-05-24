@@ -31,8 +31,10 @@ import android.opengl.GLES30
 import android.util.Log
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessor
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
+import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
+import com.simiancraft.kaleidoscope.gpu.FramePipeline
 import com.simiancraft.kaleidoscope.gpu.GlDebug
 import com.simiancraft.kaleidoscope.gpu.GlProgram
 import com.simiancraft.kaleidoscope.gpu.Orientation
@@ -65,6 +67,10 @@ private class TransformProcessor(
   private var cachedHeight = 0
 
   private var yuvConverter: YuvConverter? = null
+
+  // R3: one-frame GPU pipeline (see FramePipeline). Replaces the per-frame
+  // glFinish; only changes WHEN the frame is returned, not its orientation.
+  private val pipeline = FramePipeline()
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
     return synchronized(lock) { processOuter(frame, textureHelper) }
@@ -157,10 +163,6 @@ private class TransformProcessor(
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("transform reorient pass")
 
-      // Synchronize before handing the output texture to the renderer's
-      // EGL context.
-      GLES30.glFinish()
-
       // Detach the texture from the FBO and free the FBO; the texture lives
       // with the VideoFrame and is deleted in the release callback.
       GLES30.glFramebufferTexture2D(
@@ -175,28 +177,43 @@ private class TransformProcessor(
       outputFboHandle = 0
       GlDebug.check("transform output cleanup")
 
+      // R3: fence this frame and hand the previous GPU-complete frame off. The
+      // (possibly swapped) output dims travel with the frame, so the previous
+      // frame's own dims/rotation are wrapped unchanged; orientation behavior
+      // is untouched, only the return is deferred one frame.
+      val ready = pipeline.enqueue(
+        outputTextureId,
+        outWidth,
+        outHeight,
+        frame.rotation,
+        frame.timestampNs,
+        EffectTuning.debugTiming,
+        TAG,
+      )
+      outputTextureId = 0
+      ready ?: return null
+
       val yc = yuvConverter ?: run {
         val c = YuvConverter()
         yuvConverter = c
         c
       }
 
-      val capturedTextureId = outputTextureId
+      val readyTextureId = ready.textureId
       val outputBuffer = TextureBufferImpl(
-        outWidth,
-        outHeight,
+        ready.width,
+        ready.height,
         VideoFrame.TextureBuffer.Type.RGB,
-        capturedTextureId,
+        readyTextureId,
         Matrix(),
         textureHelper.handler,
         yc,
         Runnable {
-          GLES30.glDeleteTextures(1, intArrayOf(capturedTextureId), 0)
+          GLES30.glDeleteTextures(1, intArrayOf(readyTextureId), 0)
         },
       )
-      outputTextureId = 0
 
-      VideoFrame(outputBuffer, frame.rotation, frame.timestampNs)
+      VideoFrame(outputBuffer, ready.rotation, ready.timestampNs)
     } catch (t: Throwable) {
       if (outputTextureId != 0) {
         try {

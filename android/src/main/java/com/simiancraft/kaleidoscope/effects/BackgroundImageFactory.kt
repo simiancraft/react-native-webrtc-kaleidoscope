@@ -31,6 +31,7 @@ import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
 import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
+import com.simiancraft.kaleidoscope.gpu.FramePipeline
 import com.simiancraft.kaleidoscope.gpu.GlDebug
 import com.simiancraft.kaleidoscope.gpu.GlProgram
 import com.simiancraft.kaleidoscope.gpu.Shaders
@@ -73,6 +74,10 @@ private class BackgroundImageProcessor(
 
   private val mask = Mask()
   private var yuvConverter: YuvConverter? = null
+
+  // R3: one-frame GPU pipeline (see FramePipeline). Replaces the per-frame
+  // glFinish so the capture thread does not block on this frame's GPU work.
+  private val pipeline = FramePipeline()
 
   // Background image cached as a 2D GL texture; loaded lazily on the first
   // successful frame to ensure GL setup is ready. Aspect ratio captured at
@@ -208,8 +213,6 @@ private class BackgroundImageProcessor(
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("bgImage composite pass")
 
-      GLES30.glFinish()
-
       GLES30.glFramebufferTexture2D(
         GLES30.GL_FRAMEBUFFER,
         GLES30.GL_COLOR_ATTACHMENT0,
@@ -222,28 +225,41 @@ private class BackgroundImageProcessor(
       outputFboHandle = 0
       GlDebug.check("bgImage output cleanup")
 
+      // R3: fence this frame and hand the previous GPU-complete frame off; the
+      // pipeline now owns outputTextureId, so zero the local handle.
+      val ready = pipeline.enqueue(
+        outputTextureId,
+        width,
+        height,
+        frame.rotation,
+        frame.timestampNs,
+        EffectTuning.debugTiming,
+        TAG,
+      )
+      outputTextureId = 0
+      ready ?: return null
+
       val yc = yuvConverter ?: run {
         val c = YuvConverter()
         yuvConverter = c
         c
       }
 
-      val capturedTextureId = outputTextureId
+      val readyTextureId = ready.textureId
       val outputBuffer = TextureBufferImpl(
-        width,
-        height,
+        ready.width,
+        ready.height,
         VideoFrame.TextureBuffer.Type.RGB,
-        capturedTextureId,
+        readyTextureId,
         Matrix(),
         textureHelper.handler,
         yc,
         Runnable {
-          GLES30.glDeleteTextures(1, intArrayOf(capturedTextureId), 0)
+          GLES30.glDeleteTextures(1, intArrayOf(readyTextureId), 0)
         },
       )
-      outputTextureId = 0
 
-      VideoFrame(outputBuffer, frame.rotation, frame.timestampNs)
+      VideoFrame(outputBuffer, ready.rotation, ready.timestampNs)
     } catch (t: Throwable) {
       if (outputTextureId != 0) {
         try {

@@ -49,9 +49,24 @@ internal object EffectTuning {
       field = value.coerceIn(0.05f, 0.95f)
     }
 
+  /**
+   * Debug GPU timing. When true, the GLES effect factories log per-frame
+   * GPU-completion latency under the "Perf" logcat tag (read a frame late via
+   * the frame-pipeline fence). Off by default; toggled from JS via the Expo
+   * Module's setDebugTiming so a tester can capture ground-truth numbers on a
+   * device build without rebuilding. Mirrors the iOS timing flag being added
+   * in parallel.
+   */
+  @Volatile
+  var debugTiming: Boolean = false
+    set(value) {
+      field = value
+    }
+
   fun reset() {
     blurSigma = 5f
     maskHardness = 0.5f
     maskThreshold = 0.7f
+    debugTiming = false
   }
 }
