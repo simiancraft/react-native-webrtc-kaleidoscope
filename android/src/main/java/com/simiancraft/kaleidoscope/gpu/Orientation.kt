@@ -50,7 +50,10 @@ object Orientation {
     when (op) {
       Op.FLIP_X -> floatArrayOf(-1f, 0f, 0f, 1f)
       Op.FLIP_Y -> floatArrayOf(1f, 0f, 0f, -1f)
-      Op.ROTATE_CW -> floatArrayOf(0f, -1f, 1f, 0f)
-      Op.ROTATE_CCW -> floatArrayOf(0f, 1f, -1f, 0f)
+      // Device-confirmed: the derivation above had the rotation sign backwards
+      // (rotate-cw read as CCW on Android AND iOS, vs the correct web
+      // reference). Matrices swapped so rotate-cw rotates clockwise like web.
+      Op.ROTATE_CW -> floatArrayOf(0f, 1f, -1f, 0f)
+      Op.ROTATE_CCW -> floatArrayOf(0f, -1f, 1f, 0f)
     }
 }

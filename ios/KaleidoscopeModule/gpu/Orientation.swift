@@ -74,9 +74,11 @@ enum Orientation {
     case .flipY:
       return simd_float2x2(columns: (SIMD2<Float>(1, 0), SIMD2<Float>(0, -1)))
     case .rotateCW:
-      return simd_float2x2(columns: (SIMD2<Float>(0, -1), SIMD2<Float>(1, 0)))
-    case .rotateCCW:
+      // Device-confirmed swap: the derivation had the rotation sign backwards
+      // (read as CCW on device vs the correct web reference).
       return simd_float2x2(columns: (SIMD2<Float>(0, 1), SIMD2<Float>(-1, 0)))
+    case .rotateCCW:
+      return simd_float2x2(columns: (SIMD2<Float>(0, -1), SIMD2<Float>(1, 0)))
     }
   }
 }
