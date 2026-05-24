@@ -8,12 +8,12 @@
 const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.max(value, lo), hi);
 
 class EffectTuningState {
-  blurSigma = 8;
+  blurSigma = 5;
   maskHardness = 0.5;
   maskThreshold = 0.7;
 
   setBlurSigma(value: number): void {
-    this.blurSigma = clamp(value, 0.5, 64);
+    this.blurSigma = clamp(value, 0.5, 7);
   }
 
   setMaskHardness(value: number): void {
@@ -25,7 +25,7 @@ class EffectTuningState {
   }
 
   reset(): void {
-    this.blurSigma = 8;
+    this.blurSigma = 5;
     this.maskHardness = 0.5;
     this.maskThreshold = 0.7;
   }

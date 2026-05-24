@@ -35,18 +35,18 @@ describe('tuning singleton', () => {
   });
 
   test('has library defaults', () => {
-    expect(tuning.blurSigma).toBe(8);
+    expect(tuning.blurSigma).toBe(5);
     expect(tuning.maskHardness).toBe(0.5);
     expect(tuning.maskThreshold).toBe(0.7);
   });
 
-  test('setBlurSigma clamps to [0.5, 64]', () => {
+  test('setBlurSigma clamps to [0.5, 7]', () => {
     tuning.setBlurSigma(1000);
-    expect(tuning.blurSigma).toBe(64);
+    expect(tuning.blurSigma).toBe(7);
     tuning.setBlurSigma(0);
     expect(tuning.blurSigma).toBe(0.5);
-    tuning.setBlurSigma(12);
-    expect(tuning.blurSigma).toBe(12);
+    tuning.setBlurSigma(4);
+    expect(tuning.blurSigma).toBe(4);
   });
 
   test('setMaskHardness clamps to [0, 1]', () => {
@@ -68,7 +68,7 @@ describe('tuning singleton', () => {
     tuning.setMaskHardness(0.9);
     tuning.setMaskThreshold(0.8);
     tuning.reset();
-    expect(tuning.blurSigma).toBe(8);
+    expect(tuning.blurSigma).toBe(5);
     expect(tuning.maskHardness).toBe(0.5);
     expect(tuning.maskThreshold).toBe(0.7);
   });

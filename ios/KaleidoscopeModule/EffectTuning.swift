@@ -17,9 +17,9 @@ public enum EffectTuning {
   // unfair_lock for vocabulary parity with the planned Segmenter pattern.
   private static var unsafeLock = os_unfair_lock_s()
 
-  private static var _blurSigma: Float = 8.0
+  private static var _blurSigma: Float = 5.0
   private static var _maskHardness: Float = 0.5
-  private static var _maskThreshold: Float = 0.5
+  private static var _maskThreshold: Float = 0.7
 
   public static var blurSigma: Float {
     get {
@@ -28,7 +28,7 @@ public enum EffectTuning {
       return _blurSigma
     }
     set {
-      let clamped = min(max(newValue, 0.5), 64.0)
+      let clamped = min(max(newValue, 0.5), 7.0)
       os_unfair_lock_lock(&unsafeLock)
       _blurSigma = clamped
       os_unfair_lock_unlock(&unsafeLock)
@@ -65,9 +65,9 @@ public enum EffectTuning {
 
   public static func reset() {
     os_unfair_lock_lock(&unsafeLock)
-    _blurSigma = 8.0
+    _blurSigma = 5.0
     _maskHardness = 0.5
-    _maskThreshold = 0.5
+    _maskThreshold = 0.7
     os_unfair_lock_unlock(&unsafeLock)
   }
 }

@@ -60,9 +60,9 @@ function TuningRow({ label, value, min, max, step, onChange }: TuningRowProps) {
 
 export function EffectTuningPanel() {
   const [expanded, setExpanded] = useState(false);
-  const [blurSigma, setBlurSigmaLocal] = useState(8);
+  const [blurSigma, setBlurSigmaLocal] = useState(5);
   const [maskHardness, setMaskHardnessLocal] = useState(0.5);
-  const [maskThreshold, setMaskThresholdLocal] = useState(0.5);
+  const [maskThreshold, setMaskThresholdLocal] = useState(0.7);
 
   const onBlurSigma = (next: number) => {
     setBlurSigmaLocal(next);
@@ -80,9 +80,9 @@ export function EffectTuningPanel() {
   };
 
   const onReset = () => {
-    setBlurSigmaLocal(8);
+    setBlurSigmaLocal(5);
     setMaskHardnessLocal(0.5);
-    setMaskThresholdLocal(0.5);
+    setMaskThresholdLocal(0.7);
     safeCall(() => resetEffectTuning());
   };
 
@@ -97,7 +97,7 @@ export function EffectTuningPanel() {
             label="Blur sigma"
             value={blurSigma}
             min={0.5}
-            max={32}
+            max={7}
             step={0.5}
             onChange={onBlurSigma}
           />

@@ -13,14 +13,14 @@ package com.simiancraft.kaleidoscope
 
 internal object EffectTuning {
   /**
-   * Gaussian sigma for the blur effect; higher = softer blur. Default
-   * matches the v0.1 hardcoded value. Custom setter clamps to a sane
-   * range; setting the property is the public mutation API.
+   * Gaussian sigma for the blur effect; higher = softer blur. Default 5;
+   * clamped to [0.5, 7] (the useful range before the linear-sampled kernel
+   * truncates and bands). Setting the property is the public mutation API.
    */
   @Volatile
-  var blurSigma: Float = 8f
+  var blurSigma: Float = 5f
     set(value) {
-      field = value.coerceIn(0.5f, 64f)
+      field = value.coerceIn(0.5f, 7f)
     }
 
   /**
@@ -37,21 +37,21 @@ internal object EffectTuning {
   /**
    * Mask smoothstep center for blur and background-image composites,
    * in [0, 1]; the threshold at which a pixel's raw confidence flips from
-   * "background" to "person". Default 0.5 reproduces the historical
-   * smoothstep centered on the confidence midpoint. Higher values reject
+   * "background" to "person". Default 0.7 (dialed in post-optimization).
+   * Higher values reject
    * low-confidence edges (chair backs, hair flyaway); lower values are
    * more inclusive. Clamped to a workable range below to keep the
    * smoothstep transition non-degenerate.
    */
   @Volatile
-  var maskThreshold: Float = 0.5f
+  var maskThreshold: Float = 0.7f
     set(value) {
       field = value.coerceIn(0.05f, 0.95f)
     }
 
   fun reset() {
-    blurSigma = 8f
+    blurSigma = 5f
     maskHardness = 0.5f
-    maskThreshold = 0.5f
+    maskThreshold = 0.7f
   }
 }
