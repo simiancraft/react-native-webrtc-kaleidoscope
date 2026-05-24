@@ -39,6 +39,10 @@ public enum Registration {
     ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
     ProcessorProvider.addProcessor(BlurProcessor(), forName: "blur")
     ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "debug-resolutions"),
+      forName: "background-image-debug-resolutions"
+    )
+    ProcessorProvider.addProcessor(
       BackgroundImageProcessor(assetName: "dark-office"),
       forName: "background-image-dark-office"
     )

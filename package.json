@@ -52,6 +52,13 @@
       "import": "./dist/backgrounds/index.js",
       "default": "./dist/backgrounds/index.js"
     },
+    "./backgrounds/debug-resolutions": {
+      "types": "./dist/backgrounds/debug-resolutions.d.ts",
+      "react-native": "./src/backgrounds/debug-resolutions.ts",
+      "browser": "./dist/backgrounds/debug-resolutions.web.js",
+      "import": "./dist/backgrounds/debug-resolutions.js",
+      "default": "./dist/backgrounds/debug-resolutions.js"
+    },
     "./backgrounds/dark-office": {
       "types": "./dist/backgrounds/dark-office.d.ts",
       "react-native": "./src/backgrounds/dark-office.ts",
@@ -66,6 +73,7 @@
       "import": "./dist/backgrounds/light-office.js",
       "default": "./dist/backgrounds/light-office.js"
     },
+    "./backgrounds/debug-resolutions.webp": "./src/backgrounds/debug-resolutions.webp",
     "./backgrounds/dark-office.webp": "./src/backgrounds/dark-office.webp",
     "./backgrounds/light-office.webp": "./src/backgrounds/light-office.webp",
     "./app.plugin.js": {

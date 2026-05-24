@@ -9,6 +9,7 @@ import { applyVideoEffects, type EffectSpec } from 'react-native-webrtc-kaleidos
 // The library ships these presets; each resolves to a bundled WebP URL on web
 // and to the preset name on native. This is the same import an end user gets.
 import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
+import { debugResolutions } from 'react-native-webrtc-kaleidoscope/backgrounds/debug-resolutions';
 import { lightOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/light-office';
 import { EffectToggles } from '../src/effect-toggles';
 import { EffectTuningPanel } from '../src/effect-tuning-panel';
@@ -21,6 +22,7 @@ type PresetId =
   | 'rotate-cw'
   | 'rotate-ccw'
   | 'blur'
+  | 'debug-resolutions'
   | 'dark-office'
   | 'light-office';
 
@@ -33,6 +35,8 @@ const presetToSpec = (id: PresetId): EffectSpec => {
       return { name: id };
     case 'blur':
       return { name: 'blur' };
+    case 'debug-resolutions':
+      return { name: 'background-image', source: debugResolutions };
     case 'dark-office':
       return { name: 'background-image', source: darkOffice };
     case 'light-office':
@@ -52,6 +56,7 @@ const TRANSLATE: ReadonlyArray<Preset> = [
   { id: 'rotate-ccw', label: 'Rotate CCW', icon: '↺' },
 ];
 const BACKGROUND: ReadonlyArray<Preset> = [
+  { id: 'debug-resolutions', label: 'Debug Grid' },
   { id: 'dark-office', label: 'Dark Office' },
   { id: 'light-office', label: 'Light Office' },
 ];
@@ -65,6 +70,7 @@ const APPLY_ORDER: ReadonlyArray<PresetId> = [
   'rotate-cw',
   'rotate-ccw',
   'blur',
+  'debug-resolutions',
   'dark-office',
   'light-office',
 ];

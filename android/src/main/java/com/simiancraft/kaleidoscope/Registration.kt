@@ -31,6 +31,10 @@ object Registration {
     // ProcessorProvider entry. Parameterized dispatch via uniforms lands
     // when we extend the upstream rn-webrtc API surface.
     ProcessorProvider.addProcessor(
+      "background-image-debug-resolutions",
+      BackgroundImageFactory(context, "debug-resolutions"),
+    )
+    ProcessorProvider.addProcessor(
       "background-image-dark-office",
       BackgroundImageFactory(context, "dark-office"),
     )
