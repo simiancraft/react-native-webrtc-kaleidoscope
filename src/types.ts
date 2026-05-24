@@ -6,8 +6,17 @@
 
 import type { BackgroundPresetName } from './backgrounds';
 
-export type MirrorSpec = {
-  readonly name: 'mirror';
+/**
+ * Geometric reorientation of the frame: an axis flip or a 90-degree rotation.
+ * The operation IS the effect name (parameterless), which keeps it compatible
+ * with the bare-string input form and the flat-string native registry. On web
+ * these run in display space (the reference behavior); native pipelines correct
+ * for the camera buffer's rotation so the on-screen result matches everywhere.
+ */
+export type TransformName = 'flip-x' | 'flip-y' | 'rotate-cw' | 'rotate-ccw';
+
+export type TransformSpec = {
+  readonly name: TransformName;
 };
 
 export type BlurSpec = {
@@ -30,7 +39,7 @@ export type BackgroundImageSpec = {
   readonly source: BackgroundPresetName | (string & {});
 };
 
-export type EffectSpec = MirrorSpec | BlurSpec | BackgroundImageSpec;
+export type EffectSpec = TransformSpec | BlurSpec | BackgroundImageSpec;
 
 /**
  * Legacy alias for the discriminant. Useful for typed switch statements and

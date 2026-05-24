@@ -67,7 +67,8 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
-  MirrorSpec,
+  TransformName,
+  TransformSpec,
 } from './types';
 
 interface WebRTCTrackExtensions {
@@ -104,13 +105,11 @@ interface WebRTCTrackExtensions {
 // anything else is filtered out before reaching upstream so a name with no
 // registered processor never triggers the empty-processors-list crash.
 const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
-  'mirror',
   'blur',
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];
 
 const IOS_REGISTERED_EFFECTS: readonly string[] = [
-  'mirror',
   'blur',
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];

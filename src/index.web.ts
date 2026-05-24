@@ -12,7 +12,7 @@
 import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
-import { mirror } from './web/effects/mirror';
+import { makeTransform } from './web/effects/transform';
 import {
   applyEffectToTrack,
   type DisposablePipeline,
@@ -62,13 +62,17 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
-  MirrorSpec,
+  TransformName,
+  TransformSpec,
 } from './types';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
   switch (spec.name) {
-    case 'mirror':
-      return mirror;
+    case 'flip-x':
+    case 'flip-y':
+    case 'rotate-cw':
+    case 'rotate-ccw':
+      return makeTransform(spec.name);
     case 'blur':
       // Blur strength comes from the global tuning state (setBlurSigma), not
       // the spec; the spec carries no parameters.
