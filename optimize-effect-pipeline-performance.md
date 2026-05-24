@@ -24,7 +24,9 @@ The blur effect spends far more GPU than it needs to: it blurs at full capture r
 |------|------|--------------------|
 | `shaders/blur.frag` | Canonical separable blur kernel | 2 |
 | `scripts/build-shaders.ts` | Codegen/transpile (run, not edited) | 2 |
-| `src/web/effects/blur.ts` | Web blur pipeline + `blurKernel` | 0, 1, 2 |
+| `src/web/effects/blur.ts` | Web blur GL pipeline | 0, 1, 2 |
+| `src/web/blur-kernel.ts` | Web kernel math (`computeBlurKernel`) | 2 |
+| `test/blur-kernel.test.ts` | Kernel unit tests (re-baseline for new kernel) | 2 |
 | `src/web/effects/background-image.ts` | Web composite-only effect | 5 |
 | `android/.../effects/BlurFactory.kt` | Android blur pipeline + `ensureKernel` | 0, 1, 2, 3 |
 | `android/.../effects/BackgroundImageFactory.kt` | Android composite-only effect | 3 |
@@ -56,6 +58,7 @@ This plan modifies files in place (instrumentation is inline behind a debug flag
 #### Commit 1c: iOS timing
 **Files rewritten:**
 - `ios/.../effects/BlurProcessor.swift`: read `commandBuffer.gpuStartTime`/`gpuEndTime` in the completion path; log under a debug flag.
+- `ios/.../gpu/TextureBridge.swift`: time the per-frame `ciContext.render` ingest separately. This number is the sole input to the deferred decision about the CoreImage→YUV-in-shader swap (see Scope boundaries).
 
 **Gate:** iOS demo builds (`bun run demo:ios` / EAS).
 
@@ -91,7 +94,8 @@ This is one cross-platform commit because the shader is shared and the host kern
 
 **Files rewritten:**
 - `shaders/blur.frag`: rewrite the tap loop to sample center + N fractional-offset pairs (bilinear two-texels-per-fetch); `N` = fetch count for ~5 effective taps, with room to bump to ~7 if quality requires.
-- `android/.../effects/BlurFactory.kt` (`ensureKernel`), `ios/.../gpu/MetalRenderer.swift` (`BlurKernel.ensure`), `src/web/effects/blur.ts` (`blurKernel`): compute Gaussian weights for the target radius, then combine adjacent tap pairs into fractional offsets + summed weights; upload as `uOffsets`/`uWeights`. Normalize to sum 1.
+- `android/.../effects/BlurFactory.kt` (`ensureKernel`), `ios/.../gpu/MetalRenderer.swift` (`BlurKernel.ensure`), `src/web/blur-kernel.ts` (`computeBlurKernel`): compute Gaussian weights for the target radius, then combine adjacent tap pairs into fractional offsets + summed weights; upload as `uOffsets`/`uWeights`. Normalize to sum 1.
+- `test/blur-kernel.test.ts`: re-baseline expected weights/offsets for the linear-sampled kernel.
 
 **Files regenerated (by `bun run build:shaders`, committed):**
 - `android/.../gpu/ShadersGenerated.kt`, `src/web/shaders.generated.ts`, `ios/.../shaders/blur.metalsrc`.
@@ -144,6 +148,12 @@ This is one cross-platform commit because the shader is shared and the host kern
 - [ ] `bun run check`, `bun run check:shaders`, `bun run check:android` all green.
 - [ ] On-device FPS measured before/after on all three platforms; blur look unchanged at dialed-in sigma.
 - [ ] Plan file deleted (Inspector Gadget Rule: no orphan plans).
+
+## Scope boundaries (explicitly not in this plan)
+
+- **iOS CoreImage→YUV-in-shader ingest swap.** `TextureBridge.swift` uses CoreImage for the NV12→RGB ingest as a *deliberate, documented* choice: CoreImage reads the buffer's `YCbCrMatrix`/`ColorPrimaries` attachments and picks the correct conversion, and its `CIContext` is created once (the per-frame-context perf failure is already avoided). It is the iOS analogue of Android's necessary OES→2D pass. Replacing it risks a subtly wrong color matrix. Out of scope unless Phase 0 timing (Commit 1c) shows `ciContext.render` is a meaningful slice of the iOS frame budget, and then only with explicit buffer-attachment handling plus a CoreImage fallback.
+- **Web 2D-canvas input staging removal.** Entangled with MediaPipe's canvas input and the `flipY` requirement; revisit only if Phase 0 shows the staging copy is significant.
+- **Android mask `Bitmap`/`IntArray` pooling.** Intermittent (segmentation kickoff, ~10–20 Hz) and off the render critical path; not worth the complexity.
 
 ## References
 
