@@ -104,12 +104,18 @@ interface WebRTCTrackExtensions {
 // platform's allowlist matches exactly what its native Registration installs;
 // anything else is filtered out before reaching upstream so a name with no
 // registered processor never triggers the empty-processors-list crash.
+// The four geometric transform ops share one native processor per platform
+// (TransformFactory on Android, TransformProcessor on iOS); each is a flat name.
+const TRANSFORM_EFFECTS: readonly string[] = ['flip-x', 'flip-y', 'rotate-cw', 'rotate-ccw'];
+
 const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
+  ...TRANSFORM_EFFECTS,
   'blur',
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];
 
 const IOS_REGISTERED_EFFECTS: readonly string[] = [
+  ...TRANSFORM_EFFECTS,
   'blur',
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];

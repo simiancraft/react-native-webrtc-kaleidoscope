@@ -29,7 +29,14 @@ import react_native_webrtc
 
 public enum Registration {
   public static func registerAll() {
-    ProcessorProvider.addProcessor(MirrorProcessor(), forName: "mirror")
+    // Geometric reorientation ops. flip-x is the corrected screen-horizontal
+    // mirror that replaces the old "mirror" effect; the other three are new.
+    // All four share TransformProcessor + transform.metalsrc; the buffer-space
+    // rotation correction lives only in Orientation.swift.
+    ProcessorProvider.addProcessor(TransformProcessor(op: .flipX), forName: "flip-x")
+    ProcessorProvider.addProcessor(TransformProcessor(op: .flipY), forName: "flip-y")
+    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCW), forName: "rotate-cw")
+    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
     ProcessorProvider.addProcessor(BlurProcessor(), forName: "blur")
     ProcessorProvider.addProcessor(
       BackgroundImageProcessor(assetName: "dark-office"),

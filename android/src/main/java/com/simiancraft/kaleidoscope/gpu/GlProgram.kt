@@ -48,6 +48,11 @@ internal class GlProgram(vertexSource: String, fragmentSource: String) {
     GLES30.glUniform2f(uniformLocation(name), x, y)
   }
 
+  /** Upload a column-major 2x2 (4 floats) to a mat2 uniform. */
+  fun setMat2(name: String, columnMajor: FloatArray) {
+    GLES30.glUniformMatrix2fv(uniformLocation(name), 1, false, columnMajor, 0)
+  }
+
   fun delete() {
     GLES30.glDeleteProgram(id)
   }

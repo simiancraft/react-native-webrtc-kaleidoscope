@@ -10,13 +10,21 @@ import android.content.Context
 import com.oney.WebRTCModule.videoEffects.ProcessorProvider
 import com.simiancraft.kaleidoscope.effects.BackgroundImageFactory
 import com.simiancraft.kaleidoscope.effects.BlurFactory
-import com.simiancraft.kaleidoscope.effects.MirrorFactory
+import com.simiancraft.kaleidoscope.effects.TransformFactory
+import com.simiancraft.kaleidoscope.gpu.Orientation
 
 object Registration {
   @JvmStatic
   fun registerAll(context: Context) {
-    ProcessorProvider.addProcessor("mirror", MirrorFactory())
     ProcessorProvider.addProcessor("blur", BlurFactory(context))
+
+    // Geometric reorientation effects. flip-x is the corrected screen-horizontal
+    // mirror (replaces the old "mirror" CPU effect). The rotation correction
+    // lives entirely in Orientation.kt; each registration just names its op.
+    ProcessorProvider.addProcessor("flip-x", TransformFactory(Orientation.Op.FLIP_X))
+    ProcessorProvider.addProcessor("flip-y", TransformFactory(Orientation.Op.FLIP_Y))
+    ProcessorProvider.addProcessor("rotate-cw", TransformFactory(Orientation.Op.ROTATE_CW))
+    ProcessorProvider.addProcessor("rotate-ccw", TransformFactory(Orientation.Op.ROTATE_CCW))
 
     // Background-image variants — one factory per source preset. JS side
     // emits "background-image-{source}" so each preset gets its own

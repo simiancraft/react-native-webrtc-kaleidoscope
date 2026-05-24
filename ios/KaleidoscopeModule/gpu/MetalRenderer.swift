@@ -33,6 +33,7 @@
 import Foundation
 import Metal
 import CoreVideo
+import simd
 import os.log
 
 /// Errors thrown during renderer setup or per-frame work. The owning
@@ -67,6 +68,7 @@ final class MetalRenderer {
   let passthroughVertex: MTLFunction
   let blurPipeline: MTLRenderPipelineState
   let compositePipeline: MTLRenderPipelineState
+  let transformPipeline: MTLRenderPipelineState
 
   // Linear-clamp sampler shared by every pass (matches the Android GL_LINEAR
   // + GL_CLAMP_TO_EDGE setup). Clamp avoids edge bleed when cover-fit UVs or
@@ -116,6 +118,7 @@ final class MetalRenderer {
     let passthrough = try ShaderLibrary(device: dev, bundle: bundle, fileName: "passthrough")
     let blur = try ShaderLibrary(device: dev, bundle: bundle, fileName: "blur")
     let composite = try ShaderLibrary(device: dev, bundle: bundle, fileName: "composite")
+    let transform = try ShaderLibrary(device: dev, bundle: bundle, fileName: "transform")
 
     self.passthroughVertex = try passthrough.function()
 
@@ -134,6 +137,12 @@ final class MetalRenderer {
       vertex: passthroughVertex,
       fragment: try composite.function(),
       label: "composite"
+    )
+    self.transformPipeline = try MetalRenderer.makePipeline(
+      device: dev,
+      vertex: passthroughVertex,
+      fragment: try transform.function(),
+      label: "transform"
     )
 
     let samplerDesc = MTLSamplerDescriptor()
@@ -391,6 +400,38 @@ final class MetalRenderer {
       encoder.setFragmentSamplerState(linearClampSampler, index: 0)
       encoder.setFragmentSamplerState(linearClampSampler, index: 1)
       encoder.setFragmentSamplerState(linearClampSampler, index: 2)
+    }
+  }
+
+  /// Encode the geometric transform pass (`source` -> `target`) for the flip /
+  /// rotate effects. transform.metalsrc bindings: buffer(0) uUvTransform
+  /// (float2x2), texture(0) uTex, sampler(0) uTexSmplr. The host computes
+  /// `uvTransform` via the Orientation helper (the single source of the
+  /// camera-buffer reorientation math). For the 90-degree rotations `target` is
+  /// dimension-swapped (h x w) relative to `source`.
+  func encodeTransform(
+    commandBuffer: MTLCommandBuffer,
+    source: MTLTexture,
+    target: MTLTexture,
+    uvTransform: simd_float2x2,
+    label: String
+  ) throws {
+    try drawFullscreen(
+      commandBuffer: commandBuffer,
+      pipeline: transformPipeline,
+      target: target,
+      label: label
+    ) { encoder in
+      // simd_float2x2 is two contiguous float2 columns (16 bytes), the exact
+      // layout MSL's `constant float2x2&` expects at buffer(0).
+      var uvTransformVar = uvTransform
+      encoder.setFragmentBytes(
+        &uvTransformVar,
+        length: MemoryLayout<simd_float2x2>.stride,
+        index: 0
+      )
+      encoder.setFragmentTexture(source, index: 0)
+      encoder.setFragmentSamplerState(linearClampSampler, index: 0)
     }
   }
 }
