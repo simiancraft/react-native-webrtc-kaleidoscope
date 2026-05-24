@@ -12,7 +12,7 @@
 
 import { computeBlurKernel } from '../blur-kernel';
 import type { FrameTransform } from '../insertable-streams';
-import { loadSegmenter, type SegmenterResults } from '../segmenter';
+import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
 import { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 
@@ -315,20 +315,32 @@ const uploadTexture = (
 };
 
 export const blur: FrameTransform = async (frame) => {
-  const segmenter = await loadSegmenter();
+  await loadSegmenter(); // ensure the segmenter is loaded; cached after first call.
   const w = frame.displayWidth;
   const h = frame.displayHeight;
 
-  // Stage on a 2D canvas so MediaPipe can ingest it.
+  // Stage on a 2D canvas so MediaPipe can ingest it (and so the GL upload below
+  // has a flippable source).
   const inputCtx = ensureInputCanvas(w, h);
   inputCtx.drawImage(frame, 0, 0, w, h);
   const inputCanvas = inputCanvas2D as unknown as CanvasImageSource;
 
-  // Get the mask from MediaPipe.
-  const results: SegmenterResults = await new Promise((resolve) => {
-    segmenter.onResults((r) => resolve(r));
-    void segmenter.send({ image: inputCanvas });
-  });
+  // Decoupled segmentation (mirrors native): never block the render on the
+  // segmenter. Kick a fresh mask only when idle and draw with the most recent
+  // one. drawImage is atomic w.r.t. the event loop, so MediaPipe reading the
+  // canvas between tasks sees at most a ~1-frame-newer image — within the
+  // staleness the mask already tolerates. Before the first mask lands, forward
+  // the original frame (matches native's fall-through).
+  requestMaskIfIdle(inputCanvas);
+  const results = getLatestMask();
+  if (!results) {
+    const passthrough = new VideoFrame(inputCanvas2D as unknown as CanvasImageSource, {
+      timestamp: frame.timestamp,
+      ...(frame.duration != null ? { duration: frame.duration } : {}),
+    });
+    frame.close();
+    return passthrough;
+  }
 
   // Run the GPU pipeline.
   const s = ensureState(w, h);
@@ -351,6 +363,7 @@ export const blur: FrameTransform = async (frame) => {
   // (bilinear minification + blur in one step).
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurA);
   gl.viewport(0, 0, downW, downH);
+  // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook (the early return above tripped the use* heuristic).
   gl.useProgram(programs.blur.prog);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
@@ -373,6 +386,7 @@ export const blur: FrameTransform = async (frame) => {
   // Pass 3: composite original + blurB + mask -> default framebuffer (canvas)
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, w, h);
+  // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook (the early return above tripped the use* heuristic).
   gl.useProgram(programs.composite.prog);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, textures.original);

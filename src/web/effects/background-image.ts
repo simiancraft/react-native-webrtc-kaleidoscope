@@ -11,7 +11,7 @@
 // src/web/segmenter.ts.
 
 import type { FrameTransform } from '../insertable-streams';
-import { loadSegmenter, type SegmenterResults } from '../segmenter';
+import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
 import { COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 
@@ -204,7 +204,8 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
   const e = entry;
 
   return async (frame) => {
-    const [segmenter, bg] = await Promise.all([loadSegmenter(), e.imagePromise]);
+    const bg = await e.imagePromise;
+    await loadSegmenter(); // ensure loaded; cached after first call.
     const w = frame.displayWidth;
     const h = frame.displayHeight;
 
@@ -212,10 +213,18 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     inputCtx.drawImage(frame, 0, 0, w, h);
     const inputCanvas = e.inputCanvas2D as unknown as CanvasImageSource;
 
-    const results: SegmenterResults = await new Promise((resolve) => {
-      segmenter.onResults((r) => resolve(r));
-      void segmenter.send({ image: inputCanvas });
-    });
+    // Decoupled segmentation; see blur.ts for the rationale. Forward the
+    // original frame until the first mask lands.
+    requestMaskIfIdle(inputCanvas);
+    const results = getLatestMask();
+    if (!results) {
+      const passthrough = new VideoFrame(e.inputCanvas2D as unknown as CanvasImageSource, {
+        timestamp: frame.timestamp,
+        ...(frame.duration != null ? { duration: frame.duration } : {}),
+      });
+      frame.close();
+      return passthrough;
+    }
 
     const s = ensureState(e, w, h, bg);
     const { gl, canvas, program, textures } = s;
@@ -235,6 +244,7 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, w, h);
+    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook (the early return above tripped the use* heuristic).
     gl.useProgram(program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, textures.original);
