@@ -34,6 +34,10 @@ type GpuState = {
   canvas: OffscreenCanvas;
   width: number;
   height: number;
+  // Blur ping-pong buffers run at quarter area (half each axis, short side
+  // floored at 256px); the composite's LINEAR sampler upscales for free.
+  downW: number;
+  downH: number;
   programs: {
     blur: BlurProgram;
     composite: CompositeProgram;
@@ -224,6 +228,15 @@ const createFbo = (gl: WebGL2RenderingContext, tex: WebGLTexture): WebGLFramebuf
   return fbo;
 };
 
+// Quarter-area downscale for the blur ping-pong buffers: half each axis, short
+// side floored at 256px so small inputs don't degrade; never upscales. Shared
+// rule with the Android/iOS R1 commits.
+const blurDownscale = (w: number, h: number): { downW: number; downH: number } => {
+  const shortTarget = Math.max(256, Math.round(Math.min(w, h) * 0.5));
+  const scale = Math.min(1, shortTarget / Math.min(w, h));
+  return { downW: Math.max(1, Math.round(w * scale)), downH: Math.max(1, Math.round(h * scale)) };
+};
+
 const ensureState = (width: number, height: number): GpuState => {
   if (state && state.width === width && state.height === height) return state;
 
@@ -253,18 +266,30 @@ const ensureState = (width: number, height: number): GpuState => {
     blur: linkBlurProgram(gl),
     composite: linkCompositeProgram(gl),
   };
+  const { downW, downH } = blurDownscale(width, height);
   const textures = {
     original: createTexture(gl, width, height),
     mask: createTexture(gl, width, height),
-    blurA: createTexture(gl, width, height),
-    blurB: createTexture(gl, width, height),
+    blurA: createTexture(gl, downW, downH),
+    blurB: createTexture(gl, downW, downH),
   };
   const fbos = {
     blurA: createFbo(gl, textures.blurA),
     blurB: createFbo(gl, textures.blurB),
   };
 
-  state = { gl, canvas, width, height, programs, timer: makePassTimer(gl), textures, fbos };
+  state = {
+    gl,
+    canvas,
+    width,
+    height,
+    downW,
+    downH,
+    programs,
+    timer: makePassTimer(gl),
+    textures,
+    fbos,
+  };
   return state;
 };
 
@@ -307,7 +332,7 @@ export const blur: FrameTransform = async (frame) => {
 
   // Run the GPU pipeline.
   const s = ensureState(w, h);
-  const { gl, canvas, programs, timer, textures, fbos } = s;
+  const { gl, canvas, programs, timer, textures, fbos, downW, downH } = s;
 
   // Upload original with flipY=true (DOM-coord source → GL v=1 = top).
   // Upload mask with flipY=false: UNPACK_FLIP_Y_WEBGL is a no-op on
@@ -322,14 +347,15 @@ export const blur: FrameTransform = async (frame) => {
   gl.disable(gl.BLEND);
   gl.disable(gl.DEPTH_TEST);
 
-  // Pass 1: horizontal blur of original -> blurA
+  // Pass 1: horizontal blur of full-res original -> downscaled blurA
+  // (bilinear minification + blur in one step).
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurA);
-  gl.viewport(0, 0, w, h);
+  gl.viewport(0, 0, downW, downH);
   gl.useProgram(programs.blur.prog);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
   gl.uniform1i(programs.blur.uTex, 0);
-  gl.uniform2f(programs.blur.uAxis, 1 / w, 0);
+  gl.uniform2f(programs.blur.uAxis, 1 / downW, 0);
   // Upload the precomputed kernel; persists into the vertical pass below
   // (same program), which only swaps uAxis.
   const { weights, offsets } = blurKernel(tuning.blurSigma);
@@ -337,11 +363,11 @@ export const blur: FrameTransform = async (frame) => {
   gl.uniform1fv(programs.blur.uOffsets, offsets);
   timePass(gl, timer, 'h', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
 
-  // Pass 2: vertical blur of blurA -> blurB
+  // Pass 2: vertical blur of blurA -> blurB (both downscaled)
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurB);
-  gl.viewport(0, 0, w, h);
+  gl.viewport(0, 0, downW, downH);
   gl.bindTexture(gl.TEXTURE_2D, textures.blurA);
-  gl.uniform2f(programs.blur.uAxis, 0, 1 / h);
+  gl.uniform2f(programs.blur.uAxis, 0, 1 / downH);
   timePass(gl, timer, 'v', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
 
   // Pass 3: composite original + blurB + mask -> default framebuffer (canvas)
