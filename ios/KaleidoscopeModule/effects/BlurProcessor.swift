@@ -177,8 +177,16 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
       maskUvOffset: SIMD2<Float>(0, 0),
       maskHi: maskHi,
       maskLo: maskLo,
-      bgUvScale: SIMD2<Float>(1, 1),
-      bgUvOffset: SIMD2<Float>(0, 0),
+      // The blurred background passes through an odd number of .private render
+      // passes (downsample + H + V); each flips vertically in buffer space
+      // (the transpiled passthrough does not negate gl_Position.y), so the
+      // background arrives flipped relative to the directly-sampled foreground.
+      // Cancel it with a V flip of the background UV (bgUv.y -> 1 - bgUv.y).
+      // iOS-only: Android's GL pipeline carries the camera orientation and is
+      // correct without this. On a portrait (rotation-90) screen this buffer-V
+      // flip is what reads as the horizontal mirror.
+      bgUvScale: SIMD2<Float>(1, -1),
+      bgUvOffset: SIMD2<Float>(0, 1),
       label: "blur-composite"
     )
 
