@@ -10,6 +10,10 @@
 
 Make the library worth a download and ship-ready on the devices it will actually meet: the iPhone X (A11) is the defined floor, the user base is A15-class (iPhone 13/14). Three remaining moves: finish the perf rubric by removing the per-frame CPU↔GPU stall (R3), fix the background to cover-fit the displayed frame at natural scale, and add a self-classifying device-quality tier that scales processing resolution and segmentation quality to the hardware. Done looks like: identical/correct visual output; the per-frame `waitUntilCompleted`/`glFinish` replaced by returning the previous frame's completed output so CPU and GPU overlap; backgrounds fill the frame without over-zoom on both platforms; the transform ops read screen-consistent across web/Android/iOS; and a `QualityTier` that auto-downscales on the A11 floor while a 13/14 runs ambitious; all verified on an EAS build. A through-line constraint: orientation correction is one minimal normalization applied at ingest and kept out of the effect shaders, so orientation and shader optimization never perturb each other.
 
+## Architecture invariant (non-negotiable)
+
+Every effect shader receives its input in ONE canonical orientation, identical across all shaders on a platform. Any platform-specific reorientation (a UV flip, a rotation) is applied EXACTLY ONCE, at camera ingest, before any shader runs; never by tweaking individual shaders or stacking per-effect compensations. Shaders carry no orientation logic; they are pure pixel/matrix work. This keeps orientation and shader optimization independently changeable and kills the orientation cascade (compounding, conflicting flips that waste operations and make the data's true orientation unknowable). Phase 2 establishes it; its gate greps the iOS effect/shader code for any residual per-effect orientation transform and must find none.
+
 ## Domain context
 
 1. **The effect path.** Per frame: camera (OES texture on Android, NV12 `CVPixelBuffer` on iOS, `VideoFrame` on web) → "original 2D" copy → (blur: two separable Gaussian passes on a downscaled ping-pong) → `composite(original, background, mask)` → output buffer handed synchronously to WebRTC.
@@ -18,12 +22,16 @@ Make the library worth a download and ship-ready on the devices it will actually
 4. **Cover vs contain.** Cover-fit (aspectFill) fills the frame and crops the overflow axis, at natural object scale; against the **displayed** (rotation-corrected) aspect. The current over-zoom is cover-fit computed against the raw landscape buffer aspect, then re-cropped by the portrait display. Contain (the "chipmunk" shrink) is wrong.
 5. **`QualityTier`.** A never-user-facing enum (`Unsupported`/`Low`/`Medium`/`High`/`Superior`) auto-selected from *monotonic* capability thresholds (iOS `MTLDevice.supportsFamily`; Android RAM + cores), so a future faster phone self-classifies with no upkeep. It sets a device-agnostic **target processing resolution** plus a device-agnostic **quality level** each platform maps to its own segmentation control (iOS Vision `.fast`/`.balanced`/`.accurate`; web MediaPipe `modelSelection`; Android MLKit).
 
-## Completed (shipped on `perf/optimize-effect-pipeline`; pending on-device EAS verify)
+## Where the iOS time goes (hypothesis; confirmed by Phase 3 timing)
 
-- **R1** quarter-area blur (web/Android/iOS); **R2** linear-sampled 5-tap kernel; **R5** web background upload hoisted out of the per-frame loop; **R6** web segmentation decoupled from the render path; web per-pass GPU timing.
-- Serration ("wax paper") fix (downsample-first on all platforms); dialed-in defaults (sigma 5 / hardness 0.5 / threshold 0.7); iOS blur-background vertical-flip fix.
-- Single-source `shaders/transform.frag` + per-platform codegen split; `Orientation` helpers (Kotlin + Swift); transform ops `flip-x`/`flip-y`/`rotate-cw`/`rotate-ccw` registered through one processor per platform; the old `mirror` effect retired (`flip-x` is its corrected screen-horizontal replacement). Web verified correct; native is a first cut pending calibration.
-- Packaging: `office-1/2` → `dark-office`/`light-office` rename; demo three-column (Translate / Background / Blur) scrollable, max-width layout.
+R1/R2 optimized the blur shader; but on iPhone (especially the A11 floor) blur is almost certainly not the bottleneck, which is why those wins were not felt. The dominant iOS costs are still untouched: (1) the per-frame `waitUntilCompleted` that stalls the capture thread on the GPU every frame (R3, Phase 3); and (2) Vision person-segmentation running on the FULL-resolution buffer every cycle, where Android already downsamples to 256 (Phase 4). Vision being heavy on the A11 is partly unavoidable (everyone's problem), but running it full-res when a fraction suffices, and serializing CPU and GPU, are ours to fix. Native timing (Phase 3) confirms the split before we trust it. These perf phases are decoupled from orientation (Phases 1-2) and proceed in parallel.
+
+## Completed (✅ shipped on `perf/optimize-effect-pipeline`; pending on-device EAS verify)
+
+- ✅ **R1** quarter-area blur (web/Android/iOS); **R2** linear-sampled 5-tap kernel; **R5** web background upload hoisted out of the per-frame loop; **R6** web segmentation decoupled from the render path; web per-pass GPU timing.
+- ✅ Serration ("wax paper") fix (downsample-first on all platforms); dialed-in defaults (sigma 5 / hardness 0.5 / threshold 0.7); iOS blur-background vertical-flip fix.
+- ✅ Single-source `shaders/transform.frag` + per-platform codegen split; `Orientation` helpers (Kotlin + Swift); transform ops `flip-x`/`flip-y`/`rotate-cw`/`rotate-ccw` registered through one processor per platform; the old `mirror` effect retired (`flip-x` is its corrected screen-horizontal replacement). Web verified correct; native is a first cut, and its per-effect iOS compensations are the temporary scaffolding Phase 2 deletes.
+- ✅ Packaging: `office-1/2` → `dark-office`/`light-office` rename; demo three-column (Translate / Background / Blur) scrollable, max-width layout.
 
 ## Current surface area (remaining phases)
 
