@@ -111,7 +111,15 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
 
     // Step 3: blur kernel from EffectTuning (rebuilt only on sigma change).
     kernel.ensure(sigma: EffectTuning.blurSigma)
-    let (blurA, blurB) = try renderer.blurPingPong(width: width, height: height)
+    // R1: blur at quarter area (half each axis), floored so the short side
+    // stays >= 256px. Source and output stay full-res; the composite upscales
+    // the downscaled blurred bg with the linear sampler for free.
+    let shortSide = min(width, height)
+    let blurTarget = max(256, Int((Double(shortSide) * 0.5).rounded()))
+    let blurScale = Double(blurTarget) / Double(shortSide)
+    let blurW = max(2, Int((Double(width) * blurScale).rounded()) & ~1)
+    let blurH = max(2, Int((Double(height) * blurScale).rounded()) & ~1)
+    let (blurA, blurB) = try renderer.blurPingPong(width: blurW, height: blurH)
 
     let commandBuffer = try renderer.makeCommandBuffer()
     commandBuffer.label = "Kaleidoscope.Blur"
@@ -122,7 +130,7 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
       source: originalTexture,
       target: blurA,
       kernel: kernel,
-      axis: SIMD2<Float>(1.0 / Float(width), 0.0),
+      axis: SIMD2<Float>(1.0 / Float(blurW), 0.0),
       label: "blur-horizontal"
     )
     // Vertical pass: blurA -> blurB.
@@ -131,7 +139,7 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
       source: blurA,
       target: blurB,
       kernel: kernel,
-      axis: SIMD2<Float>(0.0, 1.0 / Float(height)),
+      axis: SIMD2<Float>(0.0, 1.0 / Float(blurH)),
       label: "blur-vertical"
     )
 
