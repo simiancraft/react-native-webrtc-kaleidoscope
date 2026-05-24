@@ -122,7 +122,7 @@ This is one cross-platform commit because the shader is shared and the host kern
 
 **Gate:** `bun run check:android` compiles; effect output correct; no texture leak (release callbacks fire); measured overlap via Commit 1b timing.
 
-### Commit 5: Hoist the static background upload out of the web per-frame loop (R5)
+### ✅ Commit 5: Hoist the static background upload out of the web per-frame loop (R5) (done: `7f0bdf2`)
 
 **Goal:** The web background-image effect re-uploads the static background texture every frame; upload it once.
 
@@ -131,7 +131,7 @@ This is one cross-platform commit because the shader is shared and the host kern
 
 **Gate:** `bun run check` passes; background-image output unchanged.
 
-### Commit 6: Decouple web segmentation from the render path (R6)
+### ✅ Commit 6: Decouple web segmentation from the render path (R6) (done: `d89c8ee`)
 
 **Goal:** Web `await`s MediaPipe every frame, gating render at segmentation rate so R1/R2's cheaper GPU work is invisible end-to-end. Break the dependency: keep a shared latest-mask cache, draw every frame with it, run segmentation fire-and-forget, update the cache on completion. The mask becomes ~1 frame stale (matches native). Single event loop, no Web Worker; JS-only, no native rebuild.
 
@@ -155,8 +155,8 @@ This is one cross-platform commit because the shader is shared and the host kern
 - [ ] Blur ping-pong buffers allocate at quarter area with a 256px floor (Commit 2).
 - [ ] `blur.frag` uses linear-sampled paired taps; `check:shaders` clean; sigma still runtime-tunable (Commit 3).
 - [ ] No per-frame `glFinish`/`waitUntilCompleted`; previous-frame output returned; no texture leaks (Commit 4).
-- [ ] Web background upload happens once, not per frame (Commit 5).
-- [ ] Web segmentation decoupled: render reads a cached mask and never awaits; mask ~1 frame stale (Commit 6).
+- [x] Web background upload happens once, not per frame (Commit 5).
+- [x] Web segmentation decoupled: render reads a cached mask and never awaits; mask ~1 frame stale (Commit 6).
 - [ ] `bun run check`, `bun run check:shaders`, `bun run check:android` all green.
 - [ ] On-device FPS measured before/after on all three platforms; blur look unchanged at dialed-in sigma.
 - [ ] Plan file deleted (Inspector Gadget Rule: no orphan plans).
