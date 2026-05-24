@@ -51,14 +51,19 @@ object Orientation {
   enum class Op { FLIP_X, FLIP_Y, ROTATE_CW, ROTATE_CCW }
 
   /**
-   * Which space the TRANSFORM_FRAG pass samples in. SCREEN is correct given the
-   * OES->2D passthrough applies the camera transformMatrix (see file header).
-   * Flip to BUFFER for a one-line screenshot-driven correction if the GL pass
-   * turns out to see the raw landscape buffer on some device.
+   * Which space the TRANSFORM_FRAG pass samples in. BUFFER is correct here
+   * (device-confirmed); the GL pass sees the raw landscape buffer, so the op is
+   * conjugated by the frame rotation. SCREEN remains as the fallback if a camera
+   * stack ever hands us an already-display-oriented intermediate.
    */
   private enum class Space { SCREEN, BUFFER }
 
-  private val SAMPLE_SPACE = Space.SCREEN
+  // Device-confirmed 2026-05-24: SCREEN was wrong — flip-x/flip-y came out
+  // swapped and rotate-cw/ccw reversed, the signature of the GL pass sampling
+  // the RAW LANDSCAPE buffer (the OES transformMatrix does not fully pre-orient
+  // it here). BUFFER conjugates by frame rotation and reads correct on a
+  // portrait device.
+  private val SAMPLE_SPACE = Space.BUFFER
 
   /** Does the op swap output dimensions (w x h -> h x w)? True for rotations. */
   fun swapsDimensions(op: Op): Boolean = op == Op.ROTATE_CW || op == Op.ROTATE_CCW
