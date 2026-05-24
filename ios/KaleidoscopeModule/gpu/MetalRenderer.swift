@@ -52,10 +52,34 @@ enum RendererError: Error {
 
 final class MetalRenderer {
   static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Renderer")
+  static let perfLog = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Perf")
 
   let device: MTLDevice
   private let commandQueue: MTLCommandQueue
   let textureCache: CVMetalTextureCache
+
+  // R3 frame-pipelining. Instead of committing the current command buffer and
+  // blocking on waitUntilCompleted (which serializes CPU and GPU every frame),
+  // we commit asynchronously and return the PREVIOUS frame's completed output,
+  // adding one frame of latency. The semaphore caps the number of command
+  // buffers in flight so the CPU cannot outrun the GPU unboundedly; value 2
+  // lets the GPU work on frame N while the CPU encodes frame N+1. The output
+  // CVPixelBufferPool (min 3) has enough buffers to back the in-flight frame,
+  // the held previous frame, and one being dequeued.
+  private let inFlightSemaphore = DispatchSemaphore(value: 2)
+
+  // The most recent output buffer whose GPU work has COMPLETED, published by
+  // the command-buffer completion handler. The capture thread reads it to
+  // return last frame's result while this frame's work runs asynchronously.
+  // nil before the first frame completes; the caller forwards the original
+  // frame in that case. Publishing only on completion (rather than relying on
+  // the semaphore + in-order queue to imply completion) means a returned buffer
+  // is never read by WebRTC before the GPU finished writing it: the buffer-
+  // lifecycle safety is explicit, not timing-derived. Shared between the
+  // completion handler (writer) and the capture thread (reader); guarded by
+  // pipelineLock.
+  private var readyOutput: CVPixelBuffer?
+  private var pipelineLock = os_unfair_lock_s()
 
   // Pipeline states for the three transpiled shaders. All three .metal files
   // share the entry-point name `main0` (spirv-cross emits that for every
@@ -180,6 +204,59 @@ final class MetalRenderer {
       throw RendererError.commandBufferUnavailable
     }
     return cb
+  }
+
+  /// R3 frame-pipelining commit. Replaces `commit()` + `waitUntilCompleted()`.
+  ///
+  /// - Throttles in-flight command buffers via the semaphore (waits before
+  ///   commit; the completion handler signals), so the CPU cannot outrun the
+  ///   GPU unboundedly. The literal R3 sketch waits "before encoding"; we wait
+  ///   here, immediately before commit, which bounds the GPU-relevant quantity
+  ///   (committed-but-incomplete buffers) identically and keeps the throttle in
+  ///   one place. The processor's per-frame work between makeCommandBuffer and
+  ///   this call is cheap CPU encoding, not GPU execution.
+  /// - Registers a completion handler that PUBLISHES `currentOutput` as the
+  ///   ready-to-return buffer only once the GPU has finished writing it, then
+  ///   signals the semaphore. Optionally logs GPU time under "Perf".
+  /// - Commits asynchronously (no wait) and returns the PREVIOUSLY-published
+  ///   output, i.e. last frame's completed result. Returns nil before any frame
+  ///   has completed (first frame); the caller forwards the original frame.
+  ///
+  /// `currentOutput` must be the pooled buffer the command buffer wrote into
+  /// this frame. The returned buffer (last frame's) is a distinct pooled buffer;
+  /// the pool's min count of 3 keeps current, previously-returned, and in-flight
+  /// buffers from colliding.
+  func commitPipelined(
+    _ commandBuffer: MTLCommandBuffer,
+    currentOutput: CVPixelBuffer,
+    debugTiming: Bool,
+    timingLabel: String
+  ) -> CVPixelBuffer? {
+    inFlightSemaphore.wait()
+    commandBuffer.addCompletedHandler { [weak self] completed in
+      guard let self = self else { return }
+      if debugTiming {
+        let gpuMs = (completed.gpuEndTime - completed.gpuStartTime) * 1000.0
+        os_log("%{public}@ gpu: %.2f ms", log: MetalRenderer.perfLog, type: .info,
+               timingLabel, gpuMs)
+      }
+      if completed.error == nil {
+        os_unfair_lock_lock(&self.pipelineLock)
+        self.readyOutput = currentOutput
+        os_unfair_lock_unlock(&self.pipelineLock)
+      } else {
+        os_log("%{public}@ command buffer error: %{public}@",
+               log: MetalRenderer.log, type: .error,
+               timingLabel, completed.error?.localizedDescription ?? "unknown")
+      }
+      self.inFlightSemaphore.signal()
+    }
+    commandBuffer.commit()
+
+    os_unfair_lock_lock(&pipelineLock)
+    let previous = readyOutput
+    os_unfair_lock_unlock(&pipelineLock)
+    return previous
   }
 
   // MARK: - Output buffer pool

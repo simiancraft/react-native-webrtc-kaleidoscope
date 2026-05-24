@@ -214,13 +214,19 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
       bgUvOffset: bgUvOffset,
       label: "bgImage-composite"
     )
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-
-    if commandBuffer.error != nil {
-      throw RendererError.commandBufferUnavailable
+    // R3 frame-pipelining: commit asynchronously and return the PREVIOUS
+    // frame's completed output (one frame of latency); see BlurProcessor and
+    // MetalRenderer.commitPipelined. Before any frame has completed, forward
+    // the original frame.
+    guard let ready = renderer.commitPipelined(
+      commandBuffer,
+      currentOutput: output,
+      debugTiming: EffectTuning.debugTiming,
+      timingLabel: "bgImage"
+    ) else {
+      return frame
     }
 
-    return FrameBridge.makeOutputFrame(pixelBuffer: output, like: frame)
+    return FrameBridge.makeOutputFrame(pixelBuffer: ready, like: frame)
   }
 }

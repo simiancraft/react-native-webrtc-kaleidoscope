@@ -32,6 +32,8 @@ import CoreImage
 import os.log
 
 enum TextureBridge {
+  private static let perfLog = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Perf")
+
   // Reused across all frames and all processors in this process. CIContext is
   // thread-safe for rendering. Backed by the system default Metal device so
   // its render targets share the IOSurface path with our textures.
@@ -109,11 +111,45 @@ enum TextureBridge {
   /// the Metal "original" texture is in the same native buffer space as the
   /// downstream output buffer.
   static func ingest(input: CVPixelBuffer, into target: CVPixelBuffer) throws {
+    let debugTiming = EffectTuning.debugTiming
+    let start = debugTiming ? DispatchTime.now() : nil
     let image = CIImage(cvPixelBuffer: input)
     ciContext.render(
       image,
       to: target,
       bounds: image.extent,
+      colorSpace: CGColorSpaceCreateDeviceRGB()
+    )
+    if debugTiming, let start = start {
+      // render(_:to:bounds:colorSpace:) submits and (for this overload) waits on
+      // the calling (capture) thread, so this wall-time is a fair proxy for the
+      // per-frame ingest cost. Reported alongside the GPU and Vision timings to
+      // locate the bottleneck on the next EAS build.
+      let ms = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
+      os_log("ingest NV12->BGRA: %.2f ms", log: TextureBridge.perfLog, type: .info, ms)
+    }
+  }
+
+  /// Render `input` downscaled by `scale` into the BGRA `target` buffer, whose
+  /// dimensions are the already-scaled output size. Used by the Segmenter to
+  /// hand Vision a smaller buffer than the camera native resolution; the
+  /// produced mask is lower-res and the composite upsamples it. Reuses the
+  /// shared CIContext (a per-frame CIContext is the classic camera-filter perf
+  /// failure). `target` must be allocated by the caller and reused across
+  /// frames (see Segmenter's scratch buffer) to keep this allocation-light.
+  static func downscale(input: CVPixelBuffer, into target: CVPixelBuffer, scale: CGFloat) throws {
+    let image = CIImage(cvPixelBuffer: input)
+      .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    let targetW = CVPixelBufferGetWidth(target)
+    let targetH = CVPixelBufferGetHeight(target)
+    // Render the scaled image starting at its origin into the full target
+    // rect. The scaled extent matches the target dims (caller computes both
+    // from the same scale), so this fills the buffer with no letterboxing.
+    ciContext.render(
+      image,
+      to: target,
+      bounds: CGRect(x: image.extent.origin.x, y: image.extent.origin.y,
+                     width: CGFloat(targetW), height: CGFloat(targetH)),
       colorSpace: CGColorSpaceCreateDeviceRGB()
     )
   }

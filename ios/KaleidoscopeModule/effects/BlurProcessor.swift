@@ -190,17 +190,21 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
       label: "blur-composite"
     )
 
-    // Block until the GPU has finished writing `output`; the buffer is handed
-    // to WebRTC synchronously on return, so we cannot let it be read before
-    // the composite completes. waitUntilCompleted keeps the per-name
-    // instance's single command buffer in-order and the output valid.
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-
-    if commandBuffer.error != nil {
-      throw RendererError.commandBufferUnavailable
+    // R3 frame-pipelining: commit asynchronously and return the PREVIOUS
+    // frame's completed output (one frame of latency), instead of stalling on
+    // waitUntilCompleted every frame. The completion handler publishes `output`
+    // as ready only once the GPU finishes writing it, so the buffer we hand to
+    // WebRTC is always fully rendered. Before any frame has completed, forward
+    // the original frame (same fall-through as "no mask yet").
+    guard let ready = renderer.commitPipelined(
+      commandBuffer,
+      currentOutput: output,
+      debugTiming: EffectTuning.debugTiming,
+      timingLabel: "blur"
+    ) else {
+      return frame
     }
 
-    return FrameBridge.makeOutputFrame(pixelBuffer: output, like: frame)
+    return FrameBridge.makeOutputFrame(pixelBuffer: ready, like: frame)
   }
 }

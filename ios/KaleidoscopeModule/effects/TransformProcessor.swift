@@ -140,15 +140,21 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
       label: "transform-\(op.rawValue)"
     )
 
-    // Block until the GPU has finished writing `output`; the buffer is handed
-    // to WebRTC synchronously on return (same contract as Blur/BgImage).
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-
-    if commandBuffer.error != nil {
-      throw RendererError.commandBufferUnavailable
+    // R3 frame-pipelining: commit asynchronously and return the PREVIOUS
+    // frame's completed output (one frame of latency); see BlurProcessor and
+    // MetalRenderer.commitPipelined. Output dims are fixed per op (this
+    // instance's `op` never changes), so the held previous buffer always
+    // matches the current expected dims. Before any frame has completed,
+    // forward the original frame.
+    guard let ready = renderer.commitPipelined(
+      commandBuffer,
+      currentOutput: output,
+      debugTiming: EffectTuning.debugTiming,
+      timingLabel: "transform-\(op.rawValue)"
+    ) else {
+      return frame
     }
 
-    return FrameBridge.makeOutputFrame(pixelBuffer: output, like: frame)
+    return FrameBridge.makeOutputFrame(pixelBuffer: ready, like: frame)
   }
 }
