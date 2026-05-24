@@ -9,12 +9,13 @@
 // Per frame (on the capture thread):
 //   1. Ingest the camera CVPixelBuffer (NV12) into the "original" BGRA Metal
 //      texture via CoreImage (colorspace conversion only; see TextureBridge).
-//   2. Compute uUvTransform = Orientation.uvTransform(op, frameRotation).
+//   2. Compute uUvTransform = Orientation.uvTransform(op) (plain screen space;
+//      the original is already display-upright from ingest).
 //   3. One transform render pass: original -> pooled BGRA output. For the
 //      90-degree rotations the output is dimension-swapped (input w x h ->
 //      output h x w); the flips keep w x h.
-//   4. Wrap the output buffer into an RTCVideoFrame preserving rotation and
-//      timestamp.
+//   4. Wrap the output buffer into an RTCVideoFrame with rotation ._0 (the
+//      pixels are display-upright from ingest) and the source timestamp.
 //
 // One instance is registered per op name and shared across every frame, so all
 // mutable state is guarded by an os_unfair_lock. Every failure path logs under
@@ -99,26 +100,31 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
       // Not a CVPixelBuffer-backed frame; nothing to reorient on the GPU path.
       return frame
     }
-    let width = CVPixelBufferGetWidth(input)
-    let height = CVPixelBufferGetHeight(input)
-    guard width > 0, height > 0 else { return frame }
+    let bufferW = CVPixelBufferGetWidth(input)
+    let bufferH = CVPixelBufferGetHeight(input)
+    guard bufferW > 0, bufferH > 0 else { return frame }
 
     let renderer = try ensureRenderer()
 
-    // Step 1: ingest NV12 -> "original" BGRA texture (input dims w x h).
+    // Step 1: ingest NV12 -> DISPLAY-UPRIGHT "original" BGRA texture. The display
+    // rotation is folded in here (Ingest.swift); `width`/`height` are the DISPLAY
+    // dims (buffer dims swapped on a 90/270 frame). The op then operates in plain
+    // upright screen space.
+    let rotation = frame.rotation.rawValue
+    let width = Ingest.displayWidth(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
+    let height = Ingest.displayHeight(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
     let (originalBuffer, originalTexture) = try renderer.originalIngestTarget(
       width: width, height: height
     )
-    try TextureBridge.ingest(input: input, into: originalBuffer)
+    try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
 
-    // Step 2: the reorientation matrix, from the single-source helper.
-    let uvTransform = Orientation.uvTransform(
-      op: op, frameRotation: frame.rotation.rawValue
-    )
+    // Step 2: the reorientation matrix. The original is already display-upright,
+    // so this is PLAIN screen space (no frame.rotation dependence).
+    let uvTransform = Orientation.uvTransform(op: op)
 
-    // Step 3: output dims. The 90-degree rotations swap to h x w; the flips
-    // keep w x h. The transform pass reads the w x h source into the
-    // (possibly swapped) output target.
+    // Step 3: output dims. The 90-degree rotations swap the (display) dims to
+    // h x w; the flips keep w x h. The transform pass reads the upright source
+    // into the (possibly swapped) output target.
     let outWidth = op.swapsDimensions ? height : width
     let outHeight = op.swapsDimensions ? width : height
 

@@ -11,8 +11,8 @@
 //   4. Composite original (foreground) + blurred (background) + mask via
 //      composite.metal into a pooled BGRA output buffer. Blurred bg is the
 //      same dims as original, so bg + mask UV transforms are identity.
-//   5. Wrap the output buffer into an RTCVideoFrame preserving rotation and
-//      timestamp.
+//   5. Wrap the output buffer into an RTCVideoFrame with rotation ._0 (the
+//      pixels are display-upright from ingest) and the source timestamp.
 //
 // One instance is registered under "blur" and shared across every frame, so
 // all mutable state is guarded by an os_unfair_lock. Every failure path logs
@@ -81,21 +81,31 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
     guard let input = FrameBridge.inputPixelBuffer(frame) else {
       return frame
     }
-    let width = CVPixelBufferGetWidth(input)
-    let height = CVPixelBufferGetHeight(input)
-    guard width > 0, height > 0 else { return frame }
+    let bufferW = CVPixelBufferGetWidth(input)
+    let bufferH = CVPixelBufferGetHeight(input)
+    guard bufferW > 0, bufferH > 0 else { return frame }
 
     let renderer = try ensureRenderer()
 
-    // Step 1: ingest NV12 -> "original" BGRA texture.
+    // Step 1: ingest NV12 -> DISPLAY-UPRIGHT "original" BGRA texture. The display
+    // rotation is folded into the CoreImage render here (Ingest.swift), so the
+    // original is canonical and every downstream pass runs in upright screen
+    // space. `width`/`height` below are the DISPLAY dims (buffer dims swapped on
+    // a 90/270 frame); the rest of the pipeline (blur, segmenter, output, the
+    // emitted rotation 0) is sized from them.
+    let rotation = frame.rotation.rawValue
+    let width = Ingest.displayWidth(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
+    let height = Ingest.displayHeight(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
     let (originalBuffer, originalTexture) = try renderer.originalIngestTarget(
       width: width, height: height
     )
-    try TextureBridge.ingest(input: input, into: originalBuffer)
+    try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
 
     // Step 2: read latest mask; kick a new segmentation off the original
-    // buffer (native pixel space) if the worker is idle. No mask yet -> forward
-    // the original frame, matching Android's -1 fall-through.
+    // buffer (now display-upright space; the segmenter only needs a uniform
+    // scale relationship to the foreground, which still holds) if the worker is
+    // idle. No mask yet -> forward the original frame, matching Android's -1
+    // fall-through.
     guard let maskBuffer = segmenter.latestMask() else {
       segmenter.kickIfIdle(input: originalBuffer)
       return frame
@@ -177,14 +187,20 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
       maskUvOffset: SIMD2<Float>(0, 0),
       maskHi: maskHi,
       maskLo: maskLo,
-      // The blurred background passes through an odd number of .private render
-      // passes (downsample + H + V); each flips vertically in buffer space
-      // (the transpiled passthrough does not negate gl_Position.y), so the
-      // background arrives flipped relative to the directly-sampled foreground.
-      // Cancel it with a V flip of the background UV (bgUv.y -> 1 - bgUv.y).
-      // iOS-only: Android's GL pipeline carries the camera orientation and is
-      // correct without this. On a portrait (rotation-90) screen this buffer-V
-      // flip is what reads as the horizontal mirror.
+      // RENDER-PASS-PARITY V-flip (NOT a camera-orientation term). The blurred
+      // background passes through an odd number of .private render passes
+      // (downsample + H + V); each Metal pass flips vertically in buffer space
+      // (the transpiled passthrough does not negate gl_Position.y; see
+      // MetalRenderer header), so the background arrives flipped relative to the
+      // directly-sampled foreground (the composite samples uOriginal in its
+      // single pass). Cancel it with a V flip of the background UV
+      // (bgUv.y -> 1 - bgUv.y). This is independent of the camera: the ingest
+      // normalization (Ingest.swift) handles display rotation upstream and does
+      // NOT change how many ping-pong passes blur runs, so this term stays even
+      // though the per-effect ORIENTATION cascade was removed. iOS-only:
+      // Android's GL passes share the FBO origin and do not flip.
+      // The single calibration knob for camera orientation is
+      // Ingest.ROTATION_DIRECTION; do not repurpose this term for it.
       bgUvScale: SIMD2<Float>(1, -1),
       bgUvOffset: SIMD2<Float>(0, 1),
       label: "blur-composite"

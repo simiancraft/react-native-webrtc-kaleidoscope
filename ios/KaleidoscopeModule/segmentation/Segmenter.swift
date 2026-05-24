@@ -31,24 +31,19 @@
 //
 // ORIENTATION DECISION (the footgun the scaffold called out):
 //   We pass CGImagePropertyOrientation.up to VNImageRequestHandler. Rationale:
-//   the entire pipeline (CoreImage ingest, blur, composite, output buffer)
-//   operates in the camera buffer's NATIVE pixel space, and the output frame
-//   preserves frame.rotation unchanged, so the display rotation is applied by
-//   the consumer downstream exactly as for the unprocessed frame. Vision
-//   returns the mask in the coordinate space implied by the orientation we
-//   pass; passing .up means the mask is produced in native buffer space, so
-//   it aligns 1:1 with our "original" texture and the composite's
-//   uMaskUvScale/uMaskUvOffset stay identity (matching the Android side, which
-//   feeds MLKit a buffer-space bitmap with rotation 0). This removes any
-//   dependence on RTCVideoFrame.rotation or AVCaptureDevice.Position for mask
-//   ALIGNMENT, which is the only property that can silently ship a transposed
-//   or mirrored mask. The tradeoff: a person who is sideways in the raw buffer
-//   segments slightly worse; acceptable, and identical to the Android
-//   behavior. If field testing shows the segmentation quality suffers because
-//   the buffer is landscape, the fix is to pass the orientation derived from
-//   frame.rotation AND to apply the inverse transform to the returned mask UVs
-//   in composite.metal; that is a deliberate, separate change, not a silent
-//   default.
+//   the entire pipeline operates on the "original" texture, which the ingest
+//   (Ingest.swift) has already normalized to DISPLAY-UPRIGHT space; the
+//   segmenter receives that upright buffer (uniformly downscaled) and the
+//   composite samples mask + foreground in the same upright space with identity
+//   uMaskUvScale/uMaskUvOffset. Passing .up means the mask is produced in that
+//   same upright buffer space, so it aligns 1:1 with the upright foreground.
+//   This removes any dependence on RTCVideoFrame.rotation or
+//   AVCaptureDevice.Position for mask ALIGNMENT, the only property that can
+//   silently ship a transposed or mirrored mask. As a side benefit over the old
+//   landscape-buffer scheme, the person is now upright in the buffer Vision
+//   sees, which segments at least as well, not worse. The downscale is still a
+//   uniform scale of the same (now upright) buffer space (no crop, no further
+//   rotation), so the .up argument is unchanged.
 
 import Foundation
 import CoreVideo

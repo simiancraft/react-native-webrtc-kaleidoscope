@@ -103,21 +103,37 @@ enum TextureBridge {
   }
 
   /// Render the (NV12 or other) input CVPixelBuffer into the BGRA `target`
-  /// buffer via CoreImage. CoreImage color-manages the YCbCr->RGB conversion
-  /// from the source buffer's attachments. The CIImage Y axis: CoreImage's
-  /// origin is bottom-left, but render(_:to:) writes into the destination's
-  /// natural top-left memory order such that the rendered image matches the
-  /// source buffer's pixel layout (no flip), which is exactly what we want so
-  /// the Metal "original" texture is in the same native buffer space as the
-  /// downstream output buffer.
-  static func ingest(input: CVPixelBuffer, into target: CVPixelBuffer) throws {
+  /// buffer via CoreImage, FOLDING IN the display rotation derived from
+  /// `frameRotation` so the produced "original" texture is DISPLAY-UPRIGHT.
+  /// This is the single place camera orientation is normalized on iOS (see
+  /// Ingest.swift). CoreImage color-manages the YCbCr->RGB conversion from the
+  /// source buffer's attachments.
+  ///
+  /// `target` must be sized to the DISPLAY dims (buffer dims swapped on a
+  /// 90/270 frame); the caller obtains those from Ingest.displayWidth/Height.
+  /// The render bounds are the full target rect at origin (0,0), and the
+  /// upright transform snaps the rotated content into that rect, so the buffer
+  /// fills with no letterboxing.
+  ///
+  /// On the V axis: CoreImage's origin is bottom-left, but render(_:to:) writes
+  /// into the destination's natural top-left memory order such that the rendered
+  /// image matches the (now rotation-normalized) layout. The Metal per-pass
+  /// V-flip is a SEPARATE concern handled downstream, NOT here (see Ingest.swift
+  /// header, concern (2)).
+  static func ingest(input: CVPixelBuffer, into target: CVPixelBuffer, frameRotation: Int) throws {
     let debugTiming = EffectTuning.debugTiming
     let start = debugTiming ? DispatchTime.now() : nil
     let image = CIImage(cvPixelBuffer: input)
+    let transform = Ingest.uprightTransform(
+      sourceExtent: image.extent, frameRotation: frameRotation
+    )
+    let upright = image.transformed(by: transform)
+    let targetW = CVPixelBufferGetWidth(target)
+    let targetH = CVPixelBufferGetHeight(target)
     ciContext.render(
-      image,
+      upright,
       to: target,
-      bounds: image.extent,
+      bounds: CGRect(x: 0, y: 0, width: CGFloat(targetW), height: CGFloat(targetH)),
       colorSpace: CGColorSpaceCreateDeviceRGB()
     )
     if debugTiming, let start = start {
