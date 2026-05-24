@@ -12,6 +12,8 @@ type Props<Id extends string> = {
   active: ReadonlySet<Id>;
   onChange: (next: ReadonlySet<Id>) => void;
   disabled?: boolean;
+  // Buttons per row. 1 (default) stacks vertically; 2 wraps into a 2-up grid.
+  columns?: number;
 };
 
 export const EffectToggles = <Id extends string>({
@@ -19,7 +21,9 @@ export const EffectToggles = <Id extends string>({
   active,
   onChange,
   disabled = false,
+  columns = 1,
 }: Props<Id>) => {
+  const grid = columns > 1;
   const toggle = useCallback(
     (id: Id) => {
       const next = new Set(active);
@@ -34,7 +38,7 @@ export const EffectToggles = <Id extends string>({
   );
 
   return (
-    <View style={styles.column}>
+    <View style={grid ? styles.grid : styles.column}>
       {presets.map(({ id, label, icon }) => {
         const on = active.has(id);
         return (
@@ -44,7 +48,12 @@ export const EffectToggles = <Id extends string>({
             accessibilityState={{ selected: on, disabled }}
             disabled={disabled}
             onPress={() => toggle(id)}
-            style={[styles.btn, on && styles.btnOn, disabled && styles.btnDisabled]}
+            style={[
+              styles.btn,
+              grid && styles.btnGrid,
+              on && styles.btnOn,
+              disabled && styles.btnDisabled,
+            ]}
           >
             {icon ? <Text style={[styles.icon, on && styles.btnTextOn]}>{icon}</Text> : null}
             <Text style={[styles.btnText, on && styles.btnTextOn]}>{label}</Text>
@@ -57,6 +66,10 @@ export const EffectToggles = <Id extends string>({
 
 const styles = StyleSheet.create({
   column: { flexDirection: 'column', gap: 8 },
+  // Wrapping row; basis > a third forces two buttons per row, each growing to
+  // fill its half.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  btnGrid: { flexGrow: 1, flexBasis: '40%' },
   btn: {
     paddingVertical: 12,
     paddingHorizontal: 12,

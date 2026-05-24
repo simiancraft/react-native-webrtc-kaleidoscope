@@ -129,6 +129,7 @@ export default function DemoScreen() {
               active={active}
               onChange={setActive}
               disabled={!sourceTrack}
+              columns={2}
             />
           </Section>
           <Section title="Background">
@@ -137,6 +138,7 @@ export default function DemoScreen() {
               active={active}
               onChange={setActive}
               disabled={!sourceTrack}
+              columns={2}
             />
           </Section>
           <Section title="Blur">
