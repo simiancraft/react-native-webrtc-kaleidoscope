@@ -190,7 +190,11 @@ private class BlurProcessor : VideoFrameProcessor {
         return null
       }
 
-      // ===== Pass 2: horizontal blur =====
+      // ===== Pass 1b: downsample original -> blurA (box-average) =====
+      // uAxis=0 collapses the kernel to its center tap (weights sum to 1), so
+      // this is a plain bilinear box-average into the downscaled target. Both
+      // blur passes then run in downscaled space; sampling the full-res
+      // original with downscaled-spaced offsets serrates the blur (see web fix).
       GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
       GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, origFbo.texture)
       blurA.bind()
@@ -198,18 +202,26 @@ private class BlurProcessor : VideoFrameProcessor {
       blur.setInt("uTex", 0)
       GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
       GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
-      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 1.0f / blurW, 0.0f)
+      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 0.0f, 0.0f)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("blur horizontal pass")
+      GlDebug.check("blur downsample pass")
 
-      // ===== Pass 3: vertical blur =====
+      // ===== Pass 2: horizontal blur blurA -> blurB (downscaled) =====
       GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
       GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, blurA.texture)
       blurB.bind()
       blur.use()
       blur.setInt("uTex", 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
-      GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
+      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 1.0f / blurW, 0.0f)
+      GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+      GlDebug.check("blur horizontal pass")
+
+      // ===== Pass 3: vertical blur blurB -> blurA (downscaled) =====
+      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, blurB.texture)
+      blurA.bind()
+      blur.use()
+      blur.setInt("uTex", 0)
       GLES30.glUniform2f(blur.uniformLocation("uAxis"), 0.0f, 1.0f / blurH)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur vertical pass")
@@ -227,7 +239,8 @@ private class BlurProcessor : VideoFrameProcessor {
       composite.setInt("uOriginal", 0)
 
       GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
-      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, blurB.texture)
+      // Final blurred result is in blurA after the vertical pass.
+      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, blurA.texture)
       composite.setInt("uBackground", 1)
 
       GLES30.glActiveTexture(GLES30.GL_TEXTURE2)

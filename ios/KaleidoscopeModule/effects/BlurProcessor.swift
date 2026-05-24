@@ -124,20 +124,32 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
     let commandBuffer = try renderer.makeCommandBuffer()
     commandBuffer.label = "Kaleidoscope.Blur"
 
-    // Horizontal pass: original -> blurA.
+    // Downsample pass: original -> blurA. axis=0 collapses the kernel to its
+    // center tap (weights sum to 1), a plain bilinear box-average into the
+    // downscaled target. Both blur passes then run in downscaled space;
+    // sampling the full-res original with downscaled-spaced offsets serrates.
     try renderer.encodeBlurPass(
       commandBuffer: commandBuffer,
       source: originalTexture,
       target: blurA,
       kernel: kernel,
-      axis: SIMD2<Float>(1.0 / Float(blurW), 0.0),
-      label: "blur-horizontal"
+      axis: SIMD2<Float>(0.0, 0.0),
+      label: "blur-downsample"
     )
-    // Vertical pass: blurA -> blurB.
+    // Horizontal pass: blurA -> blurB.
     try renderer.encodeBlurPass(
       commandBuffer: commandBuffer,
       source: blurA,
       target: blurB,
+      kernel: kernel,
+      axis: SIMD2<Float>(1.0 / Float(blurW), 0.0),
+      label: "blur-horizontal"
+    )
+    // Vertical pass: blurB -> blurA.
+    try renderer.encodeBlurPass(
+      commandBuffer: commandBuffer,
+      source: blurB,
+      target: blurA,
       kernel: kernel,
       axis: SIMD2<Float>(0.0, 1.0 / Float(blurH)),
       label: "blur-vertical"
@@ -159,7 +171,7 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
       commandBuffer: commandBuffer,
       target: outputTexture,
       original: originalTexture,
-      background: blurB,
+      background: blurA,
       mask: maskTexture,
       maskUvScale: SIMD2<Float>(1, 1),
       maskUvOffset: SIMD2<Float>(0, 0),
