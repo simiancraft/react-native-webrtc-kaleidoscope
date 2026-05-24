@@ -27,10 +27,13 @@ android/src/main/java/com/simiancraft/kaleidoscope/
 ├── KaleidoscopeModule.kt              Expo Module entry (OnCreate calls Registration.registerAll)
 ├── Registration.kt                    flat-string registry: name -> VideoFrameProcessorFactoryInterface
 ├── effects/                           one VideoFrameProcessorFactory per effect
-│   ├── MirrorFactory.kt
+│   ├── TransformFactory.kt              flip-x/flip-y/rotate-cw/rotate-ccw (replaced MirrorFactory.kt)
 │   ├── BlurFactory.kt
 │   └── BackgroundImageFactory.kt
 ├── gpu/                               pure GL primitives, no domain logic
+│   ├── Ingest.kt                        THE one place camera orientation is normalized (display rotation + dims)
+│   ├── Orientation.kt                   screen-space transform-op matrices (no frame.rotation dependence)
+│   ├── FramePipeline.kt                 one-frame GPU pipeline (fence handoff; replaced per-frame glFinish)
 │   ├── Egl.kt                           state save/restore, matrix conversion
 │   ├── Fbo.kt                           FBO + texture allocator
 │   ├── GlProgram.kt                     shader compile/link
@@ -44,12 +47,19 @@ android/src/main/java/com/simiancraft/kaleidoscope/
 
 ios/KaleidoscopeModule/
 ├── KaleidoscopeModule.swift           Expo Module entry (mirrors Android)
-├── Registration.swift                 flat-string registry (currently a no-op stub)
-├── effects/                           one RTCVideoFrameProcessor conformance per effect
-│   ├── MirrorProcessor.swift
-│   └── BlurProcessor.swift
+├── Registration.swift                 flat-string registry: transform ops, blur, background-image
+├── effects/                           one VideoFrameProcessorDelegate per effect
+│   ├── TransformProcessor.swift         flip-x/flip-y/rotate-cw/rotate-ccw (replaced MirrorProcessor.swift)
+│   ├── BlurProcessor.swift
+│   ├── BackgroundImageProcessor.swift
+│   └── FrameBridge.swift                RTCVideoFrame <-> CVPixelBuffer in/out bridge
+├── gpu/                               Metal + CoreImage primitives
+│   ├── Ingest.swift                     THE one place camera orientation is normalized (display rotation + selfie mirror)
+│   ├── Orientation.swift                screen-space transform-op matrices (no frame.rotation dependence)
+│   ├── MetalRenderer.swift              pipelines + passes (blur, composite, transform); pixel-buffer pool
+│   └── TextureBridge.swift              NV12->BGRA ingest, mask CVPixelBufferPool, Metal texture cache
 └── segmentation/                      person-segmentation helpers (Vision on iOS)
-    └── Segmenter.swift                  VNGeneratePersonSegmentationRequest worker
+    └── Segmenter.swift                  VNGeneratePersonSegmentationRequest worker; owns mask buffers via a pool
 
 plugin/
 └── src/
@@ -107,8 +117,56 @@ not hand-edit):
 The composite shader (`shaders/composite.frag`) is the canonical mix-with-
 mask shader; every effect category (blur, background-image, future
 procedural backgrounds like Simianlights and Nebula) uses it unchanged.
-Per-effect shaders (currently `shaders/blur.frag`) live as separate files
-under `shaders/`.
+Per-effect shaders (currently `shaders/blur.frag`, `shaders/transform.frag`)
+live as separate files under `shaders/`.
+
+It is **background-source-agnostic**: `mix(background, original, mask)` does
+not care whether `uBackground` is a loaded image, the blurred camera, or a
+procedural shader's output; a new effect differs only in how it produces that
+texture. Because orientation is normalized upstream at the ingest (see
+"Orientation" below), a new shader composites correctly on every platform with
+no orientation code — that is the whole extensibility model for procedural
+backgrounds (issue #25).
+
+### Orientation: normalized once at the ingest (load-bearing; do not re-correct per effect)
+
+Camera orientation is handled in exactly ONE place: the ingest.
+`android/.../gpu/Ingest.kt` and `ios/.../gpu/Ingest.swift` fold the frame's
+display rotation (and, on iOS, the front-camera selfie mirror) into the
+camera→"original 2D" step, so every downstream pass samples an already
+display-upright, non-mirrored frame, and every effect emits `rotation 0`.
+Consequences a contributor must not undo:
+
+- `Orientation.{kt,swift}` (`mat2For` / `uvTransform`) are pure SCREEN-SPACE
+  matrices for the transform ops (flip-x = negate U, flip-y = negate V,
+  rotate-cw/ccw = axis swap). They do NOT read `frame.rotation`.
+- The background-image composite samples the PNG directly — no pre-orient pass.
+- There is NO per-effect orientation correction anywhere. Adding one re-creates
+  the "orientation cascade" this design removed (it surfaced as "every fix
+  breaks another effect" across web/Android/iOS during development).
+
+If a device shows the WHOLE frame rotated or mirrored wrong, it is an ingest
+calibration, not an effect bug: flip exactly one constant, per platform —
+`Ingest.ROTATION_DIRECTION` (rotation sign) or `Ingest.INGEST_MIRROR_X`
+(horizontal mirror). The web pipeline (canvas, display-space) is the
+orientation source of truth; native must match it.
+
+NOT orientation, and must not be "cleaned up": the blur composite binds
+`uBgUvScale = (1, -1)`. That cancels the vertical flip the blurred background
+accumulates from its ODD number of ping-pong render passes (each Metal/GL
+render-to-texture pass flips V because the transpiled passthrough does not
+negate `gl_Position.y`). It is render-pass parity, not camera orientation; a
+single-pass effect (image background, single-pass shader) needs no such term.
+
+### Segmentation mask buffer ownership
+
+The mask the compositor reads must be a buffer the segmenter OWNS and hands out
+fresh per cycle — Android allocates a fresh bitmap (`Mask.kt`), iOS dequeues
+from a `CVPixelBufferPool` (`Segmenter.swift`). It must NOT be the live buffer
+the segmentation framework hands back (Vision recycles it) or a shallow reused
+ring: frame-pipelining keeps a mask texture GPU-referenced across multiple
+cycles, so a 2-deep ring gets overwritten mid-read and the mask visibly drifts
+and contorts. Preserve fresh-per-cycle ownership if you touch the segmenter.
 
 ### Texture-orientation convention
 
@@ -180,10 +238,12 @@ strings. If a helper does anything *with* the pipeline (mask production,
 specific effects' state, etc.), it goes in a domain folder
 (`segmentation/`, `effects/`).
 
-The iOS equivalent is `ios/KaleidoscopeModule/<domain>/`. There is no `gpu/`
-on iOS because the CoreImage / Vision frameworks already provide that layer;
-shared CoreImage utilities would live in `effects/` or a future
-`coreimage/` subdir if pressure grows.
+The iOS equivalent is `ios/KaleidoscopeModule/gpu/` — Metal + CoreImage
+primitives with no domain logic: `Ingest.swift` (orientation normalization),
+`Orientation.swift` (transform-op matrices), `MetalRenderer.swift` (pipelines
+and passes), `TextureBridge.swift` (ingest + texture/pool utilities). The Metal
+port added this folder; earlier iOS had none when CoreImage did everything.
+Per-domain logic still lives in `effects/` and `segmentation/`.
 
 ### Where Expo Module DSL lives
 

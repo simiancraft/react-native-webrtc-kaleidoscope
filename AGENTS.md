@@ -1,10 +1,26 @@
 # react-native-webrtc-kaleidoscope — Agent Instructions
 
-A managed-Expo-friendly Expo Module that registers named video frame processors with `react-native-webrtc` and exposes a typed JS facade. Ships `mirror`, `blur`, and `background-image` effects.
+A managed-Expo-friendly Expo Module that registers named video frame processors with `react-native-webrtc` and exposes a typed JS facade. Ships transform (flip-x/flip-y/rotate-cw/rotate-ccw), `blur`, and `background-image` effects; the background is source-agnostic and a procedural-shader background is the next effect.
 
 ## Status
 
-Pre-1.0, active development. v0.1 (mirror, blur, background replacement) has shipped on web, Android, and iOS. Durable conventions live in `PATTERNS.md`.
+Pre-1.0, active development. The transform, `blur`, and `background-image` effects ship on web, Android, and iOS. Durable conventions live in `PATTERNS.md`.
+
+## Orientation, the composite, and the mask — READ THIS before changing any effect, shader, or the ingest
+
+This architecture was hard-won over a long cross-platform debugging arc, and a "correction" to it will look like a local win while silently breaking the other platform. Do not undo these without understanding them; the detail and the same rules live at the code site in the `Ingest.{kt,swift}` and `Orientation.{kt,swift}` headers and in [PATTERNS.md](./PATTERNS.md).
+
+1. **Orientation is normalized exactly once, upstream, at the ingest.** `android/.../gpu/Ingest.kt` and `ios/.../gpu/Ingest.swift` fold the camera's display rotation (and, on iOS, the front-camera selfie mirror) into the camera→texture step, so the "original" texture every effect samples is already DISPLAY-UPRIGHT and non-mirrored. Effects then emit `rotation 0`. There is no per-effect orientation logic downstream, and there must not be.
+
+2. **Never add a flip, rotation, or V-flip inside an effect or shader to "make it look right."** If the frame is rotated or mirrored wrong, it is an INGEST problem; fix it at the one place via the single calibration constants — `Ingest.ROTATION_DIRECTION` (whole frame rotated the wrong way) and `INGEST_MIRROR_X` (mirrored, or flip-x hits the wrong axis), one per platform. Per-effect corrections are the "orientation cascade" this design exists to kill; each one breaks another effect.
+
+3. **Web is the orientation reference.** The web pipeline (canvas, display-space) is correct by construction; native matches it. `Orientation.{kt,swift}` are pure SCREEN-SPACE matrices (flip-x = negate U, flip-y = negate V, rotate = axis swap) and do NOT read `frame.rotation`; the ingest already handled rotation.
+
+4. **`bgUvScale = (1, -1)` in the blur composite is render-pass PARITY, not orientation. Leave it.** The blurred background passes through an odd number of ping-pong passes; each Metal/GL render-to-texture pass flips vertically (the transpiled passthrough does not negate `gl_Position.y`), and the (1,-1) cancels it. It is unrelated to the camera; removing it breaks blur. A single-pass effect (image background, single-pass shader) needs no such term.
+
+5. **The composite is background-source-agnostic; that is the extensibility model.** `shaders/composite.frag` is `mix(background, original, mask)` and does not care what the background texture is. Effects differ ONLY in how that texture is produced: a PNG (background-image), the blurred camera (blur), or a procedural GLSL shader (planned, issue #25). A new shader dropped into `shaders/` (single source → codegen to all platforms) gets the canonical upright frame and composites through the mask with ZERO orientation work; only its raw compute cost varies by device, and that is handled by the resolution tier (`targetShortSide`), not orientation. The flip/rotate transform ops are debug/utility table-stakes, not the product surface; the product is the masked-background composite.
+
+6. **Segmentation mask buffers are owned, never a shallow reused ring.** The mask the compositor reads must be a buffer the segmenter owns and hands out fresh per cycle (Android: a fresh bitmap; iOS: a `CVPixelBufferPool`), because frame-pipelining keeps a mask texture GPU-referenced across multiple cycles. A reused 2-deep ring gets overwritten mid-read and the mask visibly "drifts" / contorts. Preserve this if you touch the segmenter.
 
 ## Quick orientation
 
@@ -16,7 +32,8 @@ src/
 └── web/
     ├── effects/             # per-effect FrameTransform implementations
     │   ├── blur.ts
-    │   └── mirror.ts
+    │   ├── background-image.ts
+    │   └── transform.ts       # flip-x/flip-y/rotate-cw/rotate-ccw (replaced mirror.ts)
     └── insertable-streams.ts  # MediaStreamTrackProcessor + MediaStreamTrackGenerator wiring
 
 plugin/
