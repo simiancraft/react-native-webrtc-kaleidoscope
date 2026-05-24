@@ -13,7 +13,6 @@ import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
 import { mirror } from './web/effects/mirror';
-import { passthrough } from './web/effects/passthrough';
 import {
   applyEffectToTrack,
   type DisposablePipeline,
@@ -64,7 +63,6 @@ export type {
   EffectName,
   EffectSpec,
   MirrorSpec,
-  PassthroughSpec,
 } from './types';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
@@ -72,13 +70,11 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
     case 'mirror':
       return mirror;
     case 'blur':
-      // Blur ignores the spec parameters for v0.1; defaults are baked into
-      // the shader. Uniform-driven sigma lands when we wire params end-to-end.
+      // Blur strength comes from the global tuning state (setBlurSigma), not
+      // the spec; the spec carries no parameters.
       return blur;
     case 'background-image':
       return makeBackgroundImage(spec.source);
-    case 'gpu-passthrough':
-      return passthrough;
   }
 };
 
