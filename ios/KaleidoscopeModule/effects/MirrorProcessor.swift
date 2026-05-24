@@ -2,10 +2,13 @@
 //
 // The simplest effect; no mask, no segmentation, no Metal. A single CoreImage
 // horizontal flip rendered into a pooled BGRA buffer, wrapped back into an
-// RTCVideoFrame preserving rotation and timestamp. The flip touches only the
-// X axis (CGAffineTransform scaleX -1), so it cannot introduce a vertical
-// flip; this is the verification anchor for the project's orientation
-// convention (a correct mirror is horizontal-only, never upside down).
+// RTCVideoFrame preserving rotation and timestamp. "Mirror" means a SCREEN-
+// horizontal flip. The effect runs in the camera's landscape buffer space and
+// the display rotates it by frame.rotation, so on a portrait phone (90/270)
+// the buffer's X axis maps to the screen's VERTICAL — flipping buffer-X there
+// turns the image upside down. We flip the buffer axis that maps to screen-
+// horizontal: buffer-Y when rotated 90/270, buffer-X otherwise. (Web flips in
+// display space directly and needs no rotation handling.)
 //
 // One instance is registered under "mirror" and shared across every frame, so
 // this class is thread-safe: its only mutable state is the reused CIContext
@@ -81,11 +84,20 @@ public final class MirrorProcessor: NSObject, VideoFrameProcessorDelegate {
     guard width > 0, height > 0 else { return frame }
 
     let source = CIImage(cvPixelBuffer: input)
-    // Flip horizontally about the image's vertical centerline: scale X by -1
-    // then translate by +width to bring the image back into [0, width].
-    let flipped = source
-      .transformed(by: CGAffineTransform(scaleX: -1, y: 1))
-      .transformed(by: CGAffineTransform(translationX: source.extent.width, y: 0))
+    // Flip the buffer axis that maps to screen-horizontal: buffer-Y on a
+    // portrait display (rotation 90/270), buffer-X otherwise. scale by -1 then
+    // translate by +extent to bring the image back into [0, extent].
+    let r = frame.rotation.rawValue
+    let flipped: CIImage
+    if r == 90 || r == 270 {
+      flipped = source
+        .transformed(by: CGAffineTransform(scaleX: 1, y: -1))
+        .transformed(by: CGAffineTransform(translationX: 0, y: source.extent.height))
+    } else {
+      flipped = source
+        .transformed(by: CGAffineTransform(scaleX: -1, y: 1))
+        .transformed(by: CGAffineTransform(translationX: source.extent.width, y: 0))
+    }
 
     let output = try dequeueBuffer(width: width, height: height)
     ciContext.render(

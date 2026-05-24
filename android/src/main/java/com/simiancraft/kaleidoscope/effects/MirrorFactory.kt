@@ -24,12 +24,46 @@ private class MirrorProcessor : VideoFrameProcessor {
 
     val dst = JavaI420Buffer.allocate(width, height)
 
-    flipRowsHorizontally(src.dataY, src.strideY, dst.dataY, dst.strideY, width, height)
-    flipRowsHorizontally(src.dataU, src.strideU, dst.dataU, dst.strideU, chromaWidth, chromaHeight)
-    flipRowsHorizontally(src.dataV, src.strideV, dst.dataV, dst.strideV, chromaWidth, chromaHeight)
+    // Mirror = a screen-HORIZONTAL flip. The effect runs in the camera's
+    // landscape buffer space; the display rotates by frame.rotation. On a
+    // portrait phone (90/270) the buffer's X axis maps to the screen's
+    // vertical, so a per-row horizontal reverse would flip the image upside
+    // down. Flip the buffer axis that maps to screen-horizontal: vertical
+    // (row order) when rotated 90/270, horizontal (within-row) otherwise.
+    if (frame.rotation == 90 || frame.rotation == 270) {
+      flipRowsVertically(src.dataY, src.strideY, dst.dataY, dst.strideY, width, height)
+      flipRowsVertically(src.dataU, src.strideU, dst.dataU, dst.strideU, chromaWidth, chromaHeight)
+      flipRowsVertically(src.dataV, src.strideV, dst.dataV, dst.strideV, chromaWidth, chromaHeight)
+    } else {
+      flipRowsHorizontally(src.dataY, src.strideY, dst.dataY, dst.strideY, width, height)
+      flipRowsHorizontally(src.dataU, src.strideU, dst.dataU, dst.strideU, chromaWidth, chromaHeight)
+      flipRowsHorizontally(src.dataV, src.strideV, dst.dataV, dst.strideV, chromaWidth, chromaHeight)
+    }
 
     src.release()
     return VideoFrame(dst, frame.rotation, frame.timestampNs)
+  }
+
+  private fun flipRowsVertically(
+    src: ByteBuffer,
+    srcStride: Int,
+    dst: ByteBuffer,
+    dstStride: Int,
+    width: Int,
+    height: Int,
+  ) {
+    val rowBuf = ByteArray(width)
+    for (row in 0 until height) {
+      val srcRowStart = row * srcStride
+      // Same row, reversed row ORDER: row r -> row (height-1-r).
+      val dstRowStart = (height - 1 - row) * dstStride
+      for (col in 0 until width) {
+        rowBuf[col] = src.get(srcRowStart + col)
+      }
+      for (col in 0 until width) {
+        dst.put(dstRowStart + col, rowBuf[col])
+      }
+    }
   }
 
   private fun flipRowsHorizontally(
