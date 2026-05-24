@@ -30,6 +30,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.Segmentation
 import com.google.mlkit.vision.segmentation.Segmenter
 import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
+import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.GlDebug
 import com.simiancraft.kaleidoscope.gpu.GlProgram
@@ -80,7 +81,6 @@ internal class Mask {
     source2D: Int,
     sourceWidth: Int,
     sourceHeight: Int,
-    downsampleSize: Int = 256,
   ): Int {
     // Step 1: drain any pending mask the worker has produced. getAndSet
     // claims the bitmap atomically; the GL thread is now its sole owner.
@@ -98,7 +98,8 @@ internal class Mask {
     // Step 2: kick off a new segmentation if the worker is idle.
     if (isProcessing.compareAndSet(false, true)) {
       try {
-        val downsampleBmp = renderAndReadback(source2D, sourceWidth, sourceHeight, downsampleSize)
+        val downsampleBmp =
+          renderAndReadback(source2D, sourceWidth, sourceHeight, EffectTuning.targetShortSide)
         if (downsampleBmp != null) {
           workerHandler.post { runSegmentation(downsampleBmp) }
         } else {

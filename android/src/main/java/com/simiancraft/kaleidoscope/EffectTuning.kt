@@ -63,10 +63,23 @@ internal object EffectTuning {
       field = value
     }
 
+  /**
+   * Segmentation input short-side (px). The mask is produced from an input
+   * downscaled to this; lower = cheaper segmentation, softer mask edge.
+   * Default 256; clamped [128, 1080]. Tuned live from JS via
+   * setSegmentationTargetShortSide. (iOS mirrors this with a 384 default.)
+   */
+  @Volatile
+  var targetShortSide: Int = 256
+    set(value) {
+      field = value.coerceIn(128, 1080)
+    }
+
   fun reset() {
     blurSigma = 5f
     maskHardness = 0.5f
     maskThreshold = 0.7f
     debugTiming = false
+    targetShortSide = 256
   }
 }

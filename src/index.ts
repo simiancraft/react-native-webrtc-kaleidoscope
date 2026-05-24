@@ -15,6 +15,8 @@ interface KaleidoscopeNativeModule {
   setBlurSigma: (value: number) => void;
   setMaskHardness: (value: number) => void;
   setMaskThreshold: (value: number) => void;
+  setSegmentationTargetShortSide: (value: number) => void;
+  setDebugTiming: (value: boolean) => void;
   resetEffectTuning: () => void;
 }
 
@@ -50,6 +52,24 @@ export const setMaskHardness = (value: number): void => {
  */
 export const setMaskThreshold = (value: number): void => {
   nativeModule().setMaskThreshold(value);
+};
+
+/**
+ * Set the segmentation input short-side (px). The person mask is computed from
+ * an input downscaled to this; lower = cheaper segmentation (helps on older
+ * devices like the A11), softer mask edge. Default 256 (Android) / 384 (iOS).
+ * Native only; the web pipeline ignores it.
+ */
+export const setSegmentationTargetShortSide = (value: number): void => {
+  nativeModule().setSegmentationTargetShortSide(value);
+};
+
+/**
+ * Toggle native per-frame GPU/segmentation timing logs (off by default). iOS
+ * logs under os_log "Perf"; Android under the "Perf" logcat tag.
+ */
+export const setDebugTiming = (value: boolean): void => {
+  nativeModule().setDebugTiming(value);
 };
 
 /**

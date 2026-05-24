@@ -40,6 +40,10 @@ class KaleidoscopeModule : Module() {
       EffectTuning.debugTiming = value
     }
 
+    Function("setSegmentationTargetShortSide") { value: Int ->
+      EffectTuning.targetShortSide = value
+    }
+
     Function("resetEffectTuning") {
       EffectTuning.reset()
     }

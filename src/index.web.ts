@@ -48,6 +48,23 @@ export const setMaskThreshold = (value: number): void => {
 };
 
 /**
+ * Set the segmentation input short-side (px). Native-only knob (lower =
+ * cheaper segmentation on older devices); stored on web for API parity but
+ * the web MediaPipe pipeline does not consume it.
+ */
+export const setSegmentationTargetShortSide = (value: number): void => {
+  tuning.setSegmentationTargetShortSide(value);
+};
+
+/**
+ * Toggle native per-frame timing logs (off by default). No-op effect on web
+ * beyond storing the flag.
+ */
+export const setDebugTiming = (value: boolean): void => {
+  tuning.setDebugTiming(value);
+};
+
+/**
  * Reset all effect tuning parameters to library defaults.
  */
 export const resetEffectTuning = (): void => {
