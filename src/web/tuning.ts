@@ -10,7 +10,7 @@ const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.m
 class EffectTuningState {
   blurSigma = 8;
   maskHardness = 0.5;
-  maskThreshold = 0.5;
+  maskThreshold = 0.7;
 
   setBlurSigma(value: number): void {
     this.blurSigma = clamp(value, 0.5, 64);
@@ -27,7 +27,7 @@ class EffectTuningState {
   reset(): void {
     this.blurSigma = 8;
     this.maskHardness = 0.5;
-    this.maskThreshold = 0.5;
+    this.maskThreshold = 0.7;
   }
 }
 

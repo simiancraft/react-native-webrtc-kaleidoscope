@@ -37,7 +37,7 @@ describe('tuning singleton', () => {
   test('has library defaults', () => {
     expect(tuning.blurSigma).toBe(8);
     expect(tuning.maskHardness).toBe(0.5);
-    expect(tuning.maskThreshold).toBe(0.5);
+    expect(tuning.maskThreshold).toBe(0.7);
   });
 
   test('setBlurSigma clamps to [0.5, 64]', () => {
@@ -70,6 +70,6 @@ describe('tuning singleton', () => {
     tuning.reset();
     expect(tuning.blurSigma).toBe(8);
     expect(tuning.maskHardness).toBe(0.5);
-    expect(tuning.maskThreshold).toBe(0.5);
+    expect(tuning.maskThreshold).toBe(0.7);
   });
 });
