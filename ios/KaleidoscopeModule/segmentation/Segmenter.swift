@@ -80,7 +80,27 @@ final class Segmenter {
   // sampler and identity UVs, so a lower-res mask upscales for free; alignment
   // is preserved because the downscale is a uniform scale of the same native
   // buffer space (no crop, no rotation). Retained until replaced.
+  //
+  // OWNERSHIP (the iOS-only mask-drift fix; mirrors Android's outBmp copy):
+  //   `lastMask` is always one of `ownedMasks` below, NOT the buffer Vision
+  //   returns. Vision recycles its own output buffer in place on the next
+  //   `perform`, so caching it directly let the capture thread sample a buffer
+  //   Vision was concurrently overwriting -> progressive corruption (the
+  //   fog-of-war erosion). We instead memcpy Vision's output into a
+  //   Segmenter-OWNED buffer and publish that. Android does the equivalent by
+  //   copying MLKit's mask into a fresh Bitmap (see Mask.kt runSegmentation).
   private var lastMask: CVPixelBuffer?
+
+  // Double-buffer of Segmenter-owned mask targets. Worker-queue-only for the
+  // rotation; the published one becomes `lastMask` under the lock. We alternate
+  // so the buffer we publish is never the one we overwrite next frame; the
+  // capture thread can keep sampling the published buffer for a full extra
+  // cycle without racing the next copy. OneComponent8, sized to the mask dims;
+  // rebuilt only when those dims change (like the scratch buffer).
+  private var ownedMasks: [CVPixelBuffer] = []
+  private var ownedMaskWidth = 0
+  private var ownedMaskHeight = 0
+  private var ownedMaskWriteIndex = 0
 
   /// Read the most recent completed mask. Returns nil if none has completed
   /// yet. The returned buffer is retained by the caller for the duration of
@@ -153,9 +173,13 @@ final class Segmenter {
         os_log("segmentation produced no observation", log: Segmenter.log, type: .info)
         return
       }
-      let maskBuffer = observation.pixelBuffer
+      // Vision's output buffer is owned and RECYCLED by the reused request on
+      // the next perform. Copy it into a Segmenter-owned buffer before
+      // publishing, so the capture thread never samples a buffer Vision is
+      // concurrently overwriting (the iOS mask-drift race). Worker-queue only.
+      let owned = try copyToOwnedBuffer(observation.pixelBuffer)
       os_unfair_lock_lock(&unsafeLock)
-      lastMask = maskBuffer
+      lastMask = owned
       os_unfair_lock_unlock(&unsafeLock)
     } catch {
       os_log("segmentation failed: %{public}@", log: Segmenter.log, type: .error,
@@ -211,6 +235,60 @@ final class Segmenter {
     scratchSourceHeight = sourceHeight
     scratchTargetShortSide = targetShortSide
     return buffer
+  }
+
+  /// Copy Vision's recycled mask output into a Segmenter-owned OneComponent8
+  /// buffer and return it for publishing. Alternates between two owned buffers
+  /// so the just-published one is never the next write target. The copy honors
+  /// bytes-per-row on both sides (the source and the owned buffer can have
+  /// different row strides / padding), so it does not assume contiguous rows.
+  /// Worker-queue only.
+  private func copyToOwnedBuffer(_ source: CVPixelBuffer) throws -> CVPixelBuffer {
+    let width = CVPixelBufferGetWidth(source)
+    let height = CVPixelBufferGetHeight(source)
+    let dst = try ensureOwnedMaskBuffer(width: width, height: height)
+
+    CVPixelBufferLockBaseAddress(source, .readOnly)
+    CVPixelBufferLockBaseAddress(dst, [])
+    defer {
+      CVPixelBufferUnlockBaseAddress(dst, [])
+      CVPixelBufferUnlockBaseAddress(source, .readOnly)
+    }
+
+    guard let srcBase = CVPixelBufferGetBaseAddress(source),
+          let dstBase = CVPixelBufferGetBaseAddress(dst) else {
+      throw RendererError.pixelBufferAllocFailed(kCVReturnInvalidArgument)
+    }
+    let srcStride = CVPixelBufferGetBytesPerRow(source)
+    let dstStride = CVPixelBufferGetBytesPerRow(dst)
+    // OneComponent8: one byte per pixel; copy the live width per row, never the
+    // stride, so neither side's row padding leaks into the other.
+    let rowBytes = min(width, min(srcStride, dstStride))
+    for row in 0..<height {
+      memcpy(dstBase.advanced(by: row * dstStride),
+             srcBase.advanced(by: row * srcStride),
+             rowBytes)
+    }
+    return dst
+  }
+
+  /// Allocate-or-reuse the next owned mask target in the double-buffer. Rebuilt
+  /// only when the mask dims change (e.g. targetShortSide / source dims change).
+  /// Advances the write index so consecutive calls alternate buffers, keeping
+  /// the just-published buffer off the next write. Worker-queue only.
+  private func ensureOwnedMaskBuffer(width: Int, height: Int) throws -> CVPixelBuffer {
+    if ownedMasks.count != 2 || ownedMaskWidth != width || ownedMaskHeight != height {
+      ownedMasks = [
+        try TextureBridge.makeMetalCompatibleOneComponent8Buffer(width: width, height: height),
+        try TextureBridge.makeMetalCompatibleOneComponent8Buffer(width: width, height: height),
+      ]
+      ownedMaskWidth = width
+      ownedMaskHeight = height
+      ownedMaskWriteIndex = 0
+    }
+    let index = ownedMaskWriteIndex
+    ownedMaskWriteIndex = (ownedMaskWriteIndex + 1) % ownedMasks.count
+    return ownedMasks[index]
   }
 
   private func ensureRequest() -> VNGeneratePersonSegmentationRequest {

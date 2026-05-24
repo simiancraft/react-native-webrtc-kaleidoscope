@@ -64,6 +64,29 @@ enum TextureBridge {
     return result
   }
 
+  /// Allocate a single OneComponent8, IOSurface-backed, Metal-compatible
+  /// CVPixelBuffer. Used by the Segmenter to own the segmentation mask it
+  /// caches (a copy of Vision's recycled output buffer); bindable as an
+  /// .r8Unorm Metal texture, which the composite samples on the .r channel.
+  static func makeMetalCompatibleOneComponent8Buffer(width: Int, height: Int) throws -> CVPixelBuffer {
+    let attrs: [String: Any] = [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_OneComponent8,
+      kCVPixelBufferWidthKey as String: width,
+      kCVPixelBufferHeightKey as String: height,
+      kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+      kCVPixelBufferMetalCompatibilityKey as String: true,
+    ]
+    var buffer: CVPixelBuffer?
+    let status = CVPixelBufferCreate(
+      kCFAllocatorDefault, width, height,
+      kCVPixelFormatType_OneComponent8, attrs as CFDictionary, &buffer
+    )
+    guard status == kCVReturnSuccess, let result = buffer else {
+      throw RendererError.pixelBufferAllocFailed(status)
+    }
+    return result
+  }
+
   /// Wrap a plane of a CVPixelBuffer as a zero-copy MTLTexture via the cache.
   /// For BGRA use planeIndex 0 + .bgra8Unorm; for a OneComponent8 mask use
   /// planeIndex 0 + .r8Unorm; for NV12 luma planeIndex 0 + .r8Unorm.
