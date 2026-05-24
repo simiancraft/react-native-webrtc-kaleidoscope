@@ -34,6 +34,7 @@ import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.FramePipeline
 import com.simiancraft.kaleidoscope.gpu.GlDebug
+import com.simiancraft.kaleidoscope.gpu.Ingest
 import com.simiancraft.kaleidoscope.gpu.GlProgram
 import com.simiancraft.kaleidoscope.gpu.Shaders
 import com.simiancraft.kaleidoscope.segmentation.Mask
@@ -152,12 +153,18 @@ private class BlurProcessor : VideoFrameProcessor {
       Log.w(TAG, "TextureBuffer type is ${inputBuffer.type}; expected OES. Forwarding original.")
       return null
     }
-    val width = inputBuffer.width
-    val height = inputBuffer.height
-    if (width <= 0 || height <= 0) {
-      Log.w(TAG, "Degenerate dims ${width}x${height}; forwarding.")
+    val bufW = inputBuffer.width
+    val bufH = inputBuffer.height
+    if (bufW <= 0 || bufH <= 0) {
+      Log.w(TAG, "Degenerate dims ${bufW}x${bufH}; forwarding.")
       return null
     }
+
+    // Ingest normalization: the OES->2D pass below lands a DISPLAY-UPRIGHT frame
+    // (Ingest folds frame.rotation into the texture matrix), so every cached FBO
+    // and the output are sized in DISPLAY dims, and the frame goes out rotation 0.
+    val width = Ingest.displayWidth(bufW, bufH, frame.rotation)
+    val height = Ingest.displayHeight(bufW, bufH, frame.rotation)
 
     GlDebug.check("blur entry")
     val saved = Egl.save()
@@ -182,7 +189,8 @@ private class BlurProcessor : VideoFrameProcessor {
       origFbo.bind()
       oes.use()
       oes.setInt("uTex", 0)
-      val texMatrix = Egl.matrixToGl(inputBuffer.transformMatrix)
+      // Compose transformMatrix with the display rotation so the FBO lands upright.
+      val texMatrix = Ingest.composedTexMatrix(inputBuffer.transformMatrix, frame.rotation)
       GLES30.glUniformMatrix4fv(oes.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
@@ -290,7 +298,8 @@ private class BlurProcessor : VideoFrameProcessor {
         outputTextureId,
         width,
         height,
-        frame.rotation,
+        // Pixels are already display-upright after ingest; emit rotation 0.
+        0,
         frame.timestampNs,
         EffectTuning.debugTiming,
         TAG,

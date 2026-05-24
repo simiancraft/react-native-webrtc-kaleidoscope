@@ -11,18 +11,19 @@
 // mirror); MirrorFactory and its "mirror" registration are removed.
 //
 // Per frame:
-//   1. Render the input OES camera texture through the OES->2D passthrough
-//      (applying the camera transformMatrix) into a cached display-oriented
-//      "original 2D" FBO, exactly like BlurFactory / BackgroundImageFactory.
-//   2. Single TRANSFORM_FRAG pass: sample that 2D copy through the uUvTransform
-//      mat2 from Orientation.mat2For(op, frame.rotation) into a fresh output
-//      texture sized w x h (flips) or h x w (rotations).
+//   1. Render the input OES camera texture through the OES->2D passthrough into
+//      a cached DISPLAY-UPRIGHT "original 2D" FBO, exactly like BlurFactory /
+//      BackgroundImageFactory. Ingest folds the display rotation into the
+//      texture matrix, so the FBO is sized in display dims and already upright.
+//   2. Single TRANSFORM_FRAG pass: sample that upright 2D copy through the
+//      uUvTransform mat2 from Orientation.mat2For(op) into a fresh output
+//      texture sized display w x h (flips) or h x w (rotations).
 //   3. Wrap the fresh output texture in a TextureBufferImpl and return a
-//      VideoFrame preserving rotation + timestamp.
+//      VideoFrame at rotation 0 (pixels are already upright).
 //
-// The camera-buffer rotation correction lives ONLY in Orientation.kt; this
-// factory never re-derives it. All failure paths log under Kaleidoscope.Transform
-// and return null so upstream forwards the original frame.
+// Camera orientation lives ONLY in Ingest; the op here is pure screen space and
+// never consults frame.rotation. All failure paths log under
+// Kaleidoscope.Transform and return null so upstream forwards the original frame.
 
 package com.simiancraft.kaleidoscope.effects
 
@@ -37,6 +38,7 @@ import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.FramePipeline
 import com.simiancraft.kaleidoscope.gpu.GlDebug
 import com.simiancraft.kaleidoscope.gpu.GlProgram
+import com.simiancraft.kaleidoscope.gpu.Ingest
 import com.simiancraft.kaleidoscope.gpu.Orientation
 import com.simiancraft.kaleidoscope.gpu.Shaders
 import org.webrtc.SurfaceTextureHelper
@@ -108,14 +110,20 @@ private class TransformProcessor(
       Log.w(TAG, "TextureBuffer type is ${inputBuffer.type}; expected OES. Forwarding original.")
       return null
     }
-    val width = inputBuffer.width
-    val height = inputBuffer.height
-    if (width <= 0 || height <= 0) {
-      Log.w(TAG, "Degenerate dims ${width}x${height}; forwarding.")
+    val bufW = inputBuffer.width
+    val bufH = inputBuffer.height
+    if (bufW <= 0 || bufH <= 0) {
+      Log.w(TAG, "Degenerate dims ${bufW}x${bufH}; forwarding.")
       return null
     }
 
-    // Rotations swap output dimensions; flips keep them.
+    // Ingest normalization: the OES->2D pass lands a DISPLAY-UPRIGHT frame, so
+    // the original FBO is sized in DISPLAY dims and the op runs in pure screen
+    // space (Orientation no longer consults frame.rotation).
+    val width = Ingest.displayWidth(bufW, bufH, frame.rotation)
+    val height = Ingest.displayHeight(bufW, bufH, frame.rotation)
+
+    // Rotations swap the (display) output dimensions; flips keep them.
     val swap = Orientation.swapsDimensions(op)
     val outWidth = if (swap) height else width
     val outHeight = if (swap) width else height
@@ -137,7 +145,8 @@ private class TransformProcessor(
       origFbo.bind()
       oes.use()
       oes.setInt("uTex", 0)
-      val texMatrix = Egl.matrixToGl(inputBuffer.transformMatrix)
+      // Compose transformMatrix with the display rotation so the FBO lands upright.
+      val texMatrix = Ingest.composedTexMatrix(inputBuffer.transformMatrix, frame.rotation)
       GLES30.glUniformMatrix4fv(oes.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
@@ -158,8 +167,9 @@ private class TransformProcessor(
       GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
       GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, origFbo.texture)
       transform.setInt("uTex", 0)
-      // The ONE place the rotation correction is sourced from.
-      transform.setMat2("uUvTransform", Orientation.mat2For(op, frame.rotation))
+      // Input is already display-upright (ingest), so the op is pure screen
+      // space; frame.rotation is no longer consulted here.
+      transform.setMat2("uUvTransform", Orientation.mat2For(op))
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("transform reorient pass")
 
@@ -185,7 +195,8 @@ private class TransformProcessor(
         outputTextureId,
         outWidth,
         outHeight,
-        frame.rotation,
+        // Pixels are already display-upright after ingest; emit rotation 0.
+        0,
         frame.timestampNs,
         EffectTuning.debugTiming,
         TAG,
