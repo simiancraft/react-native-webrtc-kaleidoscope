@@ -25,15 +25,18 @@ public class KaleidoscopeModule: Module {
       EffectTuning.maskThreshold = value
     }
 
-    // Segmentation perf controls. A JS device-tier sets these to trade mask
-    // quality for cost on lower-end devices (e.g. A11/iPhone X).
+    // Segmentation perf control. A JS device-tier sets this to trade mask
+    // resolution for cost on lower-end devices (e.g. A11/iPhone X).
     Function("setSegmentationTargetShortSide") { (value: Int) in
       EffectTuning.targetShortSide = value
     }
 
-    Function("setSegmentationQuality") { (value: String) in
-      EffectTuning.segmentationQuality = SegmentationQuality.from(value)
-    }
+    // NOTE: segmentationQuality (Vision .fast/.balanced/.accurate) is NOT
+    // bridged to JS yet; it stays at its .fast default (see EffectTuning +
+    // Segmenter). When the device-tier lands, wire setSegmentationQuality
+    // across ALL layers at once (the src/index.ts interface + both entry
+    // exports + an Android Function + a web store), never iOS-only — a
+    // half-bridged setter throws on the platform that lacks the native function.
 
     // Native perf instrument toggle; logs GPU/Vision/ingest timings under the
     // os_log "Perf" category. Off by default.
