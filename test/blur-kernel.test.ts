@@ -8,10 +8,14 @@ describe('computeBlurKernel', () => {
     expect(offsets.length).toBe(KERNEL_TAPS);
   });
 
-  test('offsets are evenly spaced by 2 pixels', () => {
+  test('center offset is 0; pair offsets are fractional and increasing', () => {
     const { offsets } = computeBlurKernel(8);
-    for (let i = 0; i < KERNEL_TAPS; i++) {
-      expect(offsets[i]).toBe(i * 2);
+    expect(offsets[0]).toBe(0);
+    // First pair samples between texels 1 and 2.
+    expect(offsets[1] ?? 0).toBeGreaterThan(1);
+    expect(offsets[1] ?? 0).toBeLessThan(2);
+    for (let i = 2; i < KERNEL_TAPS; i++) {
+      expect(offsets[i] ?? 0).toBeGreaterThan(offsets[i - 1] ?? 0);
     }
   });
 
@@ -24,11 +28,13 @@ describe('computeBlurKernel', () => {
     expect(sum).toBeCloseTo(1, 6);
   });
 
-  test('center tap is heaviest; weights decrease monotonically', () => {
+  test('pair weights decrease with distance; center is positive', () => {
+    // Entries are aggregated (center + 4 pairs), so a near pair can outweigh
+    // the single center; what must hold is that farther pairs weigh less.
     const { weights } = computeBlurKernel(8);
     expect(weights[0] ?? 0).toBeGreaterThan(0);
-    for (let i = 1; i < KERNEL_TAPS; i++) {
-      expect(weights[i] ?? 0).toBeLessThanOrEqual(weights[i - 1] ?? 0);
+    for (let i = 2; i < KERNEL_TAPS; i++) {
+      expect(weights[i] ?? 0).toBeLessThan(weights[i - 1] ?? 0);
     }
   });
 

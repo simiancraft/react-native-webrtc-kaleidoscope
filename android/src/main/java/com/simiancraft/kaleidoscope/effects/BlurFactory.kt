@@ -79,27 +79,33 @@ private class BlurProcessor : VideoFrameProcessor {
   private val mask = Mask()
   private var yuvConverter: YuvConverter? = null
 
-  // 9-tap separable Gaussian kernel. tapSpacing is fixed; sigma comes from
-  // EffectTuning at frame time and the kernel is rebuilt on the CPU only
-  // when sigma changes. At sigma=8 the kernel covers ~+/-16 pixels with a
-  // smooth falloff.
+  // Linear-sampled separable Gaussian: 5 entries (center + 4 bilinear pairs).
+  // sigma comes from EffectTuning at frame time; the kernel is rebuilt on the
+  // CPU only when sigma changes. See src/web/blur-kernel.ts for the derivation.
   private val blurWeights = FloatArray(KERNEL_TAPS)
   private val blurOffsets = FloatArray(KERNEL_TAPS)
   private var cachedKernelSigma: Float = Float.NaN
 
   private fun ensureKernel(sigma: Float) {
     if (sigma == cachedKernelSigma) return
-    val tapSpacing = 2.0
-    val sigmaD = sigma.toDouble()
-    for (i in 0 until KERNEL_TAPS) {
-      blurOffsets[i] = (i * tapSpacing).toFloat()
-      val x = blurOffsets[i].toDouble()
-      blurWeights[i] = Math.exp(-(x * x) / (2.0 * sigmaD * sigmaD)).toFloat()
-    }
-    // Normalize: center contributes once, each side tap contributes twice
-    // because the shader samples vUv +/- offset and adds each.
+    val s = sigma.toDouble()
+    fun g(t: Double) = Math.exp(-(t * t) / (2.0 * s * s))
+    // Linear-sampled: center + 4 bilinear pairs of dense texels (1,2)(3,4)
+    // (5,6)(7,8); each pair is one fractional-offset fetch. Normalize so
+    // center + 2*sum(pairs) == 1 (the shader samples vUv +/- offset, adds each).
+    blurOffsets[0] = 0f
+    blurWeights[0] = g(0.0).toFloat()
     var sum = blurWeights[0]
-    for (i in 1 until KERNEL_TAPS) sum += 2f * blurWeights[i]
+    for (p in 1 until KERNEL_TAPS) {
+      val a = (2 * p - 1).toDouble()
+      val b = (2 * p).toDouble()
+      val wa = g(a)
+      val wb = g(b)
+      val w = wa + wb
+      blurOffsets[p] = ((a * wa + b * wb) / w).toFloat()
+      blurWeights[p] = w.toFloat()
+      sum += 2f * blurWeights[p]
+    }
     for (i in 0 until KERNEL_TAPS) blurWeights[i] = blurWeights[i] / sum
     cachedKernelSigma = sigma
   }
@@ -344,6 +350,6 @@ private class BlurProcessor : VideoFrameProcessor {
   companion object {
     private const val TAG = "Kaleidoscope.Blur"
     private const val GL_TEXTURE_EXTERNAL_OES = 0x8D65
-    private const val KERNEL_TAPS = 9
+    private const val KERNEL_TAPS = 5
   }
 }

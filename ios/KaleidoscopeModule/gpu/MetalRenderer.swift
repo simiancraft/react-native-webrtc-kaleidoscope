@@ -313,11 +313,12 @@ final class MetalRenderer {
   }
 
   /// Encode one separable blur pass (`source` -> `target`) along `axis`.
-  /// Binds the 9-float weights at buffer(0), the float2 axis at buffer(9), and
-  /// the 9-float offsets at buffer(10), matching blur.metal's bindings. The
-  /// spvUnsafeArray<float,9> parameters are 9 tightly packed floats (36 bytes)
-  /// each; setFragmentBytes with the kernel's contiguous arrays satisfies that
-  /// layout.
+  /// Binds the 5-float weights at buffer(0), the float2 axis at buffer(5), and
+  /// the 5-float offsets at buffer(6), matching the regenerated blur.metalsrc.
+  /// spirv-cross numbers uAxis/uOffsets right after the uWeights array, so
+  /// these indices track the array size (was 0/9/10 at 9 entries). setFragment-
+  /// Bytes uses each array's contiguous byte layout (length: ptr.count), so the
+  /// byte count adapts on its own.
   func encodeBlurPass(
     commandBuffer: MTLCommandBuffer,
     source: MTLTexture,
@@ -332,16 +333,16 @@ final class MetalRenderer {
       target: target,
       label: label
     ) { encoder in
-      // spvUnsafeArray<float,9> is 9 tightly packed floats (36 bytes). A Swift
-      // [Float] of 9 elements is contiguous with stride 4, so withUnsafeBytes
-      // hands setFragmentBytes the exact 36-byte layout the shader expects.
+      // spvUnsafeArray<float,5> is 5 tightly packed floats (20 bytes). A Swift
+      // [Float] of 5 elements is contiguous with stride 4, so withUnsafeBytes
+      // hands setFragmentBytes the exact 20-byte layout the shader expects.
       kernel.weights.withUnsafeBytes { ptr in
         encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 0)
       }
       var axisVar = axis
-      encoder.setFragmentBytes(&axisVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 9)
+      encoder.setFragmentBytes(&axisVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 5)
       kernel.offsets.withUnsafeBytes { ptr in
-        encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 10)
+        encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 6)
       }
       encoder.setFragmentTexture(source, index: 0)
       encoder.setFragmentSamplerState(linearClampSampler, index: 0)
@@ -394,29 +395,35 @@ final class MetalRenderer {
   }
 }
 
-/// A 9-tap separable Gaussian kernel. Direct port of BlurFactory.kt's
-/// ensureKernel: tapSpacing 2.0; offset[i] = i*2; weight[i] = exp(-x^2 /
-/// (2 sigma^2)); normalize so weight[0] + 2*sum(weight[1..8]) == 1 (the shader
-/// samples +/- offset for the side taps and adds each, so each side tap counts
-/// twice in the normalization). Rebuilt only when sigma changes.
+/// A linear-sampled separable Gaussian kernel: 5 entries (center + 4 bilinear
+/// pairs of dense texels). Mirrors BlurFactory.ensureKernel and
+/// src/web/blur-kernel.ts. Rebuilt only when sigma changes.
 struct BlurKernel {
-  private(set) var weights = [Float](repeating: 0, count: 9)
-  private(set) var offsets = [Float](repeating: 0, count: 9)
+  private(set) var weights = [Float](repeating: 0, count: 5)
+  private(set) var offsets = [Float](repeating: 0, count: 5)
   private var cachedSigma: Float = .nan
 
   mutating func ensure(sigma: Float) {
     if sigma == cachedSigma { return }
-    let tapSpacing = 2.0
-    let sigmaD = Double(sigma)
-    for i in 0..<9 {
-      let x = Double(i) * tapSpacing
-      offsets[i] = Float(x)
-      weights[i] = Float(exp(-(x * x) / (2.0 * sigmaD * sigmaD)))
-    }
+    let s = Double(sigma)
+    func g(_ t: Double) -> Double { exp(-(t * t) / (2.0 * s * s)) }
+    // Linear-sampled: center + 4 bilinear pairs of dense texels (1,2)(3,4)
+    // (5,6)(7,8). See src/web/blur-kernel.ts for the shared derivation.
+    offsets[0] = 0
+    weights[0] = Float(g(0))
     var sum = weights[0]
-    for i in 1..<9 { sum += 2.0 * weights[i] }
+    for p in 1..<5 {
+      let a = Double(2 * p - 1)
+      let b = Double(2 * p)
+      let wa = g(a)
+      let wb = g(b)
+      let w = wa + wb
+      offsets[p] = Float((a * wa + b * wb) / w)
+      weights[p] = Float(w)
+      sum += 2.0 * weights[p]
+    }
     if sum > 0 {
-      for i in 0..<9 { weights[i] /= sum }
+      for i in 0..<5 { weights[i] /= sum }
     }
     cachedSigma = sigma
   }
