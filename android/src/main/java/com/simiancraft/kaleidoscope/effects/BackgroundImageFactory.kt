@@ -2,7 +2,7 @@
 //
 // Per frame:
 //   1. Render the input OES camera texture into a cached "original 2D" FBO.
-//   2. Lazy-load the named PNG asset (e.g. "office-1") from the library's
+//   2. Lazy-load the named PNG asset (e.g. "dark-office") from the library's
 //      android/src/main/assets/backgrounds/ on first frame; upload as a 2D
 //      GL texture; cache for subsequent frames.
 //   3. Produce a mask via Mask.produce (downsample, MLKit, upload).
@@ -11,7 +11,7 @@
 //   5. Wrap the fresh output texture in a TextureBufferImpl and return a
 //      VideoFrame.
 //
-// Each registered name (e.g. "background-image-office-1") gets its own
+// Each registered name (e.g. "background-image-dark-office") gets its own
 // factory keyed by an asset name; multiple factories can coexist if the
 // consumer registers multiple variants.
 //
@@ -44,7 +44,7 @@ import org.webrtc.YuvConverter
 /**
  * @param context Used to read the PNG asset.
  * @param assetName Filename (without `.png`) under `assets/backgrounds/`.
- *                   E.g. "office-1" -> assets/backgrounds/office-1.png.
+ *                   E.g. "dark-office" -> assets/backgrounds/dark-office.png.
  *
  * maskHardness is read per frame from com.simiancraft.kaleidoscope.EffectTuning
  * so JS callers can tune the smoothstep edge via the Expo Module's

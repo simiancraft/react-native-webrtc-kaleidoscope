@@ -18,6 +18,6 @@
 // at android/.../Registration.kt. The web side picks it up automatically
 // via the literal-union type and the derived native allowlist.
 
-export const BACKGROUND_PRESETS = ['office-1', 'office-2'] as const;
+export const BACKGROUND_PRESETS = ['dark-office', 'light-office'] as const;
 
 export type BackgroundPresetName = (typeof BACKGROUND_PRESETS)[number];

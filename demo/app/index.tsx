@@ -6,14 +6,14 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import { applyVideoEffects, type EffectSpec } from 'react-native-webrtc-kaleidoscope';
 // The library ships these presets; each resolves to a bundled WebP URL on web
 // and to the preset name on native. This is the same import an end user gets.
-import { office1 } from 'react-native-webrtc-kaleidoscope/backgrounds/office-1';
-import { office2 } from 'react-native-webrtc-kaleidoscope/backgrounds/office-2';
+import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
+import { lightOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/light-office';
 import { EffectToggles } from '../src/effect-toggles';
 import { EffectTuningPanel } from '../src/effect-tuning-panel';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-type PresetId = 'mirror' | 'blur' | 'office-1' | 'office-2';
+type PresetId = 'mirror' | 'blur' | 'dark-office' | 'light-office';
 
 const presetToSpec = (id: PresetId): EffectSpec => {
   switch (id) {
@@ -21,24 +21,24 @@ const presetToSpec = (id: PresetId): EffectSpec => {
       return { name: 'mirror' };
     case 'blur':
       return { name: 'blur' };
-    case 'office-1':
-      return { name: 'background-image', source: office1 };
-    case 'office-2':
-      return { name: 'background-image', source: office2 };
+    case 'dark-office':
+      return { name: 'background-image', source: darkOffice };
+    case 'light-office':
+      return { name: 'background-image', source: lightOffice };
   }
 };
 
 const PRESETS: ReadonlyArray<{ id: PresetId; label: string }> = [
   { id: 'mirror', label: 'Mirror' },
   { id: 'blur', label: 'Blur' },
-  { id: 'office-1', label: 'Office 1' },
-  { id: 'office-2', label: 'Office 2' },
+  { id: 'dark-office', label: 'Dark Office' },
+  { id: 'light-office', label: 'Light Office' },
 ];
 
 // Order matters because chained transforms compose left-to-right. Mirror
 // first (cheap) so the segmentation pass sees a flipped image (which it
 // handles fine).
-const APPLY_ORDER: ReadonlyArray<PresetId> = ['mirror', 'blur', 'office-1', 'office-2'];
+const APPLY_ORDER: ReadonlyArray<PresetId> = ['mirror', 'blur', 'dark-office', 'light-office'];
 
 export default function DemoScreen() {
   const stream = useLoopbackStream();

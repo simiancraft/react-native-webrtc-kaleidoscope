@@ -32,12 +32,12 @@ public enum Registration {
     ProcessorProvider.addProcessor(MirrorProcessor(), forName: "mirror")
     ProcessorProvider.addProcessor(BlurProcessor(), forName: "blur")
     ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "office-1"),
-      forName: "background-image-office-1"
+      BackgroundImageProcessor(assetName: "dark-office"),
+      forName: "background-image-dark-office"
     )
     ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "office-2"),
-      forName: "background-image-office-2"
+      BackgroundImageProcessor(assetName: "light-office"),
+      forName: "background-image-light-office"
     )
   }
 }

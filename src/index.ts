@@ -95,8 +95,8 @@ interface WebRTCTrackExtensions {
 // factory, dropping its name here is the safe behavior.
 //
 // Background-image preset names come from src/backgrounds.ts; the encoder
-// turns `{name:'background-image', source:'office-1'}` into the flat-string
-// `'background-image-office-1'` because the rn-webrtc native registry is
+// turns `{name:'background-image', source:'dark-office'}` into the flat-string
+// `'background-image-dark-office'` because the rn-webrtc native registry is
 // keyed by flat strings (parameterization via uniforms is a follow-up).
 //
 // iOS registers the same effects via ios/.../Registration.swift. Each
@@ -125,7 +125,7 @@ const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlat
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // background-image uses one registered factory per source preset.
-  // {name: 'background-image', source: 'office-1'} -> 'background-image-office-1'
+  // {name: 'background-image', source: 'dark-office'} -> 'background-image-dark-office'
   if (spec.name === 'background-image') {
     return `background-image-${spec.source}`;
   }

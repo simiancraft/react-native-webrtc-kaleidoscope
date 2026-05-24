@@ -8,7 +8,7 @@ describe('toEffectSpec', () => {
   });
 
   test('passes a spec object through by reference', () => {
-    const spec = { name: 'background-image', source: 'office-1' } as const;
+    const spec = { name: 'background-image', source: 'dark-office' } as const;
     expect(toEffectSpec(spec)).toBe(spec);
   });
 });

@@ -23,12 +23,12 @@ object Registration {
     // ProcessorProvider entry. Parameterized dispatch via uniforms lands
     // when we extend the upstream rn-webrtc API surface.
     ProcessorProvider.addProcessor(
-      "background-image-office-1",
-      BackgroundImageFactory(context, "office-1"),
+      "background-image-dark-office",
+      BackgroundImageFactory(context, "dark-office"),
     )
     ProcessorProvider.addProcessor(
-      "background-image-office-2",
-      BackgroundImageFactory(context, "office-2"),
+      "background-image-light-office",
+      BackgroundImageFactory(context, "light-office"),
     )
   }
 }

@@ -4,7 +4,7 @@
 // Per frame:
 //   1. Ingest the camera CVPixelBuffer (NV12) into the "original" BGRA Metal
 //      texture via CoreImage.
-//   2. Lazy-load the named PNG ("office-1"/"office-2") from the Kaleidoscope
+//   2. Lazy-load the named PNG ("dark-office"/"light-office") from the Kaleidoscope
 //      resource bundle as a Metal texture on first frame; cache it; capture
 //      its aspect ratio.
 //   3. Read the latest completed mask; if none yet, forward the ORIGINAL
@@ -12,8 +12,8 @@
 //   4. Composite original (foreground) over the PNG (background) using the
 //      mask, with cover-fit on the background UVs.
 //
-// One instance per registered name ("background-image-office-1" /
-// "background-image-office-2"), each constructed with its asset name. The
+// One instance per registered name ("background-image-dark-office" /
+// "background-image-light-office"), each constructed with its asset name. The
 // instance is shared across every frame, so all mutable state is guarded by
 // an os_unfair_lock. Every failure path logs under Kaleidoscope.BgImage and
 // returns the ORIGINAL frame.
