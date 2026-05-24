@@ -74,13 +74,13 @@ Shared rule: `shortTarget = max(256, round(min(w,h) * 0.5)); scale = shortTarget
 
 **Gate:** `bun run check` passes; blur visually matches pre-change.
 
-#### Commit 2b: Android R1
+#### ✅ Commit 2b: Android R1 (done: `0c64a79`, compileDebugKotlin green)
 **Files rewritten:**
 - `android/.../effects/BlurFactory.kt`: allocate `blurAFbo`/`blurBFbo` at `downW×downH` in `ensureIntermediates`; viewport and `uAxis` follow.
 
 **Gate:** `bun run check:android` compiles; blur visually matches.
 
-#### Commit 2c: iOS R1
+#### ✅ Commit 2c: iOS R1 (done: `7d98092`, pending EAS verify)
 **Files rewritten:**
 - `ios/.../gpu/MetalRenderer.swift`: `blurPingPong` allocates at `downW×downH`; `encodeBlurPass` axis follows.
 
