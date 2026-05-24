@@ -71,6 +71,10 @@ private class BlurProcessor : VideoFrameProcessor {
   private var blurBFbo: Fbo? = null
   private var cachedWidth = 0
   private var cachedHeight = 0
+  // R1: the blur ping-pong runs at a downscaled resolution; these hold its
+  // dimensions so the blur passes set uAxis in the downscaled texel space.
+  private var blurW = 0
+  private var blurH = 0
 
   private val mask = Mask()
   private var yuvConverter: YuvConverter? = null
@@ -188,7 +192,7 @@ private class BlurProcessor : VideoFrameProcessor {
       blur.setInt("uTex", 0)
       GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
       GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
-      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 1.0f / width, 0.0f)
+      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 1.0f / blurW, 0.0f)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur horizontal pass")
 
@@ -200,7 +204,7 @@ private class BlurProcessor : VideoFrameProcessor {
       blur.setInt("uTex", 0)
       GLES30.glUniform1fv(blur.uniformLocation("uWeights"), KERNEL_TAPS, blurWeights, 0)
       GLES30.glUniform1fv(blur.uniformLocation("uOffsets"), KERNEL_TAPS, blurOffsets, 0)
-      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 0.0f, 1.0f / height)
+      GLES30.glUniform2f(blur.uniformLocation("uAxis"), 0.0f, 1.0f / blurH)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("blur vertical pass")
 
@@ -320,9 +324,18 @@ private class BlurProcessor : VideoFrameProcessor {
     originalFbo?.delete()
     blurAFbo?.delete()
     blurBFbo?.delete()
+    // R1: blur at quarter area (half each axis), floored so the short side
+    // stays >= 256px. The original stays full-res (foreground source + blur
+    // input); the composite upscales the downscaled blurred bg with GL_LINEAR
+    // for free, and the blur discards the detail the extra resolution carries.
+    val shortSide = minOf(width, height)
+    val target = maxOf(256, Math.round(shortSide * 0.5f))
+    val scale = target.toFloat() / shortSide
+    blurW = Math.round(width * scale).coerceAtLeast(2).let { if (it % 2 == 0) it else it - 1 }
+    blurH = Math.round(height * scale).coerceAtLeast(2).let { if (it % 2 == 0) it else it - 1 }
     originalFbo = Fbo(width, height)
-    blurAFbo = Fbo(width, height)
-    blurBFbo = Fbo(width, height)
+    blurAFbo = Fbo(blurW, blurH)
+    blurBFbo = Fbo(blurW, blurH)
     cachedWidth = width
     cachedHeight = height
     GlDebug.check("blur intermediates allocated")
