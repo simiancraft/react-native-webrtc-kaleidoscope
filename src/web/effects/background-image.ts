@@ -123,7 +123,12 @@ const loadImage = (
       return { canvas, width, height };
     });
 
-const ensureState = (entry: CacheEntry, width: number, height: number): GpuState => {
+const ensureState = (
+  entry: CacheEntry,
+  width: number,
+  height: number,
+  bg: { canvas: OffscreenCanvas; width: number; height: number },
+): GpuState => {
   if (entry.state && entry.state.width === width && entry.state.height === height) {
     return entry.state;
   }
@@ -157,6 +162,10 @@ const ensureState = (entry: CacheEntry, width: number, height: number): GpuState
       background: createTexture(gl, width, height),
     },
   };
+  // Static background: upload once, here, not per frame. Re-runs only when
+  // this state is rebuilt (resolution change). flipY=true matches the
+  // original's DOM-coord → GL v=1 convention.
+  uploadTexture(gl, entry.state.textures.background, bg.canvas as unknown as TexImageSource, true);
   return entry.state;
 };
 
@@ -208,20 +217,18 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
       void segmenter.send({ image: inputCanvas });
     });
 
-    const s = ensureState(e, w, h);
+    const s = ensureState(e, w, h, bg);
     const { gl, canvas, program, textures } = s;
 
-    // Upload original and bg with flipY=true (DOM-coord → GL v=1 = top).
-    // Bg is staged through OffscreenCanvas (loaded at bg-image load time)
-    // because UNPACK_FLIP_Y_WEBGL is a no-op on raw ImageBitmaps; canvas
-    // sources flip correctly. Mask is uploaded with flipY=false for the
-    // same reason (no-op on MediaPipe's segmentationMask source) AND to
-    // preserve the soft confidence values — canvas premultiplied-alpha math
-    // would collapse them to near-binary. The composite shader compensates
-    // via uMaskUvScale=(1,-1) / uMaskUvOffset=(0,1) set below.
+    // Upload original with flipY=true (DOM-coord → GL v=1 = top). The static
+    // background is uploaded once in ensureState (flipped the same way), not
+    // per frame. Mask is uploaded with flipY=false for the same reason
+    // (no-op on MediaPipe's segmentationMask source) AND to preserve the soft
+    // confidence values — canvas premultiplied-alpha math would collapse them
+    // to near-binary. The composite shader compensates via
+    // uMaskUvScale=(1,-1) / uMaskUvOffset=(0,1) set below.
     uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
     uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, false);
-    uploadTexture(gl, textures.background, bg.canvas as unknown as TexImageSource, true);
 
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
