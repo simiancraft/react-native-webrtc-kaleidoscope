@@ -359,8 +359,12 @@ export const blur: FrameTransform = async (frame) => {
   gl.disable(gl.BLEND);
   gl.disable(gl.DEPTH_TEST);
 
-  // Pass 1: horizontal blur of full-res original -> downscaled blurA
-  // (bilinear minification + blur in one step).
+  // Pass 0: downsample the full-res original into blurA. uAxis=0 collapses the
+  // kernel to its center tap (weights sum to 1), so this is a plain bilinear
+  // box-average into the downscaled target. Both blur passes must then run IN
+  // downscaled space: sampling the full-res original directly with the
+  // downscaled-spaced kernel offsets skips source columns and produces a
+  // serrated, one-directional smear.
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurA);
   gl.viewport(0, 0, downW, downH);
   // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook (the early return above tripped the use* heuristic).
@@ -368,18 +372,23 @@ export const blur: FrameTransform = async (frame) => {
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
   gl.uniform1i(programs.blur.uTex, 0);
-  gl.uniform2f(programs.blur.uAxis, 1 / downW, 0);
-  // Upload the precomputed kernel; persists into the vertical pass below
-  // (same program), which only swaps uAxis.
   const { weights, offsets } = blurKernel(tuning.blurSigma);
   gl.uniform1fv(programs.blur.uWeights, weights);
   gl.uniform1fv(programs.blur.uOffsets, offsets);
-  timePass(gl, timer, 'h', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
+  gl.uniform2f(programs.blur.uAxis, 0, 0);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-  // Pass 2: vertical blur of blurA -> blurB (both downscaled)
+  // Pass 1: horizontal blur of the downscaled copy: blurA -> blurB.
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurB);
   gl.viewport(0, 0, downW, downH);
   gl.bindTexture(gl.TEXTURE_2D, textures.blurA);
+  gl.uniform2f(programs.blur.uAxis, 1 / downW, 0);
+  timePass(gl, timer, 'h', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
+
+  // Pass 2: vertical blur: blurB -> blurA.
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurA);
+  gl.viewport(0, 0, downW, downH);
+  gl.bindTexture(gl.TEXTURE_2D, textures.blurB);
   gl.uniform2f(programs.blur.uAxis, 0, 1 / downH);
   timePass(gl, timer, 'v', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
 
@@ -392,7 +401,8 @@ export const blur: FrameTransform = async (frame) => {
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
   gl.uniform1i(programs.composite.uOriginal, 0);
   gl.activeTexture(gl.TEXTURE1);
-  gl.bindTexture(gl.TEXTURE_2D, textures.blurB);
+  // Final blurred result lives in blurA after the V pass (pass 2).
+  gl.bindTexture(gl.TEXTURE_2D, textures.blurA);
   gl.uniform1i(programs.composite.uBackground, 1);
   gl.activeTexture(gl.TEXTURE2);
   gl.bindTexture(gl.TEXTURE_2D, textures.mask);
