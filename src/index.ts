@@ -68,7 +68,6 @@ export type {
   EffectName,
   EffectSpec,
   MirrorSpec,
-  PassthroughSpec,
 } from './types';
 
 interface WebRTCTrackExtensions {
@@ -100,15 +99,13 @@ interface WebRTCTrackExtensions {
 // `'background-image-office-1'` because the rn-webrtc native registry is
 // keyed by flat strings (parameterization via uniforms is a follow-up).
 //
-// iOS registers the same effects via ios/.../Registration.swift, minus the
-// Android-only "gpu-passthrough" architecture-proof hook. Each platform's
-// allowlist matches exactly what its native Registration installs; anything
-// else is filtered out before reaching upstream so a name with no registered
-// processor never triggers the empty-processors-list crash.
+// iOS registers the same effects via ios/.../Registration.swift. Each
+// platform's allowlist matches exactly what its native Registration installs;
+// anything else is filtered out before reaching upstream so a name with no
+// registered processor never triggers the empty-processors-list crash.
 const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
   'mirror',
   'blur',
-  'gpu-passthrough',
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];
 
