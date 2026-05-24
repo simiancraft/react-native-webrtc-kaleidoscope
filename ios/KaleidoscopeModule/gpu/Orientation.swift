@@ -142,4 +142,81 @@ enum Orientation {
     let intent = op.intentMatrix(rotation: frameRotation)
     return applyIosVFlipCompensation ? intent * iosVFlip : intent
   }
+
+  // MARK: - Background cover-fit pre-orientation (the "future pass" in the header)
+
+  // A STATIC background image (e.g. the debug-resolutions grid) is upright in
+  // its own pixel space and carries no camera-buffer orientation. The iOS
+  // composite samples it in RAW camera-buffer space, then FrameBridge wraps the
+  // composite output preserving `frame.rotation`, so the display rotates the
+  // WHOLE composite (foreground + background) by frameRotation. The camera
+  // foreground was sampled raw and so reads upright AFTER that display rotation;
+  // the static background, having no buffer orientation, instead reads ROTATED
+  // by frameRotation (and mirrored). Android does not hit this because it
+  // renders the OES camera into the original FBO through the camera transform
+  // matrix, so its composite already runs in display-oriented space.
+  //
+  // Fix shape (a): pre-orient the loaded PNG ONCE through the existing
+  // transform.metalsrc pass with the matrix below, cache the oriented texture,
+  // and re-bake only when frameRotation changes (it is a static image; no
+  // per-frame pass). The composite then samples the already-upright cached
+  // texture with the standard cover-fit scale/offset. This deliberately does
+  // NOT touch the shared composite.frag (codegen'd to Android/web); the
+  // orientation rides the transform shader, which iOS already owns.
+  //
+  // EMPIRICAL ANCHOR (device, portrait, frameRotation 90): the current identity
+  // composite needs "rotate clockwise 90 + flip X" to become upright. The R=90
+  // case below encodes exactly that; the other quadrants step the rotation by
+  // 90 and the landscape cases (R in {0,180}) need no rotation because the
+  // display does not rotate the composite there.
+
+  /// Calibration sign for the background's screen-horizontal mirror term. The
+  /// empirical R=90 fix is "rotate-cw + flip-X"; this composes the flip-X
+  /// (negate-U) factor. If a device screenshot shows the grid's text mirrored
+  /// the WRONG way (or correct without a mirror), flip this to `false`. This is
+  /// the single one-line mirror switch for the background path.
+  private static let applyBackgroundFlipX = true
+
+  /// The screen-space ROTATION the displayed background must receive at the
+  /// given frameRotation, as an inverse-map matrix in the same column-vector
+  /// convention as `Op.intentMatrix`. R=90 -> rotate-cw; R=270 -> rotate-ccw;
+  /// R in {0,180} -> identity (display does not rotate the composite). If a
+  /// screenshot shows the grid rotated the wrong way at portrait, swap the
+  /// R==90 / R==270 branches (the one-line rotation switch).
+  private static func backgroundRotationIntent(rotation: Int) -> simd_float2x2 {
+    let r = ((rotation % 360) + 360) % 360
+    switch r {
+    case 90:
+      // rotate-cw: columns (0,-1),(1,0). Matches the device anchor at R=90.
+      return simd_float2x2(columns: (SIMD2<Float>(0, -1), SIMD2<Float>(1, 0)))
+    case 270:
+      // rotate-ccw: columns (0,1),(-1,0).
+      return simd_float2x2(columns: (SIMD2<Float>(0, 1), SIMD2<Float>(-1, 0)))
+    default:
+      // Landscape (0/180): the display does not rotate the composite, so the
+      // upright PNG needs no rotation here.
+      return matrix_identity_float2x2
+    }
+  }
+
+  /// Negate the output-U axis (screen-horizontal mirror) as an inverse-map
+  /// factor: pre-multiplying by Fu negates the FIRST column of the rotation.
+  private static let backgroundFlipU = simd_float2x2(
+    columns: (SIMD2<Float>(-1, 0), SIMD2<Float>(0, 1))
+  )
+
+  /// The uUvTransform to bind at buffer(0) of transform.metalsrc when baking the
+  /// STATIC background into its cached upright orientation, for the current
+  /// `frameRotation`. Reuses the single screen<->buffer convention above plus
+  /// the same iOS V-flip compensation every render pass needs. The background
+  /// processor caches the bake and re-runs only when frameRotation changes.
+  static func backgroundUvTransform(frameRotation: Int) -> simd_float2x2 {
+    let rotation = backgroundRotationIntent(rotation: frameRotation)
+    // Compose the optional screen-horizontal mirror: Fu * rotation negates the
+    // rotation's first column (the image of the output-U basis).
+    let intent = applyBackgroundFlipX ? backgroundFlipU * rotation : rotation
+    // Same per-pass iOS V-flip compensation as uvTransform(op:); right-multiply
+    // by Fv negates the second column.
+    return applyIosVFlipCompensation ? intent * iosVFlip : intent
+  }
 }

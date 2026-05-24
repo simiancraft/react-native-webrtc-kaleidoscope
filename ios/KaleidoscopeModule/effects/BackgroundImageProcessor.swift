@@ -55,6 +55,19 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
   private var backgroundAspect: Float = 1.0
   private var backgroundLoadFailed = false
 
+  // Cached UPRIGHT background. The loaded PNG is upright in its own pixel space
+  // but carries no camera-buffer orientation; the composite samples it in raw
+  // camera-buffer space and FrameBridge preserves frame.rotation, so the
+  // display rotates the whole composite and a raw-sampled static background ends
+  // up rotated/mirrored on screen. We pre-orient the PNG ONCE through the
+  // transform.metalsrc pass (Orientation.backgroundUvTransform) into this cached
+  // texture and composite THAT. Re-baked only when frameRotation changes; it is
+  // a static image, so this is not a per-frame pass. See Orientation.swift.
+  private var orientedBackgroundBuffer: CVPixelBuffer?
+  private var orientedBackgroundTexture: MTLTexture?
+  private var orientedBackgroundAspect: Float = 1.0
+  private var orientedBackgroundRotation = Int.min
+
   @objc public init(assetName: String) {
     self.assetName = assetName
     super.init()
@@ -134,6 +147,67 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     }
   }
 
+  /// Bake the upright PNG into a cached, display-oriented Metal texture by
+  /// running it through the transform.metalsrc pass with the
+  /// Orientation-derived background matrix. Re-bakes only when `frameRotation`
+  /// changes (static image; no per-frame pass). For the portrait rotations the
+  /// bake swaps the oriented texture's dimensions (a wide PNG becomes tall),
+  /// matching the rotate-cw/ccw dimension swap the transform ops use; the
+  /// oriented aspect is captured for the cover-fit.
+  private func ensureOrientedBackground(
+    renderer: MetalRenderer,
+    source: MTLTexture,
+    frameRotation: Int
+  ) throws -> (texture: MTLTexture, aspect: Float) {
+    if let tex = orientedBackgroundTexture, orientedBackgroundRotation == frameRotation {
+      return (tex, orientedBackgroundAspect)
+    }
+
+    // 90-degree rotations swap the oriented texture's dims; flips/identity keep
+    // them. Match Orientation's portrait detection.
+    let r = ((frameRotation % 360) + 360) % 360
+    let swaps = (r == 90 || r == 270)
+    let srcW = source.width
+    let srcH = source.height
+    let outW = swaps ? srcH : srcW
+    let outH = swaps ? srcW : srcH
+
+    let buffer = try TextureBridge.makeMetalCompatibleBGRABuffer(width: outW, height: outH)
+    let target = try TextureBridge.makeTexture(
+      from: buffer,
+      cache: renderer.textureCache,
+      pixelFormat: .bgra8Unorm,
+      planeIndex: 0
+    )
+
+    let uvTransform = Orientation.backgroundUvTransform(frameRotation: frameRotation)
+
+    let commandBuffer = try renderer.makeCommandBuffer()
+    commandBuffer.label = "Kaleidoscope.BgImage.orient"
+    try renderer.encodeTransform(
+      commandBuffer: commandBuffer,
+      source: source,
+      target: target,
+      uvTransform: uvTransform,
+      label: "bgImage-orient"
+    )
+    // Synchronous: this is a one-shot bake (not the per-frame hot path), and the
+    // composite below samples `target` in the SAME command stream's logical
+    // order; wait so the cached texture is fully written before first use.
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+
+    orientedBackgroundBuffer = buffer
+    orientedBackgroundTexture = target
+    orientedBackgroundAspect = Float(outW) / Float(max(outH, 1))
+    orientedBackgroundRotation = frameRotation
+
+    os_log("background oriented for rotation %d: %dx%d aspect=%.3f",
+           log: BackgroundImageProcessor.log, type: .info,
+           frameRotation, outW, outH, orientedBackgroundAspect)
+    return (target, orientedBackgroundAspect)
+  }
+
   private func process(_ frame: RTCVideoFrame) throws -> RTCVideoFrame {
     guard let input = FrameBridge.inputPixelBuffer(frame) else {
       return frame
@@ -170,9 +244,27 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
       planeIndex: 0
     )
 
-    // Cover-fit the background UVs. Port of BackgroundImageFactory.kt.
-    let outAspect = Float(width) / Float(height)
-    let bgAspect = backgroundAspect
+    // Pre-orient the PNG to the display (cached; re-baked only on rotation
+    // change). The composite samples THIS upright texture, not the raw PNG.
+    let frameRotation = frame.rotation.rawValue
+    let (orientedTexture, orientedBgAspect) = try ensureOrientedBackground(
+      renderer: renderer, source: backgroundTexture, frameRotation: frameRotation
+    )
+
+    // Cover-fit the background UVs against the rotation-corrected DISPLAY aspect,
+    // not the raw landscape buffer aspect. The composite samples in raw buffer
+    // space (output is width x height), but after FrameBridge preserves
+    // frame.rotation the display rotates the composite, so the frame the user
+    // sees has aspect displayW/displayH with the axes swapped at 90/270. Cover-
+    // fitting against the raw buffer aspect would over-zoom the grid; fitting
+    // against the display aspect (and the oriented bg aspect, which already
+    // reflects the bake's dim swap) fills the frame without extreme zoom.
+    // Port of BackgroundImageFactory.kt, generalized for iOS's raw-buffer space.
+    let swaps = orientedBackgroundRotation == 90 || orientedBackgroundRotation == 270
+    let displayW = swaps ? height : width
+    let displayH = swaps ? width : height
+    let outAspect = Float(displayW) / Float(displayH)
+    let bgAspect = orientedBgAspect
     let bgUvScale: SIMD2<Float>
     let bgUvOffset: SIMD2<Float>
     if bgAspect > outAspect {
@@ -204,7 +296,7 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
       commandBuffer: commandBuffer,
       target: outputTexture,
       original: originalTexture,
-      background: backgroundTexture,
+      background: orientedTexture,
       mask: maskTexture,
       maskUvScale: SIMD2<Float>(1, 1),
       maskUvOffset: SIMD2<Float>(0, 0),
