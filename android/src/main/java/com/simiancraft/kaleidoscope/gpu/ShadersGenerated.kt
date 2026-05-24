@@ -61,4 +61,16 @@ void main() {
   oColor = color;
 }
 """
+
+  const val TRANSFORM_FRAG = """#version 300 es
+precision mediump float;
+uniform sampler2D uTex;
+uniform mat2 uUvTransform;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec2 uv = uUvTransform * (vUv - 0.5) + 0.5;
+  oColor = texture(uTex, uv);
+}
+"""
 }
