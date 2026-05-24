@@ -55,8 +55,9 @@ const TRANSLATE: ReadonlyArray<Preset> = [
   { id: 'rotate-cw', label: 'Rotate CW', icon: '↻' },
   { id: 'rotate-ccw', label: 'Rotate CCW', icon: '↺' },
 ];
-const BACKGROUND: ReadonlyArray<Preset> = [
-  { id: 'debug-resolutions', label: 'Debug Grid' },
+// Debug grid gets its own full-width row; the two offices share a 2-up row.
+const BACKGROUND_DEBUG: ReadonlyArray<Preset> = [{ id: 'debug-resolutions', label: 'Debug Grid' }];
+const BACKGROUND_OFFICE: ReadonlyArray<Preset> = [
   { id: 'dark-office', label: 'Dark Office' },
   { id: 'light-office', label: 'Light Office' },
 ];
@@ -140,7 +141,13 @@ export default function DemoScreen() {
           </Section>
           <Section title="Background">
             <EffectToggles
-              presets={BACKGROUND}
+              presets={BACKGROUND_DEBUG}
+              active={active}
+              onChange={setActive}
+              disabled={!sourceTrack}
+            />
+            <EffectToggles
+              presets={BACKGROUND_OFFICE}
               active={active}
               onChange={setActive}
               disabled={!sourceTrack}
