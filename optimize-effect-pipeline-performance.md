@@ -1,10 +1,10 @@
 # Optimize Effect Pipeline Performance
 
-**Status:** Draft
+**Status:** In progress
 **Scope:** cross-stack
 **Date:** 2026-05-23
 **Last reviewed:** 2026-05-23
-**Context:** The per-frame blur path runs at full resolution with a 17-fetch kernel and a per-frame CPU↔GPU sync on every platform; tightening it is what makes the library "worth a download" without adopting a heavier matting model (RVM/MODNet/PaddleSeg were evaluated and rejected on licensing and runtime-weight grounds).
+**Context:** The per-frame blur path runs at full resolution with a 17-fetch kernel and a per-frame CPU↔GPU sync on every platform; tightening it is what makes the library "worth a download" without adopting a heavier matting model (RVM/MODNet/PaddleSeg were evaluated and rejected on licensing and runtime-weight grounds). On web the render also blocks on the segmenter every frame (R6).
 
 ## Goal
 
@@ -43,7 +43,7 @@ This plan modifies files in place (instrumentation is inline behind a debug flag
 
 **Goal:** Measure each pass's GPU cost on every platform so the device-test phase has ground-truth numbers, not estimates.
 
-#### Commit 1a: web timing
+#### ✅ Commit 1a: web timing (done: `83be5aa`)
 **Files rewritten:**
 - `src/web/effects/blur.ts`: wrap the H, V, and composite draws with `EXT_disjoint_timer_query_webgl2` (fallback to `performance.now()` deltas), logged only when a debug flag is set. Cache `getUniformLocation` lookups at link time while here.
 
@@ -68,7 +68,7 @@ This plan modifies files in place (instrumentation is inline behind a debug flag
 
 Shared rule: `shortTarget = max(256, round(min(w,h) * 0.5)); scale = shortTarget / min(w,h); downW = round(w*scale), downH = round(h*scale)`. Pass 1 samples the full-res original into the downscaled `blurA` (bilinear minification + blur in one step); `uAxis` is set relative to the downscaled dims. Pass 2 stays within the downscaled buffers. Composite samples the downscaled `blurB` unchanged.
 
-#### Commit 2a: web R1
+#### ✅ Commit 2a: web R1 (done: `0ab3f02`)
 **Files rewritten:**
 - `src/web/effects/blur.ts`: size `blurA`/`blurB` textures + FBOs at `downW×downH`; set `uAxis` to `1/downW`, `1/downH`.
 
@@ -131,7 +131,18 @@ This is one cross-platform commit because the shader is shared and the host kern
 
 **Gate:** `bun run check` passes; background-image output unchanged.
 
-### Commit 6: Delete this plan
+### Commit 6: Decouple web segmentation from the render path (R6)
+
+**Goal:** Web `await`s MediaPipe every frame, gating render at segmentation rate so R1/R2's cheaper GPU work is invisible end-to-end. Break the dependency: keep a shared latest-mask cache, draw every frame with it, run segmentation fire-and-forget, update the cache on completion. The mask becomes ~1 frame stale (matches native). Single event loop, no Web Worker; JS-only, no native rebuild.
+
+**Files rewritten:**
+- `src/web/segmenter.ts`: register `onResults` once at load to store the latest `SegmenterResults` and clear an in-flight flag; expose `latestMask(): SegmenterResults | null` (non-blocking read) and `requestMaskIfIdle(image)` that calls `send` without the caller awaiting, only when not already in flight. Mirrors Android `Mask.kt` (`isProcessing` + cached bitmap) and iOS `Segmenter.swift` (`inFlight` + `lastMask`).
+- `src/web/effects/blur.ts`: remove the `await new Promise(... onResults/send ...)` at the transform's segmentation step; instead `requestMaskIfIdle(inputCanvas)`, read `latestMask()`, and if null forward the original frame (preserve timestamp, no composite) matching native's `-1` fall-through; otherwise upload + composite as today.
+- `src/web/effects/background-image.ts`: same restructure.
+
+**Gate:** `bun run check` passes; web effects render at camera rate with the mask refreshing asynchronously; the first frames before any mask completes forward the original.
+
+### Commit 7: Delete this plan
 
 - Delete `optimize-effect-pipeline-performance.md`.
 - If any reusable convention emerged (e.g. the downscale-factor rule), extract it to `PATTERNS.md` in a prior commit first.
@@ -145,6 +156,7 @@ This is one cross-platform commit because the shader is shared and the host kern
 - [ ] `blur.frag` uses linear-sampled paired taps; `check:shaders` clean; sigma still runtime-tunable (Commit 3).
 - [ ] No per-frame `glFinish`/`waitUntilCompleted`; previous-frame output returned; no texture leaks (Commit 4).
 - [ ] Web background upload happens once, not per frame (Commit 5).
+- [ ] Web segmentation decoupled: render reads a cached mask and never awaits; mask ~1 frame stale (Commit 6).
 - [ ] `bun run check`, `bun run check:shaders`, `bun run check:android` all green.
 - [ ] On-device FPS measured before/after on all three platforms; blur look unchanged at dialed-in sigma.
 - [ ] Plan file deleted (Inspector Gadget Rule: no orphan plans).
@@ -154,6 +166,7 @@ This is one cross-platform commit because the shader is shared and the host kern
 - **iOS CoreImage→YUV-in-shader ingest swap.** `TextureBridge.swift` uses CoreImage for the NV12→RGB ingest as a *deliberate, documented* choice: CoreImage reads the buffer's `YCbCrMatrix`/`ColorPrimaries` attachments and picks the correct conversion, and its `CIContext` is created once (the per-frame-context perf failure is already avoided). It is the iOS analogue of Android's necessary OES→2D pass. Replacing it risks a subtly wrong color matrix. Out of scope unless Phase 0 timing (Commit 1c) shows `ciContext.render` is a meaningful slice of the iOS frame budget, and then only with explicit buffer-attachment handling plus a CoreImage fallback.
 - **Web 2D-canvas input staging removal.** Entangled with MediaPipe's canvas input and the `flipY` requirement; revisit only if Phase 0 shows the staging copy is significant.
 - **Android mask `Bitmap`/`IntArray` pooling.** Intermittent (segmentation kickoff, ~10–20 Hz) and off the render critical path; not worth the complexity.
+- **R7 precision/bandwidth.** Largely subsumed by R1 (downscaling the blur buffers already cuts their bandwidth ~4×) and the shaders are already `mediump`. The one remaining nugget — uploading the mask as single-channel R8 instead of RGBA8 on web/Android — is deferred: small absolute saving (the mask is low-res) and fiddly (MediaPipe returns RGBA, MLKit packs to ARGB). Revisit only if Phase 0 flags mask upload bandwidth.
 
 ## References
 
