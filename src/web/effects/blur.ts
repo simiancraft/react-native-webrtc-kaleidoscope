@@ -35,9 +35,10 @@ type GpuState = {
   width: number;
   height: number;
   programs: {
-    blur: WebGLProgram;
-    composite: WebGLProgram;
+    blur: BlurProgram;
+    composite: CompositeProgram;
   };
+  timer: PassTimer;
   textures: {
     original: WebGLTexture;
     mask: WebGLTexture;
@@ -94,6 +95,110 @@ const linkProgram = (
   return prog;
 };
 
+// Uniform locations queried once at link, not via getUniformLocation per frame.
+type BlurProgram = {
+  prog: WebGLProgram;
+  uTex: WebGLUniformLocation | null;
+  uAxis: WebGLUniformLocation | null;
+  uWeights: WebGLUniformLocation | null;
+  uOffsets: WebGLUniformLocation | null;
+};
+type CompositeProgram = {
+  prog: WebGLProgram;
+  uOriginal: WebGLUniformLocation | null;
+  uBackground: WebGLUniformLocation | null;
+  uMask: WebGLUniformLocation | null;
+  uBgUvScale: WebGLUniformLocation | null;
+  uBgUvOffset: WebGLUniformLocation | null;
+  uMaskUvScale: WebGLUniformLocation | null;
+  uMaskUvOffset: WebGLUniformLocation | null;
+  uMaskLo: WebGLUniformLocation | null;
+  uMaskHi: WebGLUniformLocation | null;
+};
+
+const linkBlurProgram = (gl: WebGL2RenderingContext): BlurProgram => {
+  const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, BLUR_FRAG_SRC);
+  return {
+    prog,
+    uTex: gl.getUniformLocation(prog, 'uTex'),
+    uAxis: gl.getUniformLocation(prog, 'uAxis'),
+    uWeights: gl.getUniformLocation(prog, 'uWeights'),
+    uOffsets: gl.getUniformLocation(prog, 'uOffsets'),
+  };
+};
+
+const linkCompositeProgram = (gl: WebGL2RenderingContext): CompositeProgram => {
+  const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_FRAG_SRC);
+  return {
+    prog,
+    uOriginal: gl.getUniformLocation(prog, 'uOriginal'),
+    uBackground: gl.getUniformLocation(prog, 'uBackground'),
+    uMask: gl.getUniformLocation(prog, 'uMask'),
+    uBgUvScale: gl.getUniformLocation(prog, 'uBgUvScale'),
+    uBgUvOffset: gl.getUniformLocation(prog, 'uBgUvOffset'),
+    uMaskUvScale: gl.getUniformLocation(prog, 'uMaskUvScale'),
+    uMaskUvOffset: gl.getUniformLocation(prog, 'uMaskUvOffset'),
+    uMaskLo: gl.getUniformLocation(prog, 'uMaskLo'),
+    uMaskHi: gl.getUniformLocation(prog, 'uMaskHi'),
+  };
+};
+
+// Per-pass GPU timing (dev only). Set
+// `globalThis.__KALEIDOSCOPE_DEBUG_TIMING__ = true` before the first blur frame
+// to log per-pass GPU time via EXT_disjoint_timer_query_webgl2. Results read
+// back one frame late (the query is async); a no-op when the flag/ext is absent.
+const TIMING_ENABLED =
+  (globalThis as { __KALEIDOSCOPE_DEBUG_TIMING__?: boolean }).__KALEIDOSCOPE_DEBUG_TIMING__ ===
+  true;
+
+type TimerExt = { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number };
+type PassTimer = { ext: TimerExt | null; pending: Map<string, WebGLQuery> };
+
+const makePassTimer = (gl: WebGL2RenderingContext): PassTimer => ({
+  ext: TIMING_ENABLED
+    ? (gl.getExtension('EXT_disjoint_timer_query_webgl2') as TimerExt | null)
+    : null,
+  pending: new Map(),
+});
+
+const timePass = (
+  gl: WebGL2RenderingContext,
+  timer: PassTimer,
+  label: string,
+  draw: () => void,
+): void => {
+  const ext = timer.ext;
+  if (!ext) {
+    draw();
+    return;
+  }
+  const inFlight = timer.pending.get(label);
+  if (inFlight) {
+    const available = gl.getQueryParameter(inFlight, gl.QUERY_RESULT_AVAILABLE) as boolean;
+    const disjoint = gl.getParameter(ext.GPU_DISJOINT_EXT) as boolean;
+    if (available && !disjoint) {
+      const ns = gl.getQueryParameter(inFlight, gl.QUERY_RESULT) as number;
+      console.debug(`[kaleidoscope] blur ${label}: ${(ns / 1e6).toFixed(3)} ms`);
+    }
+    if (available || disjoint) {
+      gl.deleteQuery(inFlight);
+      timer.pending.delete(label);
+    }
+    // A query is still in flight for this label; just draw, don't stack another.
+    draw();
+    return;
+  }
+  const query = gl.createQuery();
+  if (!query) {
+    draw();
+    return;
+  }
+  gl.beginQuery(ext.TIME_ELAPSED_EXT, query);
+  draw();
+  gl.endQuery(ext.TIME_ELAPSED_EXT);
+  timer.pending.set(label, query);
+};
+
 const createTexture = (gl: WebGL2RenderingContext, width: number, height: number): WebGLTexture => {
   const tex = gl.createTexture();
   if (!tex) throw new Error('kaleidoscope: gl.createTexture returned null');
@@ -125,8 +230,9 @@ const ensureState = (width: number, height: number): GpuState => {
   // Tear down previous state if dimensions changed.
   if (state) {
     const { gl } = state;
-    gl.deleteProgram(state.programs.blur);
-    gl.deleteProgram(state.programs.composite);
+    gl.deleteProgram(state.programs.blur.prog);
+    gl.deleteProgram(state.programs.composite.prog);
+    for (const q of state.timer.pending.values()) gl.deleteQuery(q);
     gl.deleteTexture(state.textures.original);
     gl.deleteTexture(state.textures.mask);
     gl.deleteTexture(state.textures.blurA);
@@ -144,8 +250,8 @@ const ensureState = (width: number, height: number): GpuState => {
   }
 
   const programs = {
-    blur: linkProgram(gl, PASSTHROUGH_VERT_SRC, BLUR_FRAG_SRC),
-    composite: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_FRAG_SRC),
+    blur: linkBlurProgram(gl),
+    composite: linkCompositeProgram(gl),
   };
   const textures = {
     original: createTexture(gl, width, height),
@@ -158,7 +264,7 @@ const ensureState = (width: number, height: number): GpuState => {
     blurB: createFbo(gl, textures.blurB),
   };
 
-  state = { gl, canvas, width, height, programs, textures, fbos };
+  state = { gl, canvas, width, height, programs, timer: makePassTimer(gl), textures, fbos };
   return state;
 };
 
@@ -201,7 +307,7 @@ export const blur: FrameTransform = async (frame) => {
 
   // Run the GPU pipeline.
   const s = ensureState(w, h);
-  const { gl, canvas, programs, textures, fbos } = s;
+  const { gl, canvas, programs, timer, textures, fbos } = s;
 
   // Upload original with flipY=true (DOM-coord source → GL v=1 = top).
   // Upload mask with flipY=false: UNPACK_FLIP_Y_WEBGL is a no-op on
@@ -219,50 +325,50 @@ export const blur: FrameTransform = async (frame) => {
   // Pass 1: horizontal blur of original -> blurA
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurA);
   gl.viewport(0, 0, w, h);
-  gl.useProgram(programs.blur);
+  gl.useProgram(programs.blur.prog);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
-  gl.uniform1i(gl.getUniformLocation(programs.blur, 'uTex'), 0);
-  gl.uniform2f(gl.getUniformLocation(programs.blur, 'uAxis'), 1 / w, 0);
+  gl.uniform1i(programs.blur.uTex, 0);
+  gl.uniform2f(programs.blur.uAxis, 1 / w, 0);
   // Upload the precomputed kernel; persists into the vertical pass below
   // (same program), which only swaps uAxis.
   const { weights, offsets } = blurKernel(tuning.blurSigma);
-  gl.uniform1fv(gl.getUniformLocation(programs.blur, 'uWeights'), weights);
-  gl.uniform1fv(gl.getUniformLocation(programs.blur, 'uOffsets'), offsets);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.uniform1fv(programs.blur.uWeights, weights);
+  gl.uniform1fv(programs.blur.uOffsets, offsets);
+  timePass(gl, timer, 'h', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
 
   // Pass 2: vertical blur of blurA -> blurB
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.blurB);
   gl.viewport(0, 0, w, h);
   gl.bindTexture(gl.TEXTURE_2D, textures.blurA);
-  gl.uniform2f(gl.getUniformLocation(programs.blur, 'uAxis'), 0, 1 / h);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.uniform2f(programs.blur.uAxis, 0, 1 / h);
+  timePass(gl, timer, 'v', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
 
   // Pass 3: composite original + blurB + mask -> default framebuffer (canvas)
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, w, h);
-  gl.useProgram(programs.composite);
+  gl.useProgram(programs.composite.prog);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, textures.original);
-  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uOriginal'), 0);
+  gl.uniform1i(programs.composite.uOriginal, 0);
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, textures.blurB);
-  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uBackground'), 1);
+  gl.uniform1i(programs.composite.uBackground, 1);
   gl.activeTexture(gl.TEXTURE2);
   gl.bindTexture(gl.TEXTURE_2D, textures.mask);
-  gl.uniform1i(gl.getUniformLocation(programs.composite, 'uMask'), 2);
+  gl.uniform1i(programs.composite.uMask, 2);
   // Blurred background is full-size; identity UV transform.
-  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvScale'), 1, 1);
-  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uBgUvOffset'), 0, 0);
+  gl.uniform2f(programs.composite.uBgUvScale, 1, 1);
+  gl.uniform2f(programs.composite.uBgUvOffset, 0, 0);
   // Mask V-flip: direct upload with flipY=false leaves mask Y-inverted
   // relative to the original. Encode the flip in the sampling uniforms so
   // the shader stays byte-identical with Android (which uses identity here).
-  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvScale'), 1, -1);
-  gl.uniform2f(gl.getUniformLocation(programs.composite, 'uMaskUvOffset'), 0, 1);
+  gl.uniform2f(programs.composite.uMaskUvScale, 1, -1);
+  gl.uniform2f(programs.composite.uMaskUvOffset, 0, 1);
   const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
-  gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskLo'), maskLo);
-  gl.uniform1f(gl.getUniformLocation(programs.composite, 'uMaskHi'), maskHi);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.uniform1f(programs.composite.uMaskLo, maskLo);
+  gl.uniform1f(programs.composite.uMaskHi, maskHi);
+  timePass(gl, timer, 'composite', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4));
 
   // Wrap the canvas as an output VideoFrame.
   const out = new VideoFrame(canvas as unknown as CanvasImageSource, {
