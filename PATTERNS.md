@@ -12,16 +12,15 @@ src/                                   JS facade and shared types
 ├── index.ts                           native entry (Metro picks via "react-native" condition)
 ├── index.web.ts                       web entry (Metro picks via "browser" condition)
 ├── types.ts                           EffectSpec discriminated union, ApplyVideoEffects
-├── backgrounds.ts                     bundled background-preset catalog (single source of truth)
+├── backgrounds/                       preset catalog (presets.ts) + per-preset source modules (single source of truth)
 └── web/                               web-only implementation
     ├── insertable-streams.ts            MediaStreamTrackProcessor wiring
     ├── segmenter.ts                     MediaPipe Selfie Segmentation loader (shared)
     ├── shaders.ts                       all GLSL source for every web effect
     └── effects/                         one file per effect; owns its GL state and per-frame transform
-        ├── mirror.ts
+        ├── transform.ts                  flip-x/flip-y/rotate-cw/rotate-ccw (replaced mirror.ts)
         ├── blur.ts
-        ├── background-image.ts
-        └── passthrough.ts
+        └── background-image.ts
 
 android/src/main/java/com/simiancraft/kaleidoscope/
 ├── KaleidoscopeModule.kt              Expo Module entry (OnCreate calls Registration.registerAll)
@@ -151,12 +150,15 @@ calibration, not an effect bug: flip exactly one constant, per platform —
 (horizontal mirror). The web pipeline (canvas, display-space) is the
 orientation source of truth; native must match it.
 
-NOT orientation, and must not be "cleaned up": the blur composite binds
-`uBgUvScale = (1, -1)`. That cancels the vertical flip the blurred background
-accumulates from its ODD number of ping-pong render passes (each Metal/GL
-render-to-texture pass flips V because the transpiled passthrough does not
-negate `gl_Position.y`). It is render-pass parity, not camera orientation; a
-single-pass effect (image background, single-pass shader) needs no such term.
+NOT orientation, and must not be "cleaned up" to identity: the composite's
+V-flip parity terms. The vertical flip some composite paths need (odd
+ping-pong pass count plus each platform's texture-origin convention) is
+render-pass/texture parity, not camera orientation, and it lands on a
+DIFFERENT uniform per platform: iOS blur uses `uBgUvScale=(1,-1)`; web blur and
+web background use `uMaskUvScale=(1,-1)`; Android uses identity for both (its GL
+pipeline does not accumulate the flip). The authoritative per-platform table is
+in the `shaders/composite.frag` header. Do not cross-normalize these; zeroing
+web's mask flip or copying iOS's bg flip onto Android breaks that platform.
 
 ### Segmentation mask buffer ownership
 

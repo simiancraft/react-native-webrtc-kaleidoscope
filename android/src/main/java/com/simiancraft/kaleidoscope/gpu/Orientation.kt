@@ -41,10 +41,11 @@ object Orientation {
    *
    * flip-x: negate U -> column 0 = (-1, 0), column 1 = (0, 1).
    * flip-y: negate V -> column 0 = ( 1, 0), column 1 = (0, -1).
-   * rotate-cw: a clockwise rotation of the IMAGE is a counter-clockwise rotation
-   *   of the sampling coordinates. Output (u, v) reads input (v, 1-u) about
-   *   center -> columns (0, -1) and (1, 0).
-   * rotate-ccw: the inverse -> columns (0, 1) and (-1, 0).
+   * rotate-cw / rotate-ccw: screen 90-degree rotations. The naive sampling
+   *   derivation (rotate-cw reads input (v, 1-u) -> columns (0,-1),(1,0)) came
+   *   out REVERSED on device vs the correct web reference, so the cw/ccw
+   *   matrices are the swapped, device-corrected pair below: rotate-cw =
+   *   columns (0,1),(-1,0); rotate-ccw = columns (0,-1),(1,0).
    */
   fun mat2For(op: Op): FloatArray =
     when (op) {

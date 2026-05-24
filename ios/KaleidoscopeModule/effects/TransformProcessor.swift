@@ -148,10 +148,10 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
 
     // R3 frame-pipelining: commit asynchronously and return the PREVIOUS
     // frame's completed output (one frame of latency); see BlurProcessor and
-    // MetalRenderer.commitPipelined. Output dims are fixed per op (this
-    // instance's `op` never changes), so the held previous buffer always
-    // matches the current expected dims. Before any frame has completed,
-    // forward the original frame.
+    // MetalRenderer.commitPipelined. The held buffer matches the current dims
+    // except for a single frame across a device-orientation change (display
+    // dims swap on 90<->0), which WebRTC tolerates as a normal per-frame dim
+    // change. Before any frame has completed, forward the original frame.
     guard let ready = renderer.commitPipelined(
       commandBuffer,
       currentOutput: output,

@@ -63,10 +63,11 @@ enum Orientation {
   ///
   /// flip-x:   negate U                       -> columns (-1, 0), ( 0,  1)
   /// flip-y:   negate V                       -> columns ( 1, 0), ( 0, -1)
-  /// rotate-cw: a clockwise rotation of the IMAGE is a CCW rotation of the
-  ///   sampling coordinates: output (u, v) reads input (v, 1-u) about center
-  ///                                          -> columns ( 0,-1), ( 1,  0)
-  /// rotate-ccw: the inverse                  -> columns ( 0, 1), (-1,  0)
+  /// rotate-cw / rotate-ccw: screen 90-degree rotations. The naive sampling
+  ///   derivation (rotate-cw reads input (v, 1-u) -> columns (0,-1),(1,0)) came
+  ///   out REVERSED on device vs the correct web reference, so the cw/ccw
+  ///   matrices are the swapped, device-corrected pair: rotate-cw = columns
+  ///   (0,1),(-1,0); rotate-ccw = columns (0,-1),(1,0).
   static func uvTransform(op: Op) -> simd_float2x2 {
     switch op {
     case .flipX:

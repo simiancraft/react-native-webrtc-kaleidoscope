@@ -6,8 +6,9 @@
 // these values via the bridge; per-frame processors read them on every
 // frame so JS-side tweaks take effect without re-registering processors.
 //
-// iOS processors are not yet implemented; values are stored here so the
-// JS API is consistent across platforms once the iOS Metal port lands.
+// The iOS Metal effects read these values per frame; the shape mirrors the
+// Android (EffectTuning.kt) and web (tuning.ts) state so the JS API is
+// identical across platforms.
 
 import Foundation
 

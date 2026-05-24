@@ -5,18 +5,22 @@ preset and pass it as the effect's `source`:
 
 ```ts
 import { applyVideoEffects } from 'react-native-webrtc-kaleidoscope';
-import { office1 } from 'react-native-webrtc-kaleidoscope/backgrounds/office-1';
+import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
 
-applyVideoEffects(track, [{ name: 'background-image', source: office1 }]);
+applyVideoEffects(track, [{ name: 'background-image', source: darkOffice }]);
 ```
 
-`office1` resolves per platform via a build-time file split (`office-1.ts` for
-native, `office-1.web.ts` for web, with the shared contract in
+The bundled presets (the catalog lives in `presets.ts`) are `debug-resolutions`
+(a viewport/resolution calibration grid for verifying cover-fit), `dark-office`,
+and `light-office`.
+
+`darkOffice` resolves per platform via a build-time file split (`dark-office.ts`
+for native, `dark-office.web.ts` for web, with the shared contract in
 `preset-source.types.ts`); the bundler picks the variant, there is no runtime
 `Platform.OS` branch:
 
 - **Web:** the bundled WebP's URL, which the effect fetches and uploads as a texture.
-- **Native (iOS/Android):** the preset name (`'office-1'`); the native module
+- **Native (iOS/Android):** the preset name (`'dark-office'`); the native module
   loads its own bundled copy from native resources. The native variant imports
   no WebP and no expo-asset, so native bundles neither.
 
@@ -32,7 +36,7 @@ per-preset import is the only way to pull just the WebP you use.
 For a non-Expo web bundler, import the asset URL directly:
 
 ```ts
-import office1Url from 'react-native-webrtc-kaleidoscope/backgrounds/office-1.webp';
+import darkOfficeUrl from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office.webp';
 ```
 
 ## Optimal background: size, shape, format
@@ -56,18 +60,18 @@ Target:
   while still landing well under ~100 KB for typical scenes. Lossless is the
   wrong tool here: on photographic content it lands near the original PNG size.
 
-The shipped presets were produced from 1536x1024 source art with ImageMagick:
+The shipped office presets were produced from 1536x1024 source art with ImageMagick:
 
 ```sh
 convert in.png -resize "1280x720^" -gravity center -extent 1280x720 \
-  -quality 88 -define webp:method=6 office-1.webp
+  -quality 88 -define webp:method=6 dark-office.webp
 ```
 
 ## Adding a preset
 
 1. Append the name to `BACKGROUND_PRESETS` in `presets.ts`.
 2. Drop the optimized `<name>.webp` here (recipe above).
-3. Add the loader pair mirroring `office-1`: `<name>.ts` (native, returns the
+3. Add the loader pair mirroring `dark-office`: `<name>.ts` (native, returns the
    name) and `<name>.web.ts` (web, returns the WebP URL), both annotated with
    `PresetSource` from `preset-source.types.ts`.
 4. Add the `./backgrounds/<name>` export (with `react-native`, `browser`,
@@ -75,4 +79,5 @@ convert in.png -resize "1280x720^" -gravity center -extent 1280x720 \
    package `exports`.
 5. For native support, add `<name>.png` under `android/src/main/assets/backgrounds/`
    and `ios/KaleidoscopeModule/resources/backgrounds/`, and register the factory
-   on each native side.
+   on each native side (`Registration.kt`, `Registration.swift`). The
+   `test/registry-parity.test.ts` guard fails if a preset is missing on either side.

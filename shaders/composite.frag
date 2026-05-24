@@ -6,13 +6,20 @@
 // uOriginal and uBackground are expected to land with semantic "top of
 // source image" at GL v=1; per-platform upload code enforces that.
 //
-// uMaskUvScale / uMaskUvOffset: per-runtime mask orientation transform.
-// The Swift host on iOS must NOT blindly copy the (1, -1) / (0, 1) values
-// used on web; Metal's texture sampling origin differs from OpenGL's, so
-// the V-flip needed there may not be needed (or may be applied
-// differently) on iOS. The right values to pass are determined by where
-// the mask actually lands relative to vUv after upload; verify
-// empirically on first run, then write the iOS values down here.
+// PER-PLATFORM V-FLIP PARITY (verified; do NOT unify or "clean up" to identity).
+// The vertical flip a composite path needs comes from each platform's
+// texture-origin convention plus render-pass parity (the odd ping-pong pass
+// count) — NOT from camera orientation, which is normalized once at the ingest.
+// It lands on a DIFFERENT uniform per platform:
+//   - Web (blur AND background): uMaskUvScale=(1,-1), uMaskUvOffset=(0,1);
+//     uBgUvScale/Offset carry cover-fit only.
+//   - iOS blur: uBgUvScale=(1,-1), uBgUvOffset=(0,1) (odd ping-pong passes);
+//     uMaskUvScale/Offset identity.
+//   - iOS background: all identity except uBgUvScale/Offset cover-fit
+//     (single composite pass, no parity flip).
+//   - Android (blur AND background): all identity except uBgUvScale cover-fit.
+// Zeroing web's uMaskUvScale, or copying iOS's bgUvScale=(1,-1) onto Android,
+// breaks that platform. See PATTERNS.md "Texture-orientation convention."
 
 #version 300 es
 precision mediump float;

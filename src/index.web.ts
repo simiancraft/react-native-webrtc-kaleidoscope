@@ -22,7 +22,8 @@ import { tuning } from './web/tuning';
 
 /**
  * Set the Gaussian sigma for the blur effect. Higher = softer blur.
- * Clamped to [0.5, 64]. Default 8.
+ * Clamped to [0.5, 7] (the useful range before the linear-sampled kernel
+ * truncates and bands). Default 5.
  */
 export const setBlurSigma = (value: number): void => {
   tuning.setBlurSigma(value);
