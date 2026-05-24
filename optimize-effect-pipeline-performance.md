@@ -86,7 +86,7 @@ Shared rule: `shortTarget = max(256, round(min(w,h) * 0.5)); scale = shortTarget
 
 **Gate:** iOS demo builds; blur visually matches.
 
-### Commit 3: Linear-sampled, reduced-tap blur kernel (R2)
+### ✅ Commit 3: Linear-sampled, reduced-tap blur kernel (R2) (done: `b7586bb`)
 
 **Goal:** Replace the discrete 9-weight / 17-fetch kernel with a bilinear linear-sampled kernel at ~5 effective taps (3 fetches), targeting parity with the current look (R1's downscale already widens the effective radius). Keep sigma runtime-computed; do not hardcode weights.
 
@@ -153,7 +153,7 @@ This is one cross-platform commit because the shader is shared and the host kern
 
 - [ ] Per-pass GPU timing logs on web, Android, and iOS (Commit 1).
 - [ ] Blur ping-pong buffers allocate at quarter area with a 256px floor (Commit 2).
-- [ ] `blur.frag` uses linear-sampled paired taps; `check:shaders` clean; sigma still runtime-tunable (Commit 3).
+- [x] `blur.frag` uses linear-sampled paired taps; `check:shaders` clean; sigma still runtime-tunable (Commit 3).
 - [ ] No per-frame `glFinish`/`waitUntilCompleted`; previous-frame output returned; no texture leaks (Commit 4).
 - [x] Web background upload happens once, not per frame (Commit 5).
 - [x] Web segmentation decoupled: render reads a cached mask and never awaits; mask ~1 frame stale (Commit 6).
