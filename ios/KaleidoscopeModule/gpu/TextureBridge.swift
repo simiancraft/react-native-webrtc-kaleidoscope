@@ -65,9 +65,10 @@ enum TextureBridge {
   }
 
   /// Allocate a single OneComponent8, IOSurface-backed, Metal-compatible
-  /// CVPixelBuffer. Used by the Segmenter to own the segmentation mask it
-  /// caches (a copy of Vision's recycled output buffer); bindable as an
-  /// .r8Unorm Metal texture, which the composite samples on the .r channel.
+  /// CVPixelBuffer, bindable as an .r8Unorm Metal texture the composite samples
+  /// on the .r channel. (The Segmenter now dequeues mask buffers from a pool;
+  /// see makeOneComponent8Pool. This single-buffer allocator is retained as a
+  /// general utility.)
   static func makeMetalCompatibleOneComponent8Buffer(width: Int, height: Int) throws -> CVPixelBuffer {
     let attrs: [String: Any] = [
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_OneComponent8,
@@ -85,6 +86,54 @@ enum TextureBridge {
       throw RendererError.pixelBufferAllocFailed(status)
     }
     return result
+  }
+
+  /// Create a CVPixelBufferPool of OneComponent8, IOSurface-backed, Metal-
+  /// compatible buffers. The Segmenter dequeues a FRESH mask buffer per
+  /// segmentation from this pool, so a buffer is never overwritten while the
+  /// compositor (or an in-flight GPU command buffer) still references it: the
+  /// pool recycles a buffer only once its refcount drops to zero. This mirrors
+  /// Android allocating a fresh Bitmap per segmentation; it replaces the old
+  /// shallow owned-ring, which under R3 frame-pipelining could overwrite a mask
+  /// still being read (the mask-drift race). `minimumBufferCount` should cover
+  /// current + in-flight-GPU + previously-published, like the output pool.
+  static func makeOneComponent8Pool(
+    width: Int, height: Int, minimumBufferCount: Int = 4
+  ) throws -> CVPixelBufferPool {
+    let pixelBufferAttributes: [String: Any] = [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_OneComponent8,
+      kCVPixelBufferWidthKey as String: width,
+      kCVPixelBufferHeightKey as String: height,
+      kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+      kCVPixelBufferMetalCompatibilityKey as String: true,
+    ]
+    let poolAttributes: [String: Any] = [
+      kCVPixelBufferPoolMinimumBufferCountKey as String: minimumBufferCount,
+    ]
+    var pool: CVPixelBufferPool?
+    let status = CVPixelBufferPoolCreate(
+      kCFAllocatorDefault,
+      poolAttributes as CFDictionary,
+      pixelBufferAttributes as CFDictionary,
+      &pool
+    )
+    guard status == kCVReturnSuccess, let result = pool else {
+      throw RendererError.pixelBufferPoolCreateFailed(status)
+    }
+    return result
+  }
+
+  /// Dequeue one OneComponent8 buffer from `pool`. The buffer is owned by the
+  /// caller; the pool keeps it out of rotation until every reference (the
+  /// published `lastMask`, the compositor's MTLTexture view, the in-flight GPU
+  /// command buffer) is released. Allocation-light on the steady state.
+  static func dequeueOneComponent8Buffer(from pool: CVPixelBufferPool) throws -> CVPixelBuffer {
+    var pixelBuffer: CVPixelBuffer?
+    let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBuffer)
+    guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+      throw RendererError.pixelBufferAllocFailed(status)
+    }
+    return buffer
   }
 
   /// Wrap a plane of a CVPixelBuffer as a zero-copy MTLTexture via the cache.

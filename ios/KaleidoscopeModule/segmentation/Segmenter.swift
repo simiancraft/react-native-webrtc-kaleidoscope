@@ -81,26 +81,37 @@ final class Segmenter {
   // is preserved because the downscale is a uniform scale of the same native
   // buffer space (no crop, no rotation). Retained until replaced.
   //
-  // OWNERSHIP (the iOS-only mask-drift fix; mirrors Android's outBmp copy):
-  //   `lastMask` is always one of `ownedMasks` below, NOT the buffer Vision
-  //   returns. Vision recycles its own output buffer in place on the next
-  //   `perform`, so caching it directly let the capture thread sample a buffer
-  //   Vision was concurrently overwriting -> progressive corruption (the
-  //   fog-of-war erosion). We instead memcpy Vision's output into a
-  //   Segmenter-OWNED buffer and publish that. Android does the equivalent by
-  //   copying MLKit's mask into a fresh Bitmap (see Mask.kt runSegmentation).
+  // OWNERSHIP (the iOS mask-drift fix; mirrors Android's fresh-Bitmap-per-frame):
+  //   `lastMask` is always a FRESH buffer dequeued from `maskPool` below, NOT the
+  //   buffer Vision returns. Vision recycles its own output buffer in place on
+  //   the next `perform`, so caching it directly let the capture thread sample a
+  //   buffer Vision was concurrently overwriting -> progressive corruption (the
+  //   fog-of-war erosion). We memcpy Vision's output into a pool buffer and
+  //   publish that. Android does the equivalent by copying MLKit's mask into a
+  //   fresh Bitmap (see Mask.kt runSegmentation).
+  //
+  //   WHY A POOL, NOT A SHALLOW RING:
+  //   The earlier fix used a 2-deep owned ring. Under R3 frame-pipelining the
+  //   compositor returns the PREVIOUS frame's output and an in-flight GPU command
+  //   buffer keeps the mask's MTLTexture (a zero-copy view of the published
+  //   buffer) referenced across multiple cycles. A 2-deep ring writes index
+  //   0,1,0,1, so the buffer published at frame N is overwritten at frame N+2 --
+  //   while the GPU/compositor may still be reading it. That mid-read overwrite
+  //   is the drift. A CVPixelBufferPool recycles a buffer ONLY once its refcount
+  //   drops to zero, so a buffer that is still published, still wrapped as a
+  //   compositor texture, or still in-flight on the GPU is never handed back out;
+  //   the pool grows past its minimum if every buffer is live. This is the same
+  //   safety the output-buffer pool already relies on (MetalRenderer).
   private var lastMask: CVPixelBuffer?
 
-  // Double-buffer of Segmenter-owned mask targets. Worker-queue-only for the
-  // rotation; the published one becomes `lastMask` under the lock. We alternate
-  // so the buffer we publish is never the one we overwrite next frame; the
-  // capture thread can keep sampling the published buffer for a full extra
-  // cycle without racing the next copy. OneComponent8, sized to the mask dims;
-  // rebuilt only when those dims change (like the scratch buffer).
-  private var ownedMasks: [CVPixelBuffer] = []
-  private var ownedMaskWidth = 0
-  private var ownedMaskHeight = 0
-  private var ownedMaskWriteIndex = 0
+  // Pool of OneComponent8 mask targets. A fresh buffer is dequeued per
+  // segmentation; the pool reclaims it only when no reference remains. Rebuilt
+  // only when the mask dims change (e.g. targetShortSide / source dims change).
+  // Worker-queue only. min 4 covers: published (lastMask), the compositor's
+  // current-frame texture, an in-flight GPU buffer, and the next write target.
+  private var maskPool: CVPixelBufferPool?
+  private var maskPoolWidth = 0
+  private var maskPoolHeight = 0
 
   /// Read the most recent completed mask. Returns nil if none has completed
   /// yet. The returned buffer is retained by the caller for the duration of
@@ -174,12 +185,13 @@ final class Segmenter {
         return
       }
       // Vision's output buffer is owned and RECYCLED by the reused request on
-      // the next perform. Copy it into a Segmenter-owned buffer before
-      // publishing, so the capture thread never samples a buffer Vision is
-      // concurrently overwriting (the iOS mask-drift race). Worker-queue only.
-      let owned = try copyToOwnedBuffer(observation.pixelBuffer)
+      // the next perform. Copy it into a FRESH pool buffer before publishing, so
+      // neither Vision (overwriting its own output) nor a future segmentation
+      // (reusing a still-referenced buffer) can corrupt a mask the compositor or
+      // an in-flight GPU command buffer is still reading. Worker-queue only.
+      let fresh = try copyToFreshBuffer(observation.pixelBuffer)
       os_unfair_lock_lock(&unsafeLock)
-      lastMask = owned
+      lastMask = fresh
       os_unfair_lock_unlock(&unsafeLock)
     } catch {
       os_log("segmentation failed: %{public}@", log: Segmenter.log, type: .error,
@@ -237,16 +249,16 @@ final class Segmenter {
     return buffer
   }
 
-  /// Copy Vision's recycled mask output into a Segmenter-owned OneComponent8
-  /// buffer and return it for publishing. Alternates between two owned buffers
-  /// so the just-published one is never the next write target. The copy honors
-  /// bytes-per-row on both sides (the source and the owned buffer can have
-  /// different row strides / padding), so it does not assume contiguous rows.
-  /// Worker-queue only.
-  private func copyToOwnedBuffer(_ source: CVPixelBuffer) throws -> CVPixelBuffer {
+  /// Copy Vision's recycled mask output into a FRESH OneComponent8 pool buffer
+  /// and return it for publishing. The pool guarantees the dequeued buffer is not
+  /// one still referenced by the compositor or an in-flight GPU command buffer.
+  /// The copy honors bytes-per-row on both sides (the source and the pool buffer
+  /// can have different row strides / padding), so it does not assume contiguous
+  /// rows. Worker-queue only.
+  private func copyToFreshBuffer(_ source: CVPixelBuffer) throws -> CVPixelBuffer {
     let width = CVPixelBufferGetWidth(source)
     let height = CVPixelBufferGetHeight(source)
-    let dst = try ensureOwnedMaskBuffer(width: width, height: height)
+    let dst = try dequeueMaskBuffer(width: width, height: height)
 
     CVPixelBufferLockBaseAddress(source, .readOnly)
     CVPixelBufferLockBaseAddress(dst, [])
@@ -272,23 +284,21 @@ final class Segmenter {
     return dst
   }
 
-  /// Allocate-or-reuse the next owned mask target in the double-buffer. Rebuilt
-  /// only when the mask dims change (e.g. targetShortSide / source dims change).
-  /// Advances the write index so consecutive calls alternate buffers, keeping
-  /// the just-published buffer off the next write. Worker-queue only.
-  private func ensureOwnedMaskBuffer(width: Int, height: Int) throws -> CVPixelBuffer {
-    if ownedMasks.count != 2 || ownedMaskWidth != width || ownedMaskHeight != height {
-      ownedMasks = [
-        try TextureBridge.makeMetalCompatibleOneComponent8Buffer(width: width, height: height),
-        try TextureBridge.makeMetalCompatibleOneComponent8Buffer(width: width, height: height),
-      ]
-      ownedMaskWidth = width
-      ownedMaskHeight = height
-      ownedMaskWriteIndex = 0
+  /// Dequeue a fresh OneComponent8 mask buffer from the pool, rebuilding the
+  /// pool only when the mask dims change (e.g. targetShortSide / source dims
+  /// change). The pool will not recycle a buffer until every reference to it is
+  /// released, so a just-published mask the compositor or GPU still holds is
+  /// never handed back as the next write target. Worker-queue only.
+  private func dequeueMaskBuffer(width: Int, height: Int) throws -> CVPixelBuffer {
+    if maskPool == nil || maskPoolWidth != width || maskPoolHeight != height {
+      maskPool = try TextureBridge.makeOneComponent8Pool(width: width, height: height)
+      maskPoolWidth = width
+      maskPoolHeight = height
     }
-    let index = ownedMaskWriteIndex
-    ownedMaskWriteIndex = (ownedMaskWriteIndex + 1) % ownedMasks.count
-    return ownedMasks[index]
+    guard let pool = maskPool else {
+      throw RendererError.pixelBufferPoolCreateFailed(kCVReturnError)
+    }
+    return try TextureBridge.dequeueOneComponent8Buffer(from: pool)
   }
 
   private func ensureRequest() -> VNGeneratePersonSegmentationRequest {

@@ -64,6 +64,19 @@ enum Ingest {
   // is decided. (Android's analogue is Ingest.ROTATION_DIRECTION.)
   static let ROTATION_DIRECTION: CGFloat = 1.0
 
+  // De-mirror knob. The front camera delivers a HORIZONTALLY MIRRORED buffer
+  // (its CVPixelBuffer is selfie-mirrored), so a pure-rotation ingest produces a
+  // mirrored "original": Flip X cancels to a no-op, Flip Y reads as a 180, and
+  // the debug-grid text reads BACKWARDS. Android (MLKit, no mirror) and the web
+  // reference both have a NON-mirrored canonical frame. Setting this true folds a
+  // single screen-horizontal flip into the ingest so the canonical "original" is
+  // NON-mirrored, matching web/Android. Composed AFTER the rotation (in display
+  // space), so it is a true screen-horizontal mirror regardless of frame.rotation.
+  // Defaults to true (front-camera selfie mirror is the shipping case); flip to
+  // false if a future rear-camera/source path is already un-mirrored. This is the
+  // single mirror knob, the analogue of ROTATION_DIRECTION for the U axis.
+  static let INGEST_MIRROR_X = true
+
   // Escape hatch only. The ingest is a CoreImage render, not a Metal pass, so it
   // does NOT incur the module's per-Metal-pass V-flip; this should stay false.
   // Set true ONLY if device testing shows the CoreImage ingest itself lands the
@@ -107,8 +120,12 @@ enum Ingest {
     let cy = sourceExtent.midY
     var t = CGAffineTransform(translationX: cx, y: cy)
     t = t.rotated(by: radians)
-    if INGEST_V_FLIP {
-      t = t.scaledBy(x: 1, y: -1)
+    // Mirror sits between the rotate and the inverse-center translation, so it is
+    // applied in the post-rotation (display) frame: a screen-horizontal flip
+    // (negate U) plus the optional V escape hatch. Negating x mirrors left<->right
+    // about the image center; the origin-snap below re-seats the result.
+    if INGEST_MIRROR_X || INGEST_V_FLIP {
+      t = t.scaledBy(x: INGEST_MIRROR_X ? -1 : 1, y: INGEST_V_FLIP ? -1 : 1)
     }
     t = t.translatedBy(x: -cx, y: -cy)
 
