@@ -5,12 +5,28 @@
 // statement outside a module". A CJS module.exports config needs no transform
 // and is read identically by every tool, local or on EAS.
 
+// Build identity surfaced on the demo screen so a tester can confirm exactly
+// which commit a device is running (kills the "is this build stale?" doubt).
+// EAS sets EAS_BUILD_GIT_COMMIT_HASH on the worker; locally we shell out to git.
+// builtAt is evaluated when the config is read, which on EAS is build time.
+const gitSha =
+  process.env.EAS_BUILD_GIT_COMMIT_HASH ||
+  (() => {
+    try {
+      return require('node:child_process').execSync('git rev-parse --short HEAD').toString().trim();
+    } catch {
+      return 'local';
+    }
+  })();
+const builtAt = new Date().toISOString();
+
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
   name: 'Kaleidoscope Demo',
   slug: 'react-native-webrtc-kaleidoscope-demo',
   owner: 'simiancraft',
-  version: '0.0.0',
+  // Bump the patch on every EAS build so the on-screen version changes per build.
+  version: '0.1.0',
   orientation: 'portrait',
   scheme: 'kaleidoscope-demo',
   userInterfaceStyle: 'automatic',
@@ -81,6 +97,10 @@ const config = {
   extra: {
     eas: {
       projectId: '9fe25758-9912-408f-b8a6-7f0b6c15a5a0',
+    },
+    build: {
+      gitSha,
+      builtAt,
     },
   },
 };

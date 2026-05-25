@@ -2,6 +2,7 @@
 // columns (Translate / Background / Blur). Each preset maps to an EffectSpec
 // passed to applyVideoEffects.
 
+import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -106,6 +107,17 @@ const APPLY_ORDER: ReadonlyArray<PresetId> = [
   ...BACKGROUNDS.map((b) => b.id),
 ];
 
+// Build identity, so a tester can read off-device exactly which commit is
+// running and whether a new build actually shipped.
+const VERSION = Constants.expoConfig?.version ?? '?';
+const BUILD = (Constants.expoConfig?.extra?.build ?? {}) as {
+  gitSha?: string;
+  builtAt?: string;
+};
+const GIT_SHA = (BUILD.gitSha ?? 'local').slice(0, 7);
+const BUILT_AT = BUILD.builtAt ? `${BUILD.builtAt.replace('T', ' ').slice(0, 16)}Z` : 'dev';
+const BUILD_LINE = `v${VERSION} · ${GIT_SHA} · ${BUILT_AT}`;
+
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>{title}</Text>
@@ -146,6 +158,7 @@ export default function DemoScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>react-native-webrtc-kaleidoscope</Text>
         <Text style={styles.subtitle}>demo · transform, blur, background image</Text>
+        <Text style={styles.buildLine}>{BUILD_LINE}</Text>
 
         <VideoPreview track={displayedTrack} />
 
@@ -208,6 +221,11 @@ const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: MAX_WIDTH, gap: 16 },
   title: { color: '#fff', fontSize: 20, fontWeight: '600' },
   subtitle: { color: '#888', fontSize: 14 },
+  buildLine: {
+    color: '#5a5a5a',
+    fontSize: 11,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
   statusLine: { color: '#888', fontSize: 12 },
   errorLine: { color: '#ff6666', fontSize: 12 },
   sections: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 8 },
