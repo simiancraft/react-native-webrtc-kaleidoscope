@@ -112,7 +112,7 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
     }
     segmenter.kickIfIdle(input: originalBuffer)
 
-    let maskTexture = try TextureBridge.makeTexture(
+    let (maskTexture, maskWrapper) = try TextureBridge.makeTexture(
       from: maskBuffer,
       cache: renderer.textureCache,
       pixelFormat: .r8Unorm,
@@ -171,7 +171,7 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
       threshold: EffectTuning.maskThreshold
     )
     let output = try renderer.dequeueOutputBuffer(width: width, height: height)
-    let outputTexture = try TextureBridge.makeTexture(
+    let (outputTexture, outputWrapper) = try TextureBridge.makeTexture(
       from: output,
       cache: renderer.textureCache,
       pixelFormat: .bgra8Unorm,
@@ -212,9 +212,19 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
     // as ready only once the GPU finishes writing it, so the buffer we hand to
     // WebRTC is always fully rendered. Before any frame has completed, forward
     // the original frame (same fall-through as "no mask yet").
+    // Keep the GPU's per-frame inputs alive until the command buffer completes.
+    // The mask CVPixelBuffer (pool-owned; the worker queue may republish/reclaim
+    // otherwise) and the mask + output CVMetalTexture wrappers (which pin their
+    // IOSurfaces for the cache) outlive this frame's process() return under R3,
+    // so they ride the completion handler. originalTexture's wrapper is retained
+    // for the buffer's whole cached life by the renderer, so it is not listed.
+    // The blur ping-pong textures are device-private (.storageMode private), not
+    // IOSurface-backed pool buffers, and are owned by the renderer, so they need
+    // no keep-alive here.
     guard let ready = renderer.commitPipelined(
       commandBuffer,
       currentOutput: output,
+      keepAlive: [maskBuffer, maskWrapper, outputWrapper],
       debugTiming: EffectTuning.debugTiming,
       timingLabel: "blur"
     ) else {

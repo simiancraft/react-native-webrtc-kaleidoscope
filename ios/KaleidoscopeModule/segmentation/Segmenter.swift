@@ -107,8 +107,13 @@ final class Segmenter {
   // Pool of OneComponent8 mask targets. A fresh buffer is dequeued per
   // segmentation; the pool reclaims it only when no reference remains. Rebuilt
   // only when the mask dims change (e.g. targetShortSide / source dims change).
-  // Worker-queue only. min 4 covers: published (lastMask), the compositor's
-  // current-frame texture, an in-flight GPU buffer, and the next write target.
+  // Worker-queue only. The pool's default min (see makeOneComponent8Pool) covers
+  // the worst-case live set: up to two in-flight GPU masks (semaphore value 2),
+  // the published lastMask, and the next worker-queue write target. The "no
+  // reference remains" guarantee only holds because the processors keep the mask
+  // CVPixelBuffer + its CVMetalTexture wrapper alive until command-buffer
+  // completion via commitPipelined's keepAlive set; binding the MTLTexture alone
+  // does not pin the IOSurface past encode under R3 frame-pipelining.
   private var maskPool: CVPixelBufferPool?
   private var maskPoolWidth = 0
   private var maskPoolHeight = 0

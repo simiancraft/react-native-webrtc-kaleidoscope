@@ -95,10 +95,21 @@ enum TextureBridge {
   /// pool recycles a buffer only once its refcount drops to zero. This mirrors
   /// Android allocating a fresh Bitmap per segmentation; it replaces the old
   /// shallow owned-ring, which under R3 frame-pipelining could overwrite a mask
-  /// still being read (the mask-drift race). `minimumBufferCount` should cover
-  /// current + in-flight-GPU + previously-published, like the output pool.
+  /// still being read (the mask-drift race).
+  ///
+  /// The pool's no-recycle-while-referenced guarantee only holds if the consumer
+  /// actually keeps a reference for the GPU's whole read window. It does NOT do
+  /// so by binding the MTLTexture alone; the IOSurface pin lives on the
+  /// CVMetalTexture wrapper, and under R3 the command buffer that samples the
+  /// mask is still in flight after the encoding frame returns. The processors
+  /// therefore hand the mask CVPixelBuffer AND its CVMetalTexture wrapper to
+  /// commitPipelined's keepAlive set (see MetalRenderer.commitPipelined), so the
+  /// buffer stays referenced until addCompletedHandler fires; only then can the
+  /// pool reclaim it. `minimumBufferCount` sizes the worst-case live set: up to
+  /// two in-flight GPU masks (the in-flight semaphore is value 2), the published
+  /// `lastMask`, and the next worker-queue write target -> 5 with headroom.
   static func makeOneComponent8Pool(
-    width: Int, height: Int, minimumBufferCount: Int = 4
+    width: Int, height: Int, minimumBufferCount: Int = 5
   ) throws -> CVPixelBufferPool {
     let pixelBufferAttributes: [String: Any] = [
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_OneComponent8,
@@ -136,7 +147,19 @@ enum TextureBridge {
     return buffer
   }
 
-  /// Wrap a plane of a CVPixelBuffer as a zero-copy MTLTexture via the cache.
+  /// Wrap a plane of a CVPixelBuffer as a zero-copy MTLTexture via the cache,
+  /// returning BOTH the MTLTexture and the CVMetalTexture wrapper.
+  ///
+  /// LIFETIME (the mask-drift race fix): the CVMetalTexture wrapper is what ties
+  /// the vended MTLTexture to the CVPixelBuffer's IOSurface. Per Apple's
+  /// CVMetalTextureCache contract, the wrapper must stay alive until the GPU has
+  /// finished sampling the MTLTexture; releasing it after encode (before the
+  /// command buffer completes) lets the cache reassign the texture's backing on a
+  /// later create-from-image for the same surface, and lets the source pool
+  /// reclaim and overwrite the surface mid-GPU-read. Under R3 frame-pipelining
+  /// the command buffer is in flight after the encoding frame returns, so callers
+  /// MUST hand the wrapper (and the source CVPixelBuffer for pooled buffers) to
+  /// commitPipelined's keepAlive set so both live until addCompletedHandler fires.
   /// For BGRA use planeIndex 0 + .bgra8Unorm; for a OneComponent8 mask use
   /// planeIndex 0 + .r8Unorm; for NV12 luma planeIndex 0 + .r8Unorm.
   static func makeTexture(
@@ -144,7 +167,7 @@ enum TextureBridge {
     cache: CVMetalTextureCache,
     pixelFormat: MTLPixelFormat,
     planeIndex: Int
-  ) throws -> MTLTexture {
+  ) throws -> (texture: MTLTexture, wrapper: CVMetalTexture) {
     let width: Int
     let height: Int
     if CVPixelBufferGetPlaneCount(pixelBuffer) > 0 {
@@ -171,7 +194,7 @@ enum TextureBridge {
           let metalTexture = CVMetalTextureGetTexture(cvTex) else {
       throw RendererError.textureCacheCreateFailed(status)
     }
-    return metalTexture
+    return (metalTexture, cvTex)
   }
 
   /// Render the (NV12 or other) input CVPixelBuffer into the BGRA `target`

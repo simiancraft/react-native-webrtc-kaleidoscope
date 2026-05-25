@@ -183,7 +183,7 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     }
     segmenter.kickIfIdle(input: originalBuffer)
 
-    let maskTexture = try TextureBridge.makeTexture(
+    let (maskTexture, maskWrapper) = try TextureBridge.makeTexture(
       from: maskBuffer,
       cache: renderer.textureCache,
       pixelFormat: .r8Unorm,
@@ -237,7 +237,7 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     )
 
     let output = try renderer.dequeueOutputBuffer(width: width, height: height)
-    let outputTexture = try TextureBridge.makeTexture(
+    let (outputTexture, outputWrapper) = try TextureBridge.makeTexture(
       from: output,
       cache: renderer.textureCache,
       pixelFormat: .bgra8Unorm,
@@ -270,9 +270,16 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     // frame's completed output (one frame of latency); see BlurProcessor and
     // MetalRenderer.commitPipelined. Before any frame has completed, forward
     // the original frame.
+    // Keep the GPU's per-frame inputs alive until the command buffer completes;
+    // see BlurProcessor for the full rationale. The mask CVPixelBuffer plus the
+    // mask + output CVMetalTexture wrappers outlive process()'s return under R3.
+    // The background MTLTexture is loaded once via MTKTextureLoader and cached on
+    // this instance (not a pool buffer, no CVMetalTexture wrapper), so it needs
+    // no keep-alive. originalTexture's wrapper is held by the renderer.
     guard let ready = renderer.commitPipelined(
       commandBuffer,
       currentOutput: output,
+      keepAlive: [maskBuffer, maskWrapper, outputWrapper],
       debugTiming: EffectTuning.debugTiming,
       timingLabel: "bgImage"
     ) else {

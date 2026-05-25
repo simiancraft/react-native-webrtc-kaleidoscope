@@ -114,9 +114,14 @@ final class MetalRenderer {
   // "original" RGB ingest texture (BGRA, full resolution), reused across
   // frames. CoreImage renders the NV12 input into this buffer's IOSurface;
   // see TextureBridge.ingest. Held here so the backing CVPixelBuffer (and its
-  // IOSurface) survive between frames instead of being reallocated.
+  // IOSurface) survive between frames instead of being reallocated. The
+  // CVMetalTexture wrapper is retained alongside the bare MTLTexture: it pins the
+  // texture to the IOSurface for the cache, so it must outlive every GPU pass
+  // that samples `originalTexture`, which (since this is reused frame-to-frame)
+  // means for the whole cached lifetime of the buffer.
   private var originalBuffer: CVPixelBuffer?
   private var originalTexture: MTLTexture?
+  private var originalTextureWrapper: CVMetalTexture?
   private var originalWidth = 0
   private var originalHeight = 0
 
@@ -224,16 +229,31 @@ final class MetalRenderer {
   ///
   /// `currentOutput` must be the pooled buffer the command buffer wrote into
   /// this frame. The returned buffer (last frame's) is a distinct pooled buffer;
-  /// the pool's min count of 3 keeps current, previously-returned, and in-flight
+  /// the pool's min count keeps current, previously-returned, and in-flight
   /// buffers from colliding.
+  ///
+  /// `keepAlive` holds any per-frame references whose backing the GPU reads or
+  /// writes for this command buffer but which would otherwise be released when
+  /// the encoding frame returns: the input/mask CVPixelBuffers AND the
+  /// CVMetalTexture wrappers vended by TextureBridge.makeTexture (the wrapper, not
+  /// the bare MTLTexture, is what pins the IOSurface for the cache). Under R3 the
+  /// command buffer is still in flight after process() returns, so capturing these
+  /// in the completion handler keeps them live for exactly as long as the GPU
+  /// needs them and no longer; without this the source pool can reclaim and
+  /// overwrite a buffer mid-GPU-read (the segmentation-mask curl-noise drift).
   func commitPipelined(
     _ commandBuffer: MTLCommandBuffer,
     currentOutput: CVPixelBuffer,
+    keepAlive: [Any],
     debugTiming: Bool,
     timingLabel: String
   ) -> CVPixelBuffer? {
     inFlightSemaphore.wait()
     commandBuffer.addCompletedHandler { [weak self] completed in
+      // Hold the per-frame inputs/wrappers until the GPU finishes. Referencing
+      // `keepAlive` inside the closure is the entire point: it extends their
+      // lifetime to command-buffer completion. Touched but intentionally unused.
+      _ = keepAlive
       guard let self = self else { return }
       if debugTiming {
         let gpuMs = (completed.gpuEndTime - completed.gpuStartTime) * 1000.0
@@ -291,8 +311,16 @@ final class MetalRenderer {
       kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
       kCVPixelBufferMetalCompatibilityKey as String: true,
     ]
+    // min 4 covers the worst-case live set now that the completion handler
+    // retains `currentOutput` until the GPU finishes: the semaphore (value 2)
+    // permits TWO command buffers in flight, so two distinct `currentOutput`
+    // buffers can be captured at once, PLUS the previously-published
+    // `readyOutput` the capture thread may still be handing to WebRTC, PLUS the
+    // one being dequeued this frame. 2 + 1 + 1 = 4. The pool grows past the
+    // minimum if all are momentarily live, so 4 is the steady-state floor, not a
+    // hard cap.
     let poolAttributes: [String: Any] = [
-      kCVPixelBufferPoolMinimumBufferCountKey as String: 3,
+      kCVPixelBufferPoolMinimumBufferCountKey as String: 4,
     ]
     var pool: CVPixelBufferPool?
     let status = CVPixelBufferPoolCreate(
@@ -321,7 +349,7 @@ final class MetalRenderer {
       return (buffer, tex)
     }
     let buffer = try TextureBridge.makeMetalCompatibleBGRABuffer(width: width, height: height)
-    let texture = try TextureBridge.makeTexture(
+    let (texture, wrapper) = try TextureBridge.makeTexture(
       from: buffer,
       cache: textureCache,
       pixelFormat: .bgra8Unorm,
@@ -329,6 +357,7 @@ final class MetalRenderer {
     )
     originalBuffer = buffer
     originalTexture = texture
+    originalTextureWrapper = wrapper
     originalWidth = width
     originalHeight = height
     return (buffer, texture)

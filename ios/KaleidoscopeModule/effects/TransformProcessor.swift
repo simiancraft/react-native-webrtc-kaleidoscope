@@ -129,7 +129,7 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
     let outHeight = op.swapsDimensions ? width : height
 
     let output = try renderer.dequeueOutputBuffer(width: outWidth, height: outHeight)
-    let outputTexture = try TextureBridge.makeTexture(
+    let (outputTexture, outputWrapper) = try TextureBridge.makeTexture(
       from: output,
       cache: renderer.textureCache,
       pixelFormat: .bgra8Unorm,
@@ -152,9 +152,14 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
     // except for a single frame across a device-orientation change (display
     // dims swap on 90<->0), which WebRTC tolerates as a normal per-frame dim
     // change. Before any frame has completed, forward the original frame.
+    // Keep the output CVMetalTexture wrapper alive until the command buffer
+    // completes; it pins the output IOSurface for the cache and would otherwise
+    // be released when process() returns while the GPU is still writing under R3.
+    // originalTexture's wrapper is held by the renderer for the buffer's life.
     guard let ready = renderer.commitPipelined(
       commandBuffer,
       currentOutput: output,
+      keepAlive: [outputWrapper],
       debugTiming: EffectTuning.debugTiming,
       timingLabel: "transform-\(op.rawValue)"
     ) else {
