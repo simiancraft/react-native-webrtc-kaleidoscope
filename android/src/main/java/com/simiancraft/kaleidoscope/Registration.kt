@@ -42,5 +42,37 @@ object Registration {
       "background-image-light-office",
       BackgroundImageFactory(context, "light-office"),
     )
+    ProcessorProvider.addProcessor(
+      "background-image-home-light",
+      BackgroundImageFactory(context, "home-light"),
+    )
+    ProcessorProvider.addProcessor(
+      "background-image-home-dark",
+      BackgroundImageFactory(context, "home-dark"),
+    )
+    ProcessorProvider.addProcessor(
+      "background-image-nature-light",
+      BackgroundImageFactory(context, "nature-light"),
+    )
+    ProcessorProvider.addProcessor(
+      "background-image-nature-dark",
+      BackgroundImageFactory(context, "nature-dark"),
+    )
+    ProcessorProvider.addProcessor(
+      "background-image-stylized-light",
+      BackgroundImageFactory(context, "stylized-light"),
+    )
+    ProcessorProvider.addProcessor(
+      "background-image-stylized-dark",
+      BackgroundImageFactory(context, "stylized-dark"),
+    )
+    ProcessorProvider.addProcessor(
+      "background-image-simiancraft-light",
+      BackgroundImageFactory(context, "simiancraft-light"),
+    )
+    ProcessorProvider.addProcessor(
+      "background-image-simiancraft-dark",
+      BackgroundImageFactory(context, "simiancraft-dark"),
+    )
   }
 }

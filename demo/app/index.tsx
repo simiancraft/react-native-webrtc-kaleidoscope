@@ -5,26 +5,62 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { applyVideoEffects, type EffectSpec } from 'react-native-webrtc-kaleidoscope';
+import {
+  applyVideoEffects,
+  type BackgroundImageSpec,
+  type EffectSpec,
+} from 'react-native-webrtc-kaleidoscope';
 // The library ships these presets; each resolves to a bundled WebP URL on web
 // and to the preset name on native. This is the same import an end user gets.
 import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
 import { debugResolutions } from 'react-native-webrtc-kaleidoscope/backgrounds/debug-resolutions';
+import { homeDark } from 'react-native-webrtc-kaleidoscope/backgrounds/home-dark';
+import { homeLight } from 'react-native-webrtc-kaleidoscope/backgrounds/home-light';
 import { lightOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/light-office';
+import { natureDark } from 'react-native-webrtc-kaleidoscope/backgrounds/nature-dark';
+import { natureLight } from 'react-native-webrtc-kaleidoscope/backgrounds/nature-light';
+import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-dark';
+import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-light';
+import { stylizedDark } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-dark';
+import { stylizedLight } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-light';
 import { EffectToggles } from '../src/effect-toggles';
 import { EffectTuningPanel } from '../src/effect-tuning-panel';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-type PresetId =
-  | 'flip-x'
-  | 'flip-y'
-  | 'rotate-cw'
-  | 'rotate-ccw'
-  | 'blur'
+type TransformId = 'flip-x' | 'flip-y' | 'rotate-cw' | 'rotate-ccw';
+type BackgroundId =
   | 'debug-resolutions'
   | 'dark-office'
-  | 'light-office';
+  | 'light-office'
+  | 'home-light'
+  | 'home-dark'
+  | 'nature-light'
+  | 'nature-dark'
+  | 'stylized-light'
+  | 'stylized-dark'
+  | 'simiancraft-light'
+  | 'simiancraft-dark';
+type PresetId = TransformId | 'blur' | BackgroundId;
+
+type BackgroundEntry = { id: BackgroundId; label: string; source: BackgroundImageSpec['source'] };
+
+// The shipped background-image presets, in demo order. Data-driven so adding a
+// preset is one row, not a switch case plus a button.
+const BACKGROUNDS: ReadonlyArray<BackgroundEntry> = [
+  { id: 'debug-resolutions', label: 'Debug Grid', source: debugResolutions },
+  { id: 'dark-office', label: 'Dark Office', source: darkOffice },
+  { id: 'light-office', label: 'Light Office', source: lightOffice },
+  { id: 'home-light', label: 'Home Light', source: homeLight },
+  { id: 'home-dark', label: 'Home Dark', source: homeDark },
+  { id: 'nature-light', label: 'Nature Light', source: natureLight },
+  { id: 'nature-dark', label: 'Nature Dark', source: natureDark },
+  { id: 'stylized-light', label: 'Stylized Light', source: stylizedLight },
+  { id: 'stylized-dark', label: 'Stylized Dark', source: stylizedDark },
+  { id: 'simiancraft-light', label: 'Simiancraft Light', source: simiancraftLight },
+  { id: 'simiancraft-dark', label: 'Simiancraft Dark', source: simiancraftDark },
+];
+const BACKGROUND_BY_ID = new Map(BACKGROUNDS.map((b) => [b.id, b] as const));
 
 const presetToSpec = (id: PresetId): EffectSpec => {
   switch (id) {
@@ -35,12 +71,11 @@ const presetToSpec = (id: PresetId): EffectSpec => {
       return { name: id };
     case 'blur':
       return { name: 'blur' };
-    case 'debug-resolutions':
-      return { name: 'background-image', source: debugResolutions };
-    case 'dark-office':
-      return { name: 'background-image', source: darkOffice };
-    case 'light-office':
-      return { name: 'background-image', source: lightOffice };
+    default: {
+      const bg = BACKGROUND_BY_ID.get(id);
+      if (!bg) throw new Error(`kaleidoscope demo: unknown preset ${id}`);
+      return { name: 'background-image', source: bg.source };
+    }
   }
 };
 
@@ -55,12 +90,9 @@ const TRANSLATE: ReadonlyArray<Preset> = [
   { id: 'rotate-cw', label: 'Rotate CW', icon: '↻' },
   { id: 'rotate-ccw', label: 'Rotate CCW', icon: '↺' },
 ];
-// Debug grid gets its own full-width row; the two offices share a 2-up row.
-const BACKGROUND_DEBUG: ReadonlyArray<Preset> = [{ id: 'debug-resolutions', label: 'Debug Grid' }];
-const BACKGROUND_OFFICE: ReadonlyArray<Preset> = [
-  { id: 'dark-office', label: 'Dark Office' },
-  { id: 'light-office', label: 'Light Office' },
-];
+// Debug grid gets its own full-width row; the scene presets share a 2-up grid.
+const BACKGROUND_DEBUG = BACKGROUNDS.filter((b) => b.id === 'debug-resolutions');
+const BACKGROUND_SCENES = BACKGROUNDS.filter((b) => b.id !== 'debug-resolutions');
 const BLUR: ReadonlyArray<Preset> = [{ id: 'blur', label: '5-tap' }];
 
 // Order matters because chained transforms compose left-to-right: geometric
@@ -71,9 +103,7 @@ const APPLY_ORDER: ReadonlyArray<PresetId> = [
   'rotate-cw',
   'rotate-ccw',
   'blur',
-  'debug-resolutions',
-  'dark-office',
-  'light-office',
+  ...BACKGROUNDS.map((b) => b.id),
 ];
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
@@ -147,7 +177,7 @@ export default function DemoScreen() {
               disabled={!sourceTrack}
             />
             <EffectToggles
-              presets={BACKGROUND_OFFICE}
+              presets={BACKGROUND_SCENES}
               active={active}
               onChange={setActive}
               disabled={!sourceTrack}

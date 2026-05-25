@@ -20,12 +20,12 @@
 
 ### What works today
 
-- **Mirror** (horizontal flip).
+- **Transform** (flip X / flip Y / rotate 90° CW / CCW) — orientation utilities, identical across platforms.
 - **Blur** (background blur, person stays sharp).
-- **Background replacement** (composite a still PNG behind the segmented person; two bundled office presets, library-side asset pipeline).
+- **Background replacement** (composite a still image behind the segmented person; eleven bundled presets, plus arbitrary URLs on web; library-side asset pipeline).
 - **Runtime tuning** of the GLSL effects; see the [Use](#use) section.
 
-| Platform | Mirror | Blur | Background replacement | Notes |
+| Platform | Transform | Blur | Background replacement | Notes |
 |---|---|---|---|---|
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
 | Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MLKit Selfie Segmentation |
@@ -103,19 +103,20 @@ import {
   setMaskHardness,
   setMaskThreshold,
 } from 'react-native-webrtc-kaleidoscope';
+import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
 
 const stream = await mediaDevices.getUserMedia({ video: true });
 const [track] = stream.getVideoTracks();
 
-applyVideoEffects(track, ['mirror']);
+applyVideoEffects(track, ['flip-x']); // also flip-y, rotate-cw, rotate-ccw
 applyVideoEffects(track, ['blur']);
-applyVideoEffects(track, [{ name: 'background-image', source: 'office-1' }]);
+applyVideoEffects(track, [{ name: 'background-image', source: darkOffice }]);
 applyVideoEffects(track, []); // clear all effects
 
 // Runtime tuning (effects pick up the new values on the next frame):
-setBlurSigma(25);        // Gaussian σ; clamped to [0.5, 64], default 8.
-setMaskHardness(0.2);    // smoothstep transition width; clamped to [0, 1]. 0 = soft halo, 1 = near-step. Default 0.5.
-setMaskThreshold(0.7);   // smoothstep center; clamped to [0.05, 0.95]. Higher rejects low-confidence pixels. Default 0.5.
+setBlurSigma(5);         // Gaussian σ; clamped to [0.5, 7], default 5.
+setMaskHardness(0.5);    // smoothstep transition width; clamped to [0, 1]. 0 = soft halo, 1 = near-step. Default 0.5.
+setMaskThreshold(0.7);   // smoothstep center; clamped to [0.05, 0.95]. Higher rejects low-confidence pixels. Default 0.7.
 ```
 
 Effects chain in array order.
@@ -127,7 +128,25 @@ Effects chain in array order.
 | Web (MediaPipe) | 25 | 0.2 | 0.85 |
 | Android (MLKit) | 30 | 0.2 | 0.6 |
 
-The library ships neutral defaults (8, 0.5, 0.5) and consumers tune at runtime via the API above; whether to ship the dialed-in values as platform-specific defaults is an open question waiting on iOS data.
+The library ships defaults (5, 0.5, 0.7) and consumers tune at runtime via the API above; whether to ship the dialed-in per-platform values as defaults is an open question.
+
+## Background presets
+
+Eleven backgrounds ship for the `background-image` effect, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
+
+| Theme | Light | Dark |
+|---|---|---|
+| Office | <img src="src/backgrounds/light-office.webp" width="220" alt="light-office" /> | <img src="src/backgrounds/dark-office.webp" width="220" alt="dark-office" /> |
+| Home | <img src="src/backgrounds/home-light.webp" width="220" alt="home-light" /> | <img src="src/backgrounds/home-dark.webp" width="220" alt="home-dark" /> |
+| Nature | <img src="src/backgrounds/nature-light.webp" width="220" alt="nature-light" /> | <img src="src/backgrounds/nature-dark.webp" width="220" alt="nature-dark" /> |
+| Stylized | <img src="src/backgrounds/stylized-light.webp" width="220" alt="stylized-light" /> | <img src="src/backgrounds/stylized-dark.webp" width="220" alt="stylized-dark" /> |
+| Simiancraft | <img src="src/backgrounds/simiancraft-light.webp" width="220" alt="simiancraft-light" /> | <img src="src/backgrounds/simiancraft-dark.webp" width="220" alt="simiancraft-dark" /> |
+
+Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:
+
+<img src="src/backgrounds/debug-resolutions.webp" width="220" alt="debug-resolutions" />
+
+See [`src/backgrounds/README.md`](./src/backgrounds/README.md) for sizing and how to add a preset.
 
 ## Web and native differences
 
@@ -135,7 +154,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 - **Effect parameters.** Web reads tuning from the global setters (`setBlurSigma`, `setMaskHardness`, `setMaskThreshold`) on the next frame. Native currently ignores per-call `EffectSpec` parameters such as `{ name: 'blur', sigma: 12 }`; tuning is global through the same setters. Per-call uniforms through the native registry are a follow-up.
 - **Background source.** `background-image.source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
-- **Background presets ship as tree-shakeable files.** Two example backgrounds (`office-1`, `office-2`) are importable per preset: `import { office1 } from 'react-native-webrtc-kaleidoscope/backgrounds/office-1'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers — and, since Metro doesn't tree-shake, simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
+- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers — and, since Metro doesn't tree-shake, simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
 - **Segmentation model on web.** The web blur and background-image effects load MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
 - **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers; Safari and Firefox throw a typed capability error.
 

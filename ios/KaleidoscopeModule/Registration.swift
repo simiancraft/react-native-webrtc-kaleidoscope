@@ -50,5 +50,37 @@ public enum Registration {
       BackgroundImageProcessor(assetName: "light-office"),
       forName: "background-image-light-office"
     )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "home-light"),
+      forName: "background-image-home-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "home-dark"),
+      forName: "background-image-home-dark"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "nature-light"),
+      forName: "background-image-nature-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "nature-dark"),
+      forName: "background-image-nature-dark"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "stylized-light"),
+      forName: "background-image-stylized-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "stylized-dark"),
+      forName: "background-image-stylized-dark"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "simiancraft-light"),
+      forName: "background-image-simiancraft-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "simiancraft-dark"),
+      forName: "background-image-simiancraft-dark"
+    )
   }
 }
