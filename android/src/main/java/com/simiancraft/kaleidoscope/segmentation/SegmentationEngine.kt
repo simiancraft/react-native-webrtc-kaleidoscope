@@ -30,6 +30,7 @@ import android.os.HandlerThread
 import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.ByteBufferExtractor
+import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.imagesegmenter.ImageSegmenter
@@ -68,6 +69,7 @@ internal object SegmentationEngine {
   ) {
     workerHandler.post {
       var upright: Bitmap? = null
+      var mpImage: MPImage? = null
       try {
         val seg = ensureSegmenter(context)
         // The GL readback (glReadPixels reads bottom-to-top) is vertically
@@ -75,9 +77,8 @@ internal object SegmentationEngine {
         // flips the mask back so the upload/composite alignment is untouched.
         // Vertical flip only, not a 180 rotate (columns are already correct).
         upright = flipVertical(inputBmp)
-        val mpImage = BitmapImageBuilder(upright).build()
+        mpImage = BitmapImageBuilder(upright).build()
         val result = seg.segmentForVideo(mpImage, videoTimestamp++)
-        mpImage.close()
 
         val confidenceMasks = result.confidenceMasks()
         if (!confidenceMasks.isPresent || confidenceMasks.get().isEmpty()) {
@@ -100,6 +101,9 @@ internal object SegmentationEngine {
       } catch (t: Throwable) {
         Log.e(TAG, "segmentation failed on worker", t)
       } finally {
+        // close() in finally: if segmentForVideo throws, the MPImage native
+        // handle would otherwise leak (unbounded if the error recurs per frame).
+        mpImage?.close()
         upright?.recycle()
         inputBmp.recycle()
         onDone()
