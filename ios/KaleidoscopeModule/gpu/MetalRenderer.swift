@@ -111,19 +111,19 @@ final class MetalRenderer {
   private var blurTexWidth = 0
   private var blurTexHeight = 0
 
-  // "original" RGB ingest texture (BGRA, full resolution), reused across
-  // frames. CoreImage renders the NV12 input into this buffer's IOSurface;
-  // see TextureBridge.ingest. Held here so the backing CVPixelBuffer (and its
-  // IOSurface) survive between frames instead of being reallocated. The
-  // CVMetalTexture wrapper is retained alongside the bare MTLTexture: it pins the
-  // texture to the IOSurface for the cache, so it must outlive every GPU pass
-  // that samples `originalTexture`, which (since this is reused frame-to-frame)
-  // means for the whole cached lifetime of the buffer.
-  private var originalBuffer: CVPixelBuffer?
-  private var originalTexture: MTLTexture?
-  private var originalTextureWrapper: CVMetalTexture?
-  private var originalWidth = 0
-  private var originalHeight = 0
+  // "original" RGB ingest buffers come from a POOL, not a single reused buffer.
+  // CoreImage renders each frame's NV12 input into a freshly dequeued buffer
+  // (TextureBridge.ingest) and the GPU passes sample a per-frame texture view of
+  // it. A single shared buffer is WRONG here: under R3 frame-pipelining the
+  // previous frame's command buffer is still reading the original after
+  // process() returns, AND the segmenter's async worker still reads it (it
+  // retains the ref for its downscale), so overwriting one buffer in place
+  // corrupted those in-flight reads (the mask drift / "fog of war"). A pool only
+  // recycles a buffer once every reader has released it: the command buffer via
+  // commitPipelined's keepAlive, the segmenter via its async closure's retain.
+  private var originalPool: CVPixelBufferPool?
+  private var originalPoolWidth = 0
+  private var originalPoolHeight = 0
 
   init(bundle: Bundle) throws {
     guard let dev = MTLCreateSystemDefaultDevice() else {
@@ -301,16 +301,6 @@ final class MetalRenderer {
   }
 
   private func rebuildOutputPool(width: Int, height: Int) throws {
-    let pixelBufferAttributes: [String: Any] = [
-      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-      kCVPixelBufferWidthKey as String: width,
-      kCVPixelBufferHeightKey as String: height,
-      // IOSurface-backed so downstream (RTCCVPixelBuffer -> I420 -> encoder)
-      // accepts the buffer; Metal-compatible so CVMetalTextureCache can wrap
-      // it as a render-target texture without a copy.
-      kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-      kCVPixelBufferMetalCompatibilityKey as String: true,
-    ]
     // min 4 covers the worst-case live set now that the completion handler
     // retains `currentOutput` until the GPU finishes: the semaphore (value 2)
     // permits TWO command buffers in flight, so two distinct `currentOutput`
@@ -319,8 +309,28 @@ final class MetalRenderer {
     // one being dequeued this frame. 2 + 1 + 1 = 4. The pool grows past the
     // minimum if all are momentarily live, so 4 is the steady-state floor, not a
     // hard cap.
+    outputPool = try MetalRenderer.makeBGRAMetalPool(width: width, height: height, minCount: 4)
+    poolWidth = width
+    poolHeight = height
+  }
+
+  /// Creates a CVPixelBufferPool of BGRA, IOSurface-backed, Metal-compatible
+  /// buffers. Shared by the output pool and the original-ingest pool. IOSurface-
+  /// backed so downstream (RTCCVPixelBuffer -> I420 -> encoder) accepts the
+  /// buffer; Metal-compatible so CVMetalTextureCache can wrap it as a texture
+  /// without a copy. Pools grow past `minCount` if more buffers are momentarily
+  /// live, so the count is a steady-state floor, not a hard cap.
+  private static func makeBGRAMetalPool(width: Int, height: Int, minCount: Int) throws
+    -> CVPixelBufferPool {
+    let pixelBufferAttributes: [String: Any] = [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+      kCVPixelBufferWidthKey as String: width,
+      kCVPixelBufferHeightKey as String: height,
+      kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+      kCVPixelBufferMetalCompatibilityKey as String: true,
+    ]
     let poolAttributes: [String: Any] = [
-      kCVPixelBufferPoolMinimumBufferCountKey as String: 4,
+      kCVPixelBufferPoolMinimumBufferCountKey as String: minCount,
     ]
     var pool: CVPixelBufferPool?
     let status = CVPixelBufferPoolCreate(
@@ -332,35 +342,44 @@ final class MetalRenderer {
     guard status == kCVReturnSuccess, let createdPool = pool else {
       throw RendererError.pixelBufferPoolCreateFailed(status)
     }
-    outputPool = createdPool
-    poolWidth = width
-    poolHeight = height
+    return createdPool
   }
 
   // MARK: - Intermediate textures
 
-  /// Returns the cached "original" ingest texture (BGRA), allocating it (and
-  /// its backing CVPixelBuffer) on first use or on resolution change. The
-  /// returned tuple's CVPixelBuffer is the CoreImage render target; the
-  /// MTLTexture is a zero-copy view of the same IOSurface.
-  func originalIngestTarget(width: Int, height: Int) throws -> (CVPixelBuffer, MTLTexture) {
-    if let buffer = originalBuffer, let tex = originalTexture,
-       originalWidth == width, originalHeight == height {
-      return (buffer, tex)
+  /// Dequeues a fresh "original" ingest buffer (BGRA, IOSurface-backed,
+  /// Metal-compatible) from the pool and returns it with a per-frame Metal
+  /// texture view and the CVMetalTexture wrapper that pins it to the IOSurface.
+  /// The CVPixelBuffer is the CoreImage render target; the MTLTexture is a
+  /// zero-copy view of the same IOSurface.
+  ///
+  /// The caller MUST keep `buffer` and `wrapper` alive until its command buffer
+  /// completes (pass both in commitPipelined's keepAlive); the segmenter
+  /// separately retains the buffer for its async read. The pool will not recycle
+  /// the buffer until both readers release it. See the originalPool field
+  /// comment for why this is pooled and not a single reused buffer.
+  func originalIngestTarget(width: Int, height: Int) throws
+    -> (buffer: CVPixelBuffer, texture: MTLTexture, wrapper: CVMetalTexture) {
+    if originalPool == nil || originalPoolWidth != width || originalPoolHeight != height {
+      originalPool = try MetalRenderer.makeBGRAMetalPool(width: width, height: height, minCount: 5)
+      originalPoolWidth = width
+      originalPoolHeight = height
     }
-    let buffer = try TextureBridge.makeMetalCompatibleBGRABuffer(width: width, height: height)
+    guard let pool = originalPool else {
+      throw RendererError.pixelBufferPoolCreateFailed(kCVReturnError)
+    }
+    var pixelBuffer: CVPixelBuffer?
+    let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBuffer)
+    guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+      throw RendererError.pixelBufferAllocFailed(status)
+    }
     let (texture, wrapper) = try TextureBridge.makeTexture(
       from: buffer,
       cache: textureCache,
       pixelFormat: .bgra8Unorm,
       planeIndex: 0
     )
-    originalBuffer = buffer
-    originalTexture = texture
-    originalTextureWrapper = wrapper
-    originalWidth = width
-    originalHeight = height
-    return (buffer, texture)
+    return (buffer, texture, wrapper)
   }
 
   /// Returns the two blur ping-pong textures, allocating on first use or on

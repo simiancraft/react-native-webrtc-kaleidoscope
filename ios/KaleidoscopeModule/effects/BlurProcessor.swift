@@ -96,7 +96,7 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
     let rotation = frame.rotation.rawValue
     let width = Ingest.displayWidth(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
     let height = Ingest.displayHeight(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
-    let (originalBuffer, originalTexture) = try renderer.originalIngestTarget(
+    let (originalBuffer, originalTexture, originalWrapper) = try renderer.originalIngestTarget(
       width: width, height: height
     )
     try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
@@ -216,15 +216,17 @@ public final class BlurProcessor: NSObject, VideoFrameProcessorDelegate {
     // The mask CVPixelBuffer (pool-owned; the worker queue may republish/reclaim
     // otherwise) and the mask + output CVMetalTexture wrappers (which pin their
     // IOSurfaces for the cache) outlive this frame's process() return under R3,
-    // so they ride the completion handler. originalTexture's wrapper is retained
-    // for the buffer's whole cached life by the renderer, so it is not listed.
+    // so they ride the completion handler. The original ingest buffer + its
+    // wrapper are now pool-dequeued per frame (not a single renderer-cached
+    // buffer), so they MUST ride the completion handler too; otherwise the pool
+    // could recycle the buffer the GPU is still sampling.
     // The blur ping-pong textures are device-private (.storageMode private), not
     // IOSurface-backed pool buffers, and are owned by the renderer, so they need
     // no keep-alive here.
     guard let ready = renderer.commitPipelined(
       commandBuffer,
       currentOutput: output,
-      keepAlive: [maskBuffer, maskWrapper, outputWrapper],
+      keepAlive: [maskBuffer, maskWrapper, outputWrapper, originalBuffer, originalWrapper],
       debugTiming: EffectTuning.debugTiming,
       timingLabel: "blur"
     ) else {

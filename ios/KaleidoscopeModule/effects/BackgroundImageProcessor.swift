@@ -171,7 +171,7 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     let rotation = frame.rotation.rawValue
     let width = Ingest.displayWidth(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
     let height = Ingest.displayHeight(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
-    let (originalBuffer, originalTexture) = try renderer.originalIngestTarget(
+    let (originalBuffer, originalTexture, originalWrapper) = try renderer.originalIngestTarget(
       width: width, height: height
     )
     try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
@@ -275,11 +275,13 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     // mask + output CVMetalTexture wrappers outlive process()'s return under R3.
     // The background MTLTexture is loaded once via MTKTextureLoader and cached on
     // this instance (not a pool buffer, no CVMetalTexture wrapper), so it needs
-    // no keep-alive. originalTexture's wrapper is held by the renderer.
+    // no keep-alive. The original ingest buffer + wrapper are pool-dequeued per
+    // frame, so they ride the completion handler to keep the pool from recycling
+    // a buffer the GPU is still sampling.
     guard let ready = renderer.commitPipelined(
       commandBuffer,
       currentOutput: output,
-      keepAlive: [maskBuffer, maskWrapper, outputWrapper],
+      keepAlive: [maskBuffer, maskWrapper, outputWrapper, originalBuffer, originalWrapper],
       debugTiming: EffectTuning.debugTiming,
       timingLabel: "bgImage"
     ) else {

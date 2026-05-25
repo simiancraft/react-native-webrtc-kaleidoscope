@@ -113,7 +113,7 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
     let rotation = frame.rotation.rawValue
     let width = Ingest.displayWidth(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
     let height = Ingest.displayHeight(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
-    let (originalBuffer, originalTexture) = try renderer.originalIngestTarget(
+    let (originalBuffer, originalTexture, originalWrapper) = try renderer.originalIngestTarget(
       width: width, height: height
     )
     try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
@@ -155,11 +155,13 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
     // Keep the output CVMetalTexture wrapper alive until the command buffer
     // completes; it pins the output IOSurface for the cache and would otherwise
     // be released when process() returns while the GPU is still writing under R3.
-    // originalTexture's wrapper is held by the renderer for the buffer's life.
+    // The original ingest buffer + wrapper are pool-dequeued per frame, so they
+    // ride the completion handler to keep the pool from recycling a buffer the
+    // GPU is still sampling.
     guard let ready = renderer.commitPipelined(
       commandBuffer,
       currentOutput: output,
-      keepAlive: [outputWrapper],
+      keepAlive: [outputWrapper, originalBuffer, originalWrapper],
       debugTiming: EffectTuning.debugTiming,
       timingLabel: "transform-\(op.rawValue)"
     ) else {
