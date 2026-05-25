@@ -37,7 +37,7 @@ Pod::Spec.new do |s|
   # Bundled background-image presets (mirrors android/src/main/assets/
   # backgrounds/) plus the transpiled Metal shader SOURCE. Both are loaded at
   # runtime from the Kaleidoscope.bundle:
-  #   - BackgroundImageProcessor resolves "office-1" -> office-1.png.
+  #   - BackgroundImageProcessor resolves "dark-office" -> dark-office.webp.
   #   - ShaderLibrary reads passthrough/blur/composite.metalsrc as TEXT and
   #     compiles each into its own MTLLibrary via makeLibrary(source:). The
   #     `.metalsrc` extension (not `.metal`) is required so Xcode's

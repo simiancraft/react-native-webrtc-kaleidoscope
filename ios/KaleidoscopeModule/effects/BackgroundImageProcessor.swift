@@ -4,7 +4,7 @@
 // Per frame:
 //   1. Ingest the camera CVPixelBuffer (NV12) into the "original" BGRA Metal
 //      texture via CoreImage.
-//   2. Lazy-load the named PNG ("dark-office"/"light-office") from the Kaleidoscope
+//   2. Lazy-load the named WebP ("dark-office"/"light-office") from the Kaleidoscope
 //      resource bundle as a Metal texture on first frame; cache it; capture
 //      its aspect ratio.
 //   3. Read the latest completed mask; if none yet, forward the ORIGINAL
@@ -99,9 +99,10 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     }
   }
 
-  /// Lazy-load the PNG from the Kaleidoscope bundle as a Metal texture. Caches
-  /// success and failure so a missing asset degrades to passthrough without
-  /// retrying every frame.
+  /// Lazy-load the WebP from the Kaleidoscope bundle as a Metal texture (decoded
+  /// via ImageIO, which supports WebP on iOS 14+; the podspec floors iOS 15).
+  /// Caches success and failure so a missing asset degrades to passthrough
+  /// without retrying every frame.
   private func ensureBackgroundTexture(device: MTLDevice) -> MTLTexture? {
     if let tex = backgroundTexture { return tex }
     if backgroundLoadFailed { return nil }
@@ -109,9 +110,9 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     let containing = Bundle(for: BackgroundImageProcessor.self)
     let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
     guard let url = resourceBundle.url(
-      forResource: assetName, withExtension: "png", subdirectory: "backgrounds"
-    ) ?? resourceBundle.url(forResource: assetName, withExtension: "png") else {
-      os_log("background asset %{public}@.png not found in bundle",
+      forResource: assetName, withExtension: "webp", subdirectory: "backgrounds"
+    ) ?? resourceBundle.url(forResource: assetName, withExtension: "webp") else {
+      os_log("background asset %{public}@.webp not found in bundle",
              log: BackgroundImageProcessor.log, type: .error, assetName)
       backgroundLoadFailed = true
       return nil

@@ -2,7 +2,7 @@
 //
 // Per frame:
 //   1. Render the input OES camera texture into a cached "original 2D" FBO.
-//   2. Lazy-load the named PNG asset (e.g. "dark-office") from the library's
+//   2. Lazy-load the named WebP asset (e.g. "dark-office") from the library's
 //      android/src/main/assets/backgrounds/ on first frame; upload as a 2D
 //      GL texture; cache for subsequent frames.
 //   3. Produce a mask via Mask.produce (downsample, MLKit, upload).
@@ -45,8 +45,9 @@ import org.webrtc.YuvConverter
 
 /**
  * @param context Used to read the PNG asset.
- * @param assetName Filename (without `.png`) under `assets/backgrounds/`.
- *                   E.g. "dark-office" -> assets/backgrounds/dark-office.png.
+ * @param assetName Filename (without `.webp`) under `assets/backgrounds/`.
+ *                   E.g. "dark-office" -> assets/backgrounds/dark-office.webp.
+ *                   BitmapFactory decodes WebP natively (supported since API 14).
  *
  * maskHardness is read per frame from com.simiancraft.kaleidoscope.EffectTuning
  * so JS callers can tune the smoothstep edge via the Expo Module's
@@ -313,15 +314,15 @@ private class BackgroundImageProcessor(
   private fun ensureBackgroundTexture() {
     if (backgroundTextureId != 0) return
     val bmp = try {
-      context.assets.open("backgrounds/$assetName.png").use { stream ->
+      context.assets.open("backgrounds/$assetName.webp").use { stream ->
         BitmapFactory.decodeStream(stream)
       }
     } catch (t: Throwable) {
-      Log.e(TAG, "failed to load asset backgrounds/$assetName.png", t)
+      Log.e(TAG, "failed to load asset backgrounds/$assetName.webp", t)
       return
     }
     if (bmp == null) {
-      Log.e(TAG, "BitmapFactory returned null for backgrounds/$assetName.png")
+      Log.e(TAG, "BitmapFactory returned null for backgrounds/$assetName.webp")
       return
     }
     // Pre-flip vertically so the texture lands in the shared convention

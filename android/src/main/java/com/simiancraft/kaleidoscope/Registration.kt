@@ -1,7 +1,7 @@
 // Frame-processor registration for Android. Called from
 // KaleidoscopeModule.OnCreate at Expo Module init time, before any track
 // requests an effect by name. The Context is needed by GPU effects so they
-// can read PNG assets for background-image and create RenderScript-style
+// can read WebP assets for background-image and create RenderScript-style
 // resources where applicable.
 
 package com.simiancraft.kaleidoscope
