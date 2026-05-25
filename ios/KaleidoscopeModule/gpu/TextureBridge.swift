@@ -243,14 +243,38 @@ enum TextureBridge {
 
   /// Render `input` downscaled by `scale` into the BGRA `target` buffer, whose
   /// dimensions are the already-scaled output size. Used by the Segmenter to
-  /// hand Vision a smaller buffer than the camera native resolution; the
+  /// hand MediaPipe a smaller buffer than the camera native resolution; the
   /// produced mask is lower-res and the composite upsamples it. Reuses the
   /// shared CIContext (a per-frame CIContext is the classic camera-filter perf
   /// failure). `target` must be allocated by the caller and reused across
   /// frames (see Segmenter's scratch buffer) to keep this allocation-light.
+  ///
+  /// VERTICAL FLIP (device-confirmed; see Segmenter.swift ORIENTATION DECISION):
+  /// the produced scratch buffer is fed to MediaPipe, which is trained on upright
+  /// people. This CoreImage render lands the content vertically inverted (head-
+  /// down) in the target's top-left memory order, the glReadPixels-equivalent of
+  /// Android's bottom-to-top readback, so we fold a PURE vertical flip (mirror
+  /// across the horizontal axis: rows reversed, columns preserved -- NOT a 180
+  /// rotate) into the same render. The Segmenter flips the mask back row-for-row
+  /// in copyMaskToFreshBuffer, so the two flips cancel for alignment while
+  /// MediaPipe now segments an upright person. This function has exactly one
+  /// caller (Segmenter.downscaledInput); the flip is private to the segmentation
+  /// path and perturbs no other consumer.
   static func downscale(input: CVPixelBuffer, into target: CVPixelBuffer, scale: CGFloat) throws {
-    let image = CIImage(cvPixelBuffer: input)
+    let scaled = CIImage(cvPixelBuffer: input)
       .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    // Pure vertical flip about the scaled extent's center. Reflecting about the
+    // center (translate-to-center, scaleY: -1, translate-back) leaves the
+    // extent's origin and size unchanged, so the render `bounds` below is still
+    // the scaled extent; columns (U) are untouched, only rows (V) reverse. This
+    // mirrors the Ingest.uprightTransform step-3 idiom; do NOT replace it with a
+    // bare `scaleY: -1`, which would send the extent into negative Y and require
+    // a separate translate-up to keep the bounds correct.
+    let extent = scaled.extent
+    var vflip = CGAffineTransform(translationX: 0, y: extent.midY)
+    vflip = vflip.scaledBy(x: 1, y: -1)
+    vflip = vflip.translatedBy(x: 0, y: -extent.midY)
+    let image = scaled.transformed(by: vflip)
     let targetW = CVPixelBufferGetWidth(target)
     let targetH = CVPixelBufferGetHeight(target)
     // Render the scaled image starting at its origin into the full target

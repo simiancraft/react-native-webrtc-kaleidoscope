@@ -14,12 +14,14 @@
 //   far less than the native (e.g. 720/1080) buffer. MediaPipe resizes the
 //   confidence mask back to the INPUT dims it was given, so the produced mask is
 //   correspondingly lower-res. This is SAFE for alignment because the downscale
-//   is a UNIFORM scale of the same native buffer space (no crop, no rotation),
-//   the composite samples the mask with NORMALIZED [0,1] UVs and a LINEAR
-//   sampler, and the mask UV transform stays identity (uMaskUvScale=(1,1),
-//   uMaskUvOffset=(0,0)). A lower-res mask therefore upscales for free and lands
-//   on the full-res foreground 1:1. Never upscales: a target >= the source short
-//   side is a no-op pass-through of the original buffer.
+//   is a UNIFORM scale of the same native buffer space (no crop, no rotation;
+//   the vertical flip folded into the render is canceled by the mask flip-back,
+//   see the ORIENTATION DECISION below), the composite samples the mask with
+//   NORMALIZED [0,1] UVs and a LINEAR sampler, and the mask UV transform stays
+//   identity (uMaskUvScale=(1,1), uMaskUvOffset=(0,0)). A lower-res mask
+//   therefore upscales for free and lands on the full-res foreground 1:1. Never
+//   upscales: the scale clamps to 1.0, at which the render is a same-size,
+//   vertically-flipped copy (still inside the bracket, so still aligned).
 //
 // THREADING (mirrors Mask.kt):
 //   - A single ImageSegmenter is reused across frames; ImageSegmenter is NOT
@@ -35,27 +37,39 @@
 //     counter guarantees that regardless of wall-clock resolution (same as
 //     Android's videoTimestamp++).
 //
-// ORIENTATION DECISION (the footgun the scaffold called out):
-//   We feed the segmenter the SAME upright (downscaled) buffer the Vision path
-//   did, and we do NOT flip the mask. Rationale:
-//   - The entire pipeline operates on the "original" texture, which the ingest
-//     (Ingest.swift) has already normalized to DISPLAY-UPRIGHT space; the
-//     segmenter receives that upright buffer (uniformly downscaled).
-//   - Android flips its segmenter INPUT (flipVertical) and flips the mask back,
-//     but ONLY because its "original" comes from glReadPixels, which reads
-//     bottom-to-top and hands the worker a vertically-inverted (head-down)
-//     frame. iOS has no glReadPixels: the "original" is a CoreImage/Metal ingest
-//     that is already display-upright (person head-up). So the Android flip is
-//     ANDROID-SPECIFIC and is deliberately NOT copied here.
-//   - MPImage(pixelBuffer:) wraps the CVPixelBuffer in its natural top-left
-//     memory order; the returned confidence mask is in that same buffer space,
-//     row 0 = top. The composite samples the mask with identity UVs in the same
-//     upright top-left space it samples the foreground. So the mask lands 1:1 on
-//     the upright foreground with NO flip, exactly as the Vision OneComponent8
-//     mask did. (Contrast Vision, whose output buffer was likewise top-left;
-//     the swap is segmenter-for-segmenter, the coordinate origin is unchanged.)
-//   This removes any dependence on RTCVideoFrame.rotation or
-//   AVCaptureDevice.Position for mask ALIGNMENT.
+// ORIENTATION DECISION (device-confirmed; supersedes the original "no flip"):
+//   We feed the segmenter a VERTICALLY-FLIPPED (upright) buffer and flip the
+//   mask back, EXACTLY as Android's Mask.kt does. This is a deterministic flip
+//   bracket: a real pixel flip in, a real row flip out; the two cancel for
+//   alignment, but MediaPipe (trained on upright people) now segments a head-up
+//   frame. History, and why the original "no flip" call was WRONG:
+//   - The original reasoning was "iOS isn't glReadPixels, the ingest is upright,
+//     so no flip." That conflated the ingest with the segmenter input. The
+//     segmenter input is NOT the ingest "original"; it is the DOWNSCALED scratch
+//     buffer produced by TextureBridge.downscale, a CoreImage/Metal render.
+//     CoreImage is a bottom-left-origin system; that render lands the content
+//     vertically inverted (head-down) in the scratch buffer's top-left memory
+//     order -- the glReadPixels-equivalent flip. So MPImage(pixelBuffer:) wraps a
+//     head-down buffer even though the "original" is upright.
+//   - Device evidence (commit 7587d1a): phone held vertical/portrait -> mask
+//     grabs the ceiling / too permissive on the top half (the model's failure on
+//     a head-down person); phone held SIDEWAYS (90 either way) -> mask perfect;
+//     upside down -> symptoms return (iOS auto-rotates so the person is head-down
+//     again). Sideways-perfect / vertical-broken is the textbook signature of a
+//     vertically-flipped segmenter input. The mask still ALIGNS spatially
+//     (ceiling-grab, a detection error, not an upside-down mask), so the V-flip
+//     is already canceled in the upload/sample path -- same situation Android had
+//     before its flipVertical fix.
+//   - THE FIX (mirrors Mask.kt): TextureBridge.downscale folds a PURE vertical
+//     flip (rows reversed, columns preserved -- NOT a 180 rotate) into the same
+//     render, so MPImage(pixelBuffer:) receives an upright person.
+//     copyMaskToFreshBuffer writes source row `row` to destination row
+//     `(height - 1 - row)` (the inverse flip), so the published mask lands in the
+//     SAME top-left orientation as before; the composite samples it with identity
+//     UVs and the alignment is byte-for-byte unchanged from the pre-flip build.
+//   This still removes any dependence on RTCVideoFrame.rotation or
+//   AVCaptureDevice.Position for mask ALIGNMENT (the bracket cancels), and it
+//   fixes the model's head-down detection error.
 
 import Foundation
 import CoreVideo
@@ -100,7 +114,8 @@ final class Segmenter {
   // CVPixelBuffer (0..255 confidence). The composite samples it with a LINEAR
   // sampler and identity UVs, so a lower-res mask upscales for free; alignment
   // is preserved because the downscale is a uniform scale of the same native
-  // buffer space (no crop, no rotation). Retained until replaced.
+  // buffer space (no crop, no rotation) and the input-flip/mask-flip bracket
+  // cancels (see the ORIENTATION DECISION). Retained until replaced.
   //
   // OWNERSHIP (the iOS mask-drift fix; mirrors Android's fresh-Bitmap-per-frame):
   //   `lastMask` is always a FRESH buffer dequeued from `maskPool` below, NOT a
@@ -198,10 +213,13 @@ final class Segmenter {
                ms, CVPixelBufferGetWidth(segInput), CVPixelBufferGetHeight(segInput))
       }
 
-      // Wrap the downscaled BGRA buffer as an MPImage. No orientation argument:
-      // the buffer is already display-upright (Ingest.swift) and MediaPipe wraps
-      // it in natural top-left memory order; see the orientation decision at the
-      // top of this file (iOS needs NO flip, unlike Android's glReadPixels path).
+      // Wrap the (downscaled, vertically-flipped) BGRA buffer as an MPImage. No
+      // MPImage orientation argument: the flip is a DETERMINISTIC pixel flip
+      // folded into TextureBridge.downscale (not an orientation hint whose mask-
+      // return coordinate semantics we'd be gambling on), so MediaPipe sees an
+      // upright person. The mask is flipped back in copyMaskToFreshBuffer. See the
+      // ORIENTATION DECISION at the top of this file (device-confirmed; mirrors
+      // Android's Mask.kt flipVertical bracket).
       let mpImage = try MPImage(pixelBuffer: segInput)
 
       let segStart = debugTiming ? DispatchTime.now() : nil
@@ -241,12 +259,19 @@ final class Segmenter {
     }
   }
 
-  /// Downscale `input` (full-res BGRA, native buffer space) into the reused
-  /// scratch buffer sized to EffectTuning.targetShortSide. Returns the scratch
-  /// buffer, or `input` unchanged when the source is already at or below the
-  /// target (no upscaling) or when scratch allocation fails (degrade to running
-  /// the segmenter on the full buffer rather than dropping the frame).
-  /// Worker-queue only.
+  /// Render `input` (full-res BGRA, native buffer space) into the reused scratch
+  /// buffer, downscaled to EffectTuning.targetShortSide AND vertically flipped so
+  /// MediaPipe sees an upright person (see the ORIENTATION DECISION + the
+  /// vertical-flip rationale on TextureBridge.downscale). The flip is the input
+  /// half of the deterministic flip bracket; copyMaskToFreshBuffer flips the mask
+  /// back so alignment is unchanged.
+  ///
+  /// The render is UNCONDITIONAL: every buffer handed to MPImage passes through
+  /// TextureBridge.downscale so the flip is always applied, keeping the bracket
+  /// deterministic. When the source short side is already at or below the target
+  /// the scale clamps to 1.0 (a same-size flipped copy; never an upscale). The
+  /// only return of the unmodified `input` is the degenerate zero-dim guard,
+  /// which produces no mask anyway. Worker-queue only.
   private func downscaledInput(from input: CVPixelBuffer) throws -> CVPixelBuffer {
     let srcW = CVPixelBufferGetWidth(input)
     let srcH = CVPixelBufferGetHeight(input)
@@ -254,14 +279,24 @@ final class Segmenter {
 
     let targetShort = EffectTuning.targetShortSide
     let srcShort = min(srcW, srcH)
-    // Never upscale: a target >= the source short side is a no-op.
-    guard srcShort > targetShort else { return input }
+    // Never upscale: clamp the scale to 1.0 when the source is already at or
+    // below the target. At 1.0 the scratch is a same-size, vertically-flipped
+    // copy; the segmenter still receives an upright buffer and the bracket holds.
+    let scale = min(CGFloat(1), CGFloat(targetShort) / CGFloat(srcShort))
 
-    let scale = CGFloat(targetShort) / CGFloat(srcShort)
-    // Even dimensions keep CoreImage/IOSurface happy and avoid odd-row chroma
-    // surprises if the buffer is ever reinterpreted.
-    let dstW = max(2, Int((CGFloat(srcW) * scale).rounded()) & ~1)
-    let dstH = max(2, Int((CGFloat(srcH) * scale).rounded()) & ~1)
+    let dstW: Int
+    let dstH: Int
+    if scale >= 1.0 {
+      // Same-size copy: preserve exact source dims (no even-rounding that could
+      // drop a row/column on an odd-dim source).
+      dstW = srcW
+      dstH = srcH
+    } else {
+      // Even dimensions keep CoreImage/IOSurface happy and avoid odd-row chroma
+      // surprises if the buffer is ever reinterpreted.
+      dstW = max(2, Int((CGFloat(srcW) * scale).rounded()) & ~1)
+      dstH = max(2, Int((CGFloat(srcH) * scale).rounded()) & ~1)
+    }
 
     let target = try ensureScratchBuffer(
       sourceWidth: srcW, sourceHeight: srcH, targetShortSide: targetShort,
@@ -330,9 +365,17 @@ final class Segmenter {
     // width per row into the destination at its own stride, so the pool buffer's
     // row padding (if any) never gets confidence bytes and never leaks into the
     // next row.
+    //
+    // VERTICAL FLIP-BACK (the output half of the flip bracket; mirrors Android's
+    // Mask.kt pack loop). We fed MediaPipe a vertically-flipped (upright) buffer
+    // via TextureBridge.downscale, so the returned mask is in that flipped space.
+    // Write each source row `row` to destination row `(height - 1 - row)` -- a
+    // PURE vertical flip (rows reversed, columns preserved). The two flips cancel,
+    // so the published mask lands in the SAME orientation as before; composite
+    // alignment is unchanged, but MediaPipe segmented an upright person.
     for row in 0..<height {
       let srcRow = src.advanced(by: row * width)
-      let dstRow = dstBytes.advanced(by: row * dstStride)
+      let dstRow = dstBytes.advanced(by: (height - 1 - row) * dstStride)
       for col in 0..<width {
         let confidence = min(max(srcRow[col], 0.0), 1.0)
         dstRow[col] = UInt8(confidence * 255.0 + 0.5)
