@@ -151,7 +151,8 @@
   "files": [
     "src",
     "dist",
-    "android",
+    "android/src",
+    "android/build.gradle",
     "ios",
     "app.plugin.js",
     "app.plugin.d.ts",
@@ -231,7 +232,8 @@
     "typescript": "^6.0.3"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "engines": {
     "node": ">=20"
