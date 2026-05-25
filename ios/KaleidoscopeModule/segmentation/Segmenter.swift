@@ -377,7 +377,10 @@ final class Segmenter {
       let srcRow = src.advanced(by: row * width)
       let dstRow = dstBytes.advanced(by: (height - 1 - row) * dstStride)
       for col in 0..<width {
-        let confidence = min(max(srcRow[col], 0.0), 1.0)
+        // Guard non-finite values: min/max leave NaN as NaN, and UInt8(NaN)
+        // is a runtime trap. A NaN confidence reads as full background (0).
+        let raw = srcRow[col]
+        let confidence = raw.isFinite ? min(max(raw, 0.0), 1.0) : 0.0
         dstRow[col] = UInt8(confidence * 255.0 + 0.5)
       }
     }
