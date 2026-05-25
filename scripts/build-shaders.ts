@@ -14,6 +14,17 @@
 // Generated files are committed; `bun run check:shaders` re-runs this and fails
 // if any committed artifact is stale. Never hand-edit the generated files.
 //
+// GATE COVERAGE CAVEAT: check:shaders diffs only the Android .kt and web .ts
+// codegen, not the iOS .metalsrc (spirv-cross output varies by toolchain
+// version, so diffing the MSL would false-positive in CI). For the shared
+// shaders this is safe: a stale .frag still trips the .kt/.ts diff. But the
+// iOS-only shaders (nebula.frag, simianlights.frag) are in neither codegen list
+// and have no gated artifact, so editing one without re-running build:shaders
+// would leave a stale .metalsrc that the gate cannot catch. Those two are
+// staged for the procedural-shader handler (a later PR); until they are wired
+// into a gated path, treat a build:shaders run as mandatory after touching
+// them, and rely on the iOS build to surface a transpile failure.
+//
 // Tool requirements (system binaries):
 //   sudo apt install -y glslang-tools spirv-tools spirv-cross   # Debian/Ubuntu/WSL
 //   brew install glslang spirv-tools spirv-cross                # macOS
@@ -32,10 +43,19 @@ const ANDROID_OUT = join(
 const WEB_OUT = join(REPO_ROOT, 'src/web/shaders.generated.ts');
 const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 
-// The shaders shared across web + Android + iOS, in deterministic emit order.
-// iOS transpiles everything in shaders/; these are the ones that also get
-// code-generated into the Android Kotlin and web TS layers.
-const SHARED_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag'] as const;
+// Code-generation targets, in deterministic emit order. iOS transpiles
+// everything in shaders/ regardless; these lists pick which shaders also get
+// code-generated into the Android Kotlin and web TS layers. They differ because
+// transform.frag is used by the native pipelines only — web reorients in
+// display space via canvas, so emitting its const to web would be dead code.
+const ANDROID_CODEGEN = [
+  'passthrough.vert',
+  'composite.frag',
+  'blur.frag',
+  'transform.frag',
+] as const;
+const WEB_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag'] as const;
+const ALL_CODEGEN = Array.from(new Set<string>([...ANDROID_CODEGEN, ...WEB_CODEGEN]));
 
 const REQUIRED_TOOLS = ['glslangValidator', 'spirv-val', 'spirv-opt', 'spirv-cross'] as const;
 
@@ -109,7 +129,7 @@ async function transpileOne(filename: string): Promise<void> {
 
 // Kotlin raw strings interpolate `$`; GLSL never uses it, but escape defensively.
 function emitAndroid(sources: Map<string, string>): void {
-  const consts = SHARED_CODEGEN.map((file) => {
+  const consts = ANDROID_CODEGEN.map((file) => {
     // biome-ignore lint/suspicious/noTemplateCurlyInString: literal Kotlin raw-string escape for '$', not a JS placeholder
     const body = (sources.get(file) as string).replace(/\$/g, "${'$'}");
     return `  const val ${constBase(file)} = """${body}"""`;
@@ -135,7 +155,7 @@ ${consts}
 // TS template literals interpret backtick, backslash, and `${`; GLSL uses none,
 // but escape defensively so a future shader can't break codegen.
 function emitWeb(sources: Map<string, string>): void {
-  const consts = SHARED_CODEGEN.map((file) => {
+  const consts = WEB_CODEGEN.map((file) => {
     const body = (sources.get(file) as string)
       .replace(/\\/g, '\\\\')
       .replace(/`/g, '\\`')
@@ -184,10 +204,10 @@ async function main(): Promise<void> {
 
   // 2. Android + web: code-generate the shared set.
   const sources = new Map<string, string>();
-  for (const file of SHARED_CODEGEN) {
+  for (const file of ALL_CODEGEN) {
     const path = join(GLSL_DIR, file);
     if (!existsSync(path)) {
-      console.error(`SHARED_CODEGEN lists ${file} but ${path} does not exist`);
+      console.error(`codegen lists ${file} but ${path} does not exist`);
       process.exit(2);
     }
     sources.set(file, stripToVersion(readFileSync(path, 'utf8')));

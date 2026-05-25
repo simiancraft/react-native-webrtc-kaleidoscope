@@ -25,6 +25,18 @@ public class KaleidoscopeModule: Module {
       EffectTuning.maskThreshold = value
     }
 
+    // Segmentation perf control. A JS device-tier sets this to trade mask
+    // resolution for cost on lower-end devices (e.g. A11/iPhone X).
+    Function("setSegmentationTargetShortSide") { (value: Int) in
+      EffectTuning.targetShortSide = value
+    }
+
+    // Native perf instrument toggle; logs GPU/segmentation/ingest timings under
+    // the os_log "Perf" category. Off by default.
+    Function("setDebugTiming") { (value: Bool) in
+      EffectTuning.debugTiming = value
+    }
+
     Function("resetEffectTuning") {
       EffectTuning.reset()
     }

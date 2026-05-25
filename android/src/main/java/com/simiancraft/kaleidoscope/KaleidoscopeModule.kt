@@ -36,6 +36,14 @@ class KaleidoscopeModule : Module() {
       EffectTuning.maskThreshold = value
     }
 
+    Function("setDebugTiming") { value: Boolean ->
+      EffectTuning.debugTiming = value
+    }
+
+    Function("setSegmentationTargetShortSide") { value: Int ->
+      EffectTuning.targetShortSide = value
+    }
+
     Function("resetEffectTuning") {
       EffectTuning.reset()
     }

@@ -9,8 +9,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   resetEffectTuning,
   setBlurSigma,
+  setDebugTiming,
   setMaskHardness,
   setMaskThreshold,
+  setSegmentationTargetShortSide,
 } from 'react-native-webrtc-kaleidoscope';
 
 // Defense in depth: when the native module is missing (a misconfigured EAS
@@ -34,14 +36,15 @@ type TuningRowProps = {
   max: number;
   step: number;
   onChange: (value: number) => void;
+  format?: (value: number) => string;
 };
 
-function TuningRow({ label, value, min, max, step, onChange }: TuningRowProps) {
+function TuningRow({ label, value, min, max, step, onChange, format }: TuningRowProps) {
   return (
     <View style={styles.row}>
       <View style={styles.labelLine}>
         <Text style={styles.label}>{label}</Text>
-        <Text style={styles.value}>{(value ?? 0).toFixed(2)}</Text>
+        <Text style={styles.value}>{format ? format(value ?? 0) : (value ?? 0).toFixed(2)}</Text>
       </View>
       <Slider
         style={styles.slider}
@@ -60,9 +63,11 @@ function TuningRow({ label, value, min, max, step, onChange }: TuningRowProps) {
 
 export function EffectTuningPanel() {
   const [expanded, setExpanded] = useState(false);
-  const [blurSigma, setBlurSigmaLocal] = useState(8);
+  const [blurSigma, setBlurSigmaLocal] = useState(5);
   const [maskHardness, setMaskHardnessLocal] = useState(0.5);
-  const [maskThreshold, setMaskThresholdLocal] = useState(0.5);
+  const [maskThreshold, setMaskThresholdLocal] = useState(0.7);
+  const [targetShortSide, setTargetShortSideLocal] = useState(384);
+  const [debugTiming, setDebugTimingLocal] = useState(false);
 
   const onBlurSigma = (next: number) => {
     setBlurSigmaLocal(next);
@@ -79,10 +84,23 @@ export function EffectTuningPanel() {
     safeCall(() => setMaskThreshold(next));
   };
 
+  const onTargetShortSide = (next: number) => {
+    setTargetShortSideLocal(next);
+    safeCall(() => setSegmentationTargetShortSide(Math.round(next)));
+  };
+
+  const onToggleTiming = () => {
+    const next = !debugTiming;
+    setDebugTimingLocal(next);
+    safeCall(() => setDebugTiming(next));
+  };
+
   const onReset = () => {
-    setBlurSigmaLocal(8);
+    setBlurSigmaLocal(5);
     setMaskHardnessLocal(0.5);
-    setMaskThresholdLocal(0.5);
+    setMaskThresholdLocal(0.7);
+    setTargetShortSideLocal(384);
+    setDebugTimingLocal(false);
     safeCall(() => resetEffectTuning());
   };
 
@@ -97,7 +115,7 @@ export function EffectTuningPanel() {
             label="Blur sigma"
             value={blurSigma}
             min={0.5}
-            max={32}
+            max={7}
             step={0.5}
             onChange={onBlurSigma}
           />
@@ -117,6 +135,21 @@ export function EffectTuningPanel() {
             step={0.01}
             onChange={onMaskThreshold}
           />
+          <TuningRow
+            label="Segmentation res (px, native)"
+            value={targetShortSide}
+            min={256}
+            max={1080}
+            step={32}
+            onChange={onTargetShortSide}
+            format={(v) => String(Math.round(v))}
+          />
+          <Pressable
+            onPress={onToggleTiming}
+            style={[styles.resetButton, debugTiming && styles.toggleOn]}
+          >
+            <Text style={styles.resetText}>Native timing: {debugTiming ? 'ON' : 'off'}</Text>
+          </Pressable>
           <Pressable onPress={onReset} style={styles.resetButton}>
             <Text style={styles.resetText}>Reset to defaults</Text>
           </Pressable>
@@ -173,6 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#222',
     borderRadius: 4,
   },
+  toggleOn: { backgroundColor: '#4a8f3f' },
   resetText: {
     color: '#aaa',
     fontSize: 12,

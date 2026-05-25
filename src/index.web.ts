@@ -12,7 +12,7 @@
 import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
-import { mirror } from './web/effects/mirror';
+import { makeTransform } from './web/effects/transform';
 import {
   applyEffectToTrack,
   type DisposablePipeline,
@@ -22,7 +22,8 @@ import { tuning } from './web/tuning';
 
 /**
  * Set the Gaussian sigma for the blur effect. Higher = softer blur.
- * Clamped to [0.5, 64]. Default 8.
+ * Clamped to [0.5, 7] (the useful range before the linear-sampled kernel
+ * truncates and bands). Default 5.
  */
 export const setBlurSigma = (value: number): void => {
   tuning.setBlurSigma(value);
@@ -48,6 +49,23 @@ export const setMaskThreshold = (value: number): void => {
 };
 
 /**
+ * Set the segmentation input short-side (px). Native-only knob (lower =
+ * cheaper segmentation on older devices); stored on web for API parity but
+ * the web MediaPipe pipeline does not consume it.
+ */
+export const setSegmentationTargetShortSide = (value: number): void => {
+  tuning.setSegmentationTargetShortSide(value);
+};
+
+/**
+ * Toggle native per-frame timing logs (off by default). No-op effect on web
+ * beyond storing the flag.
+ */
+export const setDebugTiming = (value: boolean): void => {
+  tuning.setDebugTiming(value);
+};
+
+/**
  * Reset all effect tuning parameters to library defaults.
  */
 export const resetEffectTuning = (): void => {
@@ -62,13 +80,17 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
-  MirrorSpec,
+  TransformName,
+  TransformSpec,
 } from './types';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
   switch (spec.name) {
-    case 'mirror':
-      return mirror;
+    case 'flip-x':
+    case 'flip-y':
+    case 'rotate-cw':
+    case 'rotate-ccw':
+      return makeTransform(spec.name);
     case 'blur':
       // Blur strength comes from the global tuning state (setBlurSigma), not
       // the spec; the spec carries no parameters.

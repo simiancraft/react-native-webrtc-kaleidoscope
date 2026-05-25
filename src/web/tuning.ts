@@ -8,12 +8,16 @@
 const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.max(value, lo), hi);
 
 class EffectTuningState {
-  blurSigma = 8;
+  blurSigma = 5;
   maskHardness = 0.5;
-  maskThreshold = 0.5;
+  maskThreshold = 0.7;
+  // Native-only knobs stored here for cross-platform API parity; the web
+  // MediaPipe pipeline does not currently consume them.
+  segmentationTargetShortSide = 384;
+  debugTiming = false;
 
   setBlurSigma(value: number): void {
-    this.blurSigma = clamp(value, 0.5, 64);
+    this.blurSigma = clamp(value, 0.5, 7);
   }
 
   setMaskHardness(value: number): void {
@@ -24,10 +28,20 @@ class EffectTuningState {
     this.maskThreshold = clamp(value, 0.05, 0.95);
   }
 
+  setSegmentationTargetShortSide(value: number): void {
+    this.segmentationTargetShortSide = clamp(value, 128, 1080);
+  }
+
+  setDebugTiming(value: boolean): void {
+    this.debugTiming = value;
+  }
+
   reset(): void {
-    this.blurSigma = 8;
+    this.blurSigma = 5;
     this.maskHardness = 0.5;
-    this.maskThreshold = 0.5;
+    this.maskThreshold = 0.7;
+    this.segmentationTargetShortSide = 384;
+    this.debugTiming = false;
   }
 }
 

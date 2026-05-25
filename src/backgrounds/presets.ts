@@ -6,18 +6,31 @@
 //   - src/index.ts (native allowlist derivation; the flat-string upstream
 //     registry encodes each preset as `background-image-${name}`),
 //   - the Android side mirrors this list at android/.../Registration.kt
-//     and android/src/main/assets/backgrounds/<name>.png.
-//   - the iOS side will mirror it at ios/.../Registration.swift once the
-//     iOS processors land.
+//     and android/src/main/assets/backgrounds/<name>.webp.
+//   - the iOS side mirrors it at ios/.../Registration.swift and
+//     ios/KaleidoscopeModule/resources/backgrounds/<name>.webp.
 //   - the demo at demo/app/index.tsx maps each preset name to a bundled
-//     PNG via Asset.fromModule for the web target.
+//     WebP via Asset.fromModule for the web target.
 //
 // To add a new preset: append the name here, drop the matching
-// <name>.png into android/src/main/assets/backgrounds/, add the
-// require()'d asset to the demo's preset map, and register the factory
-// at android/.../Registration.kt. The web side picks it up automatically
-// via the literal-union type and the derived native allowlist.
+// <name>.webp into android/src/main/assets/backgrounds/ and
+// ios/KaleidoscopeModule/resources/backgrounds/, add the require()'d
+// asset to the demo's preset map, and register the factory at both
+// Registration.kt and Registration.swift. The web side picks it up
+// automatically via the literal-union type and the derived native allowlist.
 
-export const BACKGROUND_PRESETS = ['office-1', 'office-2'] as const;
+export const BACKGROUND_PRESETS = [
+  'debug-resolutions',
+  'dark-office',
+  'light-office',
+  'home-light',
+  'home-dark',
+  'nature-light',
+  'nature-dark',
+  'stylized-light',
+  'stylized-dark',
+  'simiancraft-light',
+  'simiancraft-dark',
+] as const;
 
 export type BackgroundPresetName = (typeof BACKGROUND_PRESETS)[number];

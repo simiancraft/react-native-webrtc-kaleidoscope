@@ -2,16 +2,16 @@
 //
 // Per frame:
 //   1. Render the input OES camera texture into a cached "original 2D" FBO.
-//   2. Lazy-load the named PNG asset (e.g. "office-1") from the library's
+//   2. Lazy-load the named WebP asset (e.g. "dark-office") from the library's
 //      android/src/main/assets/backgrounds/ on first frame; upload as a 2D
 //      GL texture; cache for subsequent frames.
-//   3. Produce a mask via Mask.produce (downsample, MLKit, upload).
+//   3. Produce a mask via Mask.produce (downsample, MediaPipe, upload).
 //   4. Composite original + image + mask into a fresh output texture via
 //      COMPOSITE_FRAG.
 //   5. Wrap the fresh output texture in a TextureBufferImpl and return a
 //      VideoFrame.
 //
-// Each registered name (e.g. "background-image-office-1") gets its own
+// Each registered name (e.g. "background-image-dark-office") gets its own
 // factory keyed by an asset name; multiple factories can coexist if the
 // consumer registers multiple variants.
 //
@@ -31,7 +31,9 @@ import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
 import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
+import com.simiancraft.kaleidoscope.gpu.FramePipeline
 import com.simiancraft.kaleidoscope.gpu.GlDebug
+import com.simiancraft.kaleidoscope.gpu.Ingest
 import com.simiancraft.kaleidoscope.gpu.GlProgram
 import com.simiancraft.kaleidoscope.gpu.Shaders
 import com.simiancraft.kaleidoscope.segmentation.Mask
@@ -43,8 +45,9 @@ import org.webrtc.YuvConverter
 
 /**
  * @param context Used to read the PNG asset.
- * @param assetName Filename (without `.png`) under `assets/backgrounds/`.
- *                   E.g. "office-1" -> assets/backgrounds/office-1.png.
+ * @param assetName Filename (without `.webp`) under `assets/backgrounds/`.
+ *                   E.g. "dark-office" -> assets/backgrounds/dark-office.webp.
+ *                   BitmapFactory decodes WebP natively (supported since API 14).
  *
  * maskHardness is read per frame from com.simiancraft.kaleidoscope.EffectTuning
  * so JS callers can tune the smoothstep edge via the Expo Module's
@@ -62,6 +65,10 @@ private class BackgroundImageProcessor(
   private val context: Context,
   private val assetName: String,
 ) : VideoFrameProcessor {
+  // process() is only ever invoked on the single SurfaceTextureHelper capture
+  // thread (VideoEffectProcessor.onFrameCaptured), so this never actually
+  // contends. Retained as cheap uncontended insurance and as an explicit marker
+  // that the GL state below is single-threaded; it is NOT a cross-thread guard.
   private val lock = Any()
 
   private var oesToTwoD: GlProgram? = null
@@ -71,8 +78,12 @@ private class BackgroundImageProcessor(
   private var cachedWidth = 0
   private var cachedHeight = 0
 
-  private val mask = Mask()
+  private val mask = Mask(context)
   private var yuvConverter: YuvConverter? = null
+
+  // R3: one-frame GPU pipeline (see FramePipeline). Replaces the per-frame
+  // glFinish so the capture thread does not block on this frame's GPU work.
+  private val pipeline = FramePipeline()
 
   // Background image cached as a 2D GL texture; loaded lazily on the first
   // successful frame to ensure GL setup is ready. Aspect ratio captured at
@@ -116,12 +127,18 @@ private class BackgroundImageProcessor(
       )
       return null
     }
-    val width = inputBuffer.width
-    val height = inputBuffer.height
-    if (width <= 0 || height <= 0) {
-      Log.w(TAG, "Degenerate dims ${width}x${height}; forwarding.")
+    val bufW = inputBuffer.width
+    val bufH = inputBuffer.height
+    if (bufW <= 0 || bufH <= 0) {
+      Log.w(TAG, "Degenerate dims ${bufW}x${bufH}; forwarding.")
       return null
     }
+
+    // Ingest normalization: the OES->2D pass lands a DISPLAY-UPRIGHT frame, so
+    // the original FBO and output are sized in DISPLAY dims, the cover-fit runs
+    // against the display aspect, and the frame goes out rotation 0.
+    val width = Ingest.displayWidth(bufW, bufH, frame.rotation)
+    val height = Ingest.displayHeight(bufW, bufH, frame.rotation)
 
     GlDebug.check("bgImage entry")
     val saved = Egl.save()
@@ -145,7 +162,8 @@ private class BackgroundImageProcessor(
       origFbo.bind()
       oes.use()
       oes.setInt("uTex", 0)
-      val texMatrix = Egl.matrixToGl(inputBuffer.transformMatrix)
+      // Compose transformMatrix with the display rotation so the FBO lands upright.
+      val texMatrix = Ingest.composedTexMatrix(inputBuffer.transformMatrix, frame.rotation)
       GLES30.glUniformMatrix4fv(oes.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
@@ -208,8 +226,6 @@ private class BackgroundImageProcessor(
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
       GlDebug.check("bgImage composite pass")
 
-      GLES30.glFinish()
-
       GLES30.glFramebufferTexture2D(
         GLES30.GL_FRAMEBUFFER,
         GLES30.GL_COLOR_ATTACHMENT0,
@@ -222,28 +238,42 @@ private class BackgroundImageProcessor(
       outputFboHandle = 0
       GlDebug.check("bgImage output cleanup")
 
+      // R3: fence this frame and hand the previous GPU-complete frame off; the
+      // pipeline now owns outputTextureId, so zero the local handle.
+      val ready = pipeline.enqueue(
+        outputTextureId,
+        width,
+        height,
+        // Pixels are already display-upright after ingest; emit rotation 0.
+        0,
+        frame.timestampNs,
+        EffectTuning.debugTiming,
+        TAG,
+      )
+      outputTextureId = 0
+      ready ?: return null
+
       val yc = yuvConverter ?: run {
         val c = YuvConverter()
         yuvConverter = c
         c
       }
 
-      val capturedTextureId = outputTextureId
+      val readyTextureId = ready.textureId
       val outputBuffer = TextureBufferImpl(
-        width,
-        height,
+        ready.width,
+        ready.height,
         VideoFrame.TextureBuffer.Type.RGB,
-        capturedTextureId,
+        readyTextureId,
         Matrix(),
         textureHelper.handler,
         yc,
         Runnable {
-          GLES30.glDeleteTextures(1, intArrayOf(capturedTextureId), 0)
+          GLES30.glDeleteTextures(1, intArrayOf(readyTextureId), 0)
         },
       )
-      outputTextureId = 0
 
-      VideoFrame(outputBuffer, frame.rotation, frame.timestampNs)
+      VideoFrame(outputBuffer, ready.rotation, ready.timestampNs)
     } catch (t: Throwable) {
       if (outputTextureId != 0) {
         try {
@@ -288,15 +318,15 @@ private class BackgroundImageProcessor(
   private fun ensureBackgroundTexture() {
     if (backgroundTextureId != 0) return
     val bmp = try {
-      context.assets.open("backgrounds/$assetName.png").use { stream ->
+      context.assets.open("backgrounds/$assetName.webp").use { stream ->
         BitmapFactory.decodeStream(stream)
       }
     } catch (t: Throwable) {
-      Log.e(TAG, "failed to load asset backgrounds/$assetName.png", t)
+      Log.e(TAG, "failed to load asset backgrounds/$assetName.webp", t)
       return
     }
     if (bmp == null) {
-      Log.e(TAG, "BitmapFactory returned null for backgrounds/$assetName.png")
+      Log.e(TAG, "BitmapFactory returned null for backgrounds/$assetName.webp")
       return
     }
     // Pre-flip vertically so the texture lands in the shared convention

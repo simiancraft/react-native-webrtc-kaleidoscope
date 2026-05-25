@@ -88,4 +88,14 @@ void main() {
   // orientation differences live in the uniforms the host sets (see above),
   // not in the shader, so the same generated body serves every runtime.
   val COMPOSITE_FRAG = ShadersGenerated.COMPOSITE_FRAG
+
+  // Transform: a single-pass geometric reorientation (axis flip or 90-degree
+  // rotation) driven by the uUvTransform mat2 the host computes from a pure
+  // screen-space op via Orientation.mat2For. One shader serves all four ops
+  // (flip-x, flip-y, rotate-cw, rotate-ccw); the input is already
+  // display-upright (camera orientation is normalized once in Ingest), so no
+  // rotation correction happens here.
+  // Canonical source: shaders/transform.frag. Generated into ShadersGenerated
+  // by `bun run build:shaders`; delegated here.
+  val TRANSFORM_FRAG = ShadersGenerated.TRANSFORM_FRAG
 }

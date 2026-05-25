@@ -6,8 +6,17 @@
 
 import type { BackgroundPresetName } from './backgrounds';
 
-export type MirrorSpec = {
-  readonly name: 'mirror';
+/**
+ * Geometric reorientation of the frame: an axis flip or a 90-degree rotation.
+ * The operation IS the effect name (parameterless), which keeps it compatible
+ * with the bare-string input form and the flat-string native registry. On web
+ * these run in display space (the reference behavior); native pipelines correct
+ * for the camera buffer's rotation so the on-screen result matches everywhere.
+ */
+export type TransformName = 'flip-x' | 'flip-y' | 'rotate-cw' | 'rotate-ccw';
+
+export type TransformSpec = {
+  readonly name: TransformName;
 };
 
 export type BlurSpec = {
@@ -26,11 +35,18 @@ export type BackgroundImageSpec = {
    *
    * The `string & {}` trick preserves preset-name autocomplete while still
    * permitting arbitrary URL inputs without a separate union branch.
+   *
+   * SECURITY (web): a URL/data-URI `source` is fetched in the page origin and
+   * decoded to a texture. If you wire this from end-user input, validate the
+   * URL yourself; the library does not allowlist fetch targets. Decoded
+   * dimensions are capped and the per-source cache is bounded, but an
+   * unvalidated `source` can still issue a same-origin request you did not
+   * intend.
    */
   readonly source: BackgroundPresetName | (string & {});
 };
 
-export type EffectSpec = MirrorSpec | BlurSpec | BackgroundImageSpec;
+export type EffectSpec = TransformSpec | BlurSpec | BackgroundImageSpec;
 
 /**
  * Legacy alias for the discriminant. Useful for typed switch statements and

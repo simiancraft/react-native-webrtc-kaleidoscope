@@ -6,7 +6,7 @@
 // Unlike Android (which registers a FACTORY and the upstream builds one
 // processor per track), iOS registers a single processor INSTANCE per name.
 // That instance's capturer:didCaptureVideoFrame: is invoked per frame, so each
-// processor holds its own cached Metal/Vision resources and is internally
+// processor holds its own cached Metal/MediaPipe resources and is internally
 // thread-safe (see each processor's os_unfair_lock).
 //
 // ProcessorProvider and the VideoFrameProcessorDelegate protocol come from
@@ -29,15 +29,58 @@ import react_native_webrtc
 
 public enum Registration {
   public static func registerAll() {
-    ProcessorProvider.addProcessor(MirrorProcessor(), forName: "mirror")
+    // Geometric reorientation ops. flip-x is the corrected screen-horizontal
+    // mirror that replaces the old "mirror" effect; the other three are new.
+    // All four share TransformProcessor + transform.metalsrc; the buffer-space
+    // rotation correction lives only in Orientation.swift.
+    ProcessorProvider.addProcessor(TransformProcessor(op: .flipX), forName: "flip-x")
+    ProcessorProvider.addProcessor(TransformProcessor(op: .flipY), forName: "flip-y")
+    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCW), forName: "rotate-cw")
+    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
     ProcessorProvider.addProcessor(BlurProcessor(), forName: "blur")
     ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "office-1"),
-      forName: "background-image-office-1"
+      BackgroundImageProcessor(assetName: "debug-resolutions"),
+      forName: "background-image-debug-resolutions"
     )
     ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "office-2"),
-      forName: "background-image-office-2"
+      BackgroundImageProcessor(assetName: "dark-office"),
+      forName: "background-image-dark-office"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "light-office"),
+      forName: "background-image-light-office"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "home-light"),
+      forName: "background-image-home-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "home-dark"),
+      forName: "background-image-home-dark"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "nature-light"),
+      forName: "background-image-nature-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "nature-dark"),
+      forName: "background-image-nature-dark"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "stylized-light"),
+      forName: "background-image-stylized-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "stylized-dark"),
+      forName: "background-image-stylized-dark"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "simiancraft-light"),
+      forName: "background-image-simiancraft-light"
+    )
+    ProcessorProvider.addProcessor(
+      BackgroundImageProcessor(assetName: "simiancraft-dark"),
+      forName: "background-image-simiancraft-dark"
     )
   }
 }

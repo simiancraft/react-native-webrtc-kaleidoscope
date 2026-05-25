@@ -8,6 +8,7 @@
 [![npm version](https://img.shields.io/npm/v/react-native-webrtc-kaleidoscope?color=cb3837&logo=npm)](https://www.npmjs.com/package/react-native-webrtc-kaleidoscope)
 [![Types: included](https://img.shields.io/npm/types/react-native-webrtc-kaleidoscope?color=3178c6&logo=typescript)](https://www.npmjs.com/package/react-native-webrtc-kaleidoscope)
 [![CI](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/actions/workflows/ci.yml/badge.svg)](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/simiancraft/react-native-webrtc-kaleidoscope/graph/badge.svg)](https://codecov.io/gh/simiancraft/react-native-webrtc-kaleidoscope)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/simiancraft/react-native-webrtc-kaleidoscope/badge)](https://securityscorecards.dev/viewer/?uri=github.com/simiancraft/react-native-webrtc-kaleidoscope)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
@@ -19,17 +20,17 @@
 
 ### What works today
 
-- **Mirror** (horizontal flip).
+- **Transform** (flip X / flip Y / rotate 90° CW / CCW) — orientation utilities, identical across platforms.
 - **Blur** (background blur, person stays sharp).
-- **Background replacement** (composite a still PNG behind the segmented person; two bundled office presets, library-side asset pipeline).
+- **Background replacement** (composite a still image behind the segmented person; eleven bundled presets, plus arbitrary URLs on web; library-side asset pipeline).
 - **Runtime tuning** of the GLSL effects; see the [Use](#use) section.
 
-| Platform | Mirror | Blur | Background replacement | Notes |
+| Platform | Transform | Blur | Background replacement | Notes |
 |---|---|---|---|---|
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
-| Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MLKit Selfie Segmentation |
+| Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MediaPipe Selfie Segmentation (Tasks) |
 | iOS (≥ 15) | ✓ | ✓ | ✓ | Metal + Vision (person segmentation), verified on device. Older A11 devices (iPhone X) run at a lower frame rate |
-| Safari / Firefox | — | — | — | No Insertable Streams; `applyVideoEffects` throws a typed error |
+| Safari / Firefox | — | — | — | No Insertable Streams; `applyVideoEffects` throws a clear capability error |
 
 ### Coming soon
 
@@ -102,31 +103,50 @@ import {
   setMaskHardness,
   setMaskThreshold,
 } from 'react-native-webrtc-kaleidoscope';
+import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
 
 const stream = await mediaDevices.getUserMedia({ video: true });
 const [track] = stream.getVideoTracks();
 
-applyVideoEffects(track, ['mirror']);
+applyVideoEffects(track, ['flip-x']); // also flip-y, rotate-cw, rotate-ccw
 applyVideoEffects(track, ['blur']);
-applyVideoEffects(track, [{ name: 'background-image', source: 'office-1' }]);
+applyVideoEffects(track, [{ name: 'background-image', source: darkOffice }]);
 applyVideoEffects(track, []); // clear all effects
 
 // Runtime tuning (effects pick up the new values on the next frame):
-setBlurSigma(25);        // Gaussian σ; clamped to [0.5, 64], default 8.
-setMaskHardness(0.2);    // smoothstep transition width; clamped to [0, 1]. 0 = soft halo, 1 = near-step. Default 0.5.
-setMaskThreshold(0.7);   // smoothstep center; clamped to [0.05, 0.95]. Higher rejects low-confidence pixels. Default 0.5.
+setBlurSigma(5);         // Gaussian σ; clamped to [0.5, 7], default 5.
+setMaskHardness(0.5);    // smoothstep transition width; clamped to [0, 1]. 0 = soft halo, 1 = near-step. Default 0.5.
+setMaskThreshold(0.7);   // smoothstep center; clamped to [0.05, 0.95]. Higher rejects low-confidence pixels. Default 0.7.
 ```
 
 Effects chain in array order.
 
-**Tuning note:** optimal values are platform-specific because each segmentation model (MediaPipe on web, MLKit on Android, Vision when iOS lands) produces a different confidence distribution. Working defaults on a typical well-lit scene:
+**Tuning note:** all three platforms run MediaPipe selfie segmentation (Tasks Image Segmenter on native, the Selfie Segmentation Solution on web), but optimal values still differ slightly because the input downscale and the API variant differ per platform, producing different confidence distributions. Working defaults on a typical well-lit scene:
 
 | Platform | Blur sigma | Mask hardness | Mask threshold |
 |---|---|---|---|
 | Web (MediaPipe) | 25 | 0.2 | 0.85 |
-| Android (MLKit) | 30 | 0.2 | 0.6 |
+| Android (MediaPipe) | 30 | 0.2 | 0.6 |
 
-The library ships neutral defaults (8, 0.5, 0.5) and consumers tune at runtime via the API above; whether to ship the dialed-in values as platform-specific defaults is an open question waiting on iOS data.
+The library ships defaults (5, 0.5, 0.7) and consumers tune at runtime via the API above; whether to ship the dialed-in per-platform values as defaults is an open question.
+
+## Background presets
+
+Eleven backgrounds ship for the `background-image` effect, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
+
+| Theme | Light | Dark |
+|---|---|---|
+| Office | <img src="src/backgrounds/light-office.webp" width="220" alt="light-office" /> | <img src="src/backgrounds/dark-office.webp" width="220" alt="dark-office" /> |
+| Home | <img src="src/backgrounds/home-light.webp" width="220" alt="home-light" /> | <img src="src/backgrounds/home-dark.webp" width="220" alt="home-dark" /> |
+| Nature | <img src="src/backgrounds/nature-light.webp" width="220" alt="nature-light" /> | <img src="src/backgrounds/nature-dark.webp" width="220" alt="nature-dark" /> |
+| Stylized | <img src="src/backgrounds/stylized-light.webp" width="220" alt="stylized-light" /> | <img src="src/backgrounds/stylized-dark.webp" width="220" alt="stylized-dark" /> |
+| Simiancraft | <img src="src/backgrounds/simiancraft-light.webp" width="220" alt="simiancraft-light" /> | <img src="src/backgrounds/simiancraft-dark.webp" width="220" alt="simiancraft-dark" /> |
+
+Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:
+
+<img src="src/backgrounds/debug-resolutions.webp" width="220" alt="debug-resolutions" />
+
+See [`src/backgrounds/README.md`](./src/backgrounds/README.md) for sizing and how to add a preset.
 
 ## Web and native differences
 
@@ -134,9 +154,9 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 - **Effect parameters.** Web reads tuning from the global setters (`setBlurSigma`, `setMaskHardness`, `setMaskThreshold`) on the next frame. Native currently ignores per-call `EffectSpec` parameters such as `{ name: 'blur', sigma: 12 }`; tuning is global through the same setters. Per-call uniforms through the native registry are a follow-up.
 - **Background source.** `background-image.source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
-- **Background presets ship as tree-shakeable files.** Two example backgrounds (`office-1`, `office-2`) are importable per preset: `import { office1 } from 'react-native-webrtc-kaleidoscope/backgrounds/office-1'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers — and, since Metro doesn't tree-shake, simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
+- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers — and, since Metro doesn't tree-shake, simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
 - **Segmentation model on web.** The web blur and background-image effects load MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
-- **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers; Safari and Firefox throw a typed capability error.
+- **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers (Chrome, Edge); Safari and Firefox lack the API, so `applyVideoEffects` throws a clear capability error and the demo falls back to the unprocessed track.
 
 ## What this isn't
 
@@ -151,8 +171,8 @@ The codebase lives across four surfaces:
 
 - `src/` — JS facade and shared types. `applyVideoEffects(track, effects)` plus runtime tuning setters.
 - `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. One shader file per stage in `src/web/shaders.ts`.
-- `android/` — OpenGL ES 3.0 pipeline. MLKit segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
-- `ios/` — Metal pipeline (Swift) with Vision person segmentation. The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
+- `android/` — OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
+- `ios/` — Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model the Android target bundles). The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
 
 The composite shader (`shaders/composite.frag`) is the same GLSL source for every effect category (blur, background-image, future procedural backgrounds). Per-effect difference is upstream of the composite: how the `uBackground` texture gets produced.
 

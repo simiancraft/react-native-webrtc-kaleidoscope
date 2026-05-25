@@ -52,22 +52,94 @@
       "import": "./dist/backgrounds/index.js",
       "default": "./dist/backgrounds/index.js"
     },
-    "./backgrounds/office-1": {
-      "types": "./dist/backgrounds/office-1.d.ts",
-      "react-native": "./src/backgrounds/office-1.ts",
-      "browser": "./dist/backgrounds/office-1.web.js",
-      "import": "./dist/backgrounds/office-1.js",
-      "default": "./dist/backgrounds/office-1.js"
+    "./backgrounds/debug-resolutions": {
+      "types": "./dist/backgrounds/debug-resolutions.d.ts",
+      "react-native": "./src/backgrounds/debug-resolutions.ts",
+      "browser": "./dist/backgrounds/debug-resolutions.web.js",
+      "import": "./dist/backgrounds/debug-resolutions.js",
+      "default": "./dist/backgrounds/debug-resolutions.js"
     },
-    "./backgrounds/office-2": {
-      "types": "./dist/backgrounds/office-2.d.ts",
-      "react-native": "./src/backgrounds/office-2.ts",
-      "browser": "./dist/backgrounds/office-2.web.js",
-      "import": "./dist/backgrounds/office-2.js",
-      "default": "./dist/backgrounds/office-2.js"
+    "./backgrounds/dark-office": {
+      "types": "./dist/backgrounds/dark-office.d.ts",
+      "react-native": "./src/backgrounds/dark-office.ts",
+      "browser": "./dist/backgrounds/dark-office.web.js",
+      "import": "./dist/backgrounds/dark-office.js",
+      "default": "./dist/backgrounds/dark-office.js"
     },
-    "./backgrounds/office-1.webp": "./src/backgrounds/office-1.webp",
-    "./backgrounds/office-2.webp": "./src/backgrounds/office-2.webp",
+    "./backgrounds/light-office": {
+      "types": "./dist/backgrounds/light-office.d.ts",
+      "react-native": "./src/backgrounds/light-office.ts",
+      "browser": "./dist/backgrounds/light-office.web.js",
+      "import": "./dist/backgrounds/light-office.js",
+      "default": "./dist/backgrounds/light-office.js"
+    },
+    "./backgrounds/home-light": {
+      "types": "./dist/backgrounds/home-light.d.ts",
+      "react-native": "./src/backgrounds/home-light.ts",
+      "browser": "./dist/backgrounds/home-light.web.js",
+      "import": "./dist/backgrounds/home-light.js",
+      "default": "./dist/backgrounds/home-light.js"
+    },
+    "./backgrounds/home-dark": {
+      "types": "./dist/backgrounds/home-dark.d.ts",
+      "react-native": "./src/backgrounds/home-dark.ts",
+      "browser": "./dist/backgrounds/home-dark.web.js",
+      "import": "./dist/backgrounds/home-dark.js",
+      "default": "./dist/backgrounds/home-dark.js"
+    },
+    "./backgrounds/nature-light": {
+      "types": "./dist/backgrounds/nature-light.d.ts",
+      "react-native": "./src/backgrounds/nature-light.ts",
+      "browser": "./dist/backgrounds/nature-light.web.js",
+      "import": "./dist/backgrounds/nature-light.js",
+      "default": "./dist/backgrounds/nature-light.js"
+    },
+    "./backgrounds/nature-dark": {
+      "types": "./dist/backgrounds/nature-dark.d.ts",
+      "react-native": "./src/backgrounds/nature-dark.ts",
+      "browser": "./dist/backgrounds/nature-dark.web.js",
+      "import": "./dist/backgrounds/nature-dark.js",
+      "default": "./dist/backgrounds/nature-dark.js"
+    },
+    "./backgrounds/stylized-light": {
+      "types": "./dist/backgrounds/stylized-light.d.ts",
+      "react-native": "./src/backgrounds/stylized-light.ts",
+      "browser": "./dist/backgrounds/stylized-light.web.js",
+      "import": "./dist/backgrounds/stylized-light.js",
+      "default": "./dist/backgrounds/stylized-light.js"
+    },
+    "./backgrounds/stylized-dark": {
+      "types": "./dist/backgrounds/stylized-dark.d.ts",
+      "react-native": "./src/backgrounds/stylized-dark.ts",
+      "browser": "./dist/backgrounds/stylized-dark.web.js",
+      "import": "./dist/backgrounds/stylized-dark.js",
+      "default": "./dist/backgrounds/stylized-dark.js"
+    },
+    "./backgrounds/simiancraft-light": {
+      "types": "./dist/backgrounds/simiancraft-light.d.ts",
+      "react-native": "./src/backgrounds/simiancraft-light.ts",
+      "browser": "./dist/backgrounds/simiancraft-light.web.js",
+      "import": "./dist/backgrounds/simiancraft-light.js",
+      "default": "./dist/backgrounds/simiancraft-light.js"
+    },
+    "./backgrounds/simiancraft-dark": {
+      "types": "./dist/backgrounds/simiancraft-dark.d.ts",
+      "react-native": "./src/backgrounds/simiancraft-dark.ts",
+      "browser": "./dist/backgrounds/simiancraft-dark.web.js",
+      "import": "./dist/backgrounds/simiancraft-dark.js",
+      "default": "./dist/backgrounds/simiancraft-dark.js"
+    },
+    "./backgrounds/debug-resolutions.webp": "./src/backgrounds/debug-resolutions.webp",
+    "./backgrounds/dark-office.webp": "./src/backgrounds/dark-office.webp",
+    "./backgrounds/light-office.webp": "./src/backgrounds/light-office.webp",
+    "./backgrounds/home-light.webp": "./src/backgrounds/home-light.webp",
+    "./backgrounds/home-dark.webp": "./src/backgrounds/home-dark.webp",
+    "./backgrounds/nature-light.webp": "./src/backgrounds/nature-light.webp",
+    "./backgrounds/nature-dark.webp": "./src/backgrounds/nature-dark.webp",
+    "./backgrounds/stylized-light.webp": "./src/backgrounds/stylized-light.webp",
+    "./backgrounds/stylized-dark.webp": "./src/backgrounds/stylized-dark.webp",
+    "./backgrounds/simiancraft-light.webp": "./src/backgrounds/simiancraft-light.webp",
+    "./backgrounds/simiancraft-dark.webp": "./src/backgrounds/simiancraft-dark.webp",
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
       "require": "./app.plugin.js",
@@ -79,7 +151,8 @@
   "files": [
     "src",
     "dist",
-    "android",
+    "android/src",
+    "android/build.gradle",
     "ios",
     "app.plugin.js",
     "app.plugin.d.ts",
@@ -159,7 +232,8 @@
     "typescript": "^6.0.3"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "engines": {
     "node": ">=20"

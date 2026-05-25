@@ -12,44 +12,53 @@ src/                                   JS facade and shared types
 ├── index.ts                           native entry (Metro picks via "react-native" condition)
 ├── index.web.ts                       web entry (Metro picks via "browser" condition)
 ├── types.ts                           EffectSpec discriminated union, ApplyVideoEffects
-├── backgrounds.ts                     bundled background-preset catalog (single source of truth)
+├── backgrounds/                       preset catalog (presets.ts) + per-preset source modules (single source of truth)
 └── web/                               web-only implementation
     ├── insertable-streams.ts            MediaStreamTrackProcessor wiring
     ├── segmenter.ts                     MediaPipe Selfie Segmentation loader (shared)
     ├── shaders.ts                       all GLSL source for every web effect
     └── effects/                         one file per effect; owns its GL state and per-frame transform
-        ├── mirror.ts
+        ├── transform.ts                  flip-x/flip-y/rotate-cw/rotate-ccw (replaced mirror.ts)
         ├── blur.ts
-        ├── background-image.ts
-        └── passthrough.ts
+        └── background-image.ts
 
 android/src/main/java/com/simiancraft/kaleidoscope/
 ├── KaleidoscopeModule.kt              Expo Module entry (OnCreate calls Registration.registerAll)
 ├── Registration.kt                    flat-string registry: name -> VideoFrameProcessorFactoryInterface
 ├── effects/                           one VideoFrameProcessorFactory per effect
-│   ├── MirrorFactory.kt
+│   ├── TransformFactory.kt              flip-x/flip-y/rotate-cw/rotate-ccw (replaced MirrorFactory.kt)
 │   ├── BlurFactory.kt
 │   └── BackgroundImageFactory.kt
 ├── gpu/                               pure GL primitives, no domain logic
+│   ├── Ingest.kt                        THE one place camera orientation is normalized (display rotation + dims)
+│   ├── Orientation.kt                   screen-space transform-op matrices (no frame.rotation dependence)
+│   ├── FramePipeline.kt                 one-frame GPU pipeline (GL-fence handoff; replaced per-frame glFinish)
 │   ├── Egl.kt                           state save/restore, matrix conversion
 │   ├── Fbo.kt                           FBO + texture allocator
 │   ├── GlProgram.kt                     shader compile/link
 │   ├── GlDebug.kt                       glGetError logging
-│   ├── GpuEffectFactory.kt              architecture-proof passthrough factory (v0.1 cleanup target)
-│   ├── GpuEffectProcessor.kt            architecture-proof passthrough processor (v0.1 cleanup target)
-│   └── Shaders.kt                       all GLSL source for every Android effect
-└── segmentation/                      person-segmentation helpers (MLKit on Android)
-    ├── Mask.kt                          async MLKit worker + last-known-mask cache
+│   ├── Shaders.kt                       GLSL source for the Android effects
+│   └── ShadersGenerated.kt              codegen'd shader strings (do not edit; bun run build:shaders)
+└── segmentation/                      person-segmentation helpers (MediaPipe on Android)
+    ├── SegmentationEngine.kt            process-wide worker thread + ImageSegmenter (shared across processors)
+    ├── Mask.kt                          GL-side adapter: downsample/readback, EMA, mask-texture upload
     └── MaskTuning.kt                    smoothstep range from a [0,1] hardness factor
 
 ios/KaleidoscopeModule/
 ├── KaleidoscopeModule.swift           Expo Module entry (mirrors Android)
-├── Registration.swift                 flat-string registry (currently a no-op stub)
-├── effects/                           one RTCVideoFrameProcessor conformance per effect
-│   ├── MirrorProcessor.swift
-│   └── BlurProcessor.swift
-└── segmentation/                      person-segmentation helpers (Vision on iOS)
-    └── Segmenter.swift                  VNGeneratePersonSegmentationRequest worker
+├── Registration.swift                 flat-string registry: transform ops, blur, background-image
+├── effects/                           one VideoFrameProcessorDelegate per effect
+│   ├── TransformProcessor.swift         flip-x/flip-y/rotate-cw/rotate-ccw (replaced MirrorProcessor.swift)
+│   ├── BlurProcessor.swift
+│   ├── BackgroundImageProcessor.swift
+│   └── FrameBridge.swift                RTCVideoFrame <-> CVPixelBuffer in/out bridge
+├── gpu/                               Metal + CoreImage primitives
+│   ├── Ingest.swift                     THE one place camera orientation is normalized (display rotation + selfie mirror)
+│   ├── Orientation.swift                screen-space transform-op matrices (no frame.rotation dependence)
+│   ├── MetalRenderer.swift              pipelines + passes (blur, composite, transform); pixel-buffer pool
+│   └── TextureBridge.swift              NV12->BGRA ingest, mask CVPixelBufferPool, Metal texture cache
+└── segmentation/                      person-segmentation helpers (MediaPipe Tasks ImageSegmenter on iOS)
+    └── Segmenter.swift                  MediaPipe ImageSegmenter worker (selfie_segmenter.tflite); owns mask buffers via a pool
 
 plugin/
 └── src/
@@ -107,8 +116,63 @@ not hand-edit):
 The composite shader (`shaders/composite.frag`) is the canonical mix-with-
 mask shader; every effect category (blur, background-image, future
 procedural backgrounds like Simianlights and Nebula) uses it unchanged.
-Per-effect shaders (currently `shaders/blur.frag`) live as separate files
-under `shaders/`.
+Per-effect shaders (currently `shaders/blur.frag`, `shaders/transform.frag`)
+live as separate files under `shaders/`.
+
+It is **background-source-agnostic**: `mix(background, original, mask)` does
+not care whether `uBackground` is a loaded image, the blurred camera, or a
+procedural shader's output; a new effect differs only in how it produces that
+texture. Because orientation is normalized upstream at the ingest (see
+"Orientation" below), a new shader composites correctly on every platform with
+no orientation code — that is the whole extensibility model for procedural
+backgrounds (issue #25).
+
+### Orientation: normalized once at the ingest (load-bearing; do not re-correct per effect)
+
+Camera orientation is handled in exactly ONE place: the ingest.
+`android/.../gpu/Ingest.kt` and `ios/.../gpu/Ingest.swift` fold the frame's
+display rotation (and, on iOS, the front-camera selfie mirror) into the
+camera→"original 2D" step, so every downstream pass samples an already
+display-upright, non-mirrored frame, and every effect emits `rotation 0`.
+Consequences a contributor must not undo:
+
+- `Orientation.{kt,swift}` (`mat2For` / `uvTransform`) are pure SCREEN-SPACE
+  matrices for the transform ops (flip-x = negate U, flip-y = negate V,
+  rotate-cw/ccw = axis swap). They do NOT read `frame.rotation`.
+- The background-image composite samples the WebP preset texture directly; no pre-orient pass.
+- There is NO per-effect orientation correction anywhere. Adding one re-creates
+  the "orientation cascade" this design removed (it surfaced as "every fix
+  breaks another effect" across web/Android/iOS during development).
+
+If a device shows the WHOLE frame rotated or mirrored wrong, it is an ingest
+calibration, not an effect bug: flip exactly one constant, per platform —
+`Ingest.ROTATION_DIRECTION` (rotation sign) or `Ingest.INGEST_MIRROR_X`
+(horizontal mirror). The web pipeline (canvas, display-space) is the
+orientation source of truth; native must match it.
+
+NOT orientation, and must not be "cleaned up" to identity: the composite's
+V-flip parity terms. The vertical flip some composite paths need (odd
+ping-pong pass count plus each platform's texture-origin convention) is
+render-pass/texture parity, not camera orientation, and it lands on a
+DIFFERENT uniform per platform: iOS blur uses `uBgUvScale=(1,-1)`; iOS background
+negates `uBgUvScale.y` and sets `uBgUvOffset.y = offset.y+scale.y` composed WITH
+the cover-fit (the MTKTextureLoader texture's V convention differs from the
+CoreImage "original" at sample time); web blur and web background use
+`uMaskUvScale=(1,-1)`; Android uses identity for both (its GL pipeline does not
+accumulate the flip, and the background is pre-flipped on the bitmap instead).
+The authoritative per-platform table is
+in the `shaders/composite.frag` header. Do not cross-normalize these; zeroing
+web's mask flip or copying iOS's bg flip onto Android breaks that platform.
+
+### Segmentation mask buffer ownership
+
+The mask the compositor reads must be a buffer the segmenter OWNS and hands out
+fresh per cycle — Android allocates a fresh bitmap (`Mask.kt`), iOS dequeues
+from a `CVPixelBufferPool` (`Segmenter.swift`). It must NOT be the live buffer
+the segmentation framework hands back (Vision recycles it) or a shallow reused
+ring: frame-pipelining keeps a mask texture GPU-referenced across multiple
+cycles, so a 2-deep ring gets overwritten mid-read and the mask visibly drifts
+and contorts. Preserve fresh-per-cycle ownership if you touch the segmenter.
 
 ### Texture-orientation convention
 
@@ -128,9 +192,17 @@ the right upload flag or pre-flip to enforce the convention:
   `Bitmap.createBitmap(bmp, 0, 0, w, h, Matrix(preScale(1, -1)), false)`
   before `GLUtils.texImage2D`. Android OpenGL ES has no `UNPACK_FLIP_Y`
   flag, so the flip has to happen on the bitmap.
-- **iOS** (when it lands): `CVMetalTextureCacheCreateTextureFromImage`
-  produces a top-down texture by default; pre-flip at upload (or run a
-  one-pass blit through a flipped intermediate) to land `v=1` = top.
+- **iOS original / mask**: the `CVMetalTextureCacheCreateTextureFromImage`
+  views of the CoreImage-rendered "original" and the segmenter mask
+  composite correct at plain `vUv` (verified on-device); the ingest already
+  lands the displayable top consistently for that path.
+- **iOS background**: `MTKTextureLoader` (`.origin = .topLeft`) loads a
+  STANDALONE image, not a CVPixelBuffer; at Metal sample time its top row
+  lands at the opposite V end from the CoreImage "original", so it needs a
+  V-flip. The flip is folded into `uBgUvScale.y`/`uBgUvOffset.y` composed
+  with the cover-fit (negate `scale.y`; `offset.y' = offset.y + scale.y`),
+  NOT done at load, so the load-time "row 0 = top" convention stays uniform
+  with the foreground and the flip is visible at the call site.
 
 The convention is enforced upstream of the shader so the shader stays
 genuinely cross-platform. If a future texture source does not naturally
@@ -142,15 +214,22 @@ shader.
 Four things, in order:
 
 1. **Spec**: add a new branch to `EffectSpec` in `src/types.ts`. Add the
-   discriminant string to `ANDROID_REGISTERED_EFFECTS` in `src/index.ts`.
+   discriminant string to `NATIVE_REGISTERED_EFFECTS_LIST` in `src/index.ts`
+   (one list covers both native platforms).
 2. **Web**: a new file under `src/web/effects/<name>.ts` exporting a
    `FrameTransform`. Add the case to `specToTransform` in `src/index.web.ts`.
 3. **Android**: a new `effects/<Name>Factory.kt` implementing
    `VideoFrameProcessorFactoryInterface`. Add a
    `ProcessorProvider.addProcessor("<name>", <Name>Factory(...))` line to
-   `Registration.kt`. If the effect needs new GLSL, add to `gpu/Shaders.kt`.
-4. **iOS**: a new `effects/<Name>Processor.swift` conforming to
-   `RTCVideoFrameProcessor`. Add the registration to `Registration.swift`.
+   `Registration.kt`. If the effect needs new GLSL, add the `.frag`/`.vert` to
+   `shaders/` and run `bun run build:shaders` (do not hand-edit `Shaders.kt`).
+4. **iOS**: a new `effects/<Name>Processor.swift` conforming to the
+   `VideoFrameProcessorDelegate` protocol. Add a
+   `ProcessorProvider.addProcessor(<Name>Processor(), forName: "<name>")` line
+   to `Registration.swift`. Unlike Android (one factory, one processor per
+   track), iOS registers a single processor INSTANCE per name at boot, so do
+   not skip this step; an effect with no `Registration.swift` entry is silently
+   absent on iOS.
 
 The native side uses a flat-string registry (`ProcessorProvider.addProcessor`)
 because the upstream `react-native-webrtc` `_setVideoEffects` API takes
@@ -163,11 +242,16 @@ conversation.
 Single source of truth: `src/backgrounds.ts`. Append the preset name to
 `BACKGROUND_PRESETS`. Then:
 
-- Drop `<name>.png` into `android/src/main/assets/backgrounds/`.
+- Drop `<name>.webp` into `android/src/main/assets/backgrounds/` and into
+  `ios/KaleidoscopeModule/resources/backgrounds/` (the iOS `Kaleidoscope.bundle`).
 - Add a `ProcessorProvider.addProcessor("background-image-<name>",
   BackgroundImageFactory(context, "<name>"))` line to `Registration.kt`.
-- Add a `<name>: require('./assets/backgrounds/<name>.png')` entry to the
-  demo's preset map.
+- Add a `ProcessorProvider.addProcessor(BackgroundImageProcessor(assetName:
+  "<name>"), forName: "background-image-<name>")` line to `Registration.swift`.
+- Add the per-preset subpath export and the `.webp` asset export to
+  `package.json` "exports" (Metro has no tree-shaking; consumers import one
+  preset's bytes via its subpath).
+- Add the preset to the demo's preset map.
 
 The JS allowlist and type-level autocomplete (`BackgroundPresetName`) pick
 up the new preset automatically from the catalog.
@@ -180,10 +264,12 @@ strings. If a helper does anything *with* the pipeline (mask production,
 specific effects' state, etc.), it goes in a domain folder
 (`segmentation/`, `effects/`).
 
-The iOS equivalent is `ios/KaleidoscopeModule/<domain>/`. There is no `gpu/`
-on iOS because the CoreImage / Vision frameworks already provide that layer;
-shared CoreImage utilities would live in `effects/` or a future
-`coreimage/` subdir if pressure grows.
+The iOS equivalent is `ios/KaleidoscopeModule/gpu/` — Metal + CoreImage
+primitives with no domain logic: `Ingest.swift` (orientation normalization),
+`Orientation.swift` (transform-op matrices), `MetalRenderer.swift` (pipelines
+and passes), `TextureBridge.swift` (ingest + texture/pool utilities). The Metal
+port added this folder; earlier iOS had none when CoreImage did everything.
+Per-domain logic still lives in `effects/` and `segmentation/`.
 
 ### Where Expo Module DSL lives
 

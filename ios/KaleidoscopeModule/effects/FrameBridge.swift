@@ -6,7 +6,11 @@
 //         GPU-ingestable here, so the caller falls through to the original
 //         frame.
 // Output: wrap a BGRA CVPixelBuffer in RTCCVPixelBuffer, then build an
-//         RTCVideoFrame preserving the source rotation and timestamp.
+//         RTCVideoFrame. The effects normalize camera orientation at ingest
+//         (the pixels are DISPLAY-UPRIGHT by the time they reach the output
+//         buffer; see Ingest.swift), so the output frame is emitted with
+//         rotation ._0 — the consumer must NOT re-rotate it. Only the source
+//         timestamp is preserved.
 
 import Foundation
 import CoreVideo
@@ -23,9 +27,11 @@ enum FrameBridge {
     return cvBuffer.pixelBuffer
   }
 
-  /// Wrap a processed BGRA buffer back into an RTCVideoFrame, preserving the
-  /// source frame's rotation and timestamp so downstream display/encode is
-  /// unchanged relative to the unprocessed frame.
+  /// Wrap a processed BGRA buffer back into an RTCVideoFrame with rotation ._0
+  /// and the source timestamp. The buffer holds DISPLAY-UPRIGHT pixels (the
+  /// camera rotation was folded into the ingest; see Ingest.swift), so the
+  /// emitted frame carries NO rotation and the consumer displays/encodes it
+  /// as-is. The single source of camera orientation is the ingest, not here.
   static func makeOutputFrame(
     pixelBuffer: CVPixelBuffer,
     like source: RTCVideoFrame
@@ -33,7 +39,7 @@ enum FrameBridge {
     let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
     return RTCVideoFrame(
       buffer: rtcBuffer,
-      rotation: source.rotation,
+      rotation: ._0,
       timeStampNs: source.timeStampNs
     )
   }

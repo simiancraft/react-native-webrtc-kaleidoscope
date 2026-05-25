@@ -28,6 +28,14 @@ type SegmenterCtor = new (config: { locateFile: (file: string) => string }) => S
 
 let segmenterPromise: Promise<Segmenter> | null = null;
 
+// Decoupled mask source (mirrors Android Mask.kt / iOS Segmenter.swift): the
+// render path reads the most recent mask without ever awaiting a fresh one, and
+// a single in-flight segmentation refreshes it. `onResults` is registered once,
+// at load, below.
+let latestResults: SegmenterResults | null = null;
+let inFlight = false;
+let activeSegmenter: Segmenter | null = null;
+
 const loadScript = (src: string): Promise<void> =>
   new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${src}"]`);
@@ -67,7 +75,33 @@ export const loadSegmenter = (): Promise<Segmenter> => {
     const seg = new SegCtor({ locateFile: (file) => `${CDN_BASE}/${file}` });
     seg.setOptions({ modelSelection: 1, selfieMode: false });
     await seg.initialize();
+    // Register once; every completed segmentation updates the cache.
+    seg.onResults((r) => {
+      latestResults = r;
+    });
+    activeSegmenter = seg;
     return seg;
   })();
   return segmenterPromise;
+};
+
+/** Most recent completed mask, or null before the first result. Non-blocking. */
+export const getLatestMask = (): SegmenterResults | null => latestResults;
+
+/**
+ * Kick a new segmentation if none is in flight; returns immediately. The result
+ * lands in `getLatestMask()` via the `onResults` handler registered at load.
+ * No-op until the segmenter has finished loading. `inFlight` clears when `send`
+ * settles, so a failed call cannot wedge the pipeline.
+ */
+export const requestMaskIfIdle = (image: CanvasImageSource): void => {
+  const seg = activeSegmenter;
+  if (!seg || inFlight) return;
+  inFlight = true;
+  seg
+    .send({ image })
+    .catch(() => {})
+    .finally(() => {
+      inFlight = false;
+    });
 };

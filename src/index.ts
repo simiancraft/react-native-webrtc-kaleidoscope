@@ -15,6 +15,8 @@ interface KaleidoscopeNativeModule {
   setBlurSigma: (value: number) => void;
   setMaskHardness: (value: number) => void;
   setMaskThreshold: (value: number) => void;
+  setSegmentationTargetShortSide: (value: number) => void;
+  setDebugTiming: (value: boolean) => void;
   resetEffectTuning: () => void;
 }
 
@@ -26,7 +28,8 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 
 /**
  * Set the Gaussian sigma for the blur effect. Higher = softer blur.
- * Clamped to [0.5, 64] native-side. Default 8.
+ * Clamped to [0.5, 7] (the useful range before the linear-sampled kernel
+ * truncates and bands). Default 5.
  */
 export const setBlurSigma = (value: number): void => {
   nativeModule().setBlurSigma(value);
@@ -44,12 +47,31 @@ export const setMaskHardness = (value: number): void => {
  * Set the mask smoothstep threshold (center of the transition) in
  * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
  * pixels (helps tighten the silhouette against chair-edge noise);
- * lower values are more inclusive. Optimal value is platform-specific
- * because each segmentation model (MediaPipe on web, MLKit on Android,
- * Vision on iOS) produces a different confidence distribution.
+ * lower values are more inclusive. Optimal value is platform-specific:
+ * all three platforms run MediaPipe selfie segmentation, but the input
+ * downscale and API variant differ and produce different confidence
+ * distributions.
  */
 export const setMaskThreshold = (value: number): void => {
   nativeModule().setMaskThreshold(value);
+};
+
+/**
+ * Set the segmentation input short-side (px). The person mask is computed from
+ * an input downscaled to this; lower = cheaper segmentation (helps on older
+ * devices like the A11), softer mask edge. Default 384, clamped [128, 1080]
+ * identically on both native platforms. Native only; the web pipeline ignores it.
+ */
+export const setSegmentationTargetShortSide = (value: number): void => {
+  nativeModule().setSegmentationTargetShortSide(value);
+};
+
+/**
+ * Toggle native per-frame GPU/segmentation timing logs (off by default). iOS
+ * logs under os_log "Perf"; Android under the "Perf" logcat tag.
+ */
+export const setDebugTiming = (value: boolean): void => {
+  nativeModule().setDebugTiming(value);
 };
 
 /**
@@ -67,7 +89,8 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
-  MirrorSpec,
+  TransformName,
+  TransformSpec,
 } from './types';
 
 interface WebRTCTrackExtensions {
@@ -95,42 +118,48 @@ interface WebRTCTrackExtensions {
 // factory, dropping its name here is the safe behavior.
 //
 // Background-image preset names come from src/backgrounds.ts; the encoder
-// turns `{name:'background-image', source:'office-1'}` into the flat-string
-// `'background-image-office-1'` because the rn-webrtc native registry is
+// turns `{name:'background-image', source:'dark-office'}` into the flat-string
+// `'background-image-dark-office'` because the rn-webrtc native registry is
 // keyed by flat strings (parameterization via uniforms is a follow-up).
 //
 // iOS registers the same effects via ios/.../Registration.swift. Each
 // platform's allowlist matches exactly what its native Registration installs;
 // anything else is filtered out before reaching upstream so a name with no
 // registered processor never triggers the empty-processors-list crash.
-const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
-  'mirror',
+// The four geometric transform ops share one native processor per platform
+// (TransformFactory on Android, TransformProcessor on iOS); each is a flat name.
+const TRANSFORM_EFFECTS: readonly string[] = ['flip-x', 'flip-y', 'rotate-cw', 'rotate-ccw'];
+
+// Android (Registration.kt) and iOS (Registration.swift) install an identical
+// effect set, so one list covers both natives. If the platforms ever diverge,
+// split this back into per-platform lists keyed off Platform.OS.
+const NATIVE_REGISTERED_EFFECTS_LIST: readonly string[] = [
+  ...TRANSFORM_EFFECTS,
   'blur',
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];
 
-const IOS_REGISTERED_EFFECTS: readonly string[] = [
-  'mirror',
-  'blur',
-  ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
-];
-
-const registeredForPlatform = (): readonly string[] => {
-  if (Platform.OS === 'android') return ANDROID_REGISTERED_EFFECTS;
-  if (Platform.OS === 'ios') return IOS_REGISTERED_EFFECTS;
-  return [];
-};
+const registeredForPlatform = (): readonly string[] =>
+  Platform.OS === 'android' || Platform.OS === 'ios' ? NATIVE_REGISTERED_EFFECTS_LIST : [];
 
 const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlatform());
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // background-image uses one registered factory per source preset.
-  // {name: 'background-image', source: 'office-1'} -> 'background-image-office-1'
+  // {name: 'background-image', source: 'dark-office'} -> 'background-image-dark-office'
   if (spec.name === 'background-image') {
     return `background-image-${spec.source}`;
   }
   return spec.name;
 };
+
+// Last effect set applied to each track, as a stable signature. Used to skip
+// redundant native calls: rn-webrtc rebuilds the native frame processors on
+// EVERY _setVideoEffects call (Android constructs a fresh processor per call),
+// so re-issuing an unchanged set (a React re-render, an idempotent effect
+// hook) churns GL + segmentation resources for no reason. The WeakMap lets the
+// entry be collected when the track is.
+const lastAppliedSignatureByTrack = new WeakMap<object, string>();
 
 export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const t = track as MediaStreamTrack & WebRTCTrackExtensions;
@@ -147,6 +176,17 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   // once the GPU effects accept uniforms.
   const allNames = effects.map((e) => specToNativeName(toEffectSpec(e)));
   const names = allNames.filter((n) => NATIVE_REGISTERED_EFFECTS.has(n));
+
+  // Dedup against the last set applied to this track. Order is significant
+  // (effects chain in array order), so the signature preserves it. Skip the
+  // native call when nothing changed; the first call for any given set always
+  // proceeds (no prior entry).
+  const signature = names.join('\n');
+  if (lastAppliedSignatureByTrack.get(track) === signature) {
+    return track;
+  }
+  lastAppliedSignatureByTrack.set(track, signature);
+
   const dropped = allNames.filter((n) => !NATIVE_REGISTERED_EFFECTS.has(n));
   if (dropped.length > 0) {
     console.warn(

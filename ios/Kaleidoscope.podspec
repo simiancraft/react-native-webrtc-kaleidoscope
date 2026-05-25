@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.license        = package['license']
   s.author         = package['author']
   s.homepage       = package['homepage']
-  s.platforms      = { :ios => '15.0' } # Apple Vision person segmentation requires iOS 15+
+  s.platforms      = { :ios => '15.0' } # Metal effect pipeline + Expo modules floor; MediaPipeTasksVision needs iOS 12+
   s.swift_version  = '5.9'
   s.source         = { :git => 'https://github.com/simiancraft/react-native-webrtc-kaleidoscope.git', :tag => "v#{s.version}" }
   # Note: the transpiled shader sources are intentionally NOT globbed into
@@ -37,7 +37,7 @@ Pod::Spec.new do |s|
   # Bundled background-image presets (mirrors android/src/main/assets/
   # backgrounds/) plus the transpiled Metal shader SOURCE. Both are loaded at
   # runtime from the Kaleidoscope.bundle:
-  #   - BackgroundImageProcessor resolves "office-1" -> office-1.png.
+  #   - BackgroundImageProcessor resolves "dark-office" -> dark-office.webp.
   #   - ShaderLibrary reads passthrough/blur/composite.metalsrc as TEXT and
   #     compiles each into its own MTLLibrary via makeLibrary(source:). The
   #     `.metalsrc` extension (not `.metal`) is required so Xcode's
@@ -54,6 +54,14 @@ Pod::Spec.new do |s|
   }
 
   s.dependency 'ExpoModulesCore'
+
+  # Person segmentation via MediaPipe Tasks ImageSegmenter, replacing Apple
+  # Vision. Pinned to the 0.10 line to track Android's
+  # com.google.mediapipe:tasks-vision:0.10.14 (same model family, same
+  # confidence-mask API shape) so all three platforms run identical
+  # segmentation. The selfie_segmenter.tflite model ships in the
+  # Kaleidoscope.bundle resource_bundles glob below (resources/**/*).
+  s.dependency 'MediaPipeTasksVision', '~> 0.10'
 
   # Fork-resolving dependency on react-native-webrtc. The Kaleidoscope target
   # needs FRAMEWORK_SEARCH_PATHS pointing at WebRTC.framework so the Swift
@@ -91,7 +99,9 @@ Pod::Spec.new do |s|
     s.dependency 'react-native-webrtc'
   end
 
-  s.frameworks = 'CoreImage', 'CoreVideo', 'Metal', 'MetalKit', 'Vision'
+  # Segmentation moved from Apple Vision to MediaPipeTasksVision (declared as a
+  # pod dependency above), so the Vision system framework is no longer linked.
+  s.frameworks = 'CoreImage', 'CoreVideo', 'Metal', 'MetalKit'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',

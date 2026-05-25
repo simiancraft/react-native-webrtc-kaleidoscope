@@ -11,16 +11,31 @@
 // src/web/segmenter.ts.
 
 import type { FrameTransform } from '../insertable-streams';
-import { loadSegmenter, type SegmenterResults } from '../segmenter';
+import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
 import { COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
+
+// Uniform locations queried once at link, not via getUniformLocation per frame
+// (mirrors src/web/effects/blur.ts; the composite shader is identical).
+type CompositeProgram = {
+  prog: WebGLProgram;
+  uOriginal: WebGLUniformLocation | null;
+  uBackground: WebGLUniformLocation | null;
+  uMask: WebGLUniformLocation | null;
+  uBgUvScale: WebGLUniformLocation | null;
+  uBgUvOffset: WebGLUniformLocation | null;
+  uMaskUvScale: WebGLUniformLocation | null;
+  uMaskUvOffset: WebGLUniformLocation | null;
+  uMaskLo: WebGLUniformLocation | null;
+  uMaskHi: WebGLUniformLocation | null;
+};
 
 type GpuState = {
   gl: WebGL2RenderingContext;
   canvas: OffscreenCanvas;
   width: number;
   height: number;
-  program: WebGLProgram;
+  program: CompositeProgram;
   textures: {
     original: WebGLTexture;
     mask: WebGLTexture;
@@ -65,6 +80,22 @@ const linkProgram = (
   return prog;
 };
 
+const linkCompositeProgram = (gl: WebGL2RenderingContext): CompositeProgram => {
+  const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_FRAG_SRC);
+  return {
+    prog,
+    uOriginal: gl.getUniformLocation(prog, 'uOriginal'),
+    uBackground: gl.getUniformLocation(prog, 'uBackground'),
+    uMask: gl.getUniformLocation(prog, 'uMask'),
+    uBgUvScale: gl.getUniformLocation(prog, 'uBgUvScale'),
+    uBgUvOffset: gl.getUniformLocation(prog, 'uBgUvOffset'),
+    uMaskUvScale: gl.getUniformLocation(prog, 'uMaskUvScale'),
+    uMaskUvOffset: gl.getUniformLocation(prog, 'uMaskUvOffset'),
+    uMaskLo: gl.getUniformLocation(prog, 'uMaskLo'),
+    uMaskHi: gl.getUniformLocation(prog, 'uMaskHi'),
+  };
+};
+
 const createTexture = (gl: WebGL2RenderingContext, width: number, height: number): WebGLTexture => {
   const tex = gl.createTexture();
   if (!tex) throw new Error('kaleidoscope: gl.createTexture returned null');
@@ -103,6 +134,23 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 
+// SECURITY: `source` is consumer-supplied and may be an arbitrary URL or data
+// URI (see BackgroundImageSpec.source). Two bounds keep an untrusted source
+// from becoming a memory-pressure DoS:
+//   - MAX_BG_DIMENSION caps the RETAINED raster and the GPU upload so a
+//     "decompression bomb" (a small file that decodes to hundreds of
+//     megapixels) is downscaled rather than held full-size. A background is
+//     cover-fit anyway, so the cap costs nothing visible. NOTE: createImageBitmap
+//     decodes the full image before this downscale runs, so the transient decode
+//     peak is bounded by the browser's own createImageBitmap limits, not by this
+//     cap; the cap bounds sustained memory + GPU pressure, not the decode spike.
+//   - MAX_CACHE_ENTRIES bounds the per-source cache so a stream of distinct
+//     URLs cannot grow it without limit.
+// Consumers wiring `source` from end-user input should still validate the URL
+// themselves; this library does not fetch-allowlist.
+const MAX_BG_DIMENSION = 4096;
+const MAX_CACHE_ENTRIES = 32;
+
 const loadImage = (
   source: string,
 ): Promise<{ canvas: OffscreenCanvas; width: number; height: number }> =>
@@ -113,23 +161,41 @@ const loadImage = (
     })
     .then((blob) => createImageBitmap(blob))
     .then((bitmap) => {
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const longSide = Math.max(bitmap.width, bitmap.height);
+      const scale = longSide > MAX_BG_DIMENSION ? MAX_BG_DIMENSION / longSide : 1;
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = new OffscreenCanvas(width, height);
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('kaleidoscope: bg OffscreenCanvas 2D context unavailable');
-      ctx.drawImage(bitmap, 0, 0);
-      const width = bitmap.width;
-      const height = bitmap.height;
+      ctx.drawImage(bitmap, 0, 0, width, height);
       bitmap.close();
       return { canvas, width, height };
     });
 
-const ensureState = (entry: CacheEntry, width: number, height: number): GpuState => {
+// Free an entry's GL resources before dropping it from the cache.
+const disposeEntry = (entry: CacheEntry): void => {
+  if (!entry.state) return;
+  const { gl, program, textures } = entry.state;
+  gl.deleteProgram(program.prog);
+  gl.deleteTexture(textures.original);
+  gl.deleteTexture(textures.mask);
+  gl.deleteTexture(textures.background);
+  entry.state = null;
+};
+
+const ensureState = (
+  entry: CacheEntry,
+  width: number,
+  height: number,
+  bg: { canvas: OffscreenCanvas; width: number; height: number },
+): GpuState => {
   if (entry.state && entry.state.width === width && entry.state.height === height) {
     return entry.state;
   }
   if (entry.state) {
     const { gl } = entry.state;
-    gl.deleteProgram(entry.state.program);
+    gl.deleteProgram(entry.state.program.prog);
     gl.deleteTexture(entry.state.textures.original);
     gl.deleteTexture(entry.state.textures.mask);
     gl.deleteTexture(entry.state.textures.background);
@@ -150,13 +216,17 @@ const ensureState = (entry: CacheEntry, width: number, height: number): GpuState
     canvas,
     width,
     height,
-    program: linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_FRAG_SRC),
+    program: linkCompositeProgram(gl),
     textures: {
       original: createTexture(gl, width, height),
       mask: createTexture(gl, width, height),
       background: createTexture(gl, width, height),
     },
   };
+  // Static background: upload once, here, not per frame. Re-runs only when
+  // this state is rebuilt (resolution change). flipY=true matches the
+  // original's DOM-coord → GL v=1 convention.
+  uploadTexture(gl, entry.state.textures.background, bg.canvas as unknown as TexImageSource, true);
   return entry.state;
 };
 
@@ -184,6 +254,15 @@ const ensureInputCanvas = (
 export const makeBackgroundImage = (source: string): FrameTransform => {
   let entry = cache.get(source);
   if (!entry) {
+    // Bound the cache: evict the oldest entry (Map preserves insertion order)
+    // and free its GL resources before inserting a new source.
+    while (cache.size >= MAX_CACHE_ENTRIES) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey === undefined) break;
+      const oldest = cache.get(oldestKey);
+      if (oldest) disposeEntry(oldest);
+      cache.delete(oldestKey);
+    }
     entry = {
       state: null,
       imagePromise: loadImage(source),
@@ -195,7 +274,8 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
   const e = entry;
 
   return async (frame) => {
-    const [segmenter, bg] = await Promise.all([loadSegmenter(), e.imagePromise]);
+    const bg = await e.imagePromise;
+    await loadSegmenter(); // ensure loaded; cached after first call.
     const w = frame.displayWidth;
     const h = frame.displayHeight;
 
@@ -203,41 +283,48 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
     inputCtx.drawImage(frame, 0, 0, w, h);
     const inputCanvas = e.inputCanvas2D as unknown as CanvasImageSource;
 
-    const results: SegmenterResults = await new Promise((resolve) => {
-      segmenter.onResults((r) => resolve(r));
-      void segmenter.send({ image: inputCanvas });
-    });
+    // Decoupled segmentation; see blur.ts for the rationale. Forward the
+    // original frame until the first mask lands.
+    requestMaskIfIdle(inputCanvas);
+    const results = getLatestMask();
+    if (!results) {
+      const passthrough = new VideoFrame(e.inputCanvas2D as unknown as CanvasImageSource, {
+        timestamp: frame.timestamp,
+        ...(frame.duration != null ? { duration: frame.duration } : {}),
+      });
+      frame.close();
+      return passthrough;
+    }
 
-    const s = ensureState(e, w, h);
+    const s = ensureState(e, w, h, bg);
     const { gl, canvas, program, textures } = s;
 
-    // Upload original and bg with flipY=true (DOM-coord → GL v=1 = top).
-    // Bg is staged through OffscreenCanvas (loaded at bg-image load time)
-    // because UNPACK_FLIP_Y_WEBGL is a no-op on raw ImageBitmaps; canvas
-    // sources flip correctly. Mask is uploaded with flipY=false for the
-    // same reason (no-op on MediaPipe's segmentationMask source) AND to
-    // preserve the soft confidence values — canvas premultiplied-alpha math
-    // would collapse them to near-binary. The composite shader compensates
-    // via uMaskUvScale=(1,-1) / uMaskUvOffset=(0,1) set below.
+    // Upload original with flipY=true (DOM-coord → GL v=1 = top). The static
+    // background is uploaded once in ensureState (flipped the same way), not
+    // per frame. Mask is uploaded with flipY=false for the same reason
+    // (no-op on MediaPipe's segmentationMask source) AND to preserve the soft
+    // confidence values — canvas premultiplied-alpha math would collapse them
+    // to near-binary. The composite shader compensates via
+    // uMaskUvScale=(1,-1) / uMaskUvOffset=(0,1) set below.
     uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
     uploadTexture(gl, textures.mask, results.segmentationMask as unknown as TexImageSource, false);
-    uploadTexture(gl, textures.background, bg.canvas as unknown as TexImageSource, true);
 
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, w, h);
-    gl.useProgram(program);
+    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook (the early return above tripped the use* heuristic).
+    gl.useProgram(program.prog);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, textures.original);
-    gl.uniform1i(gl.getUniformLocation(program, 'uOriginal'), 0);
+    gl.uniform1i(program.uOriginal, 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, textures.background);
-    gl.uniform1i(gl.getUniformLocation(program, 'uBackground'), 1);
+    gl.uniform1i(program.uBackground, 1);
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, textures.mask);
-    gl.uniform1i(gl.getUniformLocation(program, 'uMask'), 2);
+    gl.uniform1i(program.uMask, 2);
     // Cover-fit center crop: scale the smaller axis to fit, offset to
     // center. Mirrors android/.../effects/BackgroundImageFactory.kt.
     const outAspect = w / h;
@@ -257,14 +344,14 @@ export const makeBackgroundImage = (source: string): FrameTransform => {
       bgOffsetX = 0;
       bgOffsetY = (1 - bgScaleY) * 0.5;
     }
-    gl.uniform2f(gl.getUniformLocation(program, 'uBgUvScale'), bgScaleX, bgScaleY);
-    gl.uniform2f(gl.getUniformLocation(program, 'uBgUvOffset'), bgOffsetX, bgOffsetY);
+    gl.uniform2f(program.uBgUvScale, bgScaleX, bgScaleY);
+    gl.uniform2f(program.uBgUvOffset, bgOffsetX, bgOffsetY);
     // Mask V-flip via sampling uniforms; see comment on the upload above.
-    gl.uniform2f(gl.getUniformLocation(program, 'uMaskUvScale'), 1, -1);
-    gl.uniform2f(gl.getUniformLocation(program, 'uMaskUvOffset'), 0, 1);
+    gl.uniform2f(program.uMaskUvScale, 1, -1);
+    gl.uniform2f(program.uMaskUvOffset, 0, 1);
     const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
-    gl.uniform1f(gl.getUniformLocation(program, 'uMaskLo'), maskLo);
-    gl.uniform1f(gl.getUniformLocation(program, 'uMaskHi'), maskHi);
+    gl.uniform1f(program.uMaskLo, maskLo);
+    gl.uniform1f(program.uMaskHi, maskHi);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     const out = new VideoFrame(canvas as unknown as CanvasImageSource, {

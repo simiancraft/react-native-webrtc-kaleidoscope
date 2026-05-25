@@ -28,7 +28,12 @@ export const VideoPreview = ({ track }: Props) => {
     return <View style={styles.box} />;
   }
 
-  return <RTCView streamURL={streamUrl} objectFit="cover" style={styles.box} />;
+  // contain, not cover: on a portrait phone the composited frame is TALL, and
+  // cover-displaying a tall frame in this wider box scales it up until the width
+  // fills, cropping top and bottom. contain shows the whole frame (only the
+  // sides are clipped, by the background's own cover-fit) at the cost of
+  // letterbox bars beside a portrait frame.
+  return <RTCView streamURL={streamUrl} objectFit="contain" style={styles.box} />;
 };
 
 const styles = StyleSheet.create({

@@ -35,18 +35,20 @@ describe('tuning singleton', () => {
   });
 
   test('has library defaults', () => {
-    expect(tuning.blurSigma).toBe(8);
+    expect(tuning.blurSigma).toBe(5);
     expect(tuning.maskHardness).toBe(0.5);
-    expect(tuning.maskThreshold).toBe(0.5);
+    expect(tuning.maskThreshold).toBe(0.7);
+    expect(tuning.segmentationTargetShortSide).toBe(384);
+    expect(tuning.debugTiming).toBe(false);
   });
 
-  test('setBlurSigma clamps to [0.5, 64]', () => {
+  test('setBlurSigma clamps to [0.5, 7]', () => {
     tuning.setBlurSigma(1000);
-    expect(tuning.blurSigma).toBe(64);
+    expect(tuning.blurSigma).toBe(7);
     tuning.setBlurSigma(0);
     expect(tuning.blurSigma).toBe(0.5);
-    tuning.setBlurSigma(12);
-    expect(tuning.blurSigma).toBe(12);
+    tuning.setBlurSigma(4);
+    expect(tuning.blurSigma).toBe(4);
   });
 
   test('setMaskHardness clamps to [0, 1]', () => {
@@ -63,13 +65,35 @@ describe('tuning singleton', () => {
     expect(tuning.maskThreshold).toBe(0.05);
   });
 
+  test('setSegmentationTargetShortSide clamps to [128, 1080]', () => {
+    // The 128 floor must match the iOS and Android clamps so the same value
+    // produces the same input resolution on every platform.
+    tuning.setSegmentationTargetShortSide(9999);
+    expect(tuning.segmentationTargetShortSide).toBe(1080);
+    tuning.setSegmentationTargetShortSide(1);
+    expect(tuning.segmentationTargetShortSide).toBe(128);
+    tuning.setSegmentationTargetShortSide(512);
+    expect(tuning.segmentationTargetShortSide).toBe(512);
+  });
+
+  test('setDebugTiming toggles the flag', () => {
+    tuning.setDebugTiming(true);
+    expect(tuning.debugTiming).toBe(true);
+    tuning.setDebugTiming(false);
+    expect(tuning.debugTiming).toBe(false);
+  });
+
   test('reset restores defaults', () => {
     tuning.setBlurSigma(20);
     tuning.setMaskHardness(0.9);
     tuning.setMaskThreshold(0.8);
+    tuning.setSegmentationTargetShortSide(720);
+    tuning.setDebugTiming(true);
     tuning.reset();
-    expect(tuning.blurSigma).toBe(8);
+    expect(tuning.blurSigma).toBe(5);
     expect(tuning.maskHardness).toBe(0.5);
-    expect(tuning.maskThreshold).toBe(0.5);
+    expect(tuning.maskThreshold).toBe(0.7);
+    expect(tuning.segmentationTargetShortSide).toBe(384);
+    expect(tuning.debugTiming).toBe(false);
   });
 });

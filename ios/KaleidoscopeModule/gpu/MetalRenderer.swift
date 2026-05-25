@@ -33,6 +33,7 @@
 import Foundation
 import Metal
 import CoreVideo
+import simd
 import os.log
 
 /// Errors thrown during renderer setup or per-frame work. The owning
@@ -51,10 +52,34 @@ enum RendererError: Error {
 
 final class MetalRenderer {
   static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Renderer")
+  static let perfLog = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Perf")
 
   let device: MTLDevice
   private let commandQueue: MTLCommandQueue
   let textureCache: CVMetalTextureCache
+
+  // R3 frame-pipelining. Instead of committing the current command buffer and
+  // blocking on waitUntilCompleted (which serializes CPU and GPU every frame),
+  // we commit asynchronously and return the PREVIOUS frame's completed output,
+  // adding one frame of latency. The semaphore caps the number of command
+  // buffers in flight so the CPU cannot outrun the GPU unboundedly; value 2
+  // lets the GPU work on frame N while the CPU encodes frame N+1. The output
+  // CVPixelBufferPool (min 3) has enough buffers to back the in-flight frame,
+  // the held previous frame, and one being dequeued.
+  private let inFlightSemaphore = DispatchSemaphore(value: 2)
+
+  // The most recent output buffer whose GPU work has COMPLETED, published by
+  // the command-buffer completion handler. The capture thread reads it to
+  // return last frame's result while this frame's work runs asynchronously.
+  // nil before the first frame completes; the caller forwards the original
+  // frame in that case. Publishing only on completion (rather than relying on
+  // the semaphore + in-order queue to imply completion) means a returned buffer
+  // is never read by WebRTC before the GPU finished writing it: the buffer-
+  // lifecycle safety is explicit, not timing-derived. Shared between the
+  // completion handler (writer) and the capture thread (reader); guarded by
+  // pipelineLock.
+  private var readyOutput: CVPixelBuffer?
+  private var pipelineLock = os_unfair_lock_s()
 
   // Pipeline states for the three transpiled shaders. All three .metal files
   // share the entry-point name `main0` (spirv-cross emits that for every
@@ -67,6 +92,7 @@ final class MetalRenderer {
   let passthroughVertex: MTLFunction
   let blurPipeline: MTLRenderPipelineState
   let compositePipeline: MTLRenderPipelineState
+  let transformPipeline: MTLRenderPipelineState
 
   // Linear-clamp sampler shared by every pass (matches the Android GL_LINEAR
   // + GL_CLAMP_TO_EDGE setup). Clamp avoids edge bleed when cover-fit UVs or
@@ -85,14 +111,19 @@ final class MetalRenderer {
   private var blurTexWidth = 0
   private var blurTexHeight = 0
 
-  // "original" RGB ingest texture (BGRA, full resolution), reused across
-  // frames. CoreImage renders the NV12 input into this buffer's IOSurface;
-  // see TextureBridge.ingest. Held here so the backing CVPixelBuffer (and its
-  // IOSurface) survive between frames instead of being reallocated.
-  private var originalBuffer: CVPixelBuffer?
-  private var originalTexture: MTLTexture?
-  private var originalWidth = 0
-  private var originalHeight = 0
+  // "original" RGB ingest buffers come from a POOL, not a single reused buffer.
+  // CoreImage renders each frame's NV12 input into a freshly dequeued buffer
+  // (TextureBridge.ingest) and the GPU passes sample a per-frame texture view of
+  // it. A single shared buffer is WRONG here: under R3 frame-pipelining the
+  // previous frame's command buffer is still reading the original after
+  // process() returns, AND the segmenter's async worker still reads it (it
+  // retains the ref for its downscale), so overwriting one buffer in place
+  // corrupted those in-flight reads (the mask drift / "fog of war"). A pool only
+  // recycles a buffer once every reader has released it: the command buffer via
+  // commitPipelined's keepAlive, the segmenter via its async closure's retain.
+  private var originalPool: CVPixelBufferPool?
+  private var originalPoolWidth = 0
+  private var originalPoolHeight = 0
 
   init(bundle: Bundle) throws {
     guard let dev = MTLCreateSystemDefaultDevice() else {
@@ -116,6 +147,7 @@ final class MetalRenderer {
     let passthrough = try ShaderLibrary(device: dev, bundle: bundle, fileName: "passthrough")
     let blur = try ShaderLibrary(device: dev, bundle: bundle, fileName: "blur")
     let composite = try ShaderLibrary(device: dev, bundle: bundle, fileName: "composite")
+    let transform = try ShaderLibrary(device: dev, bundle: bundle, fileName: "transform")
 
     self.passthroughVertex = try passthrough.function()
 
@@ -134,6 +166,12 @@ final class MetalRenderer {
       vertex: passthroughVertex,
       fragment: try composite.function(),
       label: "composite"
+    )
+    self.transformPipeline = try MetalRenderer.makePipeline(
+      device: dev,
+      vertex: passthroughVertex,
+      fragment: try transform.function(),
+      label: "transform"
     )
 
     let samplerDesc = MTLSamplerDescriptor()
@@ -173,6 +211,74 @@ final class MetalRenderer {
     return cb
   }
 
+  /// R3 frame-pipelining commit. Replaces `commit()` + `waitUntilCompleted()`.
+  ///
+  /// - Throttles in-flight command buffers via the semaphore (waits before
+  ///   commit; the completion handler signals), so the CPU cannot outrun the
+  ///   GPU unboundedly. The literal R3 sketch waits "before encoding"; we wait
+  ///   here, immediately before commit, which bounds the GPU-relevant quantity
+  ///   (committed-but-incomplete buffers) identically and keeps the throttle in
+  ///   one place. The processor's per-frame work between makeCommandBuffer and
+  ///   this call is cheap CPU encoding, not GPU execution.
+  /// - Registers a completion handler that PUBLISHES `currentOutput` as the
+  ///   ready-to-return buffer only once the GPU has finished writing it, then
+  ///   signals the semaphore. Optionally logs GPU time under "Perf".
+  /// - Commits asynchronously (no wait) and returns the PREVIOUSLY-published
+  ///   output, i.e. last frame's completed result. Returns nil before any frame
+  ///   has completed (first frame); the caller forwards the original frame.
+  ///
+  /// `currentOutput` must be the pooled buffer the command buffer wrote into
+  /// this frame. The returned buffer (last frame's) is a distinct pooled buffer;
+  /// the pool's min count keeps current, previously-returned, and in-flight
+  /// buffers from colliding.
+  ///
+  /// `keepAlive` holds any per-frame references whose backing the GPU reads or
+  /// writes for this command buffer but which would otherwise be released when
+  /// the encoding frame returns: the input/mask CVPixelBuffers AND the
+  /// CVMetalTexture wrappers vended by TextureBridge.makeTexture (the wrapper, not
+  /// the bare MTLTexture, is what pins the IOSurface for the cache). Under R3 the
+  /// command buffer is still in flight after process() returns, so capturing these
+  /// in the completion handler keeps them live for exactly as long as the GPU
+  /// needs them and no longer; without this the source pool can reclaim and
+  /// overwrite a buffer mid-GPU-read (the segmentation-mask curl-noise drift).
+  func commitPipelined(
+    _ commandBuffer: MTLCommandBuffer,
+    currentOutput: CVPixelBuffer,
+    keepAlive: [Any],
+    debugTiming: Bool,
+    timingLabel: String
+  ) -> CVPixelBuffer? {
+    inFlightSemaphore.wait()
+    commandBuffer.addCompletedHandler { [weak self] completed in
+      // Hold the per-frame inputs/wrappers until the GPU finishes. Referencing
+      // `keepAlive` inside the closure is the entire point: it extends their
+      // lifetime to command-buffer completion. Touched but intentionally unused.
+      _ = keepAlive
+      guard let self = self else { return }
+      if debugTiming {
+        let gpuMs = (completed.gpuEndTime - completed.gpuStartTime) * 1000.0
+        os_log("%{public}@ gpu: %.2f ms", log: MetalRenderer.perfLog, type: .info,
+               timingLabel, gpuMs)
+      }
+      if completed.error == nil {
+        os_unfair_lock_lock(&self.pipelineLock)
+        self.readyOutput = currentOutput
+        os_unfair_lock_unlock(&self.pipelineLock)
+      } else {
+        os_log("%{public}@ command buffer error: %{public}@",
+               log: MetalRenderer.log, type: .error,
+               timingLabel, completed.error?.localizedDescription ?? "unknown")
+      }
+      self.inFlightSemaphore.signal()
+    }
+    commandBuffer.commit()
+
+    os_unfair_lock_lock(&pipelineLock)
+    let previous = readyOutput
+    os_unfair_lock_unlock(&pipelineLock)
+    return previous
+  }
+
   // MARK: - Output buffer pool
 
   /// Returns a fresh BGRA, IOSurface-backed, Metal-compatible CVPixelBuffer
@@ -195,18 +301,36 @@ final class MetalRenderer {
   }
 
   private func rebuildOutputPool(width: Int, height: Int) throws {
+    // min 4 covers the worst-case live set now that the completion handler
+    // retains `currentOutput` until the GPU finishes: the semaphore (value 2)
+    // permits TWO command buffers in flight, so two distinct `currentOutput`
+    // buffers can be captured at once, PLUS the previously-published
+    // `readyOutput` the capture thread may still be handing to WebRTC, PLUS the
+    // one being dequeued this frame. 2 + 1 + 1 = 4. The pool grows past the
+    // minimum if all are momentarily live, so 4 is the steady-state floor, not a
+    // hard cap.
+    outputPool = try MetalRenderer.makeBGRAMetalPool(width: width, height: height, minCount: 4)
+    poolWidth = width
+    poolHeight = height
+  }
+
+  /// Creates a CVPixelBufferPool of BGRA, IOSurface-backed, Metal-compatible
+  /// buffers. Shared by the output pool and the original-ingest pool. IOSurface-
+  /// backed so downstream (RTCCVPixelBuffer -> I420 -> encoder) accepts the
+  /// buffer; Metal-compatible so CVMetalTextureCache can wrap it as a texture
+  /// without a copy. Pools grow past `minCount` if more buffers are momentarily
+  /// live, so the count is a steady-state floor, not a hard cap.
+  private static func makeBGRAMetalPool(width: Int, height: Int, minCount: Int) throws
+    -> CVPixelBufferPool {
     let pixelBufferAttributes: [String: Any] = [
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
       kCVPixelBufferWidthKey as String: width,
       kCVPixelBufferHeightKey as String: height,
-      // IOSurface-backed so downstream (RTCCVPixelBuffer -> I420 -> encoder)
-      // accepts the buffer; Metal-compatible so CVMetalTextureCache can wrap
-      // it as a render-target texture without a copy.
       kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
       kCVPixelBufferMetalCompatibilityKey as String: true,
     ]
     let poolAttributes: [String: Any] = [
-      kCVPixelBufferPoolMinimumBufferCountKey as String: 3,
+      kCVPixelBufferPoolMinimumBufferCountKey as String: minCount,
     ]
     var pool: CVPixelBufferPool?
     let status = CVPixelBufferPoolCreate(
@@ -218,34 +342,49 @@ final class MetalRenderer {
     guard status == kCVReturnSuccess, let createdPool = pool else {
       throw RendererError.pixelBufferPoolCreateFailed(status)
     }
-    outputPool = createdPool
-    poolWidth = width
-    poolHeight = height
+    return createdPool
   }
 
   // MARK: - Intermediate textures
 
-  /// Returns the cached "original" ingest texture (BGRA), allocating it (and
-  /// its backing CVPixelBuffer) on first use or on resolution change. The
-  /// returned tuple's CVPixelBuffer is the CoreImage render target; the
-  /// MTLTexture is a zero-copy view of the same IOSurface.
-  func originalIngestTarget(width: Int, height: Int) throws -> (CVPixelBuffer, MTLTexture) {
-    if let buffer = originalBuffer, let tex = originalTexture,
-       originalWidth == width, originalHeight == height {
-      return (buffer, tex)
+  /// Dequeues a fresh "original" ingest buffer (BGRA, IOSurface-backed,
+  /// Metal-compatible) from the pool and returns it with a per-frame Metal
+  /// texture view and the CVMetalTexture wrapper that pins it to the IOSurface.
+  /// The CVPixelBuffer is the CoreImage render target; the MTLTexture is a
+  /// zero-copy view of the same IOSurface.
+  ///
+  /// The caller MUST keep `buffer` and `wrapper` alive until its command buffer
+  /// completes (pass both in commitPipelined's keepAlive); the segmenter
+  /// separately retains the buffer for its async read. The pool will not recycle
+  /// the buffer until both readers release it. See the originalPool field
+  /// comment for why this is pooled and not a single reused buffer.
+  func originalIngestTarget(width: Int, height: Int) throws
+    -> (buffer: CVPixelBuffer, texture: MTLTexture, wrapper: CVMetalTexture) {
+    if originalPool == nil || originalPoolWidth != width || originalPoolHeight != height {
+      // Worst-case live set is 4: 2 GPU-in-flight (semaphore value 2, each
+      // pinned via keepAlive) + 1 the segmenter's async worker still holds + 1
+      // dequeued this frame. The CVMetalTexture wrapper does not occupy its own
+      // pool slot (it pins the same buffer's IOSurface). 5 leaves one of
+      // headroom; the pool grows past the floor on demand regardless.
+      originalPool = try MetalRenderer.makeBGRAMetalPool(width: width, height: height, minCount: 5)
+      originalPoolWidth = width
+      originalPoolHeight = height
     }
-    let buffer = try TextureBridge.makeMetalCompatibleBGRABuffer(width: width, height: height)
-    let texture = try TextureBridge.makeTexture(
+    guard let pool = originalPool else {
+      throw RendererError.pixelBufferPoolCreateFailed(kCVReturnError)
+    }
+    var pixelBuffer: CVPixelBuffer?
+    let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBuffer)
+    guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+      throw RendererError.pixelBufferAllocFailed(status)
+    }
+    let (texture, wrapper) = try TextureBridge.makeTexture(
       from: buffer,
       cache: textureCache,
       pixelFormat: .bgra8Unorm,
       planeIndex: 0
     )
-    originalBuffer = buffer
-    originalTexture = texture
-    originalWidth = width
-    originalHeight = height
-    return (buffer, texture)
+    return (buffer, texture, wrapper)
   }
 
   /// Returns the two blur ping-pong textures, allocating on first use or on
@@ -313,11 +452,12 @@ final class MetalRenderer {
   }
 
   /// Encode one separable blur pass (`source` -> `target`) along `axis`.
-  /// Binds the 9-float weights at buffer(0), the float2 axis at buffer(9), and
-  /// the 9-float offsets at buffer(10), matching blur.metal's bindings. The
-  /// spvUnsafeArray<float,9> parameters are 9 tightly packed floats (36 bytes)
-  /// each; setFragmentBytes with the kernel's contiguous arrays satisfies that
-  /// layout.
+  /// Binds the 5-float weights at buffer(0), the float2 axis at buffer(5), and
+  /// the 5-float offsets at buffer(6), matching the regenerated blur.metalsrc.
+  /// spirv-cross numbers uAxis/uOffsets right after the uWeights array, so
+  /// these indices track the array size (was 0/9/10 at 9 entries). setFragment-
+  /// Bytes uses each array's contiguous byte layout (length: ptr.count), so the
+  /// byte count adapts on its own.
   func encodeBlurPass(
     commandBuffer: MTLCommandBuffer,
     source: MTLTexture,
@@ -332,16 +472,16 @@ final class MetalRenderer {
       target: target,
       label: label
     ) { encoder in
-      // spvUnsafeArray<float,9> is 9 tightly packed floats (36 bytes). A Swift
-      // [Float] of 9 elements is contiguous with stride 4, so withUnsafeBytes
-      // hands setFragmentBytes the exact 36-byte layout the shader expects.
+      // spvUnsafeArray<float,5> is 5 tightly packed floats (20 bytes). A Swift
+      // [Float] of 5 elements is contiguous with stride 4, so withUnsafeBytes
+      // hands setFragmentBytes the exact 20-byte layout the shader expects.
       kernel.weights.withUnsafeBytes { ptr in
         encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 0)
       }
       var axisVar = axis
-      encoder.setFragmentBytes(&axisVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 9)
+      encoder.setFragmentBytes(&axisVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 5)
       kernel.offsets.withUnsafeBytes { ptr in
-        encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 10)
+        encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 6)
       }
       encoder.setFragmentTexture(source, index: 0)
       encoder.setFragmentSamplerState(linearClampSampler, index: 0)
@@ -392,31 +532,69 @@ final class MetalRenderer {
       encoder.setFragmentSamplerState(linearClampSampler, index: 2)
     }
   }
+
+  /// Encode the geometric transform pass (`source` -> `target`) for the flip /
+  /// rotate effects. transform.metalsrc bindings: buffer(0) uUvTransform
+  /// (float2x2), texture(0) uTex, sampler(0) uTexSmplr. The host computes
+  /// `uvTransform` via the Orientation helper (the single source of the
+  /// camera-buffer reorientation math). For the 90-degree rotations `target` is
+  /// dimension-swapped (h x w) relative to `source`.
+  func encodeTransform(
+    commandBuffer: MTLCommandBuffer,
+    source: MTLTexture,
+    target: MTLTexture,
+    uvTransform: simd_float2x2,
+    label: String
+  ) throws {
+    try drawFullscreen(
+      commandBuffer: commandBuffer,
+      pipeline: transformPipeline,
+      target: target,
+      label: label
+    ) { encoder in
+      // simd_float2x2 is two contiguous float2 columns (16 bytes), the exact
+      // layout MSL's `constant float2x2&` expects at buffer(0).
+      var uvTransformVar = uvTransform
+      encoder.setFragmentBytes(
+        &uvTransformVar,
+        length: MemoryLayout<simd_float2x2>.stride,
+        index: 0
+      )
+      encoder.setFragmentTexture(source, index: 0)
+      encoder.setFragmentSamplerState(linearClampSampler, index: 0)
+    }
+  }
 }
 
-/// A 9-tap separable Gaussian kernel. Direct port of BlurFactory.kt's
-/// ensureKernel: tapSpacing 2.0; offset[i] = i*2; weight[i] = exp(-x^2 /
-/// (2 sigma^2)); normalize so weight[0] + 2*sum(weight[1..8]) == 1 (the shader
-/// samples +/- offset for the side taps and adds each, so each side tap counts
-/// twice in the normalization). Rebuilt only when sigma changes.
+/// A linear-sampled separable Gaussian kernel: 5 entries (center + 4 bilinear
+/// pairs of dense texels). Mirrors BlurFactory.ensureKernel and
+/// src/web/blur-kernel.ts. Rebuilt only when sigma changes.
 struct BlurKernel {
-  private(set) var weights = [Float](repeating: 0, count: 9)
-  private(set) var offsets = [Float](repeating: 0, count: 9)
+  private(set) var weights = [Float](repeating: 0, count: 5)
+  private(set) var offsets = [Float](repeating: 0, count: 5)
   private var cachedSigma: Float = .nan
 
   mutating func ensure(sigma: Float) {
     if sigma == cachedSigma { return }
-    let tapSpacing = 2.0
-    let sigmaD = Double(sigma)
-    for i in 0..<9 {
-      let x = Double(i) * tapSpacing
-      offsets[i] = Float(x)
-      weights[i] = Float(exp(-(x * x) / (2.0 * sigmaD * sigmaD)))
-    }
+    let s = Double(sigma)
+    func g(_ t: Double) -> Double { exp(-(t * t) / (2.0 * s * s)) }
+    // Linear-sampled: center + 4 bilinear pairs of dense texels (1,2)(3,4)
+    // (5,6)(7,8). See src/web/blur-kernel.ts for the shared derivation.
+    offsets[0] = 0
+    weights[0] = Float(g(0))
     var sum = weights[0]
-    for i in 1..<9 { sum += 2.0 * weights[i] }
+    for p in 1..<5 {
+      let a = Double(2 * p - 1)
+      let b = Double(2 * p)
+      let wa = g(a)
+      let wb = g(b)
+      let w = wa + wb
+      offsets[p] = Float((a * wa + b * wb) / w)
+      weights[p] = Float(w)
+      sum += 2.0 * weights[p]
+    }
     if sum > 0 {
-      for i in 0..<9 { weights[i] /= sum }
+      for i in 0..<5 { weights[i] /= sum }
     }
     cachedSigma = sigma
   }
