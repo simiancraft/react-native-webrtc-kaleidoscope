@@ -64,10 +64,10 @@ enum Orientation {
   /// flip-x:   negate U                       -> columns (-1, 0), ( 0,  1)
   /// flip-y:   negate V                       -> columns ( 1, 0), ( 0, -1)
   /// rotate-cw / rotate-ccw: screen 90-degree rotations. Shared with Android's
-  ///   mat2For: with the flips correct the sampled space is fully pinned, and
-  ///   on-device columns (0,1),(-1,0) rendered COUNTER-clockwise, so clockwise
-  ///   is its inverse, columns (0,-1),(1,0). (Requires the ingest to deliver a
-  ///   display-upright, non-mirrored original; see Ingest.swift.)
+  ///   mat2For. On the clean sampled space (both flips correct, so no transpose
+  ///   or residual reflection) columns (0,-1),(1,0) rendered COUNTER-clockwise,
+  ///   so clockwise is its inverse, columns (0,1),(-1,0). (Requires the ingest to
+  ///   deliver a display-upright, non-mirrored original; see Ingest.swift.)
   static func uvTransform(op: Op) -> simd_float2x2 {
     switch op {
     case .flipX:
@@ -75,9 +75,9 @@ enum Orientation {
     case .flipY:
       return simd_float2x2(columns: (SIMD2<Float>(1, 0), SIMD2<Float>(0, -1)))
     case .rotateCW:
-      return simd_float2x2(columns: (SIMD2<Float>(0, -1), SIMD2<Float>(1, 0)))
-    case .rotateCCW:
       return simd_float2x2(columns: (SIMD2<Float>(0, 1), SIMD2<Float>(-1, 0)))
+    case .rotateCCW:
+      return simd_float2x2(columns: (SIMD2<Float>(0, -1), SIMD2<Float>(1, 0)))
     }
   }
 }
