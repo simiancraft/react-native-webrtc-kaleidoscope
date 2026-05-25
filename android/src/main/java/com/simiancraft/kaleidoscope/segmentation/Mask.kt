@@ -25,6 +25,7 @@ package com.simiancraft.kaleidoscope.segmentation
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.opengl.GLES30
 import android.os.Handler
 import android.os.HandlerThread
@@ -205,11 +206,20 @@ internal class Mask(private val context: Context) {
   private fun runSegmentation(inputBmp: Bitmap) {
     try {
       val seg = ensureSegmenter()
-      val mpImage = BitmapImageBuilder(inputBmp).build()
+      // The GL readback (glReadPixels reads bottom-to-top) hands us a VERTICALLY
+      // FLIPPED (head-down) frame. The segmenter is trained on upright people and
+      // does its worst on an inverted one (device-confirmed: holding the phone
+      // upside down made the mask near-perfect). Feed it an upright copy; the
+      // mask is flipped back below so the working upload/composite alignment is
+      // untouched. NOTE: vertical flip only, not a 180 rotate (glReadPixels does
+      // not reverse columns, so left/right is already correct).
+      val upright = flipVertical(inputBmp)
+      val mpImage = BitmapImageBuilder(upright).build()
       // VIDEO mode: blocking, returns synchronously (drop-in for the old MLKit
-      // Tasks.await). The bitmap is already display-upright, so no rotation.
+      // Tasks.await).
       val result = seg.segmentForVideo(mpImage, videoTimestamp++)
       mpImage.close()
+      upright.recycle()
 
       val confidenceMasks = result.confidenceMasks()
       if (!confidenceMasks.isPresent || confidenceMasks.get().isEmpty()) {
@@ -240,7 +250,12 @@ internal class Mask(private val context: Context) {
         val s = if (blend) MASK_EMA_ALPHA * raw + (1f - MASK_EMA_ALPHA) * smoothed[i] else raw
         smoothed[i] = s
         val c = (s * 255f + 0.5f).toInt() and 0xFF
-        outPixels[i] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
+        // Flip vertically back into the orientation the upload/composite expects
+        // (we segmented an upright copy above). smoothedMask stays in upright
+        // space for frame-to-frame EMA consistency; only the output is flipped.
+        val row = i / maskW
+        val col = i - row * maskW
+        outPixels[(maskH - 1 - row) * maskW + col] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
       }
       smoothedMask = smoothed
       smoothedMaskW = maskW
@@ -260,6 +275,13 @@ internal class Mask(private val context: Context) {
       inputBmp.recycle()
       isProcessing.set(false)
     }
+  }
+
+  /** Vertical mirror (flip across the horizontal axis). Used to upright the
+   * bottom-to-top glReadPixels frame before segmentation. */
+  private fun flipVertical(src: Bitmap): Bitmap {
+    val m = Matrix().apply { postScale(1f, -1f) }
+    return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
   }
 
   // --- Lazy init helpers ---------------------------------------------------
