@@ -1,3 +1,77 @@
+# [2.0.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v1.1.0...v2.0.0) (2026-05-25)
+
+
+* feat(transform)!: replace mirror with flip-x/flip-y/rotate-cw/rotate-ccw ops ([01d8e91](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/01d8e9189025a147c2e2ec88935a51127c3fa987))
+* refactor(backgrounds)!: rename office presets to dark-office and light-office ([a787426](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/a78742672c065b5db837719fcec4c4076dfafa5d))
+
+
+### Bug Fixes
+
+* **android,ios:** correct the rotate-cw/ccw direction (was reversed) ([0f24516](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/0f245163ddd60437c5c7e566524ffeeb51d3abeb))
+* **android,ios:** downsample before blurring, matching the web serration fix ([372df09](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/372df09938f502d8c32a4ddde9703eb9b64c5aed))
+* **android,ios:** make mirror a screen-horizontal flip under portrait rotation ([8978304](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/8978304b838bfd0ffeb970129e5b6b8846218182))
+* **android,ios:** rotate clockwise on the clean sampled space ([d1528cf](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/d1528cfe7df6446937d1a6f3a3583c3549fa1363))
+* **android,ios:** set rotate-cw/ccw to the device-confirmed chirality ([eb4de15](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/eb4de15c02f5728a33a88a74fe814374d89ea4e4))
+* **android:** align segmentation short-side clamp floor to 128 ([1e0fdbe](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/1e0fdbedf80dc9903c0a1f63d9f5ee3410b4ddfe))
+* **android:** close MPImage in finally to avoid a leak on segment failure ([e421972](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e421972117359844fcfb0c91209e357837301e98))
+* **android:** drop enableRawSizeMask to restore mask quality ([64aec90](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/64aec90bcba0542366b08e2de79b661fa432afa5))
+* **android:** feed the segmenter an upright frame (glReadPixels is bottom-up) ([e3e93d9](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e3e93d918efaae2719bcd241b9bbebcdada44b1f))
+* **android:** sample transform ops in buffer space, not screen space ([96fe41b](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/96fe41b4424b73bc796d432149c221451328b469))
+* **android:** share one segmentation worker + segmenter process-wide ([8286dd7](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/8286dd730c85b8c824282c2e6c4be67bf90d88b0))
+* **demo:** show the native preview with contain, not cover ([87efdec](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/87efdec588cc2c4050481d5ddab4869898fcd166))
+* **ios:** apply the ingest de-mirror in display space, not source space ([64e9d28](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/64e9d28ddd2b6887ed3ba19c7b7efd6c71e671e3))
+* **ios:** cancel the blurred-background vertical flip in the composite ([15a5dba](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/15a5dba8e387a209b563d84b517b2ecf00b4ae91))
+* **ios:** copy the Vision mask into an owned buffer to stop the drift ([34dd70e](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/34dd70e398312be2d0a24f86607c29b7e7b58259))
+* **ios:** de-mirror the ingest and pool the mask buffer ([23c4fa2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/23c4fa2d71e56e3607b1a0a94da59707335dc0d2))
+* **ios:** drop the half-wired setSegmentationQuality bridge; guard registry parity ([6a7d7e5](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/6a7d7e5ebff856cffd62b066b83e80a4624b87f9))
+* **ios:** flip the background texture vertically at the composite ([39612f6](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/39612f67172d5bdf8d45bb809878e0656f30d525))
+* **ios:** guard non-finite confidence before UInt8 mask quantize ([76369c2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/76369c206c74347ed0ee1bdab4b5d9ff914b1f07))
+* **ios:** mask.float32Data is non-optional; drop the illegal guard let ([9635ea4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/9635ea446ba805d6baafb7d1e1fd46a0be6bfac3))
+* **ios:** orient the background image to the display via shared Orientation ([f26df0e](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/f26df0eae56606eb34d9b7a5d548484b392e7cea))
+* **ios:** pool the original ingest buffer to fix in-flight read races ([ef7eb18](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/ef7eb1862b2e591e9c4875110d56e865534e3c09))
+* **ios:** retain the mask buffer and texture until the GPU pass completes ([1417932](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/141793241a0de0605cd9a753b35e2999f29927bb))
+* **ios:** set Vision quality back to .balanced (.fast was unusable) ([a3c36ef](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/a3c36ef1969d274a1017a9d6193bea224e1c4231))
+* **ios:** vertical-flip bracket so the segmenter sees an upright frame ([7df65b7](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/7df65b75ec7e3ba9fa93d47c1fa07cd9439c0ef2))
+* **segmentation:** restore quality lowered in the perf pass ([1c1e419](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/1c1e419f86781ebf58ee62964c9dabd33da1d748))
+* **web:** downsample before blurring to kill directional serration ([8681f2a](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/8681f2a2ce3f5e09522775606c2bf10cd6f129be))
+
+
+### Features
+
+* **android,ios:** register flip/rotate ops via a shared Orientation helper ([74cd4eb](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/74cd4eb0fe64a9241ff203dbea1e1ea269166993))
+* **android:** segment via MediaPipe ImageSegmenter instead of MLKit ([56b3a67](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/56b3a67a603844906596f5c8cfadac34c62c9c3d))
+* **android:** temporal-smooth the mask (EMA) and floor input at 256 ([282aca0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/282aca0df01d7edc5251ae062a7f71c478225842))
+* **backgrounds:** add 8 scene presets (home/nature/stylized/simiancraft, light + dark) ([daad424](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/daad4248b37e4bda408d15f7367d6622f9800151))
+* **backgrounds:** add debug-resolutions calibration grid as first preset ([d0b291c](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/d0b291c03deeb13e6e4f34a2930319e8df424aeb))
+* **demo:** give the debug grid its own row above the office presets ([3f26799](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/3f267993958bc680e2d5f9f289efb484f9e69279))
+* **demo:** lay out Translate and Background toggles as 2-up grids ([1972afc](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/1972afcac34aa7a337e35973e70a52d4bb94a96c))
+* **demo:** stamp version, git sha, and build time on screen ([44978ca](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/44978ca858a6a8085fdadc85cd3bdc34a13a9564))
+* **ios:** segment via MediaPipe ImageSegmenter instead of Vision ([36a2c6d](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/36a2c6d2636ac6ea1316364230deab3146c2abe2))
+* set dialed-in effect defaults (sigma 5, hardness 0.5, threshold 0.7) ([1174bb6](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/1174bb60f87c43108a851e934b79410d7189ad3f))
+* **tuning:** expose segmentation resolution and debug timing as live knobs ([1459f50](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/1459f50c3f300436f3975dc45e1b3a66a3d6a3fd))
+* **web:** default mask threshold to 0.7 ([2d7b5d2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/2d7b5d2125224788896aeca3a92b6309eafad7f1))
+
+
+### Performance Improvements
+
+* **android:** blur at quarter-area resolution (R1) ([0c64a79](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/0c64a797ba4af1b3e69f6b5c0a10ef459ba02d4d))
+* **android:** pipeline frames with a GL fence, add GPU timing ([7784498](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/778449829091a5839fc393eec8774486ed1910ec))
+* **ios:** blur at quarter-area resolution (R1) ([7d98092](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/7d9809253b51e9e5a6494e79b9f73fbbcdaf7578))
+* **ios:** downscale Vision input, pipeline frames, add GPU/CPU timing ([74d9955](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/74d99550f9dbaae0559b2a9757e2e2012a3e874a))
+* **ios:** lower Vision quality to .fast now that the mask is drift-free ([ace7c9c](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/ace7c9c9be20dd619c01a4c16f77e21faf2a2234))
+* linear-sampled blur kernel, 9 fetches per pass instead of 17 (R2) ([b7586bb](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/b7586bb7a7ae63b7ca66ce08f5f972ca594ca117))
+* **web:** blur at quarter-area resolution (R1) ([0ab3f02](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/0ab3f028250132d8837488da73fdbd14648aafd3))
+* **web:** cache blur uniform locations and add per-pass GPU timing ([83be5aa](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/83be5aa8df1df767f464563882a9f32830102e6c))
+* **web:** cache composite uniforms and harden background source loading ([642b131](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/642b131668ef5c82712143cd3a08577a94325536))
+* **web:** decouple segmentation from the render path (R6) ([d89c8ee](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/d89c8ee9638053b026692f8ddd3b52b66df79ad0))
+* **web:** upload the background-image texture once, not per frame ([7f0bdf2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/7f0bdf24f04f4374b7a56b91724f949711780cd9))
+
+
+### BREAKING CHANGES
+
+* the 'mirror' effect name and MirrorSpec type are removed; use the transform ops (flip-x is the former mirror, corrected to a screen-horizontal flip).
+* the ./backgrounds/office-1 and ./backgrounds/office-2 export subpaths are renamed to ./backgrounds/dark-office and ./backgrounds/light-office.
+
 # [1.1.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v1.0.0...v1.1.0) (2026-05-23)
 
 
