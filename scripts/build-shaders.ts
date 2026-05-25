@@ -14,6 +14,17 @@
 // Generated files are committed; `bun run check:shaders` re-runs this and fails
 // if any committed artifact is stale. Never hand-edit the generated files.
 //
+// GATE COVERAGE CAVEAT: check:shaders diffs only the Android .kt and web .ts
+// codegen, not the iOS .metalsrc (spirv-cross output varies by toolchain
+// version, so diffing the MSL would false-positive in CI). For the shared
+// shaders this is safe: a stale .frag still trips the .kt/.ts diff. But the
+// iOS-only shaders (nebula.frag, simianlights.frag) are in neither codegen list
+// and have no gated artifact, so editing one without re-running build:shaders
+// would leave a stale .metalsrc that the gate cannot catch. Those two are
+// staged for the procedural-shader handler (a later PR); until they are wired
+// into a gated path, treat a build:shaders run as mandatory after touching
+// them, and rely on the iOS build to surface a transpile failure.
+//
 // Tool requirements (system binaries):
 //   sudo apt install -y glslang-tools spirv-tools spirv-cross   # Debian/Ubuntu/WSL
 //   brew install glslang spirv-tools spirv-cross                # macOS
