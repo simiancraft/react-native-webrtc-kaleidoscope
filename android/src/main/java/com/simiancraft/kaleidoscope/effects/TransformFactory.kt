@@ -58,6 +58,10 @@ class TransformFactory(
 private class TransformProcessor(
   private val op: Orientation.Op,
 ) : VideoFrameProcessor {
+  // process() is only ever invoked on the single SurfaceTextureHelper capture
+  // thread (VideoEffectProcessor.onFrameCaptured), so this never actually
+  // contends. Retained as cheap uncontended insurance and as an explicit marker
+  // that the GL state below is single-threaded; it is NOT a cross-thread guard.
   private val lock = Any()
 
   private var oesToTwoD: GlProgram? = null
