@@ -130,23 +130,17 @@ interface WebRTCTrackExtensions {
 // (TransformFactory on Android, TransformProcessor on iOS); each is a flat name.
 const TRANSFORM_EFFECTS: readonly string[] = ['flip-x', 'flip-y', 'rotate-cw', 'rotate-ccw'];
 
-const ANDROID_REGISTERED_EFFECTS: readonly string[] = [
+// Android (Registration.kt) and iOS (Registration.swift) install an identical
+// effect set, so one list covers both natives. If the platforms ever diverge,
+// split this back into per-platform lists keyed off Platform.OS.
+const NATIVE_REGISTERED_EFFECTS_LIST: readonly string[] = [
   ...TRANSFORM_EFFECTS,
   'blur',
   ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
 ];
 
-const IOS_REGISTERED_EFFECTS: readonly string[] = [
-  ...TRANSFORM_EFFECTS,
-  'blur',
-  ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
-];
-
-const registeredForPlatform = (): readonly string[] => {
-  if (Platform.OS === 'android') return ANDROID_REGISTERED_EFFECTS;
-  if (Platform.OS === 'ios') return IOS_REGISTERED_EFFECTS;
-  return [];
-};
+const registeredForPlatform = (): readonly string[] =>
+  Platform.OS === 'android' || Platform.OS === 'ios' ? NATIVE_REGISTERED_EFFECTS_LIST : [];
 
 const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlatform());
 

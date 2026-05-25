@@ -216,15 +216,22 @@ shader.
 Four things, in order:
 
 1. **Spec**: add a new branch to `EffectSpec` in `src/types.ts`. Add the
-   discriminant string to `ANDROID_REGISTERED_EFFECTS` in `src/index.ts`.
+   discriminant string to `NATIVE_REGISTERED_EFFECTS_LIST` in `src/index.ts`
+   (one list covers both native platforms).
 2. **Web**: a new file under `src/web/effects/<name>.ts` exporting a
    `FrameTransform`. Add the case to `specToTransform` in `src/index.web.ts`.
 3. **Android**: a new `effects/<Name>Factory.kt` implementing
    `VideoFrameProcessorFactoryInterface`. Add a
    `ProcessorProvider.addProcessor("<name>", <Name>Factory(...))` line to
-   `Registration.kt`. If the effect needs new GLSL, add to `gpu/Shaders.kt`.
-4. **iOS**: a new `effects/<Name>Processor.swift` conforming to
-   `RTCVideoFrameProcessor`. Add the registration to `Registration.swift`.
+   `Registration.kt`. If the effect needs new GLSL, add the `.frag`/`.vert` to
+   `shaders/` and run `bun run build:shaders` (do not hand-edit `Shaders.kt`).
+4. **iOS**: a new `effects/<Name>Processor.swift` conforming to the
+   `VideoFrameProcessorDelegate` protocol. Add a
+   `ProcessorProvider.addProcessor(<Name>Processor(), forName: "<name>")` line
+   to `Registration.swift`. Unlike Android (one factory, one processor per
+   track), iOS registers a single processor INSTANCE per name at boot, so do
+   not skip this step; an effect with no `Registration.swift` entry is silently
+   absent on iOS.
 
 The native side uses a flat-string registry (`ProcessorProvider.addProcessor`)
 because the upstream `react-native-webrtc` `_setVideoEffects` API takes
@@ -237,11 +244,16 @@ conversation.
 Single source of truth: `src/backgrounds.ts`. Append the preset name to
 `BACKGROUND_PRESETS`. Then:
 
-- Drop `<name>.png` into `android/src/main/assets/backgrounds/`.
+- Drop `<name>.webp` into `android/src/main/assets/backgrounds/` and into
+  `ios/KaleidoscopeModule/resources/backgrounds/` (the iOS `Kaleidoscope.bundle`).
 - Add a `ProcessorProvider.addProcessor("background-image-<name>",
   BackgroundImageFactory(context, "<name>"))` line to `Registration.kt`.
-- Add a `<name>: require('./assets/backgrounds/<name>.png')` entry to the
-  demo's preset map.
+- Add a `ProcessorProvider.addProcessor(BackgroundImageProcessor(assetName:
+  "<name>"), forName: "background-image-<name>")` line to `Registration.swift`.
+- Add the per-preset subpath export and the `.webp` asset export to
+  `package.json` "exports" (Metro has no tree-shaking; consumers import one
+  preset's bytes via its subpath).
+- Add the preset to the demo's preset map.
 
 The JS allowlist and type-level autocomplete (`BackgroundPresetName`) pick
 up the new preset automatically from the catalog.
