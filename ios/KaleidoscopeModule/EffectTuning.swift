@@ -41,11 +41,11 @@ public enum EffectTuning {
   // and the Vision cost drop is large. A later JS device-tier drives this so
   // an A11-class device can request a smaller mask than an A16.
   private static var _targetShortSide: Int = 384
-  // .fast: with the buffer-drift race fixed the mask is stable, and the clean
-  // .fast frame was already good, so we trial .fast for lower cost (.balanced
-  // added noticeable lag). Raise to .balanced/.accurate if .fast edges are too
-  // coarse on a stable mask.
-  private static var _segmentationQuality: SegmentationQuality = .fast
+  // .balanced: device-confirmed the keeper. .fast tested visibly worse (mushy,
+  // unusable mask) even with the drift race fixed, so quality level — not just
+  // the drift — was a real contributor; .accurate is historically too slow. The
+  // modest .balanced lag is worth it. Do not drop to .fast.
+  private static var _segmentationQuality: SegmentationQuality = .balanced
   // When true, the GPU/Vision/ingest timing instrument logs under os_log
   // category "Perf". Off by default; a debug build or a JS toggle turns it on
   // to confirm the bottleneck on an EAS build (no attachable profiler there).
@@ -139,7 +139,7 @@ public enum EffectTuning {
     _maskHardness = 0.5
     _maskThreshold = 0.7
     _targetShortSide = 384
-    _segmentationQuality = .fast
+    _segmentationQuality = .balanced
     // debugTiming is intentionally NOT reset here: it is an instrument toggle,
     // not an effect parameter, so resetEffectTuning() should not silence it.
     os_unfair_lock_unlock(&unsafeLock)
