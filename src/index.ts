@@ -59,8 +59,8 @@ export const setMaskThreshold = (value: number): void => {
 /**
  * Set the segmentation input short-side (px). The person mask is computed from
  * an input downscaled to this; lower = cheaper segmentation (helps on older
- * devices like the A11), softer mask edge. Default 256 (Android) / 384 (iOS).
- * Native only; the web pipeline ignores it.
+ * devices like the A11), softer mask edge. Default 384, clamped [128, 1080]
+ * identically on both native platforms. Native only; the web pipeline ignores it.
  */
 export const setSegmentationTargetShortSide = (value: number): void => {
   nativeModule().setSegmentationTargetShortSide(value);
