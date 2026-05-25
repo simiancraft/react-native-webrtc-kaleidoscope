@@ -2,13 +2,12 @@
 // last-known-mask cache, mask uploaded to a 2D GL texture for the composite
 // shader to sample.
 //
-// SPIKE: this replaces the MLKit SelfieSegmenter (preserved unreferenced as
-// Mask.kt.old) with MediaPipe Tasks. MediaPipe is the same model family web
-// uses and is more configurable; MLKit was at its ~256 model ceiling on Android.
-// Only the segmenter guts changed — the GL downsample -> worker -> EMA -> upload
-// -> composite pipeline is identical, and we still feed the upright downsampled
-// Bitmap (so orientation is unchanged: MediaPipe sees the same input MLKit did).
-// See spike-mediapipe-android-segmentation.md.
+// MediaPipe Tasks ImageSegmenter (VIDEO mode, confidence masks,
+// selfie_segmenter.tflite), the same model family web and iOS run. The GL
+// downsample -> worker -> EMA -> upload -> composite pipeline feeds the segmenter
+// an UPRIGHT downsampled Bitmap (glReadPixels reads bottom-up, so the readback is
+// head-down and the model is far worse on an inverted person; see flipVertical
+// and the mask flip-back in runSegmentation).
 //
 // Per-frame flow on the GL thread:
 //   1. If the worker produced a new mask bitmap since the last frame,

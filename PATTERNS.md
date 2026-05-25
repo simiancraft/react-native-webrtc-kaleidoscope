@@ -35,11 +35,13 @@ android/src/main/java/com/simiancraft/kaleidoscope/
 │   ├── FramePipeline.kt                 one-frame GPU pipeline (fence handoff; replaced per-frame glFinish)
 │   ├── Egl.kt                           state save/restore, matrix conversion
 │   ├── Fbo.kt                           FBO + texture allocator
+│   ├── FramePipeline.kt                 GL-fence frame pipelining (R3)
 │   ├── GlProgram.kt                     shader compile/link
 │   ├── GlDebug.kt                       glGetError logging
-│   ├── GpuEffectFactory.kt              architecture-proof passthrough factory (v0.1 cleanup target)
-│   ├── GpuEffectProcessor.kt            architecture-proof passthrough processor (v0.1 cleanup target)
-│   └── Shaders.kt                       all GLSL source for every Android effect
+│   ├── Ingest.kt                        camera -> display-upright normalization (the one orientation step)
+│   ├── Orientation.kt                   screen-space flip/rotate matrices
+│   ├── Shaders.kt                       GLSL source for the Android effects
+│   └── ShadersGenerated.kt              codegen'd shader strings (do not edit; bun run build:shaders)
 └── segmentation/                      person-segmentation helpers (MediaPipe on Android)
     ├── Mask.kt                          async MediaPipe worker + last-known-mask cache
     └── MaskTuning.kt                    smoothstep range from a [0,1] hardness factor

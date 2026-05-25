@@ -55,13 +55,9 @@ dependencies {
   }
   compileOnly project(rnWebrtcProject)
 
-  // Person/background mask. MediaPipe Tasks ImageSegmenter is the active
-  // segmenter (Mask.kt); it is the same model family web uses and is more
-  // configurable than MLKit, whose ~256 model was the Android quality ceiling.
+  // Person/background mask: MediaPipe Tasks ImageSegmenter (Mask.kt), the same
+  // model family the web and iOS sides run.
   implementation 'com.google.mediapipe:tasks-vision:0.10.14'
-  // MLKit kept for the easy switch-back path: Mask.kt.old (unreferenced) still
-  // uses it. Drop both this line and Mask.kt.old if MediaPipe is confirmed.
-  implementation 'com.google.mlkit:segmentation-selfie:16.0.0-beta6'
 }
 
 // Helper: gracefully read root project ext properties with a default.

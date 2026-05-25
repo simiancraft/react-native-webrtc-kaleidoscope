@@ -12,20 +12,6 @@
 
 import Foundation
 
-/// Person-segmentation quality, mapped to VNGeneratePersonSegmentationRequest.
-/// QualityLevel. Stored as a small enum so the JS bridge can pass a string and
-/// the Segmenter can switch without importing Vision into the tuning store.
-public enum SegmentationQuality: String {
-  case fast
-  case balanced
-  case accurate
-
-  /// Parse a JS-supplied string, defaulting to `.fast` on anything unexpected.
-  public static func from(_ raw: String) -> SegmentationQuality {
-    SegmentationQuality(rawValue: raw.lowercased()) ?? .fast
-  }
-}
-
 public enum EffectTuning {
   // os_unfair_lock is the iOS 13+ recommended primitive for cheap
   // serialization of cross-thread state. NSLock would also work; we use
@@ -35,18 +21,12 @@ public enum EffectTuning {
   private static var _blurSigma: Float = 5.0
   private static var _maskHardness: Float = 0.5
   private static var _maskThreshold: Float = 0.7
-  // Short-side (in px) the camera buffer is downscaled to before the Vision
-  // person-segmentation request runs. The produced mask is lower-res; the
-  // composite upsamples it with a LINEAR sampler, so the quality cost is small
-  // and the Vision cost drop is large. A later JS device-tier drives this so
-  // an A11-class device can request a smaller mask than an A16.
+  // Short-side (in px) the camera buffer is downscaled to before MediaPipe
+  // segmentation runs. The produced mask is lower-res; the composite upsamples
+  // it with a LINEAR sampler, so the quality cost is small and the segmentation
+  // cost drop is large.
   private static var _targetShortSide: Int = 384
-  // .balanced: device-confirmed the keeper. .fast tested visibly worse (mushy,
-  // unusable mask) even with the drift race fixed, so quality level — not just
-  // the drift — was a real contributor; .accurate is historically too slow. The
-  // modest .balanced lag is worth it. Do not drop to .fast.
-  private static var _segmentationQuality: SegmentationQuality = .balanced
-  // When true, the GPU/Vision/ingest timing instrument logs under os_log
+  // When true, the GPU/segmentation/ingest timing instrument logs under os_log
   // category "Perf". Off by default; a debug build or a JS toggle turns it on
   // to confirm the bottleneck on an EAS build (no attachable profiler there).
   private static var _debugTiming = false
@@ -107,19 +87,6 @@ public enum EffectTuning {
     }
   }
 
-  public static var segmentationQuality: SegmentationQuality {
-    get {
-      os_unfair_lock_lock(&unsafeLock)
-      defer { os_unfair_lock_unlock(&unsafeLock) }
-      return _segmentationQuality
-    }
-    set {
-      os_unfair_lock_lock(&unsafeLock)
-      _segmentationQuality = newValue
-      os_unfair_lock_unlock(&unsafeLock)
-    }
-  }
-
   public static var debugTiming: Bool {
     get {
       os_unfair_lock_lock(&unsafeLock)
@@ -139,7 +106,6 @@ public enum EffectTuning {
     _maskHardness = 0.5
     _maskThreshold = 0.7
     _targetShortSide = 384
-    _segmentationQuality = .balanced
     // debugTiming is intentionally NOT reset here: it is an instrument toggle,
     // not an effect parameter, so resetEffectTuning() should not silence it.
     os_unfair_lock_unlock(&unsafeLock)

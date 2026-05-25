@@ -31,15 +31,8 @@ public class KaleidoscopeModule: Module {
       EffectTuning.targetShortSide = value
     }
 
-    // NOTE: segmentationQuality (Vision .fast/.balanced/.accurate) is NOT
-    // bridged to JS yet; it stays at its .fast default (see EffectTuning +
-    // Segmenter). When the device-tier lands, wire setSegmentationQuality
-    // across ALL layers at once (the src/index.ts interface + both entry
-    // exports + an Android Function + a web store), never iOS-only — a
-    // half-bridged setter throws on the platform that lacks the native function.
-
-    // Native perf instrument toggle; logs GPU/Vision/ingest timings under the
-    // os_log "Perf" category. Off by default.
+    // Native perf instrument toggle; logs GPU/segmentation/ingest timings under
+    // the os_log "Perf" category. Off by default.
     Function("setDebugTiming") { (value: Bool) in
       EffectTuning.debugTiming = value
     }
