@@ -56,10 +56,10 @@ import org.webrtc.YuvConverter
 class BlurFactory(
   private val context: Context,
 ) : VideoFrameProcessorFactoryInterface {
-  override fun build(): VideoFrameProcessor = BlurProcessor()
+  override fun build(): VideoFrameProcessor = BlurProcessor(context)
 }
 
-private class BlurProcessor : VideoFrameProcessor {
+private class BlurProcessor(private val context: Context) : VideoFrameProcessor {
   private val lock = Any()
 
   private var oesToTwoD: GlProgram? = null
@@ -78,7 +78,7 @@ private class BlurProcessor : VideoFrameProcessor {
   private var blurW = 0
   private var blurH = 0
 
-  private val mask = Mask()
+  private val mask = Mask(context)
   private var yuvConverter: YuvConverter? = null
 
   // R3: one-frame GPU pipeline. process() hands each rendered texture here and

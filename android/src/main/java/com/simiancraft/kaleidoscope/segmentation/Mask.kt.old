@@ -1,14 +1,6 @@
-// Mask production: async MediaPipe Tasks ImageSegmenter on a worker thread,
+// Mask production: async MLKit Selfie Segmentation on a worker thread,
 // last-known-mask cache, mask uploaded to a 2D GL texture for the composite
 // shader to sample.
-//
-// SPIKE: this replaces the MLKit SelfieSegmenter (preserved unreferenced as
-// Mask.kt.old) with MediaPipe Tasks. MediaPipe is the same model family web
-// uses and is more configurable; MLKit was at its ~256 model ceiling on Android.
-// Only the segmenter guts changed — the GL downsample -> worker -> EMA -> upload
-// -> composite pipeline is identical, and we still feed the upright downsampled
-// Bitmap (so orientation is unchanged: MediaPipe sees the same input MLKit did).
-// See spike-mediapipe-android-segmentation.md.
 //
 // Per-frame flow on the GL thread:
 //   1. If the worker produced a new mask bitmap since the last frame,
@@ -18,22 +10,26 @@
 //   3. Return the current mask GL texture handle (or -1 if no mask has
 //      completed yet — caller falls through to the original frame).
 //
+// The worker thread is the bottleneck (~20-50 ms per MLKit call); decoupling
+// it from the frame thread keeps render at the camera's frame rate while
+// the mask updates ~10-20 Hz. One frame of latency on mask updates is
+// acceptable for this use case.
+//
 // All failure paths log under Kaleidoscope.Mask and return -1 (or a stale
 // mask if one was previously computed).
 
 package com.simiancraft.kaleidoscope.segmentation
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.opengl.GLES30
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
-import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.ByteBufferExtractor
-import com.google.mediapipe.tasks.core.BaseOptions
-import com.google.mediapipe.tasks.vision.core.RunningMode
-import com.google.mediapipe.tasks.vision.imagesegmenter.ImageSegmenter
+import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.segmentation.Segmentation
+import com.google.mlkit.vision.segmentation.Segmenter
+import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
 import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.GlDebug
@@ -44,12 +40,8 @@ import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
-internal class Mask(private val context: Context) {
-  private var segmenter: ImageSegmenter? = null
-
-  // VIDEO running mode requires monotonically increasing timestamps; a plain
-  // counter guarantees that regardless of wall-clock resolution.
-  private var videoTimestamp: Long = 0
+internal class Mask {
+  private var segmenter: Segmenter? = null
 
   // Cached small-FBO state for the downsample pass.
   private var downsampleFbo: Fbo? = null
@@ -60,7 +52,7 @@ internal class Mask(private val context: Context) {
   private var maskTexWidth: Int = 0
   private var maskTexHeight: Int = 0
 
-  // Worker thread for blocking segmentation calls. Started lazily on first frame.
+  // Worker thread for blocking MLKit calls. Started lazily on first frame.
   private val workerThread: HandlerThread = HandlerThread("Kaleidoscope.MaskWorker").apply {
     start()
   }
@@ -86,10 +78,10 @@ internal class Mask(private val context: Context) {
   private var smoothedMaskH: Int = 0
 
   /**
-   * Per-frame mask production. Always returns immediately (no segmentation
-   * blocking on the GL thread). Returns the GL texture handle of the latest
-   * available mask, or -1 if no segmentation has completed yet. Callers must
-   * treat -1 as "no mask this frame" and fall through to the original frame.
+   * Per-frame mask production. Always returns immediately (no MLKit blocking
+   * on the GL thread). Returns the GL texture handle of the latest available
+   * mask, or -1 if no segmentation has completed yet. Callers must treat -1
+   * as "no mask this frame" and fall through to the original frame.
    */
   fun produce(
     source2D: Int,
@@ -129,7 +121,7 @@ internal class Mask(private val context: Context) {
   }
 
   /**
-   * Release segmenter + worker thread + GL resources. Call from the GL thread.
+   * Release MLKit + worker thread + GL resources. Call from the GL thread.
    * Not currently invoked by any caller because VideoFrameProcessor has no
    * explicit teardown hook; worker thread leaks for the app's lifetime.
    */
@@ -205,30 +197,19 @@ internal class Mask(private val context: Context) {
   private fun runSegmentation(inputBmp: Bitmap) {
     try {
       val seg = ensureSegmenter()
-      val mpImage = BitmapImageBuilder(inputBmp).build()
-      // VIDEO mode: blocking, returns synchronously (drop-in for the old MLKit
-      // Tasks.await). The bitmap is already display-upright, so no rotation.
-      val result = seg.segmentForVideo(mpImage, videoTimestamp++)
-      mpImage.close()
+      val inputImage = InputImage.fromBitmap(inputBmp, 0)
+      val rawMask = Tasks.await(seg.process(inputImage))
 
-      val confidenceMasks = result.confidenceMasks()
-      if (!confidenceMasks.isPresent || confidenceMasks.get().isEmpty()) {
-        Log.w(TAG, "segmentation produced no confidence mask")
-        return
-      }
-      // General selfie segmenter: a single foreground-confidence mask (float
-      // [0,1], higher = person), matching the old MLKit convention.
-      val maskImage = confidenceMasks.get()[0]
-      val maskW = maskImage.width
-      val maskH = maskImage.height
+      val maskBuffer = rawMask.buffer.order(ByteOrder.nativeOrder()).asFloatBuffer()
+      val maskW = rawMask.width
+      val maskH = rawMask.height
       val pixelCount = maskW * maskH
-      val maskBuffer = ByteBufferExtractor.extract(maskImage)
-        .order(ByteOrder.nativeOrder())
-        .asFloatBuffer()
 
-      // Temporal smoothing (exponential moving average) across mask updates, to
-      // damp shoulder-popping / edge shimmer. History resets on dim change.
-      // Worker-thread only, so no locking.
+      // Temporal smoothing (exponential moving average) across mask updates.
+      // STREAM_MODE only partially stabilizes the mask; blending each new mask
+      // with the previous one damps the shoulder-popping / edge shimmer the raw
+      // per-update mask shows. History resets when the mask dims change (e.g. the
+      // resolution knob moved). Worker-thread only, so no locking.
       val prevSmoothed = smoothedMask
       val blend = prevSmoothed != null && smoothedMaskW == maskW && smoothedMaskH == maskH
       val smoothed = if (blend) prevSmoothed!! else FloatArray(pixelCount)
@@ -264,29 +245,22 @@ internal class Mask(private val context: Context) {
 
   // --- Lazy init helpers ---------------------------------------------------
 
-  private fun ensureSegmenter(): ImageSegmenter {
+  private fun ensureSegmenter(): Segmenter {
     val existing = segmenter
     if (existing != null) return existing
-    // Load the model as a direct ByteBuffer (setModelAssetBuffer) rather than
-    // setModelAssetPath: the path variant memory-maps the asset and requires it
-    // to be stored uncompressed (aaptOptions noCompress), which we cannot
-    // guarantee in the CONSUMING app's build. Reading the asset into a direct
-    // buffer ourselves works regardless of apk compression.
-    val modelBytes = context.assets.open("selfie_segmenter.tflite").use { it.readBytes() }
-    val modelBuffer = ByteBuffer.allocateDirect(modelBytes.size).order(ByteOrder.nativeOrder())
-    modelBuffer.put(modelBytes)
-    modelBuffer.rewind()
-
-    val baseOptions = BaseOptions.builder()
-      .setModelAssetBuffer(modelBuffer)
-      .build()
-    val options = ImageSegmenter.ImageSegmenterOptions.builder()
-      .setBaseOptions(baseOptions)
-      .setRunningMode(RunningMode.VIDEO)
-      .setOutputConfidenceMasks(true)
-      .setOutputCategoryMask(false)
-      .build()
-    val seg = ImageSegmenter.createFromOptions(context, options)
+    val seg = Segmentation.getClient(
+      SelfieSegmenterOptions.Builder()
+        .setDetectorMode(SelfieSegmenterOptions.STREAM_MODE)
+        // Deliberately NOT enableRawSizeMask(). The raw ~256 native mask is
+        // coarse; our composite threshold then crushes thin / low-confidence
+        // regions (the torso reads as background). Letting MLKit upsample the
+        // mask to the input image size preserves the soft confidence edge that
+        // survives the threshold. enableRawSizeMask was added as a perf
+        // optimization and visibly regressed Android mask quality vs the
+        // original (which never set it); the FPS headroom does not justify it.
+        // Do not re-add it without an on-device A/B.
+        .build(),
+    )
     segmenter = seg
     return seg
   }

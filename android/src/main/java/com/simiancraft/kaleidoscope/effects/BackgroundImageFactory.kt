@@ -74,7 +74,7 @@ private class BackgroundImageProcessor(
   private var cachedWidth = 0
   private var cachedHeight = 0
 
-  private val mask = Mask()
+  private val mask = Mask(context)
   private var yuvConverter: YuvConverter? = null
 
   // R3: one-frame GPU pipeline (see FramePipeline). Replaces the per-frame
