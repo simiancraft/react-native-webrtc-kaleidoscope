@@ -40,8 +40,8 @@ android/src/main/java/com/simiancraft/kaleidoscope/
 │   ├── GpuEffectFactory.kt              architecture-proof passthrough factory (v0.1 cleanup target)
 │   ├── GpuEffectProcessor.kt            architecture-proof passthrough processor (v0.1 cleanup target)
 │   └── Shaders.kt                       all GLSL source for every Android effect
-└── segmentation/                      person-segmentation helpers (MLKit on Android)
-    ├── Mask.kt                          async MLKit worker + last-known-mask cache
+└── segmentation/                      person-segmentation helpers (MediaPipe on Android)
+    ├── Mask.kt                          async MediaPipe worker + last-known-mask cache
     └── MaskTuning.kt                    smoothstep range from a [0,1] hardness factor
 
 ios/KaleidoscopeModule/

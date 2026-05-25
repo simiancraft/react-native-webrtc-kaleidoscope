@@ -48,8 +48,8 @@ export const setMaskHardness = (value: number): void => {
  * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
  * pixels (helps tighten the silhouette against chair-edge noise);
  * lower values are more inclusive. Optimal value is platform-specific
- * because each segmentation model (MediaPipe on web, MLKit on Android,
- * Vision on iOS) produces a different confidence distribution.
+ * because the segmentation models differ (MediaPipe on web and Android,
+ * Vision on iOS) and produce different confidence distributions.
  */
 export const setMaskThreshold = (value: number): void => {
   nativeModule().setMaskThreshold(value);
