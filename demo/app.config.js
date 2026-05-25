@@ -26,7 +26,7 @@ const config = {
   slug: 'react-native-webrtc-kaleidoscope-demo',
   owner: 'simiancraft',
   // Bump the patch on every EAS build so the on-screen version changes per build.
-  version: '0.1.3',
+  version: '0.1.4',
   orientation: 'portrait',
   scheme: 'kaleidoscope-demo',
   userInterfaceStyle: 'automatic',
