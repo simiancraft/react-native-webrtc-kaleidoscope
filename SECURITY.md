@@ -2,11 +2,12 @@
 
 ## Supported versions
 
-Only the latest major receives security fixes. react-native-webrtc-kaleidoscope is pre-1.0; the `0.x` line on `main` is supported until v1.
+Only the latest major receives security fixes. The current release line on `main` is supported.
 
 | Version | Supported |
 |---------|-----------|
-| 0.x     | ✓         |
+| 1.x     | ✓         |
+| < 1.0   | ✗         |
 
 ## Reporting a vulnerability
 
@@ -29,6 +30,6 @@ react-native-webrtc-kaleidoscope is a native Expo Module that registers video fr
 ### Out of scope
 
 - **Bugs in `react-native-webrtc`** itself (the peer dependency). Report upstream at <https://github.com/react-native-webrtc/react-native-webrtc>.
-- **Bugs in MLKit, MediaPipe, or Apple Vision** (the segmentation backends). Report to their respective maintainers.
-- **Visual quality** of segmentation masks, or platform parity gaps between Apple Vision / MLKit / MediaPipe. These are tracked as regular [GitHub issues](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues).
+- **Bugs in MediaPipe** (the segmentation backend) or the bundled `selfie_segmenter.tflite` model. Report to their respective maintainers.
+- **Visual quality** of segmentation masks, or platform parity gaps in the MediaPipe segmentation. These are tracked as regular [GitHub issues](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues).
 - **Theoretical issues** that require an attacker to already control the local camera input pipeline.

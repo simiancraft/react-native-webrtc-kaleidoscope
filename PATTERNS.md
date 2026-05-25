@@ -59,8 +59,8 @@ ios/KaleidoscopeModule/
 │   ├── Orientation.swift                screen-space transform-op matrices (no frame.rotation dependence)
 │   ├── MetalRenderer.swift              pipelines + passes (blur, composite, transform); pixel-buffer pool
 │   └── TextureBridge.swift              NV12->BGRA ingest, mask CVPixelBufferPool, Metal texture cache
-└── segmentation/                      person-segmentation helpers (Vision on iOS)
-    └── Segmenter.swift                  VNGeneratePersonSegmentationRequest worker; owns mask buffers via a pool
+└── segmentation/                      person-segmentation helpers (MediaPipe Tasks ImageSegmenter on iOS)
+    └── Segmenter.swift                  MediaPipe ImageSegmenter worker (selfie_segmenter.tflite); owns mask buffers via a pool
 
 plugin/
 └── src/

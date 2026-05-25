@@ -121,7 +121,7 @@ setMaskThreshold(0.7);   // smoothstep center; clamped to [0.05, 0.95]. Higher r
 
 Effects chain in array order.
 
-**Tuning note:** optimal values are platform-specific because the segmentation models differ. Web and Android both run MediaPipe Selfie Segmentation; iOS runs Apple Vision person segmentation, which produces a different confidence distribution. Working defaults on a typical well-lit scene (the Android values below predate the MLKit-to-MediaPipe swap and are being re-dialed):
+**Tuning note:** all three platforms run MediaPipe selfie segmentation (Tasks Image Segmenter on native, the Selfie Segmentation Solution on web), but optimal values still differ slightly because the input downscale and the API variant differ per platform, producing different confidence distributions. Working defaults on a typical well-lit scene:
 
 | Platform | Blur sigma | Mask hardness | Mask threshold |
 |---|---|---|---|
@@ -172,7 +172,7 @@ The codebase lives across four surfaces:
 - `src/` — JS facade and shared types. `applyVideoEffects(track, effects)` plus runtime tuning setters.
 - `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. One shader file per stage in `src/web/shaders.ts`.
 - `android/` — OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
-- `ios/` — Metal pipeline (Swift) with Vision person segmentation. The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
+- `ios/` — Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model the Android target bundles). The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
 
 The composite shader (`shaders/composite.frag`) is the same GLSL source for every effect category (blur, background-image, future procedural backgrounds). Per-effect difference is upstream of the composite: how the `uBackground` texture gets produced.
 

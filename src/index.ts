@@ -47,9 +47,10 @@ export const setMaskHardness = (value: number): void => {
  * Set the mask smoothstep threshold (center of the transition) in
  * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
  * pixels (helps tighten the silhouette against chair-edge noise);
- * lower values are more inclusive. Optimal value is platform-specific
- * because the segmentation models differ (MediaPipe on web and Android,
- * Vision on iOS) and produce different confidence distributions.
+ * lower values are more inclusive. Optimal value is platform-specific:
+ * all three platforms run MediaPipe selfie segmentation, but the input
+ * downscale and API variant differ and produce different confidence
+ * distributions.
  */
 export const setMaskThreshold = (value: number): void => {
   nativeModule().setMaskThreshold(value);

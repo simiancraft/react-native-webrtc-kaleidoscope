@@ -6,11 +6,22 @@ react-native-webrtc-kaleidoscope ships under the MIT license (see [LICENSE](./LI
 
 - **react-native-webrtc** — MIT license. <https://github.com/react-native-webrtc/react-native-webrtc>. The `track._setVideoEffects(...)` JS surface, the Android `ProcessorProvider` registry, and the iOS `RTCVideoFrameProcessor` protocol all originate upstream. This package is a consumer of, not a fork of, that codebase.
 
-## Native segmentation backends (used by the `blur` effect)
+## Segmentation backends (used by the `blur` and `background-image` effects)
 
-- **Apple Vision** (iOS) — system framework. `VNGeneratePersonSegmentationRequest`. Subject to the Apple SDK License Agreement.
-- **MLKit Selfie Segmentation** (Android) — Apache License 2.0. Distributed by Google as a managed AAR. <https://developers.google.com/ml-kit/vision/selfie-segmentation>.
-- **MediaPipe Selfie Segmentation** (web) — Apache License 2.0. Loaded as an `optionalDependency` so native consumers do not bundle the WASM payload. <https://github.com/google-ai-edge/mediapipe>.
+All three platforms run Google's MediaPipe selfie segmentation. The native targets use the MediaPipe Tasks Image Segmenter with a model bundled in this package; the web target uses the legacy MediaPipe Selfie Segmentation Solution loaded at runtime from a CDN.
+
+- **MediaPipe Tasks Vision** (Android) — Apache License 2.0. The `com.google.mediapipe:tasks-vision` AAR, `ImageSegmenter` API. <https://github.com/google-ai-edge/mediapipe>.
+- **MediaPipe Tasks Vision** (iOS) — Apache License 2.0. The `MediaPipeTasksVision` CocoaPod, `ImageSegmenter` API. <https://github.com/google-ai-edge/mediapipe>.
+- **MediaPipe Selfie Segmentation** (web) — Apache License 2.0. The `@mediapipe/selfie_segmentation` Solution, loaded at runtime from `cdn.jsdelivr.net` (not bundled in this package). <https://github.com/google-ai-edge/mediapipe>.
+
+### Bundled model
+
+The native targets redistribute a TensorFlow Lite model inside the published package; it ships in `android/src/main/assets/selfie_segmenter.tflite` and in the iOS `Kaleidoscope.bundle`.
+
+- **MediaPipe SelfieSegmenter** (`selfie_segmenter.tflite`) — distributed by Google as part of MediaPipe Solutions.
+  - Source: <https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite>
+  - Model card: <https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Selfie%20Segmentation.pdf>
+  - The MediaPipe SDK and its published model assets are provided by Google under the Apache License 2.0; model-specific usage notes are described in the model card above. The web target does not bundle this file; it fetches its model from the CDN at runtime.
 
 ## Algorithmic and architectural references
 
@@ -19,8 +30,8 @@ react-native-webrtc-kaleidoscope ships under the MIT license (see [LICENSE](./LI
 
 ## Trademarks
 
-- "Apple", "Vision", "Core Image", and related Apple marks are trademarks of Apple Inc. Used here as nominative references only.
-- "Google", "MLKit", and "MediaPipe" are trademarks of Google LLC. Used here as nominative references only.
+- "Apple", "Core Image", "Metal", and related Apple marks are trademarks of Apple Inc. Used here as nominative references only.
+- "Google", "MediaPipe", and "TensorFlow Lite" are trademarks of Google LLC. Used here as nominative references only.
 - "WebRTC" is a project of the W3C and IETF.
 
 This package is not affiliated with, endorsed by, or certified by Apple, Google, the W3C, or the `react-native-webrtc` project.
