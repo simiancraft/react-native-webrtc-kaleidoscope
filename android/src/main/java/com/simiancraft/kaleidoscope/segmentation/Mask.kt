@@ -228,10 +228,14 @@ internal class Mask {
     val seg = Segmentation.getClient(
       SelfieSegmenterOptions.Builder()
         .setDetectorMode(SelfieSegmenterOptions.STREAM_MODE)
-        // Raw model resolution; MLKit returns the mask at the segmenter's
-        // native size instead of upsampling internally. Faster per call;
-        // the composite shader's smoothstep softens the coarser edge.
-        .enableRawSizeMask()
+        // Deliberately NOT enableRawSizeMask(). The raw ~256 native mask is
+        // coarse; our composite threshold then crushes thin / low-confidence
+        // regions (the torso reads as background). Letting MLKit upsample the
+        // mask to the input image size preserves the soft confidence edge that
+        // survives the threshold. enableRawSizeMask was added as a perf
+        // optimization and visibly regressed Android mask quality vs the
+        // original (which never set it); the FPS headroom does not justify it.
+        // Do not re-add it without an on-device A/B.
         .build(),
     )
     segmenter = seg
