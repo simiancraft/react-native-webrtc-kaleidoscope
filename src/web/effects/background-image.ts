@@ -137,10 +137,13 @@ const cache = new Map<string, CacheEntry>();
 // SECURITY: `source` is consumer-supplied and may be an arbitrary URL or data
 // URI (see BackgroundImageSpec.source). Two bounds keep an untrusted source
 // from becoming a memory-pressure DoS:
-//   - MAX_BG_DIMENSION caps the decoded raster so a "decompression bomb" (a
-//     small file that decodes to hundreds of megapixels) is downscaled rather
-//     than fully buffered. A background is cover-fit anyway, so the cap costs
-//     nothing visible.
+//   - MAX_BG_DIMENSION caps the RETAINED raster and the GPU upload so a
+//     "decompression bomb" (a small file that decodes to hundreds of
+//     megapixels) is downscaled rather than held full-size. A background is
+//     cover-fit anyway, so the cap costs nothing visible. NOTE: createImageBitmap
+//     decodes the full image before this downscale runs, so the transient decode
+//     peak is bounded by the browser's own createImageBitmap limits, not by this
+//     cap; the cap bounds sustained memory + GPU pressure, not the decode spike.
 //   - MAX_CACHE_ENTRIES bounds the per-source cache so a stream of distinct
 //     URLs cannot grow it without limit.
 // Consumers wiring `source` from end-user input should still validate the URL
