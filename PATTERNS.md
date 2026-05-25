@@ -154,9 +154,13 @@ NOT orientation, and must not be "cleaned up" to identity: the composite's
 V-flip parity terms. The vertical flip some composite paths need (odd
 ping-pong pass count plus each platform's texture-origin convention) is
 render-pass/texture parity, not camera orientation, and it lands on a
-DIFFERENT uniform per platform: iOS blur uses `uBgUvScale=(1,-1)`; web blur and
-web background use `uMaskUvScale=(1,-1)`; Android uses identity for both (its GL
-pipeline does not accumulate the flip). The authoritative per-platform table is
+DIFFERENT uniform per platform: iOS blur uses `uBgUvScale=(1,-1)`; iOS background
+negates `uBgUvScale.y` and sets `uBgUvOffset.y = offset.y+scale.y` composed WITH
+the cover-fit (the MTKTextureLoader texture's V convention differs from the
+CoreImage "original" at sample time); web blur and web background use
+`uMaskUvScale=(1,-1)`; Android uses identity for both (its GL pipeline does not
+accumulate the flip, and the background is pre-flipped on the bitmap instead).
+The authoritative per-platform table is
 in the `shaders/composite.frag` header. Do not cross-normalize these; zeroing
 web's mask flip or copying iOS's bg flip onto Android breaks that platform.
 
@@ -188,9 +192,17 @@ the right upload flag or pre-flip to enforce the convention:
   `Bitmap.createBitmap(bmp, 0, 0, w, h, Matrix(preScale(1, -1)), false)`
   before `GLUtils.texImage2D`. Android OpenGL ES has no `UNPACK_FLIP_Y`
   flag, so the flip has to happen on the bitmap.
-- **iOS** (when it lands): `CVMetalTextureCacheCreateTextureFromImage`
-  produces a top-down texture by default; pre-flip at upload (or run a
-  one-pass blit through a flipped intermediate) to land `v=1` = top.
+- **iOS original / mask**: the `CVMetalTextureCacheCreateTextureFromImage`
+  views of the CoreImage-rendered "original" and the segmenter mask
+  composite correct at plain `vUv` (verified on-device); the ingest already
+  lands the displayable top consistently for that path.
+- **iOS background**: `MTKTextureLoader` (`.origin = .topLeft`) loads a
+  STANDALONE image, not a CVPixelBuffer; at Metal sample time its top row
+  lands at the opposite V end from the CoreImage "original", so it needs a
+  V-flip. The flip is folded into `uBgUvScale.y`/`uBgUvOffset.y` composed
+  with the cover-fit (negate `scale.y`; `offset.y' = offset.y + scale.y`),
+  NOT done at load, so the load-time "row 0 = top" convention stays uniform
+  with the foreground and the flip is visible at the call site.
 
 The convention is enforced upstream of the shader so the shader stays
 genuinely cross-platform. If a future texture source does not naturally

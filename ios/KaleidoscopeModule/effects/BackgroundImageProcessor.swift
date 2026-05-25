@@ -18,13 +18,17 @@
 // an os_unfair_lock. Every failure path logs under Kaleidoscope.BgImage and
 // returns the ORIGINAL frame.
 //
-// PNG ORIENTATION (diverges from Android by design):
-//   Android pre-flips the PNG vertically before upload because OpenGL ES has
-//   no UNPACK_FLIP_Y and GL texture (0,0) is bottom-left. On Metal, texture
-//   (0,0) is top-left and we load the PNG with MTKTextureLoaderOriginTopLeft,
-//   so the PNG's top row lands at texel row 0, which is what the composite's
-//   vUv=(0,0)=top-left convention samples. No flip is needed here; the result
-//   matches Android's flipped-on-load outcome.
+// BACKGROUND ORIENTATION (V-flip parity; both platforms flip, by different means):
+//   Android pre-flips the bitmap vertically before upload (OpenGL ES has no
+//   UNPACK_FLIP_Y and GL texture (0,0) is bottom-left). iOS loads the WebP with
+//   MTKTextureLoaderOriginTopLeft, then folds a V-flip into uBgUvScale/uBgUvOffset
+//   at the composite (composed WITH the cover-fit so centering is preserved). The
+//   flip is required because at Metal sample time the MTKTextureLoader texture's
+//   top row lands at the opposite V end from the CoreImage-rendered "original"
+//   foreground (which composites correct on-device); the two standalone-image vs.
+//   CVPixelBuffer paths do NOT share a V convention despite both being "row 0 =
+//   top". U is untouched (the background is never mirrored). This is texture-origin
+//   parity, NOT camera orientation; see shaders/composite.frag header + PATTERNS.md.
 //
 // CAMERA ORIENTATION:
 //   The camera rotation is normalized at ingest (Ingest.swift): the "original"
@@ -205,6 +209,28 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
       bgUvOffset = SIMD2<Float>(0.0, (1.0 - scaleY) * 0.5)
     }
 
+    // V-flip parity for the MTKTextureLoader-loaded background, composed WITH
+    // the cover-fit above (do not clobber it). The composite samples every
+    // texture at plain vUv and the convention is "semantic top of source at
+    // GL v=1". The CoreImage/CVPixelBuffer "original" foreground lands that way
+    // and is correct on-device; the MTKTextureLoader texture does NOT match it
+    // at sample time (its top row lands at vUv.y=0, the opposite end), so the
+    // background renders vertically inverted without this flip. Folding the
+    // flip into the cover-fit UVs is the same mechanism iOS blur uses to carry
+    // its parity flip (uBgUvScale=(1,-1)); see shaders/composite.frag header and
+    // PATTERNS.md. The composite computes bgUv = vUv*scale + offset, so the
+    // cover-fit window is bgUv.y in [offset.y, offset.y+scale.y]. To flip V
+    // while keeping THAT SAME window centered, negate scale.y and set
+    // offset.y' = offset.y + scale.y (maps vUv.y=0 to the window's far edge and
+    // vUv.y=1 to its near edge). NB: the common "offset.y = 1 - offset.y"
+    // shorthand is only exact when scale.y == 1 (the letterbox-on-X branch); in
+    // the letterbox-on-Y branch scale.y < 1 and that shorthand would shift the
+    // crop, so use offset.y + scale.y, which is exact for both branches. U is
+    // untouched: the background never goes through ingest and is not mirrored,
+    // matching the foreground.
+    let flippedBgUvScale = SIMD2<Float>(bgUvScale.x, -bgUvScale.y)
+    let flippedBgUvOffset = SIMD2<Float>(bgUvOffset.x, bgUvOffset.y + bgUvScale.y)
+
     let (maskLo, maskHi) = MaskTuning.smoothstepRange(
       hardness: EffectTuning.maskHardness,
       threshold: EffectTuning.maskThreshold
@@ -225,18 +251,19 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
       target: outputTexture,
       original: originalTexture,
       // The PNG composites DIRECTLY (no pre-orient bake): it is sampled in the
-      // same single composite pass as uOriginal, so it shares the foreground's
-      // V convention with zero extra render passes. Unlike blur's background
-      // (which travels through ping-pong passes and so carries a parity V-flip),
-      // this one needs none. Camera orientation was handled at ingest.
+      // same single composite pass as uOriginal. Camera orientation was handled
+      // at ingest. It still needs a single V-flip parity term on uBgUvScale/
+      // Offset (folded above) because the MTKTextureLoader texture's top row
+      // lands at the opposite V end from the CoreImage "original" foreground at
+      // sample time; that flip is texture-origin parity, NOT camera orientation.
       background: backgroundTexture,
       mask: maskTexture,
       maskUvScale: SIMD2<Float>(1, 1),
       maskUvOffset: SIMD2<Float>(0, 0),
       maskHi: maskHi,
       maskLo: maskLo,
-      bgUvScale: bgUvScale,
-      bgUvOffset: bgUvOffset,
+      bgUvScale: flippedBgUvScale,
+      bgUvOffset: flippedBgUvOffset,
       label: "bgImage-composite"
     )
     // R3 frame-pipelining: commit asynchronously and return the PREVIOUS

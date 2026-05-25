@@ -15,8 +15,11 @@
 //     uBgUvScale/Offset carry cover-fit only.
 //   - iOS blur: uBgUvScale=(1,-1), uBgUvOffset=(0,1) (odd ping-pong passes);
 //     uMaskUvScale/Offset identity.
-//   - iOS background: all identity except uBgUvScale/Offset cover-fit
-//     (single composite pass, no parity flip).
+//   - iOS background: uBgUvScale.y negated and uBgUvOffset.y = offset.y+scale.y,
+//     COMPOSED WITH cover-fit (uBgUvScale.x / the cover-fit terms carry the fit).
+//     The V-flip is texture-origin parity: the MTKTextureLoader-loaded background
+//     lands its top row at the opposite V end from the CoreImage "original" at
+//     sample time. uMaskUvScale/Offset identity.
 //   - Android (blur AND background): all identity except uBgUvScale cover-fit.
 // Zeroing web's uMaskUvScale, or copying iOS's bgUvScale=(1,-1) onto Android,
 // breaks that platform. See PATTERNS.md "Texture-orientation convention."
