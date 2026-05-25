@@ -66,14 +66,15 @@ internal object EffectTuning {
   /**
    * Segmentation input short-side (px). The mask is produced from an input
    * downscaled to this; lower = cheaper segmentation, softer mask edge.
-   * Default 384; clamped [128, 1080]. Tuned live from JS via
-   * setSegmentationTargetShortSide. (iOS mirrors this with a 384 default.)
-   * Raised from 256: 256 fed MLKit too few pixels and dropped arms/torso.
+   * Default 384; clamped [256, 1080] — 256 is MLKit's documented minimum for
+   * accurate selfie segmentation, so the input never drops below it even if the
+   * slider sends less. Tuned live from JS via setSegmentationTargetShortSide.
+   * (iOS mirrors this default.)
    */
   @Volatile
   var targetShortSide: Int = 384
     set(value) {
-      field = value.coerceIn(128, 1080)
+      field = value.coerceIn(256, 1080)
     }
 
   fun reset() {

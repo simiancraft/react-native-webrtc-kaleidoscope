@@ -71,6 +71,12 @@ internal class Mask {
   // Pre-allocated readback buffer (resized only on input-dim change).
   private var pixelByteBuffer: ByteBuffer? = null
 
+  // Temporal-smoothing (EMA) state: the previous smoothed confidence buffer and
+  // its dims. Worker-thread only, so no locking.
+  private var smoothedMask: FloatArray? = null
+  private var smoothedMaskW: Int = 0
+  private var smoothedMaskH: Int = 0
+
   /**
    * Per-frame mask production. Always returns immediately (no MLKit blocking
    * on the GL thread). Returns the GL texture handle of the latest available
@@ -133,6 +139,7 @@ internal class Mask {
       segmenter?.close()
       segmenter = null
       pendingMaskBitmap.getAndSet(null)?.recycle()
+      smoothedMask = null
     } catch (t: Throwable) {
       Log.w(TAG, "Mask.release encountered an error; resources may leak", t)
     }
@@ -196,13 +203,29 @@ internal class Mask {
       val maskBuffer = rawMask.buffer.order(ByteOrder.nativeOrder()).asFloatBuffer()
       val maskW = rawMask.width
       val maskH = rawMask.height
+      val pixelCount = maskW * maskH
 
-      val outPixels = IntArray(maskW * maskH)
+      // Temporal smoothing (exponential moving average) across mask updates.
+      // STREAM_MODE only partially stabilizes the mask; blending each new mask
+      // with the previous one damps the shoulder-popping / edge shimmer the raw
+      // per-update mask shows. History resets when the mask dims change (e.g. the
+      // resolution knob moved). Worker-thread only, so no locking.
+      val prevSmoothed = smoothedMask
+      val blend = prevSmoothed != null && smoothedMaskW == maskW && smoothedMaskH == maskH
+      val smoothed = if (blend) prevSmoothed!! else FloatArray(pixelCount)
+
+      val outPixels = IntArray(pixelCount)
       maskBuffer.rewind()
-      for (i in 0 until maskW * maskH) {
-        val c = (maskBuffer.get().coerceIn(0f, 1f) * 255f + 0.5f).toInt() and 0xFF
+      for (i in 0 until pixelCount) {
+        val raw = maskBuffer.get().coerceIn(0f, 1f)
+        val s = if (blend) MASK_EMA_ALPHA * raw + (1f - MASK_EMA_ALPHA) * smoothed[i] else raw
+        smoothed[i] = s
+        val c = (s * 255f + 0.5f).toInt() and 0xFF
         outPixels[i] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
       }
+      smoothedMask = smoothed
+      smoothedMaskW = maskW
+      smoothedMaskH = maskH
 
       val outBmp = Bitmap.createBitmap(maskW, maskH, Bitmap.Config.ARGB_8888)
       outBmp.setPixels(outPixels, 0, maskW, 0, 0, maskW, maskH)
@@ -289,6 +312,11 @@ internal class Mask {
 
   companion object {
     private const val TAG = "Kaleidoscope.Mask"
+
+    // EMA weight for the new mask vs history. Higher = more responsive, lower =
+    // smoother (more lag). 0.5 is ~a 1-2 update time constant at the ~10-20 Hz
+    // mask rate: damps flicker without obvious lag.
+    private const val MASK_EMA_ALPHA = 0.5f
 
     private const val TWO_D_PASSTHROUGH_FRAG = """#version 300 es
 precision mediump float;

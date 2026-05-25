@@ -138,7 +138,7 @@ export function EffectTuningPanel() {
           <TuningRow
             label="Segmentation res (px, native)"
             value={targetShortSide}
-            min={128}
+            min={256}
             max={1080}
             step={32}
             onChange={onTargetShortSide}
