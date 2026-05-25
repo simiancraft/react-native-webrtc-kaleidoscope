@@ -66,11 +66,12 @@ internal object EffectTuning {
   /**
    * Segmentation input short-side (px). The mask is produced from an input
    * downscaled to this; lower = cheaper segmentation, softer mask edge.
-   * Default 256; clamped [128, 1080]. Tuned live from JS via
+   * Default 384; clamped [128, 1080]. Tuned live from JS via
    * setSegmentationTargetShortSide. (iOS mirrors this with a 384 default.)
+   * Raised from 256: 256 fed MLKit too few pixels and dropped arms/torso.
    */
   @Volatile
-  var targetShortSide: Int = 256
+  var targetShortSide: Int = 384
     set(value) {
       field = value.coerceIn(128, 1080)
     }
@@ -80,6 +81,6 @@ internal object EffectTuning {
     maskHardness = 0.5f
     maskThreshold = 0.7f
     debugTiming = false
-    targetShortSide = 256
+    targetShortSide = 384
   }
 }
