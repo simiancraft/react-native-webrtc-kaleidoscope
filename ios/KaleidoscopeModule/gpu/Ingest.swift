@@ -70,8 +70,12 @@ enum Ingest {
   // the debug-grid text reads BACKWARDS. Android (MLKit, no mirror) and the web
   // reference both have a NON-mirrored canonical frame. Setting this true folds a
   // single screen-horizontal flip into the ingest so the canonical "original" is
-  // NON-mirrored, matching web/Android. Composed AFTER the rotation (in display
-  // space), so it is a true screen-horizontal mirror regardless of frame.rotation.
+  // NON-mirrored, matching web/Android. Applied in DISPLAY space, AFTER the rotate
+  // and origin-snap (see uprightTransform step 3), so it is a true screen-
+  // horizontal mirror (negate U) regardless of frame.rotation. It must NOT be
+  // folded into the rotate via scaledBy: a source-space horizontal flip composed
+  // with a 90/270 rotation is a diagonal reflection that swaps the U/V axes and
+  // transposes flip-x with flip-y downstream.
   // Defaults to true (front-camera selfie mirror is the shipping case); flip to
   // false if a future rear-camera/source path is already un-mirrored. This is the
   // single mirror knob, the analogue of ROTATION_DIRECTION for the U axis.
@@ -105,9 +109,24 @@ enum Ingest {
 
   /// The CoreImage affine that maps the raw `sourceExtent` (buffer-space) image
   /// into a DISPLAY-UPRIGHT image whose origin is (0,0) and whose size is the
-  /// display dims. Rotation about the image center by ROTATION_DIRECTION *
-  /// frameRotation, with an optional V-flip escape hatch, then translated so the
-  /// rotated content sits in the positive quadrant ready for render(into:).
+  /// display dims. The pipeline, in the order the pixels experience it:
+  ///   1. rotate about the SOURCE center by ROTATION_DIRECTION * frameRotation,
+  ///   2. snap the rotated bbox to the origin (now the upright DISPLAY rect),
+  ///   3. THEN, in that display frame, fold in the de-mirror / V escape hatch.
+  ///
+  /// The mirror/V MUST be applied in display space (step 3), not folded into the
+  /// rotate via `scaledBy` (step 1). `CGAffineTransform`'s builder methods PREPEND
+  /// in point order, so an inline `t.scaledBy(...)` between the rotate and the
+  /// inverse-center translate applies the scale to the point BEFORE the rotation,
+  /// i.e. in SOURCE space. A horizontal flip in source space, composed with a
+  /// 90/270 rotation, is a reflection across a DIAGONAL: it SWAPS the U and V axes
+  /// of the produced texture. Downstream the transform shader negates U for flip-x
+  /// and V for flip-y about an axis-aligned UV frame, so a U<->V-swapped original
+  /// makes flip-x read as a vertical flip and flip-y as a horizontal mirror (the
+  /// two ops transpose), and the debug grid lands rotated 90. Mirroring AFTER the
+  /// rotation, about the DISPLAY center, is a clean screen-horizontal flip (negate
+  /// U only) that leaves the axes aligned. (This is what the prior comment CLAIMED
+  /// the code did; the composition order silently defeated it.)
   ///
   /// CoreImage is a bottom-left, CCW-positive coordinate system; this returns a
   /// transform to feed `CIImage.transformed(by:)` before `render(_:to:bounds:)`.
@@ -115,27 +134,36 @@ enum Ingest {
     let r = normalize(frameRotation)
     let radians = ROTATION_DIRECTION * CGFloat(r) * .pi / 180.0
 
-    // Rotate about the source center.
+    // Step 1: rotate about the source center.
     let cx = sourceExtent.midX
     let cy = sourceExtent.midY
     var t = CGAffineTransform(translationX: cx, y: cy)
     t = t.rotated(by: radians)
-    // Mirror sits between the rotate and the inverse-center translation, so it is
-    // applied in the post-rotation (display) frame: a screen-horizontal flip
-    // (negate U) plus the optional V escape hatch. Negating x mirrors left<->right
-    // about the image center; the origin-snap below re-seats the result.
-    if INGEST_MIRROR_X || INGEST_V_FLIP {
-      t = t.scaledBy(x: INGEST_MIRROR_X ? -1 : 1, y: INGEST_V_FLIP ? -1 : 1)
-    }
     t = t.translatedBy(x: -cx, y: -cy)
 
-    // After rotation the content may sit in a shifted/negative quadrant. Snap its
-    // bounding box back to the origin so render(_:to:bounds:) fills the display
-    // target from (0,0).
+    // Step 2: snap the rotated bbox to the origin so the content sits in the
+    // positive quadrant; its size is now the upright DISPLAY rect.
     let rotatedBounds = sourceExtent.applying(t)
     t = t.concatenating(
       CGAffineTransform(translationX: -rotatedBounds.origin.x, y: -rotatedBounds.origin.y)
     )
+
+    // Step 3: de-mirror / V escape hatch, IN DISPLAY SPACE. The upright content
+    // now spans (0,0)..(displayW, displayH); reflect about the display center so
+    // the mirror is a true screen-horizontal flip (negate U) regardless of
+    // frame.rotation. Concatenated AFTER `t` (point order: rotate+snap first,
+    // then this reflection), so it acts on the already-upright display frame.
+    if INGEST_MIRROR_X || INGEST_V_FLIP {
+      let displayW = rotatedBounds.width
+      let displayH = rotatedBounds.height
+      let dcx = displayW / 2
+      let dcy = displayH / 2
+      var mirror = CGAffineTransform(translationX: dcx, y: dcy)
+      mirror = mirror.scaledBy(x: INGEST_MIRROR_X ? -1 : 1, y: INGEST_V_FLIP ? -1 : 1)
+      mirror = mirror.translatedBy(x: -dcx, y: -dcy)
+      t = t.concatenating(mirror)
+    }
+
     return t
   }
 }
