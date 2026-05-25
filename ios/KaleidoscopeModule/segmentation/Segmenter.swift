@@ -308,14 +308,12 @@ final class Segmenter {
     guard width > 0, height > 0 else {
       throw RendererError.pixelBufferAllocFailed(kCVReturnInvalidArgument)
     }
-    // float32Data is a `const float *` owned by the Mask (imported as an
-    // implicitly-unwrapped UnsafePointer<Float>); valid only while `mask` is
-    // alive. We read it synchronously here (mask outlives this call) and never
-    // cache the pointer. Guard the IUO so a (nominally impossible) nil degrades
-    // to the last mask rather than trapping the worker.
-    guard let src: UnsafePointer<Float> = mask.float32Data else {
-      throw RendererError.pixelBufferAllocFailed(kCVReturnInvalidArgument)
-    }
+    // float32Data is a `const float *` owned by the Mask, imported as a
+    // NON-optional UnsafePointer<Float> on MediaPipeTasksVision 0.10.x (EAS
+    // confirmed: a conditional binding here is illegal). Valid only while `mask`
+    // is alive; we read it synchronously (mask outlives this call) and never
+    // cache the pointer.
+    let src: UnsafePointer<Float> = mask.float32Data
 
     let dst = try dequeueMaskBuffer(width: width, height: height)
     CVPixelBufferLockBaseAddress(dst, [])
