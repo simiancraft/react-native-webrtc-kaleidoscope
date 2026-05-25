@@ -21,7 +21,7 @@ The native targets redistribute a TensorFlow Lite model inside the published pac
 - **MediaPipe SelfieSegmenter** (`selfie_segmenter.tflite`) — distributed by Google as part of MediaPipe Solutions.
   - Source: <https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite>
   - Model card: <https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Selfie%20Segmentation.pdf>
-  - The MediaPipe SDK and its published model assets are provided by Google under the Apache License 2.0; model-specific usage notes are described in the model card above. The web target does not bundle this file; it fetches its model from the CDN at runtime.
+  - The MediaPipe project and SDK are published by Google under the Apache License 2.0. The `selfie_segmenter.tflite` weights are redistributed here as published by Google as part of MediaPipe Solutions; Google does not attach a separate license to the hosted model file, so its use is governed by the model card above. The web target does not bundle this file; it fetches its model from the CDN at runtime.
 
 ## Algorithmic and architectural references
 

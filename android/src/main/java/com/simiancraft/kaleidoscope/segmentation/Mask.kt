@@ -20,11 +20,13 @@
 // an upright copy), quantizes to 8-bit, and stages the result for upload.
 //
 // RESIDUAL LEAK (bounded, documented): because upstream rebuilds the processor
-// per effect switch with no teardown hook, the dropped Mask's GL texture/FBO/
-// program are not freed until the EGL context is destroyed (camera stop). This
-// is bounded by the number of switches in a session and small per item; the
-// unbounded thread/segmenter accumulation that would actually OOM is gone (it
-// moved to the process-lived SegmentationEngine).
+// per effect switch with no teardown hook, the dropped processor's GL resources
+// are not freed until the EGL context is destroyed (camera stop). That includes
+// this Mask's texture/FBO/program AND the dropped processor's own state (the
+// blur ping-pong FBOs/programs, the YuvConverter). All of it is bounded by the
+// number of switches in a session and small per item; the unbounded thread/
+// segmenter accumulation that would actually OOM is gone (it moved to the
+// process-lived SegmentationEngine).
 //
 // All failure paths log under Kaleidoscope.Mask and return -1 (or a stale
 // mask if one was previously computed).
@@ -70,7 +72,8 @@ internal class Mask(private val context: Context) {
 
   // Temporal-smoothing (EMA) state: the previous smoothed confidence buffer and
   // its dims. Touched only on the SegmentationEngine worker thread (packMask),
-  // which is single-threaded, so no locking.
+  // which is single-threaded, so no locking. (If a future change ever reads
+  // these off that thread, e.g. on the GL thread, they would need @Volatile.)
   private var smoothedMask: FloatArray? = null
   private var smoothedMaskW: Int = 0
   private var smoothedMaskH: Int = 0

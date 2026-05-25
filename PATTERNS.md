@@ -32,18 +32,16 @@ android/src/main/java/com/simiancraft/kaleidoscope/
 ├── gpu/                               pure GL primitives, no domain logic
 │   ├── Ingest.kt                        THE one place camera orientation is normalized (display rotation + dims)
 │   ├── Orientation.kt                   screen-space transform-op matrices (no frame.rotation dependence)
-│   ├── FramePipeline.kt                 one-frame GPU pipeline (fence handoff; replaced per-frame glFinish)
+│   ├── FramePipeline.kt                 one-frame GPU pipeline (GL-fence handoff; replaced per-frame glFinish)
 │   ├── Egl.kt                           state save/restore, matrix conversion
 │   ├── Fbo.kt                           FBO + texture allocator
-│   ├── FramePipeline.kt                 GL-fence frame pipelining (R3)
 │   ├── GlProgram.kt                     shader compile/link
 │   ├── GlDebug.kt                       glGetError logging
-│   ├── Ingest.kt                        camera -> display-upright normalization (the one orientation step)
-│   ├── Orientation.kt                   screen-space flip/rotate matrices
 │   ├── Shaders.kt                       GLSL source for the Android effects
 │   └── ShadersGenerated.kt              codegen'd shader strings (do not edit; bun run build:shaders)
 └── segmentation/                      person-segmentation helpers (MediaPipe on Android)
-    ├── Mask.kt                          async MediaPipe worker + last-known-mask cache
+    ├── SegmentationEngine.kt            process-wide worker thread + ImageSegmenter (shared across processors)
+    ├── Mask.kt                          GL-side adapter: downsample/readback, EMA, mask-texture upload
     └── MaskTuning.kt                    smoothstep range from a [0,1] hardness factor
 
 ios/KaleidoscopeModule/
@@ -141,7 +139,7 @@ Consequences a contributor must not undo:
 - `Orientation.{kt,swift}` (`mat2For` / `uvTransform`) are pure SCREEN-SPACE
   matrices for the transform ops (flip-x = negate U, flip-y = negate V,
   rotate-cw/ccw = axis swap). They do NOT read `frame.rotation`.
-- The background-image composite samples the PNG directly — no pre-orient pass.
+- The background-image composite samples the WebP preset texture directly; no pre-orient pass.
 - There is NO per-effect orientation correction anywhere. Adding one re-creates
   the "orientation cascade" this design removed (it surfaced as "every fix
   breaks another effect" across web/Android/iOS during development).

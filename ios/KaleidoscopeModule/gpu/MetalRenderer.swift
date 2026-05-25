@@ -361,6 +361,11 @@ final class MetalRenderer {
   func originalIngestTarget(width: Int, height: Int) throws
     -> (buffer: CVPixelBuffer, texture: MTLTexture, wrapper: CVMetalTexture) {
     if originalPool == nil || originalPoolWidth != width || originalPoolHeight != height {
+      // Worst-case live set is 4: 2 GPU-in-flight (semaphore value 2, each
+      // pinned via keepAlive) + 1 the segmenter's async worker still holds + 1
+      // dequeued this frame. The CVMetalTexture wrapper does not occupy its own
+      // pool slot (it pins the same buffer's IOSurface). 5 leaves one of
+      // headroom; the pool grows past the floor on demand regardless.
       originalPool = try MetalRenderer.makeBGRAMetalPool(width: width, height: height, minCount: 5)
       originalPoolWidth = width
       originalPoolHeight = height
