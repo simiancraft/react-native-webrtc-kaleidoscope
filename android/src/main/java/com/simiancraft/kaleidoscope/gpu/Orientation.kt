@@ -41,20 +41,19 @@ object Orientation {
    *
    * flip-x: negate U -> column 0 = (-1, 0), column 1 = (0, 1).
    * flip-y: negate V -> column 0 = ( 1, 0), column 1 = (0, -1).
-   * rotate-cw / rotate-ccw: screen 90-degree rotations. The naive sampling
-   *   derivation (rotate-cw reads input (v, 1-u) -> columns (0,-1),(1,0)) came
-   *   out REVERSED on device vs the correct web reference, so the cw/ccw
-   *   matrices are the swapped, device-corrected pair below: rotate-cw =
-   *   columns (0,1),(-1,0); rotate-ccw = columns (0,-1),(1,0).
+   * rotate-cw / rotate-ccw: screen 90-degree rotations. Device-confirmed values:
+   *   with the flips correct (negate-U = horizontal, negate-V = vertical) the
+   *   sampled space is fully pinned, and on-device rotate-cw = columns
+   *   (0,1),(-1,0) rendered COUNTER-clockwise. The clockwise matrix is therefore
+   *   the other one: rotate-cw = columns (0,-1),(1,0); rotate-ccw = (0,1),(-1,0).
    */
   fun mat2For(op: Op): FloatArray =
     when (op) {
       Op.FLIP_X -> floatArrayOf(-1f, 0f, 0f, 1f)
       Op.FLIP_Y -> floatArrayOf(1f, 0f, 0f, -1f)
-      // Device-confirmed: the derivation above had the rotation sign backwards
-      // (rotate-cw read as CCW on Android AND iOS, vs the correct web
-      // reference). Matrices swapped so rotate-cw rotates clockwise like web.
-      Op.ROTATE_CW -> floatArrayOf(0f, 1f, -1f, 0f)
-      Op.ROTATE_CCW -> floatArrayOf(0f, -1f, 1f, 0f)
+      // Device-confirmed (Android, flips already correct): columns (0,1),(-1,0)
+      // rendered CCW, so clockwise is its inverse, columns (0,-1),(1,0).
+      Op.ROTATE_CW -> floatArrayOf(0f, -1f, 1f, 0f)
+      Op.ROTATE_CCW -> floatArrayOf(0f, 1f, -1f, 0f)
     }
 }
