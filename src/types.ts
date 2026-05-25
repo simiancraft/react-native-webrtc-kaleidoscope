@@ -35,6 +35,13 @@ export type BackgroundImageSpec = {
    *
    * The `string & {}` trick preserves preset-name autocomplete while still
    * permitting arbitrary URL inputs without a separate union branch.
+   *
+   * SECURITY (web): a URL/data-URI `source` is fetched in the page origin and
+   * decoded to a texture. If you wire this from end-user input, validate the
+   * URL yourself; the library does not allowlist fetch targets. Decoded
+   * dimensions are capped and the per-source cache is bounded, but an
+   * unvalidated `source` can still issue a same-origin request you did not
+   * intend.
    */
   readonly source: BackgroundPresetName | (string & {});
 };
