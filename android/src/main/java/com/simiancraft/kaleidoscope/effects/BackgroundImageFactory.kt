@@ -5,7 +5,7 @@
 //   2. Lazy-load the named WebP asset (e.g. "dark-office") from the library's
 //      android/src/main/assets/backgrounds/ on first frame; upload as a 2D
 //      GL texture; cache for subsequent frames.
-//   3. Produce a mask via Mask.produce (downsample, MLKit, upload).
+//   3. Produce a mask via Mask.produce (downsample, MediaPipe, upload).
 //   4. Composite original + image + mask into a fresh output texture via
 //      COMPOSITE_FRAG.
 //   5. Wrap the fresh output texture in a TextureBufferImpl and return a

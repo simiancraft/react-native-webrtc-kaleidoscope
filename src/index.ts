@@ -153,6 +153,14 @@ const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   return spec.name;
 };
 
+// Last effect set applied to each track, as a stable signature. Used to skip
+// redundant native calls: rn-webrtc rebuilds the native frame processors on
+// EVERY _setVideoEffects call (Android constructs a fresh processor per call),
+// so re-issuing an unchanged set (a React re-render, an idempotent effect
+// hook) churns GL + segmentation resources for no reason. The WeakMap lets the
+// entry be collected when the track is.
+const lastAppliedSignatureByTrack = new WeakMap<object, string>();
+
 export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const t = track as MediaStreamTrack & WebRTCTrackExtensions;
   if (t.remote) {
@@ -168,6 +176,17 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   // once the GPU effects accept uniforms.
   const allNames = effects.map((e) => specToNativeName(toEffectSpec(e)));
   const names = allNames.filter((n) => NATIVE_REGISTERED_EFFECTS.has(n));
+
+  // Dedup against the last set applied to this track. Order is significant
+  // (effects chain in array order), so the signature preserves it. Skip the
+  // native call when nothing changed; the first call for any given set always
+  // proceeds (no prior entry).
+  const signature = names.join('\n');
+  if (lastAppliedSignatureByTrack.get(track) === signature) {
+    return track;
+  }
+  lastAppliedSignatureByTrack.set(track, signature);
+
   const dropped = allNames.filter((n) => !NATIVE_REGISTERED_EFFECTS.has(n));
   if (dropped.length > 0) {
     console.warn(

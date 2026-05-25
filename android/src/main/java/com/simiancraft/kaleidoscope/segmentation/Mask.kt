@@ -1,21 +1,30 @@
-// Mask production: async MediaPipe Tasks ImageSegmenter on a worker thread,
-// last-known-mask cache, mask uploaded to a 2D GL texture for the composite
-// shader to sample.
+// Mask production: GL-side adapter around the process-wide SegmentationEngine.
 //
-// MediaPipe Tasks ImageSegmenter (VIDEO mode, confidence masks,
-// selfie_segmenter.tflite), the same model family web and iOS run. The GL
-// downsample -> worker -> EMA -> upload -> composite pipeline feeds the segmenter
-// an UPRIGHT downsampled Bitmap (glReadPixels reads bottom-up, so the readback is
-// head-down and the model is far worse on an inverted person; see flipVertical
-// and the mask flip-back in runSegmentation).
+// This class owns the per-processor GL state (downsample FBO/program, mask
+// texture) and the per-stream temporal-smoothing (EMA) state. The actual
+// segmentation (the worker thread + the MediaPipe ImageSegmenter) lives in the
+// shared SegmentationEngine, so constructing a new Mask per effect switch does
+// NOT spin up a new thread or segmenter; see SegmentationEngine for why.
 //
 // Per-frame flow on the GL thread:
 //   1. If the worker produced a new mask bitmap since the last frame,
 //      upload it to the cached mask GL texture.
 //   2. If no segmentation is currently in flight, render a small downsample
-//      snapshot of the input, post it to the worker, set isProcessing=true.
+//      snapshot of the input and submit it to the SegmentationEngine.
 //   3. Return the current mask GL texture handle (or -1 if no mask has
 //      completed yet — caller falls through to the original frame).
+//
+// The engine hands the raw foreground-confidence mask back (on its worker
+// thread) via packMask(), which applies EMA smoothing, flips the mask back into
+// the bottom-up orientation the upload/composite expects (the engine segmented
+// an upright copy), quantizes to 8-bit, and stages the result for upload.
+//
+// RESIDUAL LEAK (bounded, documented): because upstream rebuilds the processor
+// per effect switch with no teardown hook, the dropped Mask's GL texture/FBO/
+// program are not freed until the EGL context is destroyed (camera stop). This
+// is bounded by the number of switches in a session and small per item; the
+// unbounded thread/segmenter accumulation that would actually OOM is gone (it
+// moved to the process-lived SegmentationEngine).
 //
 // All failure paths log under Kaleidoscope.Mask and return -1 (or a stale
 // mask if one was previously computed).
@@ -24,16 +33,8 @@ package com.simiancraft.kaleidoscope.segmentation
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Matrix
 import android.opengl.GLES30
-import android.os.Handler
-import android.os.HandlerThread
 import android.util.Log
-import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.ByteBufferExtractor
-import com.google.mediapipe.tasks.core.BaseOptions
-import com.google.mediapipe.tasks.vision.core.RunningMode
-import com.google.mediapipe.tasks.vision.imagesegmenter.ImageSegmenter
 import com.simiancraft.kaleidoscope.EffectTuning
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.GlDebug
@@ -45,12 +46,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 internal class Mask(private val context: Context) {
-  private var segmenter: ImageSegmenter? = null
-
-  // VIDEO running mode requires monotonically increasing timestamps; a plain
-  // counter guarantees that regardless of wall-clock resolution.
-  private var videoTimestamp: Long = 0
-
   // Cached small-FBO state for the downsample pass.
   private var downsampleFbo: Fbo? = null
   private var downsampleProgram: GlProgram? = null
@@ -60,14 +55,8 @@ internal class Mask(private val context: Context) {
   private var maskTexWidth: Int = 0
   private var maskTexHeight: Int = 0
 
-  // Worker thread for blocking segmentation calls. Started lazily on first frame.
-  private val workerThread: HandlerThread = HandlerThread("Kaleidoscope.MaskWorker").apply {
-    start()
-  }
-  private val workerHandler: Handler = Handler(workerThread.looper)
-
   // Throttle to a single in-flight segmentation at a time. Set true on
-  // kickoff (GL thread), reset false when the worker finishes.
+  // kickoff (GL thread), reset false when the engine reports done.
   private val isProcessing = AtomicBoolean(false)
 
   // Worker -> GL thread handoff: a Bitmap ready to upload as the mask
@@ -80,7 +69,8 @@ internal class Mask(private val context: Context) {
   private var pixelByteBuffer: ByteBuffer? = null
 
   // Temporal-smoothing (EMA) state: the previous smoothed confidence buffer and
-  // its dims. Worker-thread only, so no locking.
+  // its dims. Touched only on the SegmentationEngine worker thread (packMask),
+  // which is single-threaded, so no locking.
   private var smoothedMask: FloatArray? = null
   private var smoothedMaskW: Int = 0
   private var smoothedMaskH: Int = 0
@@ -115,7 +105,12 @@ internal class Mask(private val context: Context) {
         val downsampleBmp =
           renderAndReadback(source2D, sourceWidth, sourceHeight, EffectTuning.targetShortSide)
         if (downsampleBmp != null) {
-          workerHandler.post { runSegmentation(downsampleBmp) }
+          SegmentationEngine.submit(
+            downsampleBmp,
+            context,
+            onMask = { raw, w, h -> packMask(raw, w, h) },
+            onDone = { isProcessing.set(false) },
+          )
         } else {
           isProcessing.set(false)
         }
@@ -129,13 +124,14 @@ internal class Mask(private val context: Context) {
   }
 
   /**
-   * Release segmenter + worker thread + GL resources. Call from the GL thread.
-   * Not currently invoked by any caller because VideoFrameProcessor has no
-   * explicit teardown hook; worker thread leaks for the app's lifetime.
+   * Release this Mask's GL resources. Call from the GL thread. Does NOT touch
+   * the SegmentationEngine's worker thread or segmenter (those are process-
+   * lived and shared). Not currently invoked by any caller because
+   * VideoFrameProcessor has no explicit teardown hook; see the file header on
+   * the bounded GL leak this implies.
    */
   fun release() {
     try {
-      workerThread.quitSafely()
       if (maskTextureId != 0) {
         GLES30.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
         maskTextureId = 0
@@ -144,13 +140,55 @@ internal class Mask(private val context: Context) {
       downsampleFbo = null
       downsampleProgram?.delete()
       downsampleProgram = null
-      segmenter?.close()
-      segmenter = null
       pendingMaskBitmap.getAndSet(null)?.recycle()
       smoothedMask = null
     } catch (t: Throwable) {
       Log.w(TAG, "Mask.release encountered an error; resources may leak", t)
     }
+  }
+
+  // --- Worker thread (invoked by SegmentationEngine) -----------------------
+
+  /**
+   * Apply EMA smoothing to the raw upright confidence mask, flip it back into
+   * the bottom-up orientation the upload/composite expects, quantize to 8-bit
+   * RGBA, and stage it for the GL thread to upload. Runs on the engine's single
+   * worker thread, so the EMA state below needs no locking.
+   */
+  private fun packMask(raw: FloatArray, maskW: Int, maskH: Int) {
+    val pixelCount = maskW * maskH
+
+    // Temporal smoothing (exponential moving average) across mask updates, to
+    // damp shoulder-popping / edge shimmer. History resets on dim change.
+    val prevSmoothed = smoothedMask
+    val blend = prevSmoothed != null && smoothedMaskW == maskW && smoothedMaskH == maskH
+    val smoothed = if (blend) prevSmoothed!! else FloatArray(pixelCount)
+
+    val outPixels = IntArray(pixelCount)
+    for (i in 0 until pixelCount) {
+      val r = raw[i].coerceIn(0f, 1f)
+      val s = if (blend) MASK_EMA_ALPHA * r + (1f - MASK_EMA_ALPHA) * smoothed[i] else r
+      smoothed[i] = s
+      val c = (s * 255f + 0.5f).toInt() and 0xFF
+      // Flip vertically back into the orientation the upload/composite expects
+      // (the engine segmented an upright copy). smoothedMask stays in upright
+      // space for frame-to-frame EMA consistency; only the output is flipped.
+      val row = i / maskW
+      val col = i - row * maskW
+      outPixels[(maskH - 1 - row) * maskW + col] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
+    }
+    smoothedMask = smoothed
+    smoothedMaskW = maskW
+    smoothedMaskH = maskH
+
+    val outBmp = Bitmap.createBitmap(maskW, maskH, Bitmap.Config.ARGB_8888)
+    outBmp.setPixels(outPixels, 0, maskW, 0, 0, maskW, maskH)
+
+    // Hand off to GL thread. getAndSet atomically claims any previously
+    // unconsumed bitmap as `prev` so we own the recycle; the GL thread
+    // can never observe the same reference we are about to free.
+    val prev = pendingMaskBitmap.getAndSet(outBmp)
+    prev?.recycle()
   }
 
   // --- GL thread -----------------------------------------------------------
@@ -200,117 +238,7 @@ internal class Mask(private val context: Context) {
     GlDebug.check("mask upload texImage2D")
   }
 
-  // --- Worker thread -------------------------------------------------------
-
-  private fun runSegmentation(inputBmp: Bitmap) {
-    try {
-      val seg = ensureSegmenter()
-      // The GL readback (glReadPixels reads bottom-to-top) hands us a VERTICALLY
-      // FLIPPED (head-down) frame. The segmenter is trained on upright people and
-      // does its worst on an inverted one (device-confirmed: holding the phone
-      // upside down made the mask near-perfect). Feed it an upright copy; the
-      // mask is flipped back below so the working upload/composite alignment is
-      // untouched. NOTE: vertical flip only, not a 180 rotate (glReadPixels does
-      // not reverse columns, so left/right is already correct).
-      val upright = flipVertical(inputBmp)
-      val mpImage = BitmapImageBuilder(upright).build()
-      // VIDEO mode: blocking, returns synchronously (drop-in for the old MLKit
-      // Tasks.await).
-      val result = seg.segmentForVideo(mpImage, videoTimestamp++)
-      mpImage.close()
-      upright.recycle()
-
-      val confidenceMasks = result.confidenceMasks()
-      if (!confidenceMasks.isPresent || confidenceMasks.get().isEmpty()) {
-        Log.w(TAG, "segmentation produced no confidence mask")
-        return
-      }
-      // General selfie segmenter: a single foreground-confidence mask (float
-      // [0,1], higher = person), matching the old MLKit convention.
-      val maskImage = confidenceMasks.get()[0]
-      val maskW = maskImage.width
-      val maskH = maskImage.height
-      val pixelCount = maskW * maskH
-      val maskBuffer = ByteBufferExtractor.extract(maskImage)
-        .order(ByteOrder.nativeOrder())
-        .asFloatBuffer()
-
-      // Temporal smoothing (exponential moving average) across mask updates, to
-      // damp shoulder-popping / edge shimmer. History resets on dim change.
-      // Worker-thread only, so no locking.
-      val prevSmoothed = smoothedMask
-      val blend = prevSmoothed != null && smoothedMaskW == maskW && smoothedMaskH == maskH
-      val smoothed = if (blend) prevSmoothed!! else FloatArray(pixelCount)
-
-      val outPixels = IntArray(pixelCount)
-      maskBuffer.rewind()
-      for (i in 0 until pixelCount) {
-        val raw = maskBuffer.get().coerceIn(0f, 1f)
-        val s = if (blend) MASK_EMA_ALPHA * raw + (1f - MASK_EMA_ALPHA) * smoothed[i] else raw
-        smoothed[i] = s
-        val c = (s * 255f + 0.5f).toInt() and 0xFF
-        // Flip vertically back into the orientation the upload/composite expects
-        // (we segmented an upright copy above). smoothedMask stays in upright
-        // space for frame-to-frame EMA consistency; only the output is flipped.
-        val row = i / maskW
-        val col = i - row * maskW
-        outPixels[(maskH - 1 - row) * maskW + col] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
-      }
-      smoothedMask = smoothed
-      smoothedMaskW = maskW
-      smoothedMaskH = maskH
-
-      val outBmp = Bitmap.createBitmap(maskW, maskH, Bitmap.Config.ARGB_8888)
-      outBmp.setPixels(outPixels, 0, maskW, 0, 0, maskW, maskH)
-
-      // Hand off to GL thread. getAndSet atomically claims any previously
-      // unconsumed bitmap as `prev` so we own the recycle; the GL thread
-      // can never observe the same reference we are about to free.
-      val prev = pendingMaskBitmap.getAndSet(outBmp)
-      prev?.recycle()
-    } catch (t: Throwable) {
-      Log.e(TAG, "runSegmentation failed on worker", t)
-    } finally {
-      inputBmp.recycle()
-      isProcessing.set(false)
-    }
-  }
-
-  /** Vertical mirror (flip across the horizontal axis). Used to upright the
-   * bottom-to-top glReadPixels frame before segmentation. */
-  private fun flipVertical(src: Bitmap): Bitmap {
-    val m = Matrix().apply { postScale(1f, -1f) }
-    return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
-  }
-
   // --- Lazy init helpers ---------------------------------------------------
-
-  private fun ensureSegmenter(): ImageSegmenter {
-    val existing = segmenter
-    if (existing != null) return existing
-    // Load the model as a direct ByteBuffer (setModelAssetBuffer) rather than
-    // setModelAssetPath: the path variant memory-maps the asset and requires it
-    // to be stored uncompressed (aaptOptions noCompress), which we cannot
-    // guarantee in the CONSUMING app's build. Reading the asset into a direct
-    // buffer ourselves works regardless of apk compression.
-    val modelBytes = context.assets.open("selfie_segmenter.tflite").use { it.readBytes() }
-    val modelBuffer = ByteBuffer.allocateDirect(modelBytes.size).order(ByteOrder.nativeOrder())
-    modelBuffer.put(modelBytes)
-    modelBuffer.rewind()
-
-    val baseOptions = BaseOptions.builder()
-      .setModelAssetBuffer(modelBuffer)
-      .build()
-    val options = ImageSegmenter.ImageSegmenterOptions.builder()
-      .setBaseOptions(baseOptions)
-      .setRunningMode(RunningMode.VIDEO)
-      .setOutputConfidenceMasks(true)
-      .setOutputCategoryMask(false)
-      .build()
-    val seg = ImageSegmenter.createFromOptions(context, options)
-    segmenter = seg
-    return seg
-  }
 
   private fun ensureDownsampleFbo(w: Int, h: Int): Fbo {
     val existing = downsampleFbo

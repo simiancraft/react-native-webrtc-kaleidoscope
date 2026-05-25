@@ -1,8 +1,8 @@
 // Frame-processor registration for Android. Called from
 // KaleidoscopeModule.OnCreate at Expo Module init time, before any track
 // requests an effect by name. The Context is needed by GPU effects so they
-// can read WebP assets for background-image and create RenderScript-style
-// resources where applicable.
+// can read bundled assets: the background-image WebP presets and the
+// selfie_segmenter.tflite model (loaded via SegmentationEngine).
 
 package com.simiancraft.kaleidoscope
 

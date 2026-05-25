@@ -17,7 +17,7 @@
 // 90/270 frame), so the upright image fills it without clamping.
 //
 // After ingest the "original 2D" FBO is canonical: every downstream pass
-// (transform mat2, background cover-fit, blur, the mask downsample/MLKit) reads
+// (transform mat2, background cover-fit, blur, the mask downsample/MediaPipe) reads
 // an already-upright square [0,1] UV space and applies NO further orientation
 // correction. Each factory therefore returns the frame with rotation 0; the
 // pixels are already where the encoder/renderer expects an upright frame.

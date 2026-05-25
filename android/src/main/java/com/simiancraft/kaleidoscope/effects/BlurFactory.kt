@@ -4,8 +4,8 @@
 //   1. Render the input OES camera texture through an OES->2D passthrough
 //      shader into a cached intermediate FBO (the "original 2D" copy).
 //   2. Produce a mask via Mask.produce (which downsamples the original 2D,
-//      reads it back to a Bitmap, runs MLKit Selfie Segmentation, uploads
-//      the confidence map as a 2D GL texture).
+//      reads it back to a Bitmap, runs MediaPipe segmentation off-thread via
+//      SegmentationEngine, uploads the confidence map as a 2D GL texture).
 //   3. Run two separable Gaussian blur passes on the "original 2D" copy
 //      using ping-pong FBOs.
 //   4. Composite original + blurred + mask into a fresh output texture via
@@ -16,10 +16,11 @@
 // Every observable failure logs to adb logcat under Kaleidoscope.Blur and
 // returns null so upstream forwards the original frame instead of crashing.
 //
-// Replaces the CPU implementation (manual Kotlin YUV/ARGB conversion +
-// MLKit + RenderScript). The CPU path was ~5-10 FPS at 720p; the GPU path
-// now runs MLKit on a worker thread (see Mask.kt) with a last-known-mask
-// cache, so the render thread is no longer gated on segmentation.
+// Replaces the original CPU implementation (manual Kotlin YUV/ARGB
+// conversion). The CPU path was ~5-10 FPS at 720p; the GPU path now runs
+// MediaPipe segmentation on a shared worker thread (see Mask.kt and
+// SegmentationEngine.kt) with a last-known-mask cache, so the render thread is
+// no longer gated on segmentation.
 
 package com.simiancraft.kaleidoscope.effects
 
