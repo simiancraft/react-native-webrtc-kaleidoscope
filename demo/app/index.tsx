@@ -33,6 +33,7 @@ import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/backgrounds/si
 import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-light';
 import { stylizedDark } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-dark';
 import { stylizedLight } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-light';
+import { BackgroundMenu, type BackgroundTile } from '../src/background-menu';
 import { EffectTuningPanel } from '../src/effect-tuning-panel';
 import { type Preset, RadioToggles } from '../src/radio-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
@@ -101,10 +102,12 @@ const artToSpec = (id: ArtId): EffectSpec => {
   return { name: 'background-image', source: bg.source };
 };
 
-// Bank presets, typed to the shared ArtId so three rows act as one radio group.
-const BACKGROUND_LIST: ReadonlyArray<Preset<ArtId>> = BACKGROUNDS.map((b) => ({
+// Bank presets, typed to the shared ArtId so the rows act as one radio group.
+// Backgrounds render as image thumbnails; blur/plasma as text tiles.
+const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<ArtId>> = BACKGROUNDS.map((b) => ({
   id: b.id,
   label: b.label,
+  source: b.source as string,
 }));
 const BLUR_LIST: ReadonlyArray<Preset<ArtId>> = [
   { id: 'blur-low', label: 'Low' },
@@ -216,12 +219,11 @@ export default function DemoScreen() {
         <View style={styles.sections}>
           <Section title="Shaders" flex={3}>
             <RowLabel>Background</RowLabel>
-            <RadioToggles
-              presets={BACKGROUND_LIST}
+            <BackgroundMenu
+              tiles={BACKGROUND_TILES}
               value={art}
               onSelect={setArt}
               disabled={disabled}
-              columns={6}
             />
             <RowLabel>Blur</RowLabel>
             <RadioToggles
