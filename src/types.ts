@@ -21,8 +21,17 @@ export type TransformSpec = {
 
 export type BlurSpec = {
   readonly name: 'blur';
-  // Blur strength is tuned globally via the tuning setters (setBlurSigma),
-  // not per-call; there is no per-spec parameter.
+  /**
+   * Gaussian blur sigma (softness); higher = softer. Optional; when omitted
+   * the library default applies. Clamped to [0.5, 7] on both native and web.
+   *
+   * Upstream's `_setVideoEffects(names)` has no argument slot, so this rides
+   * the effect-tuning side-channel that already carries uniforms across the
+   * bridge: the facade routes it through the Expo Module's tuning function and
+   * the per-frame processors read it each frame. The single-active-art-axis
+   * model makes a per-call value correct (only one blur is ever active).
+   */
+  readonly sigma?: number;
 };
 
 export type BackgroundImageSpec = {

@@ -171,10 +171,19 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
       'kaleidoscope: track has no _setVideoEffects method (is react-native-webrtc >=124 installed?)',
     );
   }
-  // Native side currently only consumes effect names. Spec parameters (blur
-  // sigma, etc.) are dropped here; they wire through in a follow-up commit
-  // once the GPU effects accept uniforms.
-  const allNames = effects.map((e) => specToNativeName(toEffectSpec(e)));
+  const specs = effects.map(toEffectSpec);
+  // Route per-spec parameters through the effect-tuning side-channel before
+  // applying. Upstream's `_setVideoEffects(names)` has no argument slot, so
+  // parameters reach the native processors via the Expo Module's tuning
+  // functions, which the per-frame processors already read each frame. For the
+  // single-active-art-axis model a global value is correct (only one blur is
+  // ever active). The setter is idempotent, so it runs before the dedup gate.
+  for (const spec of specs) {
+    if (spec.name === 'blur' && spec.sigma != null) {
+      nativeModule().setBlurSigma(spec.sigma);
+    }
+  }
+  const allNames = specs.map(specToNativeName);
   const names = allNames.filter((n) => NATIVE_REGISTERED_EFFECTS.has(n));
 
   // Dedup against the last set applied to this track. Order is significant

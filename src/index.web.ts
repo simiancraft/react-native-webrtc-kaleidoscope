@@ -92,8 +92,13 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
     case 'rotate-ccw':
       return makeTransform(spec.name);
     case 'blur':
-      // Blur strength comes from the global tuning state (setBlurSigma), not
-      // the spec; the spec carries no parameters.
+      // Route the per-spec sigma into the tuning channel the per-frame blur
+      // transform already reads (mirrors the native facade). Omitted sigma
+      // leaves the current/default value. One blur is ever active, so a
+      // shared value is correct.
+      if (spec.sigma != null) {
+        tuning.setBlurSigma(spec.sigma);
+      }
       return blur;
     case 'background-image':
       return makeBackgroundImage(spec.source);
