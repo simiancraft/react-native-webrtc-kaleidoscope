@@ -10,6 +10,17 @@
 
 Today effects are an array of names, parameters are dropped at the bridge (`src/index.ts:174`) and faked with global setters, and every preset is its own native factory. We are unifying the entire effect surface behind one verb, `kaleidoscope()`, fed by a consumer-curated preset book where every entry is `{ name, shader, options }` and every effect (blur, background image, plasma) is a *shader*. Done looks like: a consumer declares presets in their project, a prebuild mod copies only the referenced shader/image sources into the native bundle, native discovers and registers one engine per source, per-preset args ride a real parameter channel to the GPU on all three platforms, the pipeline runs `normalize → art → transform` so geometry and background compose correctly, and the demo drives everything through `kaleidoscope()` as two single-select radio banks with no sliders.
 
+## Build progress (web-first)
+
+Built in vertical slices, web first (the live demo is the proof surface), not strict phase order:
+
+- ✅ **Parameter channel** (blur sigma) over the existing tuning side-channel (Commit 1).
+- ✅ **plasma.frag** specimen + iOS transpile (Commit 5); **web plasma processor** + web codegen (Commit 6).
+- ✅ **Three-phase order on web**: art-first / transform-last, enforced via the demo's apply order; fixes the segment-the-rotated-frame bug.
+- ✅ **Shader contracts + typed command union** (`src/kaleidoscope/types.ts`; Commit 9) and **`kaleidoscope()` + session over a preset book** (Commit 13). Demo drives the command over `demo/kaleidoscope.presets.ts`. Verified on web (plasma composites, art+transform compose, no runtime errors).
+
+Remaining: **Commit 14** (remove the public tuning setters; the debug panel still uses them); **native plasma** (Android/iOS processor + generalizing the parameter channel to arbitrary uniforms, e.g. `setShaderUniforms`); **native three-phase reorder** (Phase B 3/4); **the precompiler** (Phase E: latent folder, `app.plugin.js` resolve-and-copy, directory-discovery registration) — native-only, the largest unretired risk; demo custom image (Commit 15); README/migration (Commit 17).
+
 ## Domain context
 
 - **Three-phase pipeline.** Every frame runs `normalize` (upright, platform-consistent image) → `art` (segmentation + background treatment, runs on the *normalized* frame so the person mask lands correctly) → `transform` (flip/rotate, applied **last**, in display space). Two independently composable axes the consumer selects from: **art** and **transform**.
