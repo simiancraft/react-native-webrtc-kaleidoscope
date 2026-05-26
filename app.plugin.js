@@ -157,6 +157,111 @@ function patchPodfile(contents, pod) {
   return `${contents.trimEnd()}\n${block}\n`;
 }
 
+// --- Prebuild asset copy (the precompiler) -------------------------------
+//
+// Read the consumer's preset book and copy ONLY the referenced background
+// images into the native bundle, so an app ships only what it curates. The
+// book is parsed as text (no execution): the runtime source values are
+// per-platform (a URL on web, a preset name on native), so they are not static
+// specifiers; instead we read the book's imports and its background-image
+// entries to learn which library asset each preset references.
+//
+// Static-analyzability is the consumer's contract (documented in the README):
+// each background-image entry is `'<id>': { shader: 'background-image',
+// options: { source: <importedIdentifier> } }` on one line, and the identifier
+// is a single named import from a `.../backgrounds/<name>` specifier. The mod
+// warns (never throws) on anything it cannot parse or resolve, matching the
+// plugin's non-fatal contract.
+//
+// iOS copy (Xcode resource membership) rides with the mobile pass; this mod
+// handles Android, which merges app assets into the build directly.
+const PRESET_BOOK_FILENAME = 'kaleidoscope.presets.ts';
+
+// identifier -> import specifier, for single named imports.
+function parseImports(source) {
+  const imports = {};
+  const re = /import\s*\{\s*([A-Za-z0-9_$]+)\s*\}\s*from\s*['"]([^'"]+)['"]/g;
+  for (const m of source.matchAll(re)) {
+    imports[m[1]] = m[2];
+  }
+  return imports;
+}
+
+// Background-image presets: book key (the id) -> source identifier.
+function parseBackgroundRefs(source) {
+  const imports = parseImports(source);
+  const refs = [];
+  const re =
+    /['"]([\w-]+)['"]\s*:\s*\{\s*shader\s*:\s*['"]background-image['"]\s*,\s*options\s*:\s*\{\s*source\s*:\s*([A-Za-z0-9_$]+)\s*\}/g;
+  for (const m of source.matchAll(re)) {
+    const id = m[1];
+    const specifier = imports[m[2]];
+    if (specifier) {
+      refs.push({ id, specifier });
+    }
+  }
+  return refs;
+}
+
+// Resolve a preset's source specifier to an absolute WebP path. Library presets
+// expose the raw asset at the `<specifier>.webp` subpath export; a consumer's
+// own asset is a relative path resolved against the project root.
+function resolveAssetPath(specifier, projectRoot) {
+  if (specifier.startsWith('.') || path.isAbsolute(specifier)) {
+    const abs = path.resolve(projectRoot, specifier);
+    return fs.existsSync(abs) ? abs : null;
+  }
+  try {
+    return require.resolve(`${specifier}.webp`, { paths: [projectRoot] });
+  } catch {
+    try {
+      return require.resolve(specifier, { paths: [projectRoot] });
+    } catch {
+      return null;
+    }
+  }
+}
+
+// Copy each referenced background into the Android app's assets, named by its
+// preset id, so native registration can discover it by id. Idempotent: a
+// re-prebuild overwrites with the same bytes.
+function copyAndroidBackgrounds(projectRoot, platformProjectRoot) {
+  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
+  let source;
+  try {
+    source = fs.readFileSync(bookPath, 'utf8');
+  } catch {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] No ${PRESET_BOOK_FILENAME} at the project root; skipping background copy. Create it per the README to curate bundled backgrounds.`,
+    );
+    return;
+  }
+  const refs = parseBackgroundRefs(source);
+  if (refs.length === 0) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Parsed no background-image presets from ${PRESET_BOOK_FILENAME}; nothing copied. Check the entry shape documented in the README.`,
+    );
+    return;
+  }
+  const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'backgrounds');
+  fs.mkdirSync(destDir, { recursive: true });
+  let copied = 0;
+  for (const { id, specifier } of refs) {
+    const srcPath = resolveAssetPath(specifier, projectRoot);
+    if (!srcPath) {
+      console.warn(
+        `[react-native-webrtc-kaleidoscope] Could not resolve background source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
+      );
+      continue;
+    }
+    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
+    copied += 1;
+  }
+  console.log(
+    `[react-native-webrtc-kaleidoscope] Copied ${copied} curated background(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
+  );
+}
+
 const withKaleidoscope = (config) => {
   if (!config.mods) {
     config.mods = {};
@@ -164,6 +269,31 @@ const withKaleidoscope = (config) => {
   if (!config.mods.ios) {
     config.mods.ios = {};
   }
+  if (!config.mods.android) {
+    config.mods.android = {};
+  }
+
+  // Android: copy the curated backgrounds into the app bundle at prebuild.
+  // Registered the same dependency-free way as the iOS mod below (mutate
+  // config.mods directly so no @expo/config-plugins import is needed on EAS).
+  const previousAndroidDangerous = config.mods.android.dangerous;
+  config.mods.android.dangerous = async (modConfig) => {
+    const result =
+      typeof previousAndroidDangerous === 'function'
+        ? await previousAndroidDangerous(modConfig)
+        : modConfig;
+    const modRequest = result.modRequest || {};
+    if (modRequest.platformProjectRoot && modRequest.projectRoot) {
+      try {
+        copyAndroidBackgrounds(modRequest.projectRoot, modRequest.platformProjectRoot);
+      } catch (error) {
+        console.warn(
+          `[react-native-webrtc-kaleidoscope] Could not copy curated backgrounds into the Android bundle; backgrounds may be missing at runtime. ${String(error)}`,
+        );
+      }
+    }
+    return result;
+  };
 
   // Chain any previously registered iOS dangerous mod so we cooperate with
   // other plugins instead of clobbering them.
