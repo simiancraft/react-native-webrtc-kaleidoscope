@@ -20,49 +20,56 @@ import { type Preset, RadioToggles } from '../src/radio-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-// Bank groupings (subsets of the book's ids) with display labels. The ids must
-// exist in the book; selecting one commands kaleidoscope().
-const BACKGROUND_IDS: ReadonlyArray<{ id: PresetId; label: string }> = [
-  { id: 'simiancraft-light', label: 'Simiancraft Light' },
-  { id: 'simiancraft-dark', label: 'Simiancraft Dark' },
-  { id: 'debug-resolutions', label: 'Debug Grid' },
-  { id: 'dark-office', label: 'Dark Office' },
-  { id: 'light-office', label: 'Light Office' },
-  { id: 'home-light', label: 'Home Light' },
-  { id: 'home-dark', label: 'Home Dark' },
-  { id: 'nature-light', label: 'Nature Light' },
-  { id: 'nature-dark', label: 'Nature Dark' },
-  { id: 'stylized-light', label: 'Stylized Light' },
-  { id: 'stylized-dark', label: 'Stylized Dark' },
-];
-const BLUR_LIST: ReadonlyArray<Preset<PresetId>> = [
-  { id: 'blur-low', label: 'Low' },
-  { id: 'blur-medium', label: 'Medium' },
-  { id: 'blur-high', label: 'High' },
-];
-const PLASMA_LIST: ReadonlyArray<Preset<PresetId>> = [
-  { id: 'plasma-ocean', label: 'Ocean' },
-  { id: 'plasma-sunset', label: 'Sunset' },
-  { id: 'plasma-mint', label: 'Mint' },
-  { id: 'plasma-fast', label: 'Fast' },
-];
-const FLIP_LIST: ReadonlyArray<Preset<PresetId>> = [
-  { id: 'flip-x', label: 'X', icon: '↔' },
-  { id: 'flip-y', label: 'Y', icon: '↕' },
-];
-const ROTATE_LIST: ReadonlyArray<Preset<PresetId>> = [
-  { id: 'rotate-cw', label: 'CW', icon: '↻' },
-  { id: 'rotate-ccw', label: 'CCW', icon: '↺' },
-];
+// Every bank is derived FROM the book, so the book is the single source of
+// truth: comment a preset out of kaleidoscope.presets.ts and it disappears from
+// both the prebuild copy AND this demo, with no second list to keep in sync.
+type Entry = readonly [PresetId, (typeof presets)[PresetId]];
+const ENTRIES = Object.entries(presets) as Entry[];
 
-// Thumbnails read their image straight out of the book (single source of truth).
-const bgSource = (id: PresetId): string => {
-  const p = presets[id];
-  return p.shader === 'background-image' ? (p.options.source as string) : '';
+const titleCase = (s: string): string =>
+  s
+    .split('-')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ');
+const stripPrefix = (id: string, prefix: string): string =>
+  titleCase(id.startsWith(prefix) ? id.slice(prefix.length) : id);
+
+// Backgrounds render as thumbnails; label is the title-cased id, image from the
+// preset's own source.
+const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = ENTRIES.filter(
+  ([, p]) => p.shader === 'background-image',
+).map(([id, p]) => ({
+  id,
+  label: titleCase(id),
+  source: (p as { options: { source: string } }).options.source,
+}));
+
+const BLUR_LIST: ReadonlyArray<Preset<PresetId>> = ENTRIES.filter(
+  ([, p]) => p.shader === 'blur',
+).map(([id]) => ({ id, label: stripPrefix(id, 'blur-') }));
+const PLASMA_LIST: ReadonlyArray<Preset<PresetId>> = ENTRIES.filter(
+  ([, p]) => p.shader === 'plasma',
+).map(([id]) => ({ id, label: stripPrefix(id, 'plasma-') }));
+
+// Transforms split into Flip / Rotate with short labels and icons, keyed by op.
+const TRANSFORM_META: Record<string, { label: string; icon: string; group: 'flip' | 'rotate' }> = {
+  'flip-x': { label: 'X', icon: '↔', group: 'flip' },
+  'flip-y': { label: 'Y', icon: '↕', group: 'flip' },
+  'rotate-cw': { label: 'CW', icon: '↻', group: 'rotate' },
+  'rotate-ccw': { label: 'CCW', icon: '↺', group: 'rotate' },
 };
-const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = BACKGROUND_IDS.map(
-  ({ id, label }) => ({ id, label, source: bgSource(id) }),
-);
+const TRANSFORMS = ENTRIES.filter(([, p]) => p.shader === 'transform').map(([id, p]) => ({
+  id,
+  op: (p as { options: { op: string } }).options.op,
+}));
+const transformsIn = (group: 'flip' | 'rotate'): ReadonlyArray<Preset<PresetId>> =>
+  TRANSFORMS.filter(({ op }) => TRANSFORM_META[op]?.group === group).map(({ id, op }) => ({
+    id,
+    label: TRANSFORM_META[op].label,
+    icon: TRANSFORM_META[op].icon,
+  }));
+const FLIP_LIST = transformsIn('flip');
+const ROTATE_LIST = transformsIn('rotate');
 
 // Build identity, so a tester can read off-device exactly which commit is
 // running and whether a new build actually shipped.
