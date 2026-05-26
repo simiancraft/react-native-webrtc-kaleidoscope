@@ -203,14 +203,21 @@ Each follows Commit 2's intent on the native pipeline: `Registration`/processor 
 
 **Gate:** `bun run build:shaders` transpiles plasma (six uniforms survive spirv-opt with buffer bindings); `bun run check:shaders` green.
 
-#### Commit 6: Generic generative-shader processor on web; plasma runs
+#### ✅ Commit 6: Plasma runs on web (+ demo hook)
 
-**Goal:** A processor runs an arbitrary generative frag into a background texture, fed `uTime` + uniforms, composited through the existing mask path. Web first (the proof surface).
+**Goal:** Render plasma into the composite's background slot, fed a host `uTime` clock + uniforms, matted through the mask. Web first (the proof surface).
 
 **Files created:**
-- `src/web/effects/shader-processor.ts`: binds a generative frag, feeds a per-frame `uTime` host clock + uniform args, renders to the background texture, composites via `composite.frag`.
+- `src/web/effects/plasma.ts`: renders `PLASMA_FRAG_SRC` into a background FBO each frame (host monotonic `uTime`, `uColorA/uColorB/uSpeed/uScale`), composites via `COMPOSITE_FRAG_SRC` (same path as background-image). Written concretely for plasma; the generic runner waits for the second shader.
 
-**Gate:** `bun run build` passes; web demo runs a `{ name: 'plasma', args: { … } }` effect: plasma animates behind the silhouette; changing `speed`/colors via args changes output live.
+**Files rewritten:**
+- `scripts/build-shaders.ts`: `plasma.frag` added to `WEB_CODEGEN` (consumer exists, so knip stays green); Android codegen still untouched.
+- `src/types.ts`: `PlasmaSpec` + `RGB` join the effect union.
+- `src/index.web.ts`: `specToTransform` builds plasma; `src/index.ts`: plasma name filtered until native lands.
+- `src/web/shaders.ts`: re-export `PLASMA_FRAG_SRC`.
+- `demo/app/index.tsx`: a "Shaders" section with four plasma presets, wired through the existing toggle UI (interim, pre single-select rewrite).
+
+**Gate:** `bun run build`, `typecheck`, `typecheck:demo`, `lint`, `knip`, `check:shaders` green. Visual confirmation (plasma animates behind the silhouette) pending a web test on a real camera.
 
 #### Commits 7, 8: Generic processor on Android and iOS (same shape)
 
