@@ -10,6 +10,7 @@ import {
   applyVideoEffects,
   type BackgroundImageSpec,
   type EffectSpec,
+  type PlasmaSpec,
 } from 'react-native-webrtc-kaleidoscope';
 // The library ships these presets; each resolves to a bundled WebP URL on web
 // and to the preset name on native. This is the same import an end user gets.
@@ -42,7 +43,18 @@ type BackgroundId =
   | 'stylized-dark'
   | 'simiancraft-light'
   | 'simiancraft-dark';
-type PresetId = TransformId | 'blur' | BackgroundId;
+// Plasma presets: one plasma.frag, many named uniform bundles (the synth-patch
+// model). Web only for now; on native a plasma spec is filtered out until the
+// native processor lands.
+type ShaderId = 'plasma-ocean' | 'plasma-sunset' | 'plasma-mint' | 'plasma-fast';
+type PresetId = TransformId | 'blur' | BackgroundId | ShaderId;
+
+const PLASMA_PRESETS: Record<ShaderId, PlasmaSpec> = {
+  'plasma-ocean': { name: 'plasma', colorA: [0.0, 0.3, 0.6], colorB: [0.0, 0.6, 0.6], speed: 0.3 },
+  'plasma-sunset': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 },
+  'plasma-mint': { name: 'plasma', colorA: [0.1, 0.5, 0.3], colorB: [0.6, 0.9, 0.5], speed: 0.25 },
+  'plasma-fast': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.9 },
+};
 
 type BackgroundEntry = { id: BackgroundId; label: string; source: BackgroundImageSpec['source'] };
 
@@ -72,6 +84,11 @@ const presetToSpec = (id: PresetId): EffectSpec => {
       return { name: id };
     case 'blur':
       return { name: 'blur' };
+    case 'plasma-ocean':
+    case 'plasma-sunset':
+    case 'plasma-mint':
+    case 'plasma-fast':
+      return PLASMA_PRESETS[id];
     default: {
       const bg = BACKGROUND_BY_ID.get(id);
       if (!bg) throw new Error(`kaleidoscope demo: unknown preset ${id}`);
@@ -95,9 +112,17 @@ const TRANSLATE: ReadonlyArray<Preset> = [
 const BACKGROUND_DEBUG = BACKGROUNDS.filter((b) => b.id === 'debug-resolutions');
 const BACKGROUND_SCENES = BACKGROUNDS.filter((b) => b.id !== 'debug-resolutions');
 const BLUR: ReadonlyArray<Preset> = [{ id: 'blur', label: '5-tap' }];
+const SHADERS: ReadonlyArray<Preset> = [
+  { id: 'plasma-ocean', label: 'Plasma Ocean' },
+  { id: 'plasma-sunset', label: 'Plasma Sunset' },
+  { id: 'plasma-mint', label: 'Plasma Mint' },
+  { id: 'plasma-fast', label: 'Plasma Fast' },
+];
 
 // Order matters because chained transforms compose left-to-right: geometric
-// transforms first (cheap), then blur, then the background composite.
+// transforms first (cheap), then blur, then the background composite (image or
+// shader). The full single-select rewrite (one art axis) lands with the
+// kaleidoscope() command; for now the toggle set is the pre-rewrite shape.
 const APPLY_ORDER: ReadonlyArray<PresetId> = [
   'flip-x',
   'flip-y',
@@ -105,6 +130,7 @@ const APPLY_ORDER: ReadonlyArray<PresetId> = [
   'rotate-ccw',
   'blur',
   ...BACKGROUNDS.map((b) => b.id),
+  ...SHADERS.map((s) => s.id),
 ];
 
 // Build identity, so a tester can read off-device exactly which commit is
@@ -157,7 +183,7 @@ export default function DemoScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <View style={styles.container}>
         <Text style={styles.title}>react-native-webrtc-kaleidoscope</Text>
-        <Text style={styles.subtitle}>demo · transform, blur, background image</Text>
+        <Text style={styles.subtitle}>demo · transform, blur, background image, plasma shader</Text>
         <Text style={styles.buildLine}>{BUILD_LINE}</Text>
 
         <VideoPreview track={displayedTrack} />
@@ -203,6 +229,15 @@ export default function DemoScreen() {
               active={active}
               onChange={setActive}
               disabled={!sourceTrack}
+            />
+          </Section>
+          <Section title="Shaders">
+            <EffectToggles
+              presets={SHADERS}
+              active={active}
+              onChange={setActive}
+              disabled={!sourceTrack}
+              columns={2}
             />
           </Section>
         </View>
