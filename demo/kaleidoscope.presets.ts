@@ -7,6 +7,7 @@
 // `as const satisfies PresetBook` gives per-preset option typing and rejects a
 // wrong options shape for a shader at compile time.
 
+import { Asset } from 'expo-asset';
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
@@ -26,6 +27,14 @@ export const presets = {
   // Background images: one background-image shader, many sources.
   'simiancraft-light': { shader: 'background-image', options: { source: simiancraftLight } },
   'simiancraft-dark': { shader: 'background-image', options: { source: simiancraftDark } },
+  // A demo-owned image (NOT part of the package), proving a consumer can add
+  // their own background. On web, Asset.fromModule(require(...)).uri is the URL;
+  // the prebuild plugin reads the require specifier to copy it into the native
+  // bundle as studio-loft.webp.
+  'studio-loft': {
+    shader: 'background-image',
+    options: { source: Asset.fromModule(require('./assets/backgrounds/studio-loft.webp')).uri },
+  },
   'debug-resolutions': { shader: 'background-image', options: { source: debugResolutions } },
   'dark-office': { shader: 'background-image', options: { source: darkOffice } },
   'light-office': { shader: 'background-image', options: { source: lightOffice } },

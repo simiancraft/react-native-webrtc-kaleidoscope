@@ -191,13 +191,23 @@ function parseImports(source) {
 function parseBackgroundRefs(source) {
   const imports = parseImports(source);
   const refs = [];
+  // Capture the source expression up to the options-closing brace, then read a
+  // specifier from it two ways: a `require('./asset')` literal (a consumer's own
+  // asset) or a bare imported identifier (a library preset, resolved via its
+  // import). Source expressions contain no `}`.
   const re =
-    /['"]([\w-]+)['"]\s*:\s*\{\s*shader\s*:\s*['"]background-image['"]\s*,\s*options\s*:\s*\{\s*source\s*:\s*([A-Za-z0-9_$]+)\s*\}/g;
+    /['"]([\w-]+)['"]\s*:\s*\{\s*shader\s*:\s*['"]background-image['"]\s*,\s*options\s*:\s*\{\s*source\s*:\s*([^}]+?)\s*\}/g;
   for (const m of source.matchAll(re)) {
     const id = m[1];
-    const specifier = imports[m[2]];
-    if (specifier) {
-      refs.push({ id, specifier });
+    const expr = m[2];
+    const requireLiteral = expr.match(/require\(\s*['"]([^'"]+)['"]\s*\)/);
+    if (requireLiteral) {
+      refs.push({ id, specifier: requireLiteral[1] });
+      continue;
+    }
+    const ident = expr.trim().match(/^([A-Za-z0-9_$]+)$/);
+    if (ident && imports[ident[1]]) {
+      refs.push({ id, specifier: imports[ident[1]] });
     }
   }
   return refs;
