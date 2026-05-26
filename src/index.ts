@@ -89,6 +89,8 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
+  PlasmaSpec,
+  RGB,
   TransformName,
   TransformSpec,
 } from './types';

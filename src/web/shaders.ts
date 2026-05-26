@@ -28,4 +28,13 @@
 //   - uMaskLo / uMaskHi parameterize the smoothstep, derived from a hardness
 //     factor via maskSmoothstepRange in src/web/tuning.ts (mirrors Android's
 //     MaskTuning.smoothstepRange).
-export { BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from './shaders.generated';
+//   - PLASMA_FRAG_SRC: generative two-color time-morph background. Reads
+//     uTime + uColorA/uColorB/uSpeed/uScale, ignores the input frame; the
+//     processor renders it into the composite's background slot. See
+//     src/web/effects/plasma.ts.
+export {
+  BLUR_FRAG_SRC,
+  COMPOSITE_FRAG_SRC,
+  PASSTHROUGH_VERT_SRC,
+  PLASMA_FRAG_SRC,
+} from './shaders.generated';

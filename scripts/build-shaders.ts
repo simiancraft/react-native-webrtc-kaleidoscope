@@ -54,7 +54,7 @@ const ANDROID_CODEGEN = [
   'blur.frag',
   'transform.frag',
 ] as const;
-const WEB_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag'] as const;
+const WEB_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag', 'plasma.frag'] as const;
 const ALL_CODEGEN = Array.from(new Set<string>([...ANDROID_CODEGEN, ...WEB_CODEGEN]));
 
 const REQUIRED_TOOLS = ['glslangValidator', 'spirv-val', 'spirv-opt', 'spirv-cross'] as const;

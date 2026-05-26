@@ -12,6 +12,7 @@
 import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
+import { makePlasma } from './web/effects/plasma';
 import { makeTransform } from './web/effects/transform';
 import {
   applyEffectToTrack,
@@ -80,6 +81,8 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
+  PlasmaSpec,
+  RGB,
   TransformName,
   TransformSpec,
 } from './types';
@@ -102,6 +105,13 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
       return blur;
     case 'background-image':
       return makeBackgroundImage(spec.source);
+    case 'plasma':
+      return makePlasma({
+        colorA: spec.colorA,
+        colorB: spec.colorB,
+        speed: spec.speed,
+        scale: spec.scale,
+      });
   }
 };
 
