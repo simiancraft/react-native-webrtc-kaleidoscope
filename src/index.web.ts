@@ -9,6 +9,12 @@
 // the transformed frames. Pass the returned track to a `<video>` element or
 // to `RTCRtpSender.replaceTrack(...)`.
 
+import { createSession, type Reconcile } from './kaleidoscope/session';
+import type {
+  KaleidoscopeBindOptions,
+  KaleidoscopeSession,
+  PresetBook,
+} from './kaleidoscope/types';
 import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
@@ -74,6 +80,15 @@ export const resetEffectTuning = (): void => {
 };
 
 export type { BackgroundPresetName } from './backgrounds';
+export type {
+  Axis,
+  KaleidoscopeBindOptions,
+  KaleidoscopeSession,
+  Preset,
+  PresetBook,
+  ShaderName,
+  ShaderOptionsMap,
+} from './kaleidoscope/types';
 export type {
   ApplyVideoEffects,
   BackgroundImageSpec,
@@ -156,3 +171,30 @@ export const applyVideoEffectsDisposable = (
 
 export const applyVideoEffects: ApplyVideoEffects = (track, effects) =>
   applyVideoEffectsDisposable(track, effects).track;
+
+/**
+ * Bind a track and a preset book, then command presets by name. The headline
+ * surface: presets live in the consumer's project, this one verb drives them.
+ * On web each command rebuilds the Insertable-Streams pipeline and yields a new
+ * output track, so read the live track from the `onTrack` callback (or
+ * `session.track`); the session disposes the prior pipeline on each command and
+ * on `dispose()`. `applyVideoEffects` remains the lower-level primitive beneath.
+ */
+export const kaleidoscope = <P extends PresetBook>(
+  track: MediaStreamTrack,
+  options: KaleidoscopeBindOptions<P>,
+): KaleidoscopeSession<P> => {
+  let prevDispose = (): void => {};
+  const reconcile: Reconcile = {
+    apply: (specs) => {
+      // Rebuild the whole pipeline from the base track each command, disposing
+      // the previous one (generators/pipes) so stages don't leak.
+      prevDispose();
+      const { track: out, dispose } = applyVideoEffectsDisposable(track, specs);
+      prevDispose = dispose;
+      return out;
+    },
+    dispose: () => prevDispose(),
+  };
+  return createSession(track, options, reconcile);
+};

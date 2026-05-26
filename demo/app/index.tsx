@@ -1,146 +1,73 @@
-// Single demo screen. Local camera feed + two single-select banks that match
-// the library's domain:
-//   - Shaders (the art axis): one of Background / Blur / Plasma. Single-select
-//     across all three rows, because they all fill the one background slot and
-//     only the last would win anyway.
+// Single demo screen. Local camera feed + two single-select banks, driven by
+// the kaleidoscope() command over the consumer preset book.
+//   - Shaders (the art axis): one of Background / Blur / Plasma.
 //   - Translations (the transform axis): flip / rotate, composed on top.
 //
-// Apply order is art FIRST, transform LAST. Segmentation runs inside the art
-// stage, so it must see the upright camera frame; the transform then reorients
-// the finished composite. Transform-first would segment a rotated body and
-// mask the wrong region (the "it grabs the ceiling" bug).
+// The screen owns only selection state; kaleidoscope() owns the composite and
+// applies art-first / transform-last, and surfaces the live output track via
+// onTrack (web yields a new track per command, native mutates in place). The
+// presets live in ../kaleidoscope.presets; this screen just commands them.
 
 import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import {
-  applyVideoEffects,
-  type BackgroundImageSpec,
-  type EffectSpec,
-  type PlasmaSpec,
-} from 'react-native-webrtc-kaleidoscope';
-// The library ships these presets; each resolves to a bundled WebP URL on web
-// and to the preset name on native. This is the same import an end user gets.
-import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
-import { debugResolutions } from 'react-native-webrtc-kaleidoscope/backgrounds/debug-resolutions';
-import { homeDark } from 'react-native-webrtc-kaleidoscope/backgrounds/home-dark';
-import { homeLight } from 'react-native-webrtc-kaleidoscope/backgrounds/home-light';
-import { lightOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/light-office';
-import { natureDark } from 'react-native-webrtc-kaleidoscope/backgrounds/nature-dark';
-import { natureLight } from 'react-native-webrtc-kaleidoscope/backgrounds/nature-light';
-import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-dark';
-import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-light';
-import { stylizedDark } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-dark';
-import { stylizedLight } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-light';
+import { type KaleidoscopeSession, kaleidoscope } from 'react-native-webrtc-kaleidoscope';
+import { type PresetId, presets } from '../kaleidoscope.presets';
 import { BackgroundMenu, type BackgroundTile } from '../src/background-menu';
 import { EffectTuningPanel } from '../src/effect-tuning-panel';
 import { type Preset, RadioToggles } from '../src/radio-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-type TransformId = 'flip-x' | 'flip-y' | 'rotate-cw' | 'rotate-ccw';
-type BackgroundId =
-  | 'debug-resolutions'
-  | 'dark-office'
-  | 'light-office'
-  | 'home-light'
-  | 'home-dark'
-  | 'nature-light'
-  | 'nature-dark'
-  | 'stylized-light'
-  | 'stylized-dark'
-  | 'simiancraft-light'
-  | 'simiancraft-dark';
-type BlurId = 'blur-low' | 'blur-medium' | 'blur-high';
-type PlasmaId = 'plasma-ocean' | 'plasma-sunset' | 'plasma-mint' | 'plasma-fast';
-// The art axis: one shader of any kind. Blur is a shader (sigma is its uniform);
-// background-image is a shader (its source is its uniform); plasma is a shader.
-type ArtId = BackgroundId | BlurId | PlasmaId;
-
-type BackgroundEntry = { id: BackgroundId; label: string; source: BackgroundImageSpec['source'] };
-
-// Simiancraft presets lead (it's the shop's demo), then the debug grid and the
-// scene presets.
-const BACKGROUNDS: ReadonlyArray<BackgroundEntry> = [
-  { id: 'simiancraft-light', label: 'Simiancraft Light', source: simiancraftLight },
-  { id: 'simiancraft-dark', label: 'Simiancraft Dark', source: simiancraftDark },
-  { id: 'debug-resolutions', label: 'Debug Grid', source: debugResolutions },
-  { id: 'dark-office', label: 'Dark Office', source: darkOffice },
-  { id: 'light-office', label: 'Light Office', source: lightOffice },
-  { id: 'home-light', label: 'Home Light', source: homeLight },
-  { id: 'home-dark', label: 'Home Dark', source: homeDark },
-  { id: 'nature-light', label: 'Nature Light', source: natureLight },
-  { id: 'nature-dark', label: 'Nature Dark', source: natureDark },
-  { id: 'stylized-light', label: 'Stylized Light', source: stylizedLight },
-  { id: 'stylized-dark', label: 'Stylized Dark', source: stylizedDark },
+// Bank groupings (subsets of the book's ids) with display labels. The ids must
+// exist in the book; selecting one commands kaleidoscope().
+const BACKGROUND_IDS: ReadonlyArray<{ id: PresetId; label: string }> = [
+  { id: 'simiancraft-light', label: 'Simiancraft Light' },
+  { id: 'simiancraft-dark', label: 'Simiancraft Dark' },
+  { id: 'debug-resolutions', label: 'Debug Grid' },
+  { id: 'dark-office', label: 'Dark Office' },
+  { id: 'light-office', label: 'Light Office' },
+  { id: 'home-light', label: 'Home Light' },
+  { id: 'home-dark', label: 'Home Dark' },
+  { id: 'nature-light', label: 'Nature Light' },
+  { id: 'nature-dark', label: 'Nature Dark' },
+  { id: 'stylized-light', label: 'Stylized Light' },
+  { id: 'stylized-dark', label: 'Stylized Dark' },
 ];
-
-// Blur levels: one blur shader, three sigmas (the parameter channel in action).
-const BLUR_SIGMA: Record<BlurId, number> = {
-  'blur-low': 1.5,
-  'blur-medium': 4,
-  'blur-high': 7,
-};
-
-// Plasma presets: one plasma.frag, many named uniform bundles (synth-patch
-// model). Web only for now; native plasma is filtered until its processor lands.
-const PLASMA_PRESETS: Record<PlasmaId, PlasmaSpec> = {
-  'plasma-ocean': { name: 'plasma', colorA: [0.0, 0.3, 0.6], colorB: [0.0, 0.6, 0.6], speed: 0.3 },
-  'plasma-sunset': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 },
-  'plasma-mint': { name: 'plasma', colorA: [0.1, 0.5, 0.3], colorB: [0.6, 0.9, 0.5], speed: 0.25 },
-  'plasma-fast': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.9 },
-};
-
-const BACKGROUND_BY_ID = new Map(BACKGROUNDS.map((b) => [b.id, b] as const));
-const PLASMA_IDS = Object.keys(PLASMA_PRESETS) as PlasmaId[];
-const BLUR_IDS = Object.keys(BLUR_SIGMA) as BlurId[];
-
-const artToSpec = (id: ArtId): EffectSpec => {
-  if ((PLASMA_IDS as string[]).includes(id)) return PLASMA_PRESETS[id as PlasmaId];
-  if ((BLUR_IDS as string[]).includes(id)) return { name: 'blur', sigma: BLUR_SIGMA[id as BlurId] };
-  const bg = BACKGROUND_BY_ID.get(id as BackgroundId);
-  if (!bg) throw new Error(`kaleidoscope demo: unknown art ${id}`);
-  return { name: 'background-image', source: bg.source };
-};
-
-// Bank presets, typed to the shared ArtId so the rows act as one radio group.
-// Backgrounds render as image thumbnails; blur/plasma as text tiles.
-const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<ArtId>> = BACKGROUNDS.map((b) => ({
-  id: b.id,
-  label: b.label,
-  source: b.source as string,
-}));
-const BLUR_LIST: ReadonlyArray<Preset<ArtId>> = [
+const BLUR_LIST: ReadonlyArray<Preset<PresetId>> = [
   { id: 'blur-low', label: 'Low' },
   { id: 'blur-medium', label: 'Medium' },
   { id: 'blur-high', label: 'High' },
 ];
-const PLASMA_LIST: ReadonlyArray<Preset<ArtId>> = [
+const PLASMA_LIST: ReadonlyArray<Preset<PresetId>> = [
   { id: 'plasma-ocean', label: 'Ocean' },
   { id: 'plasma-sunset', label: 'Sunset' },
   { id: 'plasma-mint', label: 'Mint' },
   { id: 'plasma-fast', label: 'Fast' },
 ];
-
-// Translations split into Flip and Rotate groups, each a 2-up row that shares
-// the one transform selection (single-select across all four).
-const FLIP_LIST: ReadonlyArray<Preset<TransformId>> = [
+const FLIP_LIST: ReadonlyArray<Preset<PresetId>> = [
   { id: 'flip-x', label: 'X', icon: '↔' },
   { id: 'flip-y', label: 'Y', icon: '↕' },
 ];
-const ROTATE_LIST: ReadonlyArray<Preset<TransformId>> = [
+const ROTATE_LIST: ReadonlyArray<Preset<PresetId>> = [
   { id: 'rotate-cw', label: 'CW', icon: '↻' },
   { id: 'rotate-ccw', label: 'CCW', icon: '↺' },
 ];
 
+// Thumbnails read their image straight out of the book (single source of truth).
+const bgSource = (id: PresetId): string => {
+  const p = presets[id];
+  return p.shader === 'background-image' ? (p.options.source as string) : '';
+};
+const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = BACKGROUND_IDS.map(
+  ({ id, label }) => ({ id, label, source: bgSource(id) }),
+);
+
 // Build identity, so a tester can read off-device exactly which commit is
 // running and whether a new build actually shipped.
 const VERSION = Constants.expoConfig?.version ?? '?';
-const BUILD = (Constants.expoConfig?.extra?.build ?? {}) as {
-  gitSha?: string;
-  builtAt?: string;
-};
+const BUILD = (Constants.expoConfig?.extra?.build ?? {}) as { gitSha?: string; builtAt?: string };
 const GIT_SHA = (BUILD.gitSha ?? 'local').slice(0, 7);
 const BUILT_AT = BUILD.builtAt ? `${BUILD.builtAt.replace('T', ' ').slice(0, 16)}Z` : 'dev';
 const BUILD_LINE = `v${VERSION} · ${GIT_SHA} · ${BUILT_AT}`;
@@ -166,38 +93,44 @@ const RowLabel = ({ children }: { children: ReactNode }) => (
 
 export default function DemoScreen() {
   const stream = useLoopbackStream();
-  // Two independent single-select axes. Art (shader) and transform compose, but
-  // each is one-at-a-time within itself.
-  const [art, setArt] = useState<ArtId | null>(null);
-  const [transform, setTransform] = useState<TransformId | null>(null);
+  // Selection per axis (single-select). The book id is the kaleidoscope command.
+  const [art, setArt] = useState<PresetId | null>(null);
+  const [transform, setTransform] = useState<PresetId | null>(null);
+  const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
+  const [session, setSession] = useState<KaleidoscopeSession<typeof presets> | null>(null);
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
     return (stream.stream.getVideoTracks()[0] ?? null) as unknown as MediaStreamTrack | null;
   }, [stream]);
 
-  const displayedTrack = useMemo<MediaStreamTrack | null>(() => {
-    if (!sourceTrack) return null;
-    // Art FIRST (segments the upright frame), transform LAST (reorients the
-    // finished composite). This is the normalize -> art -> transform order.
-    const specs: EffectSpec[] = [];
-    if (art) specs.push(artToSpec(art));
-    if (transform) specs.push({ name: transform });
-    try {
-      return applyVideoEffects(sourceTrack, specs);
-    } catch (err) {
-      console.error(err);
-      return sourceTrack;
-    }
-  }, [sourceTrack, art, transform]);
-
+  // Bind kaleidoscope once per source track; dispose on teardown.
   useEffect(() => {
+    if (!sourceTrack) {
+      setSession(null);
+      return;
+    }
+    const s = kaleidoscope(sourceTrack, { presets, onTrack: setDisplayTrack });
+    setSession(s);
     return () => {
-      if (displayedTrack && displayedTrack !== sourceTrack) {
-        displayedTrack.stop();
-      }
+      s.dispose();
+      setDisplayTrack(null);
     };
-  }, [displayedTrack, sourceTrack]);
+  }, [sourceTrack]);
+
+  // Apply the art selection (or clear the axis) through the command.
+  useEffect(() => {
+    if (!session) return;
+    if (art) session.set(art);
+    else session.clear('art');
+  }, [session, art]);
+
+  // Apply the transform selection (or clear the axis).
+  useEffect(() => {
+    if (!session) return;
+    if (transform) session.set(transform);
+    else session.clear('transform');
+  }, [session, transform]);
 
   const disabled = !sourceTrack;
 
@@ -205,12 +138,10 @@ export default function DemoScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <View style={styles.container}>
         <Text style={styles.title}>react-native-webrtc-kaleidoscope</Text>
-        <Text style={styles.subtitle}>
-          demo · one shader (background / blur / plasma) + a translation
-        </Text>
+        <Text style={styles.subtitle}>demo · kaleidoscope() · one shader + a translation</Text>
         <Text style={styles.buildLine}>{BUILD_LINE}</Text>
 
-        <VideoPreview track={displayedTrack} />
+        <VideoPreview track={displayTrack ?? sourceTrack} />
 
         {stream.status === 'pending' && (
           <Text style={styles.statusLine}>requesting camera permission…</Text>
@@ -298,10 +229,5 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  rowLabel: {
-    color: '#777',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
-  },
+  rowLabel: { color: '#777', fontSize: 11, fontWeight: '600', marginTop: 4 },
 });

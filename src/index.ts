@@ -9,6 +9,12 @@
 import { requireNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 import { BACKGROUND_PRESETS } from './backgrounds';
+import { createSession, type Reconcile } from './kaleidoscope/session';
+import type {
+  KaleidoscopeBindOptions,
+  KaleidoscopeSession,
+  PresetBook,
+} from './kaleidoscope/types';
 import { type ApplyVideoEffects, toEffectSpec } from './types';
 
 interface KaleidoscopeNativeModule {
@@ -82,6 +88,15 @@ export const resetEffectTuning = (): void => {
 };
 
 export type { BackgroundPresetName } from './backgrounds';
+export type {
+  Axis,
+  KaleidoscopeBindOptions,
+  KaleidoscopeSession,
+  Preset,
+  PresetBook,
+  ShaderName,
+  ShaderOptionsMap,
+} from './kaleidoscope/types';
 export type {
   ApplyVideoEffects,
   BackgroundImageSpec,
@@ -222,4 +237,22 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const clearValue: ReadonlyArray<string> | null = Platform.OS === 'ios' ? [] : null;
   t._setVideoEffects(names.length === 0 ? clearValue : names);
   return track;
+};
+
+/**
+ * Bind a track and a preset book, then command presets by name. The headline
+ * surface: presets live in the consumer's project, this one verb drives them.
+ * On native the track is mutated in place, so `session.track` is the bound
+ * track and `onTrack` fires with it after each command. `applyVideoEffects`
+ * remains the lower-level primitive beneath.
+ */
+export const kaleidoscope = <P extends PresetBook>(
+  track: MediaStreamTrack,
+  options: KaleidoscopeBindOptions<P>,
+): KaleidoscopeSession<P> => {
+  const reconcile: Reconcile = {
+    apply: (specs) => applyVideoEffects(track, specs),
+    dispose: () => {},
+  };
+  return createSession(track, options, reconcile);
 };
