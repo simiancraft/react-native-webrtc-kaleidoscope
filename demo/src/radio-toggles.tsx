@@ -24,6 +24,10 @@ export const RadioToggles = <Id extends string>({
   columns = 1,
 }: Props<Id>) => {
   const grid = columns > 1;
+  // Items per row are driven by columns: a flex-basis just under 100/columns
+  // (leaving room for the 8px gaps) with flexGrow lets a row of N tiles fill
+  // the width and wrap at `columns`.
+  const basis = `${Math.max(8, Math.floor(100 / columns) - 2)}%`;
   return (
     <View style={grid ? styles.grid : styles.column}>
       {presets.map(({ id, label, icon }) => {
@@ -38,6 +42,7 @@ export const RadioToggles = <Id extends string>({
             style={[
               styles.btn,
               grid && styles.btnGrid,
+              grid && { flexBasis: basis as `${number}%` },
               on && styles.btnOn,
               disabled && styles.btnDisabled,
             ]}
@@ -54,7 +59,7 @@ export const RadioToggles = <Id extends string>({
 const styles = StyleSheet.create({
   column: { flexDirection: 'column', gap: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  btnGrid: { flexGrow: 1, flexBasis: '28%' },
+  btnGrid: { flexGrow: 1 },
   btn: {
     paddingVertical: 12,
     paddingHorizontal: 12,

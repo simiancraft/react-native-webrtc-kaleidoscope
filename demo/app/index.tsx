@@ -136,8 +136,16 @@ const GIT_SHA = (BUILD.gitSha ?? 'local').slice(0, 7);
 const BUILT_AT = BUILD.builtAt ? `${BUILD.builtAt.replace('T', ' ').slice(0, 16)}Z` : 'dev';
 const BUILD_LINE = `v${VERSION} · ${GIT_SHA} · ${BUILT_AT}`;
 
-const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-  <View style={styles.section}>
+const Section = ({
+  title,
+  flex = 1,
+  children,
+}: {
+  title: string;
+  flex?: number;
+  children: ReactNode;
+}) => (
+  <View style={[styles.section, { flex }]}>
     <Text style={styles.sectionTitle}>{title}</Text>
     {children}
   </View>
@@ -206,14 +214,14 @@ export default function DemoScreen() {
         )}
 
         <View style={styles.sections}>
-          <Section title="Shaders">
+          <Section title="Shaders" flex={3}>
             <RowLabel>Background</RowLabel>
             <RadioToggles
               presets={BACKGROUND_LIST}
               value={art}
               onSelect={setArt}
               disabled={disabled}
-              columns={2}
+              columns={6}
             />
             <RowLabel>Blur</RowLabel>
             <RadioToggles
@@ -221,7 +229,7 @@ export default function DemoScreen() {
               value={art}
               onSelect={setArt}
               disabled={disabled}
-              columns={3}
+              columns={6}
             />
             <RowLabel>Plasma</RowLabel>
             <RadioToggles
@@ -229,16 +237,15 @@ export default function DemoScreen() {
               value={art}
               onSelect={setArt}
               disabled={disabled}
-              columns={2}
+              columns={6}
             />
           </Section>
-          <Section title="Translations">
+          <Section title="Translations" flex={1}>
             <RadioToggles
               presets={TRANSLATE}
               value={transform}
               onSelect={setTransform}
               disabled={disabled}
-              columns={2}
             />
           </Section>
         </View>
