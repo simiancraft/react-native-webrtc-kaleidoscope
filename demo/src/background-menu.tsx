@@ -55,10 +55,12 @@ export const BackgroundMenu = <Id extends string>({
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
-  // ~3 per row, growing to fill the width; 16:9 keeps the thumbnails image-shaped.
+  // ~3 per row; maxWidth caps growth so a short final row keeps the same tile
+  // size as full rows instead of stretching wide. 16:9 keeps them image-shaped.
   tile: {
     flexGrow: 1,
-    flexBasis: '30%',
+    flexBasis: '31%',
+    maxWidth: '32%',
     aspectRatio: 16 / 9,
     borderRadius: 6,
     overflow: 'hidden',

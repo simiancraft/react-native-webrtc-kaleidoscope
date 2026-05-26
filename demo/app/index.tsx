@@ -60,7 +60,11 @@ type ArtId = BackgroundId | BlurId | PlasmaId;
 
 type BackgroundEntry = { id: BackgroundId; label: string; source: BackgroundImageSpec['source'] };
 
+// Simiancraft presets lead (it's the shop's demo), then the debug grid and the
+// scene presets.
 const BACKGROUNDS: ReadonlyArray<BackgroundEntry> = [
+  { id: 'simiancraft-light', label: 'Simiancraft Light', source: simiancraftLight },
+  { id: 'simiancraft-dark', label: 'Simiancraft Dark', source: simiancraftDark },
   { id: 'debug-resolutions', label: 'Debug Grid', source: debugResolutions },
   { id: 'dark-office', label: 'Dark Office', source: darkOffice },
   { id: 'light-office', label: 'Light Office', source: lightOffice },
@@ -70,8 +74,6 @@ const BACKGROUNDS: ReadonlyArray<BackgroundEntry> = [
   { id: 'nature-dark', label: 'Nature Dark', source: natureDark },
   { id: 'stylized-light', label: 'Stylized Light', source: stylizedLight },
   { id: 'stylized-dark', label: 'Stylized Dark', source: stylizedDark },
-  { id: 'simiancraft-light', label: 'Simiancraft Light', source: simiancraftLight },
-  { id: 'simiancraft-dark', label: 'Simiancraft Dark', source: simiancraftDark },
 ];
 
 // Blur levels: one blur shader, three sigmas (the parameter channel in action).
@@ -217,7 +219,7 @@ export default function DemoScreen() {
         )}
 
         <View style={styles.sections}>
-          <Section title="Shaders" flex={3}>
+          <Section title="Shaders" flex={4}>
             <RowLabel>Background</RowLabel>
             <BackgroundMenu
               tiles={BACKGROUND_TILES}
