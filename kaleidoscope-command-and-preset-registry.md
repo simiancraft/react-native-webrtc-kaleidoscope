@@ -19,7 +19,9 @@ Built in vertical slices, web first (the live demo is the proof surface), not st
 - ✅ **Three-phase order on web**: art-first / transform-last, enforced via the demo's apply order; fixes the segment-the-rotated-frame bug.
 - ✅ **Shader contracts + typed command union** (`src/kaleidoscope/types.ts`; Commit 9) and **`kaleidoscope()` + session over a preset book** (Commit 13). Demo drives the command over `demo/kaleidoscope.presets.ts`. Verified on web (plasma composites, art+transform compose, no runtime errors).
 
-Remaining: **Commit 14** (remove the public tuning setters; the debug panel still uses them); **native plasma** (Android/iOS processor + generalizing the parameter channel to arbitrary uniforms, e.g. `setShaderUniforms`); **native three-phase reorder** (Phase B 3/4); **the precompiler** (Phase E: latent folder, `app.plugin.js` resolve-and-copy, directory-discovery registration) — native-only, the largest unretired risk; demo custom image (Commit 15); README/migration (Commit 17).
+- ✅ **Precompiler, Android copy** (Commit 11, partial): `app.plugin.js` parses `kaleidoscope.presets.ts` at `expo prebuild` and copies only the referenced background images into the Android bundle (verified: all 11 curated backgrounds copied on a real `expo prebuild --platform android`). Dependency-free android dangerous mod.
+
+Remaining: **Commit 14** (remove the public tuning setters; the debug panel still uses them); **native plasma** (Android/iOS processor + generalizing the parameter channel to arbitrary uniforms, e.g. `setShaderUniforms`); **native three-phase reorder** (Phase B 3/4); **precompiler completion** (Phase E: iOS copy via Xcode resource membership; the latent-folder removal so the library stops auto-bundling all assets; directory-discovery registration so native loads the copied-by-id assets) — the latent move + registration are coupled and ride with the native pass; demo custom image (Commit 15); README/migration (Commit 17).
 
 ## Domain context
 
