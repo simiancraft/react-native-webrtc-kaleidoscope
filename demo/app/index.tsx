@@ -1,6 +1,14 @@
-// Single demo screen. Local camera feed + grouped preset toggles in three
-// columns (Translate / Background / Blur). Each preset maps to an EffectSpec
-// passed to applyVideoEffects.
+// Single demo screen. Local camera feed + two single-select banks that match
+// the library's domain:
+//   - Shaders (the art axis): one of Background / Blur / Plasma. Single-select
+//     across all three rows, because they all fill the one background slot and
+//     only the last would win anyway.
+//   - Translations (the transform axis): flip / rotate, composed on top.
+//
+// Apply order is art FIRST, transform LAST. Segmentation runs inside the art
+// stage, so it must see the upright camera frame; the transform then reorients
+// the finished composite. Transform-first would segment a rotated body and
+// mask the wrong region (the "it grabs the ceiling" bug).
 
 import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
@@ -25,8 +33,8 @@ import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/backgrounds/si
 import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-light';
 import { stylizedDark } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-dark';
 import { stylizedLight } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-light';
-import { EffectToggles } from '../src/effect-toggles';
 import { EffectTuningPanel } from '../src/effect-tuning-panel';
+import { type Preset, RadioToggles } from '../src/radio-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
@@ -43,23 +51,14 @@ type BackgroundId =
   | 'stylized-dark'
   | 'simiancraft-light'
   | 'simiancraft-dark';
-// Plasma presets: one plasma.frag, many named uniform bundles (the synth-patch
-// model). Web only for now; on native a plasma spec is filtered out until the
-// native processor lands.
-type ShaderId = 'plasma-ocean' | 'plasma-sunset' | 'plasma-mint' | 'plasma-fast';
-type PresetId = TransformId | 'blur' | BackgroundId | ShaderId;
-
-const PLASMA_PRESETS: Record<ShaderId, PlasmaSpec> = {
-  'plasma-ocean': { name: 'plasma', colorA: [0.0, 0.3, 0.6], colorB: [0.0, 0.6, 0.6], speed: 0.3 },
-  'plasma-sunset': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 },
-  'plasma-mint': { name: 'plasma', colorA: [0.1, 0.5, 0.3], colorB: [0.6, 0.9, 0.5], speed: 0.25 },
-  'plasma-fast': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.9 },
-};
+type BlurId = 'blur-low' | 'blur-medium' | 'blur-high';
+type PlasmaId = 'plasma-ocean' | 'plasma-sunset' | 'plasma-mint' | 'plasma-fast';
+// The art axis: one shader of any kind. Blur is a shader (sigma is its uniform);
+// background-image is a shader (its source is its uniform); plasma is a shader.
+type ArtId = BackgroundId | BlurId | PlasmaId;
 
 type BackgroundEntry = { id: BackgroundId; label: string; source: BackgroundImageSpec['source'] };
 
-// The shipped background-image presets, in demo order. Data-driven so adding a
-// preset is one row, not a switch case plus a button.
 const BACKGROUNDS: ReadonlyArray<BackgroundEntry> = [
   { id: 'debug-resolutions', label: 'Debug Grid', source: debugResolutions },
   { id: 'dark-office', label: 'Dark Office', source: darkOffice },
@@ -73,64 +72,57 @@ const BACKGROUNDS: ReadonlyArray<BackgroundEntry> = [
   { id: 'simiancraft-light', label: 'Simiancraft Light', source: simiancraftLight },
   { id: 'simiancraft-dark', label: 'Simiancraft Dark', source: simiancraftDark },
 ];
-const BACKGROUND_BY_ID = new Map(BACKGROUNDS.map((b) => [b.id, b] as const));
 
-const presetToSpec = (id: PresetId): EffectSpec => {
-  switch (id) {
-    case 'flip-x':
-    case 'flip-y':
-    case 'rotate-cw':
-    case 'rotate-ccw':
-      return { name: id };
-    case 'blur':
-      return { name: 'blur' };
-    case 'plasma-ocean':
-    case 'plasma-sunset':
-    case 'plasma-mint':
-    case 'plasma-fast':
-      return PLASMA_PRESETS[id];
-    default: {
-      const bg = BACKGROUND_BY_ID.get(id);
-      if (!bg) throw new Error(`kaleidoscope demo: unknown preset ${id}`);
-      return { name: 'background-image', source: bg.source };
-    }
-  }
+// Blur levels: one blur shader, three sigmas (the parameter channel in action).
+const BLUR_SIGMA: Record<BlurId, number> = {
+  'blur-low': 1.5,
+  'blur-medium': 4,
+  'blur-high': 7,
 };
 
-type Preset = { id: PresetId; label: string; icon?: string };
+// Plasma presets: one plasma.frag, many named uniform bundles (synth-patch
+// model). Web only for now; native plasma is filtered until its processor lands.
+const PLASMA_PRESETS: Record<PlasmaId, PlasmaSpec> = {
+  'plasma-ocean': { name: 'plasma', colorA: [0.0, 0.3, 0.6], colorB: [0.0, 0.6, 0.6], speed: 0.3 },
+  'plasma-sunset': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 },
+  'plasma-mint': { name: 'plasma', colorA: [0.1, 0.5, 0.3], colorB: [0.6, 0.9, 0.5], speed: 0.25 },
+  'plasma-fast': { name: 'plasma', colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.9 },
+};
 
-// Translate: geometric calibration ops. On web they behave in display space
-// (the reference); the native pipelines correct for the camera buffer rotation
-// so the on-screen result matches across platforms.
-const TRANSLATE: ReadonlyArray<Preset> = [
+const BACKGROUND_BY_ID = new Map(BACKGROUNDS.map((b) => [b.id, b] as const));
+const PLASMA_IDS = Object.keys(PLASMA_PRESETS) as PlasmaId[];
+const BLUR_IDS = Object.keys(BLUR_SIGMA) as BlurId[];
+
+const artToSpec = (id: ArtId): EffectSpec => {
+  if ((PLASMA_IDS as string[]).includes(id)) return PLASMA_PRESETS[id as PlasmaId];
+  if ((BLUR_IDS as string[]).includes(id)) return { name: 'blur', sigma: BLUR_SIGMA[id as BlurId] };
+  const bg = BACKGROUND_BY_ID.get(id as BackgroundId);
+  if (!bg) throw new Error(`kaleidoscope demo: unknown art ${id}`);
+  return { name: 'background-image', source: bg.source };
+};
+
+// Bank presets, typed to the shared ArtId so three rows act as one radio group.
+const BACKGROUND_LIST: ReadonlyArray<Preset<ArtId>> = BACKGROUNDS.map((b) => ({
+  id: b.id,
+  label: b.label,
+}));
+const BLUR_LIST: ReadonlyArray<Preset<ArtId>> = [
+  { id: 'blur-low', label: 'Low' },
+  { id: 'blur-medium', label: 'Medium' },
+  { id: 'blur-high', label: 'High' },
+];
+const PLASMA_LIST: ReadonlyArray<Preset<ArtId>> = [
+  { id: 'plasma-ocean', label: 'Ocean' },
+  { id: 'plasma-sunset', label: 'Sunset' },
+  { id: 'plasma-mint', label: 'Mint' },
+  { id: 'plasma-fast', label: 'Fast' },
+];
+
+const TRANSLATE: ReadonlyArray<Preset<TransformId>> = [
   { id: 'flip-x', label: 'Flip X', icon: '↔' },
   { id: 'flip-y', label: 'Flip Y', icon: '↕' },
   { id: 'rotate-cw', label: 'Rotate CW', icon: '↻' },
   { id: 'rotate-ccw', label: 'Rotate CCW', icon: '↺' },
-];
-// Debug grid gets its own full-width row; the scene presets share a 2-up grid.
-const BACKGROUND_DEBUG = BACKGROUNDS.filter((b) => b.id === 'debug-resolutions');
-const BACKGROUND_SCENES = BACKGROUNDS.filter((b) => b.id !== 'debug-resolutions');
-const BLUR: ReadonlyArray<Preset> = [{ id: 'blur', label: '5-tap' }];
-const SHADERS: ReadonlyArray<Preset> = [
-  { id: 'plasma-ocean', label: 'Plasma Ocean' },
-  { id: 'plasma-sunset', label: 'Plasma Sunset' },
-  { id: 'plasma-mint', label: 'Plasma Mint' },
-  { id: 'plasma-fast', label: 'Plasma Fast' },
-];
-
-// Order matters because chained transforms compose left-to-right: geometric
-// transforms first (cheap), then blur, then the background composite (image or
-// shader). The full single-select rewrite (one art axis) lands with the
-// kaleidoscope() command; for now the toggle set is the pre-rewrite shape.
-const APPLY_ORDER: ReadonlyArray<PresetId> = [
-  'flip-x',
-  'flip-y',
-  'rotate-cw',
-  'rotate-ccw',
-  'blur',
-  ...BACKGROUNDS.map((b) => b.id),
-  ...SHADERS.map((s) => s.id),
 ];
 
 // Build identity, so a tester can read off-device exactly which commit is
@@ -151,9 +143,16 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
   </View>
 );
 
+const RowLabel = ({ children }: { children: ReactNode }) => (
+  <Text style={styles.rowLabel}>{children}</Text>
+);
+
 export default function DemoScreen() {
   const stream = useLoopbackStream();
-  const [active, setActive] = useState<ReadonlySet<PresetId>>(new Set());
+  // Two independent single-select axes. Art (shader) and transform compose, but
+  // each is one-at-a-time within itself.
+  const [art, setArt] = useState<ArtId | null>(null);
+  const [transform, setTransform] = useState<TransformId | null>(null);
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
@@ -162,14 +161,18 @@ export default function DemoScreen() {
 
   const displayedTrack = useMemo<MediaStreamTrack | null>(() => {
     if (!sourceTrack) return null;
-    const specs = APPLY_ORDER.filter((id) => active.has(id)).map(presetToSpec);
+    // Art FIRST (segments the upright frame), transform LAST (reorients the
+    // finished composite). This is the normalize -> art -> transform order.
+    const specs: EffectSpec[] = [];
+    if (art) specs.push(artToSpec(art));
+    if (transform) specs.push({ name: transform });
     try {
       return applyVideoEffects(sourceTrack, specs);
     } catch (err) {
       console.error(err);
       return sourceTrack;
     }
-  }, [sourceTrack, active]);
+  }, [sourceTrack, art, transform]);
 
   useEffect(() => {
     return () => {
@@ -179,11 +182,15 @@ export default function DemoScreen() {
     };
   }, [displayedTrack, sourceTrack]);
 
+  const disabled = !sourceTrack;
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <View style={styles.container}>
         <Text style={styles.title}>react-native-webrtc-kaleidoscope</Text>
-        <Text style={styles.subtitle}>demo · transform, blur, background image, plasma shader</Text>
+        <Text style={styles.subtitle}>
+          demo · one shader (background / blur / plasma) + a translation
+        </Text>
         <Text style={styles.buildLine}>{BUILD_LINE}</Text>
 
         <VideoPreview track={displayedTrack} />
@@ -199,44 +206,38 @@ export default function DemoScreen() {
         )}
 
         <View style={styles.sections}>
-          <Section title="Translate">
-            <EffectToggles
-              presets={TRANSLATE}
-              active={active}
-              onChange={setActive}
-              disabled={!sourceTrack}
-              columns={2}
-            />
-          </Section>
-          <Section title="Background">
-            <EffectToggles
-              presets={BACKGROUND_DEBUG}
-              active={active}
-              onChange={setActive}
-              disabled={!sourceTrack}
-            />
-            <EffectToggles
-              presets={BACKGROUND_SCENES}
-              active={active}
-              onChange={setActive}
-              disabled={!sourceTrack}
-              columns={2}
-            />
-          </Section>
-          <Section title="Blur">
-            <EffectToggles
-              presets={BLUR}
-              active={active}
-              onChange={setActive}
-              disabled={!sourceTrack}
-            />
-          </Section>
           <Section title="Shaders">
-            <EffectToggles
-              presets={SHADERS}
-              active={active}
-              onChange={setActive}
-              disabled={!sourceTrack}
+            <RowLabel>Background</RowLabel>
+            <RadioToggles
+              presets={BACKGROUND_LIST}
+              value={art}
+              onSelect={setArt}
+              disabled={disabled}
+              columns={2}
+            />
+            <RowLabel>Blur</RowLabel>
+            <RadioToggles
+              presets={BLUR_LIST}
+              value={art}
+              onSelect={setArt}
+              disabled={disabled}
+              columns={3}
+            />
+            <RowLabel>Plasma</RowLabel>
+            <RadioToggles
+              presets={PLASMA_LIST}
+              value={art}
+              onSelect={setArt}
+              disabled={disabled}
+              columns={2}
+            />
+          </Section>
+          <Section title="Translations">
+            <RadioToggles
+              presets={TRANSLATE}
+              value={transform}
+              onSelect={setTransform}
+              disabled={disabled}
               columns={2}
             />
           </Section>
@@ -263,13 +264,19 @@ const styles = StyleSheet.create({
   },
   statusLine: { color: '#888', fontSize: 12 },
   errorLine: { color: '#ff6666', fontSize: 12 },
-  sections: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 8 },
-  section: { flex: 1, minWidth: 160, gap: 8 },
+  sections: { flexDirection: 'row', flexWrap: 'wrap', gap: 24, marginTop: 8 },
+  section: { flex: 1, minWidth: 240, gap: 8 },
   sectionTitle: {
     color: '#aaa',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  rowLabel: {
+    color: '#777',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
