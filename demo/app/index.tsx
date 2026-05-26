@@ -123,11 +123,15 @@ const PLASMA_LIST: ReadonlyArray<Preset<ArtId>> = [
   { id: 'plasma-fast', label: 'Fast' },
 ];
 
-const TRANSLATE: ReadonlyArray<Preset<TransformId>> = [
-  { id: 'flip-x', label: 'Flip X', icon: '↔' },
-  { id: 'flip-y', label: 'Flip Y', icon: '↕' },
-  { id: 'rotate-cw', label: 'Rotate CW', icon: '↻' },
-  { id: 'rotate-ccw', label: 'Rotate CCW', icon: '↺' },
+// Translations split into Flip and Rotate groups, each a 2-up row that shares
+// the one transform selection (single-select across all four).
+const FLIP_LIST: ReadonlyArray<Preset<TransformId>> = [
+  { id: 'flip-x', label: 'X', icon: '↔' },
+  { id: 'flip-y', label: 'Y', icon: '↕' },
+];
+const ROTATE_LIST: ReadonlyArray<Preset<TransformId>> = [
+  { id: 'rotate-cw', label: 'CW', icon: '↻' },
+  { id: 'rotate-ccw', label: 'CCW', icon: '↺' },
 ];
 
 // Build identity, so a tester can read off-device exactly which commit is
@@ -245,11 +249,21 @@ export default function DemoScreen() {
             />
           </Section>
           <Section title="Translations" flex={1}>
+            <RowLabel>Flip</RowLabel>
             <RadioToggles
-              presets={TRANSLATE}
+              presets={FLIP_LIST}
               value={transform}
               onSelect={setTransform}
               disabled={disabled}
+              columns={2}
+            />
+            <RowLabel>Rotate</RowLabel>
+            <RadioToggles
+              presets={ROTATE_LIST}
+              value={transform}
+              onSelect={setTransform}
+              disabled={disabled}
+              columns={2}
             />
           </Section>
         </View>
