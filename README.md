@@ -12,7 +12,13 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/simiancraft/react-native-webrtc-kaleidoscope/badge)](https://securityscorecards.dev/viewer/?uri=github.com/simiancraft/react-native-webrtc-kaleidoscope)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-> Creative, shader-based video effects for React Native video calls: blur or replace a person's background, with more camera effects to come. Works with `react-native-webrtc` and LiveKit, managed-Expo-friendly.
+<p align="center">
+  <code>kaleidoscope</code> &nbsp;•&nbsp; <code>transform</code> &nbsp;•&nbsp; <code>mask</code>
+</p>
+
+> Creative, shader-based video effects for React Native video calls: blur or replace a person's background in a teleconference. Works with `react-native-webrtc` and LiveKit, managed-Expo-friendly.
+
+**Bind a track once, then drive it with three verbs.** `kaleidoscope` swaps the background effect (blur, a still image, or a procedural shader), `transform` reorients the frame, and `mask` tunes the segmentation edge. The effects you can command are a typed preset book you declare in your own project; at `expo prebuild`, only the assets you actually reference ship in your native bundle.
 
 ## Status
 
@@ -20,10 +26,10 @@
 
 ### What works today
 
-- **Transform** (flip X / flip Y / rotate 90° CW / CCW) — orientation utilities, identical across platforms.
-- **Blur** (background blur, person stays sharp).
-- **Background replacement** (composite a still image behind the segmented person; eleven bundled presets, plus arbitrary URLs on web; library-side asset pipeline).
-- **Runtime tuning** of the GLSL effects; see the [Use](#use) section.
+- **`kaleidoscope`** — the art axis: blur, background image (eleven bundled presets plus your own assets), or a procedural shader (plasma), commanded by preset name.
+- **`transform`** — absolute flips and rotation (snapped to 90°), reapplied as full state each call.
+- **`mask`** — the segmentation edge (hardness, threshold) shared by every art effect.
+- **Tree-shaking** — declare a preset book; only the assets you reference ship in your native bundle (web tree-shakes by import).
 
 | Platform | Transform | Blur | Background replacement | Notes |
 |---|---|---|---|---|
@@ -55,12 +61,14 @@ bun add @livekit/react-native @livekit/react-native-webrtc react-native-webrtc-k
 
 Pick one fork. Installing both upstream `react-native-webrtc` and `@livekit/react-native-webrtc` in the same app will cause native class collisions; that's the consumer's problem to resolve.
 
-**Native wiring.** `@livekit/react-native` hands you a `LocalVideoTrack`; apply effects to its underlying `MediaStreamTrack`:
+**Native wiring.** `@livekit/react-native` hands you a `LocalVideoTrack`; bind effects to its underlying `MediaStreamTrack`:
 
 ```ts
-import { applyVideoEffects } from 'react-native-webrtc-kaleidoscope';
+import { bindKaleidoscope } from 'react-native-webrtc-kaleidoscope';
+import { presets } from './kaleidoscope.presets';
 
-applyVideoEffects(localCameraTrack.mediaStreamTrack, ['blur']);
+const { kaleidoscope } = bindKaleidoscope(localCameraTrack.mediaStreamTrack, { presets });
+kaleidoscope('blur-soft');
 ```
 
 **Web wiring.** On web, LiveKit owns the `RTCRtpSender`, so you cannot swap the track yourself; go through LiveKit's processor API instead. The opt-in `/livekit` subpath ships a ready-made processor (it needs `livekit-client`, which a LiveKit app already has):
@@ -95,40 +103,59 @@ bunx expo prebuild
 
 ## Use
 
+First declare a **preset book** in your project: a flat catalog of `{ name, shader, options }`, the only things you can command. Everything is a shader — blur, background images, and procedural shaders all take the same shape. Declare it `as const satisfies PresetBook` for per-preset option typing.
+
+```ts
+// kaleidoscope.presets.ts
+import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
+import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
+
+export const presets = {
+  'dark-office': { shader: 'background-image', options: { source: darkOffice } },
+  'blur-soft':   { shader: 'blur',   options: { sigma: 2 } },
+  'blur-heavy':  { shader: 'blur',   options: { sigma: 7 } },
+  'lava':        { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 } },
+} as const satisfies PresetBook;
+```
+
+Then bind a track once and drive it with the three verbs:
+
 ```ts
 import { mediaDevices } from 'react-native-webrtc';
-import {
-  applyVideoEffects,
-  setBlurSigma,
-  setMaskHardness,
-  setMaskThreshold,
-} from 'react-native-webrtc-kaleidoscope';
-import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
+import { bindKaleidoscope } from 'react-native-webrtc-kaleidoscope';
+import { presets } from './kaleidoscope.presets';
 
 const stream = await mediaDevices.getUserMedia({ video: true });
 const [track] = stream.getVideoTracks();
 
-applyVideoEffects(track, ['flip-x']); // also flip-y, rotate-cw, rotate-ccw
-applyVideoEffects(track, ['blur']);
-applyVideoEffects(track, [{ name: 'background-image', source: darkOffice }]);
-applyVideoEffects(track, []); // clear all effects
+const { kaleidoscope, transform, mask } = bindKaleidoscope(track, {
+  presets,
+  // Web rebuilds the pipeline per command and yields a NEW track; read it here
+  // (attach to <video> or replaceTrack). Native mutates the bound track in place.
+  onTrack: (out) => {
+    /* setPreviewTrack(out) */
+  },
+});
 
-// Runtime tuning (effects pick up the new values on the next frame):
-setBlurSigma(5);         // Gaussian σ; clamped to [0.5, 7], default 5.
-setMaskHardness(0.5);    // smoothstep transition width; clamped to [0, 1]. 0 = soft halo, 1 = near-step. Default 0.5.
-setMaskThreshold(0.7);   // smoothstep center; clamped to [0.05, 0.95]. Higher rejects low-confidence pixels. Default 0.7.
+// kaleidoscope — the art axis (one of blur / background-image / plasma):
+kaleidoscope('lava');                        // a preset id (autocompletes from your book)
+kaleidoscope('blur-heavy', { sigma: 5 });    // override the preset's options (typed to its shader)
+kaleidoscope(null);                          // clear the art
+
+// transform — absolute geometry. Every call is the full state from identity;
+// re-pass what you want to keep. rotate snaps to the nearest 90°.
+transform({ flip: { x: true }, rotate: 90 });
+transform();                                 // reset to identity
+
+// mask — the segmentation edge shared by every art effect. Both required, 0..1.
+mask({ hardness: 0.5, threshold: 0.5 });
 ```
 
-Effects chain in array order.
+That is the whole runtime surface: `kaleidoscope`, `transform`, `mask`. (`applyVideoEffects(track, effects[])` remains exported as the lower-level primitive beneath them.)
 
-**Tuning note:** all three platforms run MediaPipe selfie segmentation (Tasks Image Segmenter on native, the Selfie Segmentation Solution on web), but optimal values still differ slightly because the input downscale and the API variant differ per platform, producing different confidence distributions. Working defaults on a typical well-lit scene:
+Numeric shader uniforms are normalized 0..1 by convention where practical; JSDoc documents each option's expected range as an IntelliSense hint (ranges are not enforced at runtime — validate in your own layer if you forward them to end users).
 
-| Platform | Blur sigma | Mask hardness | Mask threshold |
-|---|---|---|---|
-| Web (MediaPipe) | 25 | 0.2 | 0.85 |
-| Android (MediaPipe) | 30 | 0.2 | 0.6 |
-
-The library ships defaults (5, 0.5, 0.7) and consumers tune at runtime via the API above; whether to ship the dialed-in per-platform values as defaults is an open question.
+**Tuning note:** all three platforms run MediaPipe selfie segmentation (Tasks Image Segmenter on native, the Selfie Segmentation Solution on web), so the mask edge that suits one may differ slightly from another. `mask({ hardness, threshold })` defaults to `0.5 / 0.5`; nudge it to match your camera and lighting.
 
 ## Background presets
 
@@ -152,7 +179,7 @@ See [`src/backgrounds/README.md`](./src/backgrounds/README.md) for sizing and ho
 
 The API surface is the same across platforms, but the runtimes differ in ways worth knowing before you wire effects in:
 
-- **Effect parameters.** Web reads tuning from the global setters (`setBlurSigma`, `setMaskHardness`, `setMaskThreshold`) on the next frame. Native currently ignores per-call `EffectSpec` parameters such as `{ name: 'blur', sigma: 12 }`; tuning is global through the same setters. Per-call uniforms through the native registry are a follow-up.
+- **Output track.** On web each `kaleidoscope`/`transform` command rebuilds the Insertable-Streams pipeline and yields a NEW `MediaStreamTrack`, surfaced via `onTrack`; on native the bound track is mutated in place. `mask` updates the segmentation edge the running composite reads each frame, with no rebuild on either platform.
 - **Background source.** `background-image.source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
 - **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers — and, since Metro doesn't tree-shake, simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
 - **Segmentation model on web.** The web blur and background-image effects load MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
@@ -169,7 +196,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 The codebase lives across four surfaces:
 
-- `src/` — JS facade and shared types. `applyVideoEffects(track, effects)` plus runtime tuning setters.
+- `src/` — JS facade and shared types. `bindKaleidoscope` (the `kaleidoscope` / `transform` / `mask` verbs) over the `applyVideoEffects(track, effects)` primitive; the preset-book types live in `src/kaleidoscope/`.
 - `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. One shader file per stage in `src/web/shaders.ts`.
 - `android/` — OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
 - `ios/` — Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model the Android target bundles). The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
