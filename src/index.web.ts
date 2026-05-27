@@ -18,13 +18,14 @@ import type {
 import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
-import { makePlasma } from './web/effects/plasma';
+import { makeShaderEffect } from './web/effects/shader-effect';
 import { makeTransform } from './web/effects/transform';
 import {
   applyEffectToTrack,
   type DisposablePipeline,
   type FrameTransform,
 } from './web/insertable-streams';
+import { PLASMA_FRAG_SRC } from './web/shaders';
 import { tuning } from './web/tuning';
 
 // The tuning channel (tuning.*) is internal now: blur sigma flows from a blur
@@ -75,11 +76,14 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
     case 'background-image':
       return makeBackgroundImage(spec.source);
     case 'plasma':
-      return makePlasma({
-        colorA: spec.colorA,
-        colorB: spec.colorB,
-        speed: spec.speed,
-        scale: spec.scale,
+      // Plasma through the generic shader processor: its frag + uniforms, with
+      // uTime/uResolution supplied by the processor. Any future generative
+      // shader is the same call with a different frag + uniform map.
+      return makeShaderEffect(PLASMA_FRAG_SRC, {
+        uColorA: spec.colorA ?? [0.0, 0.3, 0.6],
+        uColorB: spec.colorB ?? [0.0, 0.6, 0.6],
+        uSpeed: spec.speed ?? 0.3,
+        uScale: spec.scale ?? 8.0,
       });
   }
 };

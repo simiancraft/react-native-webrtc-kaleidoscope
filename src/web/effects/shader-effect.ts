@@ -1,51 +1,30 @@
-// Web plasma effect, WebGL2 pipeline.
+// Web generic procedural-shader processor (issue #25/#32).
 //
-// The first procedural-shader background (issue #25/#26). Same composite
-// pattern as blur and background-image: MediaPipe produces a person mask, then
-// COMPOSITE_FRAG mixes the original camera frame and a background through that
-// mask. The difference is how the background is generated: instead of a blurred
-// camera copy or a still image, a per-frame pass renders PLASMA_FRAG into a
-// background texture, fed a host-driven uTime clock plus the preset's uniforms.
+// Runs an ARBITRARY generative fragment shader into the composite's background
+// slot, fed a per-frame `uTime` host clock and a caller-supplied uniform map,
+// then composites the segmented person over it through the existing mask path.
+// Plasma is its first caller; nebula/simianlights drop in by passing a
+// different frag + uniforms, with no new processor code.
 //
-// This is written concretely for plasma rather than as a generic shader runner;
-// a generic processor is worth extracting once a second procedural shader
-// (nebula / simianlights) lands and the shared shape is real, not speculative.
-//
-// Shader source: src/web/shaders.ts (PLASMA_FRAG_SRC). MediaPipe loader:
-// src/web/segmenter.ts.
+// Standard generative uniforms (`uTime`, `uResolution`) are supplied here; the
+// caller passes the rest by name (e.g. `uColorA`, `uSpeed`), bound by value
+// type. One art effect is ever active (single art axis), so module-level GL
+// state is correct; it rebuilds on a resolution or shader-source change.
 
 import type { FrameTransform } from '../insertable-streams';
 import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
-import { COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC, PLASMA_FRAG_SRC } from '../shaders';
+import { COMPOSITE_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 
-/**
- * Plasma uniforms. All optional; the processor fills sensible defaults so a
- * bare `{ name: 'plasma' }` renders the ocean palette. Mirrors the shape the
- * unified preset contract (plasma.options) will narrow once it lands.
- */
-type PlasmaOptions = {
-  readonly colorA?: readonly [number, number, number];
-  readonly colorB?: readonly [number, number, number];
-  readonly speed?: number;
-  readonly scale?: number;
-};
+/** A shader uniform value: a float or a small vector (length 2–4). */
+type Uniform = number | readonly number[];
+type UniformMap = Readonly<Record<string, Uniform>>;
 
-const DEFAULTS = {
-  colorA: [0.0, 0.3, 0.6] as const,
-  colorB: [0.0, 0.6, 0.6] as const,
-  speed: 0.3,
-  scale: 8.0,
-};
-
-type PlasmaProgram = {
+type ShaderProgram = {
   prog: WebGLProgram;
   uTime: WebGLUniformLocation | null;
   uResolution: WebGLUniformLocation | null;
-  uColorA: WebGLUniformLocation | null;
-  uColorB: WebGLUniformLocation | null;
-  uSpeed: WebGLUniformLocation | null;
-  uScale: WebGLUniformLocation | null;
+  uniforms: Map<string, WebGLUniformLocation | null>;
 };
 
 type CompositeProgram = {
@@ -66,7 +45,8 @@ type GpuState = {
   canvas: OffscreenCanvas;
   width: number;
   height: number;
-  programs: { plasma: PlasmaProgram; composite: CompositeProgram };
+  fragSource: string;
+  programs: { shader: ShaderProgram; composite: CompositeProgram };
   textures: { original: WebGLTexture; mask: WebGLTexture; background: WebGLTexture };
   fbos: { background: WebGLFramebuffer };
 };
@@ -108,16 +88,19 @@ const linkProgram = (
   return prog;
 };
 
-const linkPlasmaProgram = (gl: WebGL2RenderingContext): PlasmaProgram => {
-  const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, PLASMA_FRAG_SRC);
+const linkShaderProgram = (
+  gl: WebGL2RenderingContext,
+  fragSource: string,
+  uniformNames: readonly string[],
+): ShaderProgram => {
+  const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, fragSource);
+  const uniforms = new Map<string, WebGLUniformLocation | null>();
+  for (const name of uniformNames) uniforms.set(name, gl.getUniformLocation(prog, name));
   return {
     prog,
     uTime: gl.getUniformLocation(prog, 'uTime'),
     uResolution: gl.getUniformLocation(prog, 'uResolution'),
-    uColorA: gl.getUniformLocation(prog, 'uColorA'),
-    uColorB: gl.getUniformLocation(prog, 'uColorB'),
-    uSpeed: gl.getUniformLocation(prog, 'uSpeed'),
-    uScale: gl.getUniformLocation(prog, 'uScale'),
+    uniforms,
   };
 };
 
@@ -174,17 +157,39 @@ const uploadTexture = (
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 };
 
-// One plasma is ever active (single art axis), so module-level state is correct
-// and matches blur.ts. Recreated on resolution change.
+const bindUniform = (
+  gl: WebGL2RenderingContext,
+  loc: WebGLUniformLocation | null,
+  value: Uniform,
+): void => {
+  if (loc == null) return;
+  if (typeof value === 'number') gl.uniform1f(loc, value);
+  else if (value.length === 2) gl.uniform2fv(loc, new Float32Array(value));
+  else if (value.length === 3) gl.uniform3fv(loc, new Float32Array(value));
+  else if (value.length === 4) gl.uniform4fv(loc, new Float32Array(value));
+};
+
 let state: GpuState | null = null;
 let inputCanvas2D: OffscreenCanvas | null = null;
 let inputCtx2D: OffscreenCanvasRenderingContext2D | null = null;
 
-const ensureState = (width: number, height: number): GpuState => {
-  if (state && state.width === width && state.height === height) return state;
+const ensureState = (
+  width: number,
+  height: number,
+  fragSource: string,
+  uniformNames: readonly string[],
+): GpuState => {
+  if (
+    state &&
+    state.width === width &&
+    state.height === height &&
+    state.fragSource === fragSource
+  ) {
+    return state;
+  }
   if (state) {
     const { gl, programs, textures, fbos } = state;
-    gl.deleteProgram(programs.plasma.prog);
+    gl.deleteProgram(programs.shader.prog);
     gl.deleteProgram(programs.composite.prog);
     gl.deleteTexture(textures.original);
     gl.deleteTexture(textures.mask);
@@ -197,7 +202,7 @@ const ensureState = (width: number, height: number): GpuState => {
   canvas.height = height;
   const gl = canvas.getContext('webgl2');
   if (!gl) {
-    throw new Error('kaleidoscope: WebGL2 not available; plasma requires a WebGL2-capable browser');
+    throw new Error('kaleidoscope: WebGL2 not available; shader effects require a WebGL2 browser');
   }
 
   const background = createTexture(gl, width, height);
@@ -206,7 +211,11 @@ const ensureState = (width: number, height: number): GpuState => {
     canvas,
     width,
     height,
-    programs: { plasma: linkPlasmaProgram(gl), composite: linkCompositeProgram(gl) },
+    fragSource,
+    programs: {
+      shader: linkShaderProgram(gl, fragSource, uniformNames),
+      composite: linkCompositeProgram(gl),
+    },
     textures: {
       original: createTexture(gl, width, height),
       mask: createTexture(gl, width, height),
@@ -226,11 +235,8 @@ const ensureInputCanvas = (width: number, height: number): OffscreenCanvasRender
   return inputCtx2D as OffscreenCanvasRenderingContext2D;
 };
 
-export const makePlasma = (options: PlasmaOptions = {}): FrameTransform => {
-  const colorA = options.colorA ?? DEFAULTS.colorA;
-  const colorB = options.colorB ?? DEFAULTS.colorB;
-  const speed = options.speed ?? DEFAULTS.speed;
-  const scale = options.scale ?? DEFAULTS.scale;
+export const makeShaderEffect = (fragSource: string, uniforms: UniformMap): FrameTransform => {
+  const uniformNames = Object.keys(uniforms);
 
   return async (frame) => {
     await loadSegmenter();
@@ -241,8 +247,6 @@ export const makePlasma = (options: PlasmaOptions = {}): FrameTransform => {
     inputCtx.drawImage(frame, 0, 0, w, h);
     const inputCanvas = inputCanvas2D as unknown as CanvasImageSource;
 
-    // Decoupled segmentation; see blur.ts. Forward the original until the
-    // first mask lands.
     requestMaskIfIdle(inputCanvas);
     const results = getLatestMask();
     if (!results) {
@@ -254,7 +258,7 @@ export const makePlasma = (options: PlasmaOptions = {}): FrameTransform => {
       return passthrough;
     }
 
-    const s = ensureState(w, h);
+    const s = ensureState(w, h, fragSource, uniformNames);
     const { gl, canvas, programs, textures, fbos } = s;
 
     uploadTexture(gl, textures.original, inputCanvas as unknown as TexImageSource, true);
@@ -263,23 +267,20 @@ export const makePlasma = (options: PlasmaOptions = {}): FrameTransform => {
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
 
-    // Pass 0: render plasma into the background texture. Host-driven monotonic
-    // clock (independent of camera frame timing) so the animation advances
-    // smoothly. The frame is generative; orientation is cosmetic (a full-frame
-    // pattern), so no V-flip handoff is needed.
+    // Pass 0: render the generative shader into the background texture. Host
+    // monotonic clock so the animation advances independent of camera timing.
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbos.background);
     gl.viewport(0, 0, w, h);
-    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook (the early return above tripped the use* heuristic).
-    gl.useProgram(programs.plasma.prog);
-    gl.uniform1f(programs.plasma.uTime, performance.now() / 1000);
-    gl.uniform2f(programs.plasma.uResolution, w, h);
-    gl.uniform3f(programs.plasma.uColorA, colorA[0], colorA[1], colorA[2]);
-    gl.uniform3f(programs.plasma.uColorB, colorB[0], colorB[1], colorB[2]);
-    gl.uniform1f(programs.plasma.uSpeed, speed);
-    gl.uniform1f(programs.plasma.uScale, scale);
+    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
+    gl.useProgram(programs.shader.prog);
+    gl.uniform1f(programs.shader.uTime, performance.now() / 1000);
+    gl.uniform2f(programs.shader.uResolution, w, h);
+    for (const [name, value] of Object.entries(uniforms)) {
+      bindUniform(gl, programs.shader.uniforms.get(name) ?? null, value);
+    }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Pass 1: composite original + plasma background + mask -> canvas.
+    // Pass 1: composite original + shader background + mask -> canvas.
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, w, h);
     // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
@@ -293,10 +294,8 @@ export const makePlasma = (options: PlasmaOptions = {}): FrameTransform => {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, textures.mask);
     gl.uniform1i(programs.composite.uMask, 2);
-    // Plasma fills the frame at output resolution; identity background UV.
     gl.uniform2f(programs.composite.uBgUvScale, 1, 1);
     gl.uniform2f(programs.composite.uBgUvOffset, 0, 0);
-    // Mask V-flip via sampling uniforms (mask uploaded flipY=false); matches blur.ts.
     gl.uniform2f(programs.composite.uMaskUvScale, 1, -1);
     gl.uniform2f(programs.composite.uMaskUvOffset, 0, 1);
     const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
