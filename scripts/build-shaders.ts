@@ -53,6 +53,7 @@ const ANDROID_CODEGEN = [
   'composite.frag',
   'blur.frag',
   'transform.frag',
+  'plasma.frag',
 ] as const;
 const WEB_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag', 'plasma.frag'] as const;
 const ALL_CODEGEN = Array.from(new Set<string>([...ANDROID_CODEGEN, ...WEB_CODEGEN]));
