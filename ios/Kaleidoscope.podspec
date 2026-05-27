@@ -50,6 +50,8 @@ Pod::Spec.new do |s|
     'Kaleidoscope' => [
       'KaleidoscopeModule/resources/**/*',
       'KaleidoscopeModule/shaders/*.metalsrc',
+      # The generative-shader name list (codegen) so registration is data-driven.
+      'KaleidoscopeModule/shaders/GENERATIVE.txt',
     ]
   }
 

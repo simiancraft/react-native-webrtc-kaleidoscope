@@ -53,6 +53,15 @@ export type BackgroundImageSpec = {
    * intend.
    */
   readonly source: BackgroundPresetName | (string & {});
+  /**
+   * Native identity (the preset/book id). On native the effect is registered
+   * and the asset is copied by this id (`background-image-<id>`), so the
+   * dispatch sends the id, not the resolved `source` (which is a URL on web and
+   * a name on native, and differs from the id for a consumer's own image). Set
+   * by `kaleidoscope(cmd)`; absent for raw `applyVideoEffects`, which falls
+   * back to `source`.
+   */
+  readonly id?: string;
 };
 
 /** RGB color, each channel in [0, 1]. */

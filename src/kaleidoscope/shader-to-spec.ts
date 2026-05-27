@@ -18,14 +18,19 @@ import type { Preset, ShaderOptionsMap } from './types';
 // option key -> shader uniform name, e.g. `colorA` -> `uColorA`, `speed` -> `uSpeed`.
 const toUniformName = (key: string): string => `u${key.charAt(0).toUpperCase()}${key.slice(1)}`;
 
-export const presetToEffectSpec = (preset: Preset, opts?: Record<string, unknown>): EffectSpec => {
+export const presetToEffectSpec = (
+  preset: Preset,
+  opts?: Record<string, unknown>,
+  id?: string,
+): EffectSpec => {
   if (preset.shader === 'blur') {
     const o = { ...preset.options, ...opts } as ShaderOptionsMap['blur'];
     return o.sigma == null ? { name: 'blur' } : { name: 'blur', sigma: o.sigma };
   }
   if (preset.shader === 'background-image') {
     const o = { ...preset.options, ...opts } as ShaderOptionsMap['background-image'];
-    return { name: 'background-image', source: o.source };
+    // `id` (the book key) is the native identity; `source` renders on web.
+    return { name: 'background-image', source: o.source, ...(id != null ? { id } : {}) };
   }
   // Generative shader: map options to uniforms by convention and run through
   // the generic processor (registry-keyed by `shader`).

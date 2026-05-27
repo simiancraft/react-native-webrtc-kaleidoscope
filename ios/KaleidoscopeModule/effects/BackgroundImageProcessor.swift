@@ -111,12 +111,19 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     if let tex = backgroundTexture { return tex }
     if backgroundLoadFailed { return nil }
 
+    // Resolve <assetName>.webp. The "latent move" removed the curated presets
+    // from Kaleidoscope.bundle; the prebuild now copies each into the APP target's
+    // resources (see app.plugin.js iOS dangerous mod), so they land in
+    // Bundle.main. Search Bundle.main FIRST (the shipping path), then fall back to
+    // the Kaleidoscope resource bundle and its backgrounds/ subdir (the legacy /
+    // test layout, and any preset a consumer dropped into the pod's resources).
     let containing = Bundle(for: BackgroundImageProcessor.self)
     let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
-    guard let url = resourceBundle.url(
-      forResource: assetName, withExtension: "webp", subdirectory: "backgrounds"
-    ) ?? resourceBundle.url(forResource: assetName, withExtension: "webp") else {
-      os_log("background asset %{public}@.webp not found in bundle",
+    let url = Bundle.main.url(forResource: assetName, withExtension: "webp")
+      ?? resourceBundle.url(forResource: assetName, withExtension: "webp", subdirectory: "backgrounds")
+      ?? resourceBundle.url(forResource: assetName, withExtension: "webp")
+    guard let url = url else {
+      os_log("background asset %{public}@.webp not found in app bundle or Kaleidoscope.bundle",
              log: BackgroundImageProcessor.log, type: .error, assetName)
       backgroundLoadFailed = true
       return nil

@@ -246,8 +246,17 @@ async function main(): Promise<void> {
   emitAndroid(sources);
   emitWeb(sources);
 
-  // 3. Stamp the iOS bundle with the shader list (PR-diff aid).
+  // 3. Stamp the iOS bundle with the shader list (PR-diff aid), and emit the
+  // generative-shader names so iOS registration is data-driven (reads this at
+  // runtime and registers one generic processor per name) — the iOS analogue of
+  // the Android GENERATIVE map. Adding a generative .frag updates this list.
   writeFileSync(join(METAL_OUT_DIR, 'SHADERS.txt'), `${files.sort().join('\n')}\n`);
+  writeFileSync(
+    join(METAL_OUT_DIR, 'GENERATIVE.txt'),
+    `${GENERATIVE_SHADERS.map((f) => parse(f).name)
+      .sort()
+      .join('\n')}\n`,
+  );
 
   rmSync(TMP_DIR, { recursive: true, force: true });
   console.log('Done.');

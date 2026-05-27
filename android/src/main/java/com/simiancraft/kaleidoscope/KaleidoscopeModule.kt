@@ -36,6 +36,17 @@ class KaleidoscopeModule : Module() {
       EffectTuning.maskThreshold = value
     }
 
+    // Generic shader uniform channel (#32). JS sends a flat record of
+    // name -> (number | number[]); ShaderUniforms normalizes each value to a
+    // FloatArray and the generic ShaderFactory binds them by name each frame.
+    // The map arrives as Map<String, Any?> across the Expo bridge (numbers as
+    // Double, arrays as List<Double>); a nullable value type matches
+    // ShaderUniforms.set and lets a null/omitted uniform degrade to a logged
+    // skip rather than a bridge-level reject of the whole call.
+    Function("setShaderUniforms") { name: String, uniforms: Map<String, Any?> ->
+      ShaderUniforms.set(name, uniforms)
+    }
+
     Function("setDebugTiming") { value: Boolean ->
       EffectTuning.debugTiming = value
     }

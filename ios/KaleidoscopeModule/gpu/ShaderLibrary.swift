@@ -34,6 +34,13 @@ import os.log
 struct ShaderLibrary {
   private let library: MTLLibrary
 
+  /// The raw MSL source text this library was compiled from. Retained so the
+  /// generic generative-shader path can parse the spirv-cross `[[buffer(n)]]`
+  /// decorations out of it (see uniformBufferIndices) — the only tractable way
+  /// to bind arbitrary-named uniforms by index without per-shader Swift. The
+  /// fixed-binding shaders (passthrough/blur/composite/transform) ignore it.
+  let source: String
+
   /// Compiles `<fileName>.metalsrc` (read from the Kaleidoscope bundle) into a
   /// standalone MTLLibrary.
   init(device: MTLDevice, bundle: Bundle, fileName: String) throws {
@@ -48,6 +55,7 @@ struct ShaderLibrary {
         "read \(fileName).metalsrc failed: \(error.localizedDescription)"
       )
     }
+    self.source = source
     do {
       self.library = try device.makeLibrary(source: source, options: nil)
     } catch {
@@ -63,6 +71,43 @@ struct ShaderLibrary {
       throw RendererError.missingFunction("main0")
     }
     return fn
+  }
+
+  /// Parse the fragment-stage uniform name -> Metal buffer index map from the
+  /// spirv-cross MSL source. This is the keystone of the GENERIC uniform binding
+  /// (no per-shader Swift): spirv-cross emits each scalar/vector uniform as a
+  /// `constant T& uName [[buffer(n)]]` argument on `main0`, and CRUCIALLY it does
+  /// NOT preserve GLSL declaration order — plasma.metalsrc binds
+  /// uResolution=0, uTime=1, uSpeed=2, uScale=3, uColorA=4, uColorB=5, which is
+  /// neither GLSL order nor alphabetical. So a host-side name->index map MUST be
+  /// derived from the actual decorations, not assumed. We match every
+  /// `& <name> [[buffer(<n>)]]` token (the `&` distinguishes a `constant T&`
+  /// uniform reference from a texture/sampler argument, which use `[[texture(n)]]`
+  /// / `[[sampler(n)]]`). The leading `&` may be glued to the type (`float&`) or
+  /// spaced; the regex tolerates optional whitespace. Texture and sampler
+  /// arguments are intentionally NOT matched (different decoration), so a
+  /// generative shader that also sampled a texture would not collide here.
+  ///
+  /// Returns e.g. ["uResolution": 0, "uTime": 1, "uSpeed": 2, ...] for plasma.
+  /// The host binds uTime/uResolution itself and looks up every JS-set uniform
+  /// by name in this map to find its buffer index. A uniform the shader does not
+  /// declare is simply absent from the map and skipped at bind time.
+  func uniformBufferIndices() -> [String: Int] {
+    var indices = [String: Int]()
+    // `& uName [[buffer(7)]]` with optional whitespace around the `&` and inside
+    // the attribute. \w covers the u-prefixed identifier; the index is decimal.
+    let pattern = #"&\s*([A-Za-z_][A-Za-z0-9_]*)\s*\[\[\s*buffer\s*\(\s*(\d+)\s*\)\s*\]\]"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else { return indices }
+    let ns = source as NSString
+    let matches = regex.matches(in: source, range: NSRange(location: 0, length: ns.length))
+    for match in matches where match.numberOfRanges == 3 {
+      let name = ns.substring(with: match.range(at: 1))
+      let idxStr = ns.substring(with: match.range(at: 2))
+      if let idx = Int(idxStr) {
+        indices[name] = idx
+      }
+    }
+    return indices
   }
 
   /// Resolve `<fileName>.metalsrc`. Tries the nested Kaleidoscope resource bundle

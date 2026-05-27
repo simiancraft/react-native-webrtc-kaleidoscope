@@ -25,6 +25,16 @@ public class KaleidoscopeModule: Module {
       EffectTuning.maskThreshold = value
     }
 
+    // Generic shader uniform channel (#32). JS sends a flat record of
+    // name -> (number | number[]); ShaderUniforms normalizes each value to a
+    // [Float] and the generic ShaderProcessor binds them by name each frame. The
+    // record arrives as [String: Any] across the Expo bridge (numbers as Double/
+    // NSNumber, arrays as [Any] of NSNumber); ShaderUniforms.set handles the
+    // coercion. Mirrors android/.../KaleidoscopeModule.kt's setShaderUniforms.
+    Function("setShaderUniforms") { (name: String, uniforms: [String: Any]) in
+      ShaderUniforms.set(name: name, uniforms: uniforms)
+    }
+
     // Segmentation perf control. A JS device-tier sets this to trade mask
     // resolution for cost on lower-end devices (e.g. A11/iPhone X).
     Function("setSegmentationTargetShortSide") { (value: Int) in

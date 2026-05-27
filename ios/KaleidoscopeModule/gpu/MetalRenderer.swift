@@ -533,6 +533,69 @@ final class MetalRenderer {
     }
   }
 
+  // MARK: - Generic generative shader
+
+  /// Build a render pipeline for an arbitrary generative fragment shader, reusing
+  /// the shared passthrough vertex (fullscreen quad from gl_VertexID; no vertex
+  /// buffer). The owning ShaderProcessor calls this once at first frame with a
+  /// ShaderLibrary compiled from `<name>.metalsrc`, so there is NO per-shader
+  /// Swift here and adding a generative shader needs no renderer change. The
+  /// pipeline renders into a BGRA target like every other pass.
+  func makeGenerativePipeline(fragment: MTLFunction, label: String) throws
+    -> MTLRenderPipelineState {
+    return try MetalRenderer.makePipeline(
+      device: device,
+      vertex: passthroughVertex,
+      fragment: fragment,
+      label: label
+    )
+  }
+
+  /// A BGRA, .private render-target texture for a generative shader's background
+  /// output. Same shape as the blur ping-pong targets; the ShaderProcessor
+  /// caches one per resolution.
+  func makeGenerativeTarget(width: Int, height: Int) throws -> MTLTexture {
+    return try makeRenderTargetTexture(width: width, height: height)
+  }
+
+  /// Encode one generative fragment pass into `target`. Binds the host-provided
+  /// built-ins (uTime, uResolution) plus every JS-set uniform, each at the Metal
+  /// buffer index the shader's MSL decoration assigned it (see
+  /// ShaderLibrary.uniformBufferIndices). `scalarUniforms` and `vectorUniforms`
+  /// carry (bufferIndex, value) pairs already resolved by name on the host side,
+  /// so this method stays NAME-AGNOSTIC: it knows only indices and byte layouts,
+  /// never a uniform's meaning. A scalar binds as a single Float (4 bytes); a
+  /// 2/3/4-component vector binds as a tightly packed [Float] whose byte count is
+  /// the element count * 4 — matching MSL's `constant float&` / `float2&` /
+  /// `float3&` / `float4&` argument layout (spirv-cross packs float3 as 16 bytes
+  /// in a buffer; see the float3 caveat in ShaderProcessor where the host pads).
+  func encodeGenerative(
+    commandBuffer: MTLCommandBuffer,
+    pipeline: MTLRenderPipelineState,
+    target: MTLTexture,
+    builtinBindings: [(index: Int, value: [Float])],
+    uniformBindings: [(index: Int, value: [Float])],
+    label: String
+  ) throws {
+    try drawFullscreen(
+      commandBuffer: commandBuffer,
+      pipeline: pipeline,
+      target: target,
+      label: label
+    ) { encoder in
+      for binding in builtinBindings {
+        binding.value.withUnsafeBytes { ptr in
+          encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: binding.index)
+        }
+      }
+      for binding in uniformBindings {
+        binding.value.withUnsafeBytes { ptr in
+          encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: binding.index)
+        }
+      }
+    }
+  }
+
   /// Encode the geometric transform pass (`source` -> `target`) for the flip /
   /// rotate effects. transform.metalsrc bindings: buffer(0) uUvTransform
   /// (float2x2), texture(0) uTex, sampler(0) uTexSmplr. The host computes

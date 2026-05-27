@@ -272,6 +272,141 @@ function copyAndroidBackgrounds(projectRoot, platformProjectRoot) {
   );
 }
 
+// Copy each referenced background into the iOS app target's resources, named by
+// its preset id, and add each to the app target's Copy Bundle Resources build
+// phase so the WebP ships in the .app and BackgroundImageProcessor can resolve
+// it from Bundle.main. Also write a manifest (kaleidoscope-backgrounds.json, a
+// JSON array of the copied ids) into the same resources and bundle it, so the
+// iOS Registration can discover exactly the curated set without a hardcoded list
+// (the iOS analogue of Android enumerating assets/backgrounds). Mirrors
+// copyAndroidBackgrounds; idempotent and non-fatal on error (warn, never throw).
+//
+// @expo/config-plugins is loaded HERE, at mod runtime, via the realpath trick the
+// file header documents (require.resolve from the consumer project root) so the
+// top-level stays dependency-free for the EAS worker. We drive the raw pbxproj
+// (IOSConfig.XcodeUtils) directly inside this dangerous mod rather than
+// registering a separate withXcodeProject mod, which would force a top-level
+// import.
+function copyIosBackgrounds(projectRoot, platformProjectRoot) {
+  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
+  let source;
+  try {
+    source = fs.readFileSync(bookPath, 'utf8');
+  } catch {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] No ${PRESET_BOOK_FILENAME} at the project root; skipping iOS background copy. Create it per the README to curate bundled backgrounds.`,
+    );
+    return;
+  }
+  const refs = parseBackgroundRefs(source);
+  if (refs.length === 0) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Parsed no background-image presets from ${PRESET_BOOK_FILENAME}; nothing copied for iOS. Check the entry shape documented in the README.`,
+    );
+    return;
+  }
+
+  // Resolve @expo/config-plugins from the consumer root so this never needs a
+  // top-level import (EAS worker realpath has no node_modules). If it cannot be
+  // resolved we cannot edit the pbxproj; warn and bail (non-fatal).
+  let IOSConfig;
+  try {
+    // eslint-disable-next-line global-require
+    ({ IOSConfig } = require(require.resolve('@expo/config-plugins', { paths: [projectRoot] })));
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not load @expo/config-plugins to register iOS background resources; backgrounds may be missing at runtime. ${String(error)}`,
+    );
+    return;
+  }
+  const { XcodeUtils } = IOSConfig;
+  // Derive the project name from the .xcodeproj directory on disk, NOT
+  // IOSConfig.XcodeUtils.getProjectName: the latter resolves via getAppDelegate,
+  // which on an Objective-C template (AppDelegate.mm) throws on Expo SDKs that
+  // only recognise a Swift AppDelegate. The .xcodeproj dir name is the project
+  // name and is template-agnostic. Bail (non-fatal) if none is found.
+  let projectName;
+  try {
+    const xcodeprojDir = fs
+      .readdirSync(platformProjectRoot)
+      .find((entry) => entry.endsWith('.xcodeproj'));
+    if (!xcodeprojDir) {
+      console.warn(
+        '[react-native-webrtc-kaleidoscope] No .xcodeproj under the iOS project root yet; skipping iOS background registration.',
+      );
+      return;
+    }
+    projectName = xcodeprojDir.replace(/\.xcodeproj$/, '');
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not locate the iOS .xcodeproj; skipping iOS background registration. ${String(error)}`,
+    );
+    return;
+  }
+
+  // The Xcode group whose on-disk directory is <platformProjectRoot>/<projectName>/
+  // is the standard place Expo plugins drop bundled app resources (alongside
+  // Info.plist). Physically copy each WebP there, then reference it in the pbxproj
+  // under the same group so the path stored matches the file on disk.
+  const destDir = path.join(platformProjectRoot, projectName);
+  fs.mkdirSync(destDir, { recursive: true });
+
+  const copiedIds = [];
+  for (const { id, specifier } of refs) {
+    const srcPath = resolveAssetPath(specifier, projectRoot);
+    if (!srcPath) {
+      console.warn(
+        `[react-native-webrtc-kaleidoscope] Could not resolve iOS background source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
+      );
+      continue;
+    }
+    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
+    copiedIds.push(id);
+  }
+  if (copiedIds.length === 0) {
+    console.warn(
+      '[react-native-webrtc-kaleidoscope] No iOS backgrounds resolved; skipping pbxproj resource registration.',
+    );
+    return;
+  }
+
+  // Write the manifest the iOS Registration reads (a JSON array of ids).
+  const manifestName = 'kaleidoscope-backgrounds.json';
+  fs.writeFileSync(path.join(destDir, manifestName), `${JSON.stringify(copiedIds, null, 2)}\n`);
+
+  // Add every copied WebP + the manifest to the app target's Copy Bundle
+  // Resources. addResourceFileToGroup is idempotent: it skips a duplicate
+  // filepath already in the group (logs only with verbose), so a re-prebuild
+  // neither duplicates the build-file nor corrupts the project.
+  let project;
+  try {
+    // getPbxproj takes the PROJECT root (parent of ios/) and globs ios/*.xcodeproj.
+    project = XcodeUtils.getPbxproj(projectRoot);
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not read the iOS pbxproj to add background resources; backgrounds may be missing at runtime. ${String(error)}`,
+    );
+    return;
+  }
+  const filenames = [...copiedIds.map((id) => `${id}.webp`), manifestName];
+  for (const filename of filenames) {
+    XcodeUtils.addResourceFileToGroup({
+      filepath: `${projectName}/${filename}`,
+      groupName: projectName,
+      isBuildFile: true,
+      project,
+      verbose: false,
+    });
+  }
+  fs.writeFileSync(
+    path.join(platformProjectRoot, `${projectName}.xcodeproj`, 'project.pbxproj'),
+    project.writeSync(),
+  );
+  console.log(
+    `[react-native-webrtc-kaleidoscope] Bundled ${copiedIds.length} curated background(s) + manifest into the iOS app target from ${PRESET_BOOK_FILENAME}.`,
+  );
+}
+
 const withKaleidoscope = (config) => {
   if (!config.mods) {
     config.mods = {};
@@ -383,6 +518,17 @@ const withKaleidoscope = (config) => {
       } catch (error) {
         console.warn(
           `[react-native-webrtc-kaleidoscope] Could not patch ${propsPath} to raise iOS deployment target; add "ios.deploymentTarget": "${IOS_DEPLOYMENT_TARGET}" to Podfile.properties.json under your demo/ios directory manually. ${String(error)}`,
+        );
+      }
+    }
+    // Copy the curated backgrounds into the iOS app target + write the manifest
+    // the iOS Registration reads. Same non-fatal contract as the patches above.
+    if (platformProjectRoot && modRequest.projectRoot) {
+      try {
+        copyIosBackgrounds(modRequest.projectRoot, platformProjectRoot);
+      } catch (error) {
+        console.warn(
+          `[react-native-webrtc-kaleidoscope] Could not bundle curated backgrounds into the iOS app target; backgrounds may be missing at runtime. ${String(error)}`,
         );
       }
     }

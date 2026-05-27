@@ -62,7 +62,7 @@ export const createControls = <P extends PresetBook>(
 
   return {
     kaleidoscope: (cmd: keyof P | null, opts?: Record<string, unknown>) => {
-      art = cmd == null ? null : presetToEffectSpec(presets[cmd] as Preset, opts);
+      art = cmd == null ? null : presetToEffectSpec(presets[cmd] as Preset, opts, String(cmd));
       apply();
     },
     transform: (t) => {

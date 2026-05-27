@@ -124,7 +124,9 @@ const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // background-image uses one registered factory per source preset.
   // {name: 'background-image', source: 'dark-office'} -> 'background-image-dark-office'
   if (spec.name === 'background-image') {
-    return `background-image-${spec.source}`;
+    // The book id is the native identity (matches the prebuild-copied filename
+    // and the directory-discovery registration); source is the web/render value.
+    return `background-image-${spec.id ?? spec.source}`;
   }
   // A generative shader's native name is the shader name itself (e.g. 'plasma').
   // Until the native generic processor + registration land, this name is not in
@@ -170,8 +172,18 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
       nativeModule().setShaderUniforms?.(spec.shader, spec.uniforms);
     }
   }
-  const allNames = specs.map(specToNativeName);
-  const names = allNames.filter((n) => NATIVE_REGISTERED_EFFECTS.has(n));
+  // background-image and shader names are book-driven: the prebuild copied them
+  // and native registration (directory discovery for images, the GENERATIVE
+  // registry for shaders) registered exactly them, so they pass the crash-guard
+  // even though they aren't in the static set. Transforms and blur must be in
+  // the static set (always are).
+  const mapped = specs.map((spec) => ({
+    name: specToNativeName(spec),
+    trusted: spec.name === 'background-image' || spec.name === 'shader',
+  }));
+  const names = mapped
+    .filter((m) => m.trusted || NATIVE_REGISTERED_EFFECTS.has(m.name))
+    .map((m) => m.name);
 
   // Dedup against the last set applied to this track. Order is significant
   // (effects chain in array order), so the signature preserves it. Skip the
@@ -183,7 +195,9 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   }
   lastAppliedSignatureByTrack.set(track, signature);
 
-  const dropped = allNames.filter((n) => !NATIVE_REGISTERED_EFFECTS.has(n));
+  const dropped = mapped
+    .filter((m) => !m.trusted && !NATIVE_REGISTERED_EFFECTS.has(m.name))
+    .map((m) => m.name);
   if (dropped.length > 0) {
     console.warn(
       `kaleidoscope: dropping effects not registered on this native platform: ${dropped.join(', ')}. ` +
