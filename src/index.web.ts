@@ -9,10 +9,10 @@
 // the transformed frames. Pass the returned track to a `<video>` element or
 // to `RTCRtpSender.replaceTrack(...)`.
 
-import { createSession, type Reconcile } from './kaleidoscope/session';
+import { createControls, type Reconcile, type SetMask } from './kaleidoscope/controls';
 import type {
   KaleidoscopeBindOptions,
-  KaleidoscopeSession,
+  KaleidoscopeControls,
   PresetBook,
 } from './kaleidoscope/types';
 import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
@@ -27,67 +27,21 @@ import {
 } from './web/insertable-streams';
 import { tuning } from './web/tuning';
 
-/**
- * Set the Gaussian sigma for the blur effect. Higher = softer blur.
- * Clamped to [0.5, 7] (the useful range before the linear-sampled kernel
- * truncates and bands). Default 5.
- */
-export const setBlurSigma = (value: number): void => {
-  tuning.setBlurSigma(value);
-};
-
-/**
- * Set the mask smoothstep hardness for blur and background-image
- * composites, in [0, 1]. 0 = soft halo, 1 = near-step edge. Default 0.5.
- */
-export const setMaskHardness = (value: number): void => {
-  tuning.setMaskHardness(value);
-};
-
-/**
- * Set the mask smoothstep threshold (center of the transition) in
- * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
- * pixels; lower values are more inclusive. Optimal value is platform-
- * specific because each segmentation model has a different confidence
- * distribution.
- */
-export const setMaskThreshold = (value: number): void => {
-  tuning.setMaskThreshold(value);
-};
-
-/**
- * Set the segmentation input short-side (px). Native-only knob (lower =
- * cheaper segmentation on older devices); stored on web for API parity but
- * the web MediaPipe pipeline does not consume it.
- */
-export const setSegmentationTargetShortSide = (value: number): void => {
-  tuning.setSegmentationTargetShortSide(value);
-};
-
-/**
- * Toggle native per-frame timing logs (off by default). No-op effect on web
- * beyond storing the flag.
- */
-export const setDebugTiming = (value: boolean): void => {
-  tuning.setDebugTiming(value);
-};
-
-/**
- * Reset all effect tuning parameters to library defaults.
- */
-export const resetEffectTuning = (): void => {
-  tuning.reset();
-};
+// The tuning channel (tuning.*) is internal now: blur sigma flows from a blur
+// preset's options via specToTransform, and the mask edge flows from the mask()
+// verb (see bindKaleidoscope). The old global set* exports are gone; effects are
+// driven by kaleidoscope / transform / mask, not loose setters.
 
 export type { BackgroundPresetName } from './backgrounds';
 export type {
-  Axis,
   KaleidoscopeBindOptions,
-  KaleidoscopeSession,
+  KaleidoscopeControls,
+  MaskInput,
   Preset,
   PresetBook,
   ShaderName,
   ShaderOptionsMap,
+  TransformInput,
 } from './kaleidoscope/types';
 export type {
   ApplyVideoEffects,
@@ -173,17 +127,19 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) =>
   applyVideoEffectsDisposable(track, effects).track;
 
 /**
- * Bind a track and a preset book, then command presets by name. The headline
- * surface: presets live in the consumer's project, this one verb drives them.
- * On web each command rebuilds the Insertable-Streams pipeline and yields a new
- * output track, so read the live track from the `onTrack` callback (or
- * `session.track`); the session disposes the prior pipeline on each command and
- * on `dispose()`. `applyVideoEffects` remains the lower-level primitive beneath.
+ * Bind a track and a preset book; get the three verbs back
+ * (`{ kaleidoscope, transform, mask }`). Presets live in the consumer's
+ * project; these verbs drive them. On web each `kaleidoscope`/`transform`
+ * command rebuilds the Insertable-Streams pipeline and yields a new output
+ * track, so read the live track from `onTrack` (or `controls.track`); the prior
+ * pipeline is disposed each command and on `dispose()`. `mask` updates the
+ * segmentation edge the running pipeline reads per frame (no rebuild).
+ * `applyVideoEffects` remains the lower-level primitive beneath.
  */
-export const kaleidoscope = <P extends PresetBook>(
+export const bindKaleidoscope = <P extends PresetBook>(
   track: MediaStreamTrack,
   options: KaleidoscopeBindOptions<P>,
-): KaleidoscopeSession<P> => {
+): KaleidoscopeControls<P> => {
   let prevDispose = (): void => {};
   const reconcile: Reconcile = {
     apply: (specs) => {
@@ -196,5 +152,9 @@ export const kaleidoscope = <P extends PresetBook>(
     },
     dispose: () => prevDispose(),
   };
-  return createSession(track, options, reconcile);
+  const setMask: SetMask = (hardness, threshold) => {
+    tuning.setMaskHardness(hardness);
+    tuning.setMaskThreshold(threshold);
+  };
+  return createControls(track, options, reconcile, setMask);
 };

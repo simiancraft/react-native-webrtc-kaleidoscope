@@ -55,13 +55,8 @@ export const presets = {
   'plasma-sunset': { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 } },
   'plasma-mint': { shader: 'plasma', options: { colorA: [0.1, 0.5, 0.3], colorB: [0.6, 0.9, 0.5], speed: 0.25 } },
   'plasma-fast': { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.9 } },
-
-  // Transforms: one transform shader, four ops. Different axis from the art
-  // presets above, so a transform composes with any of them.
-  'flip-x': { shader: 'transform', options: { op: 'flip-x' } },
-  'flip-y': { shader: 'transform', options: { op: 'flip-y' } },
-  'rotate-cw': { shader: 'transform', options: { op: 'rotate-cw' } },
-  'rotate-ccw': { shader: 'transform', options: { op: 'rotate-ccw' } },
+  // Transforms are NOT book presets: they're driven by the transform() verb
+  // (flip/rotate), not curated art. The book is the art catalog only.
 } as const satisfies PresetBook;
 
 export type PresetId = keyof typeof presets;

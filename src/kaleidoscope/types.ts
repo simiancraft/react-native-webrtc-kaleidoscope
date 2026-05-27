@@ -1,56 +1,52 @@
-// The kaleidoscope() command layer: types.
+// The three-verb surface: types.
 //
-// Everything is a shader. A preset is a shader plus its frozen options, under a
-// name. The consumer declares a flat book of presets; kaleidoscope() binds a
-// track and that book once, then commands presets by name. Each shader declares
-// its axis (art vs transform); a command replaces only that axis, so art and
-// transform compose. This is the type layer of issue #26.
+// Bind a track and a preset book once; get three typed verbs back:
+//   - kaleidoscope(cmd, opts?)  the art axis: which shader fills the background
+//     (blur / background-image / plasma). cmd is a preset id from the book
+//     (narrowed), opts optionally overrides that preset's options (narrowed to
+//     the preset's shader). kaleidoscope(null) clears the art.
+//   - transform(t?)             the geometry axis: absolute flips + 90° rotation.
+//   - mask(m)                   the segmentation edge shared by every art effect.
 //
-// Shader option contracts are hand-authored here for now; generating them from
-// the shader source (reflection + a drift gate) is tracked in #30.
+// Shaders live in the library; consumers add presets over them, never new
+// shaders. Option types are hand-authored here (generating them from the shader
+// source is tracked in #30). Per shader-world convention, numeric uniforms are
+// normalized 0..1 where practical; ranges are documented in JSDoc as hints for
+// IntelliSense and tooling, not enforced at runtime (validation is userland).
 
-import type { BackgroundImageSpec, RGB, TransformName } from '../types';
+import type { BackgroundImageSpec, RGB } from '../types';
 
 /**
- * The two independently-composable axes. Art is the background treatment (one
- * of blur / image / a procedural shader); transform is the geometric
- * reorientation applied last. One selection per axis.
- */
-export type Axis = 'art' | 'transform';
-
-/**
- * The shader catalog and each shader's option type. Adding a shader is a new
- * key here plus its source; consumers add presets over these, never new
- * shaders. `blur` and `background-image` are the existing engines addressed as
- * shaders; `plasma` is the first procedural one; `transform` is the geometry
- * engine.
+ * The art shader catalog and each shader's option type. A book preset picks one
+ * of these and freezes its options; `kaleidoscope` commands the preset by name.
  */
 export type ShaderOptionsMap = {
-  readonly blur: { readonly sigma?: number };
-  readonly 'background-image': { readonly source: BackgroundImageSpec['source'] };
+  readonly blur: {
+    /** Gaussian blur sigma (softness). Higher = softer. Clamped [0.5, 7]. */
+    readonly sigma?: number;
+  };
+  readonly 'background-image': {
+    /** Bundled preset name, a URL/data-URI (web), or a required asset. */
+    readonly source: BackgroundImageSpec['source'];
+  };
   readonly plasma: {
+    /** First palette color, RGB each channel 0..1. */
     readonly colorA?: RGB;
+    /** Second palette color, RGB each channel 0..1. */
     readonly colorB?: RGB;
+    /** Animation rate. 0 freezes the field. */
     readonly speed?: number;
+    /** Spatial frequency. Higher = more, tighter cells. */
     readonly scale?: number;
   };
-  readonly transform: { readonly op: TransformName };
 };
 
 export type ShaderName = keyof ShaderOptionsMap;
 
-/** Each shader's axis, declared once. The dispatcher infers a command's axis. */
-export const SHADER_AXIS = {
-  blur: 'art',
-  'background-image': 'art',
-  plasma: 'art',
-  transform: 'transform',
-} as const satisfies Record<ShaderName, Axis>;
-
 /**
  * A preset: a shader paired with options of the matching type (a discriminated
- * union keyed on `shader`, so a wrong options shape for a shader is a compile
- * error). The book is a flat record of these keyed by the consumer's name.
+ * union keyed on `shader`, so a wrong options shape is a compile error). The
+ * book is a flat record of these keyed by the consumer's chosen name.
  */
 export type Preset = {
   [S in ShaderName]: { readonly shader: S; readonly options: ShaderOptionsMap[S] };
@@ -58,28 +54,54 @@ export type Preset = {
 
 export type PresetBook = Readonly<Record<string, Preset>>;
 
+/**
+ * Absolute, stateless geometric transform. Every call is the full desired state
+ * from the identity orientation: re-passing is the caller's responsibility, and
+ * `transform()` (or `transform({})`) resets to identity. Rotation snaps to the
+ * nearest 90°; arbitrary angles and offset are a later step.
+ */
+export type TransformInput = {
+  /** Mirror flips about each axis. */
+  readonly flip?: { readonly x?: boolean; readonly y?: boolean };
+  /** Clockwise rotation in degrees; snapped to the nearest 90 (0/90/180/270). */
+  readonly rotate?: number;
+};
+
+/** The segmentation mask edge, shared by every art effect (not transforms). */
+export type MaskInput = {
+  /** Edge hardness, 0..1. 0 = soft halo, 1 = near-step. */
+  readonly hardness: number;
+  /** Edge threshold, 0..1. Higher rejects low-confidence (chair-edge) pixels. */
+  readonly threshold: number;
+};
+
 export type KaleidoscopeBindOptions<P extends PresetBook> = {
   /** The consumer's preset book. Declare it `as const satisfies PresetBook`. */
   readonly presets: P;
   /**
-   * Called with the live output track after every command. On web each command
-   * yields a NEW MediaStreamTrack (the pipeline is rebuilt); on native the same
-   * track is mutated in place and passed back. Read the track from here rather
-   * than threading a return value.
+   * Called with the live output track after every art/transform command. On web
+   * each command yields a NEW MediaStreamTrack (the pipeline is rebuilt); on
+   * native the same track is mutated in place and passed back.
    */
   readonly onTrack?: (track: MediaStreamTrack) => void;
 };
 
+/** The art verb: set a preset by name (with optional option override), or clear. */
+interface KaleidoscopeCommand<P extends PresetBook> {
+  <C extends keyof P>(cmd: C, opts?: Partial<ShaderOptionsMap[P[C]['shader']]>): void;
+  (cmd: null): void;
+}
+
 /**
- * A bound kaleidoscope session for one track and one preset book. `set`
- * commands a preset by name (with optional per-call option overrides), inferring
- * the axis from the preset's shader; `clear` empties an axis. `track` is the
- * current output. `dispose` tears down the pipeline (web) and releases the
- * session.
+ * The three verbs for one bound track and book, plus the live track and a
+ * teardown. `kaleidoscope` and `transform` rebuild the composite (web yields a
+ * new track via onTrack); `mask` updates the segmentation edge the running
+ * composite reads each frame, so it needs no rebuild.
  */
-export interface KaleidoscopeSession<P extends PresetBook> {
-  set<C extends keyof P>(cmd: C, opts?: Partial<ShaderOptionsMap[P[C]['shader']]>): void;
-  clear(axis: Axis): void;
+export interface KaleidoscopeControls<P extends PresetBook> {
+  readonly kaleidoscope: KaleidoscopeCommand<P>;
+  readonly transform: (t?: TransformInput) => void;
+  readonly mask: (m: MaskInput) => void;
   readonly track: MediaStreamTrack;
-  dispose(): void;
+  readonly dispose: () => void;
 }

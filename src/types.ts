@@ -96,8 +96,8 @@ export type EffectInput = EffectSpec | EffectName;
  *
  * - Native: thin facade over `track._setVideoEffects(names)` from
  *   `react-native-webrtc`. Returns the same track reference; mutation is in place.
- *   Effects are tuned globally via the tuning setters (setBlurSigma, etc.),
- *   not via per-call spec parameters.
+ *   This is the lower-level primitive; per-effect parameters (blur sigma, mask
+ *   edge) reach the GPU via the effect-tuning channel, driven by `bindKaleidoscope`.
  * - Web: builds an Insertable-Streams pipeline with `MediaStreamTrackProcessor`
  *   and `MediaStreamTrackGenerator` and returns a NEW track carrying the
  *   transformed frames. Replace the upstream sender's track with the return value

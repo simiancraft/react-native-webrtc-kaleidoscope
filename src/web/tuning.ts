@@ -10,7 +10,7 @@ const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.m
 class EffectTuningState {
   blurSigma = 5;
   maskHardness = 0.5;
-  maskThreshold = 0.7;
+  maskThreshold = 0.5;
   // Native-only knobs stored here for cross-platform API parity; the web
   // MediaPipe pipeline does not currently consume them.
   segmentationTargetShortSide = 384;
@@ -39,7 +39,7 @@ class EffectTuningState {
   reset(): void {
     this.blurSigma = 5;
     this.maskHardness = 0.5;
-    this.maskThreshold = 0.7;
+    this.maskThreshold = 0.5;
     this.segmentationTargetShortSide = 384;
     this.debugTiming = false;
   }

@@ -1,31 +1,28 @@
-// Single demo screen. Local camera feed + two single-select banks, driven by
-// the kaleidoscope() command over the consumer preset book.
-//   - Shaders (the art axis): one of Background / Blur / Plasma.
-//   - Translations (the transform axis): flip / rotate, composed on top.
+// Single demo screen. Local camera feed + the three-verb API:
+//   - kaleidoscope(cmd)  the art: one of Background / Blur / Plasma (left, big).
+//   - transform({ flip, rotate })  geometry, absolute (top right).
+//   - mask({ hardness, threshold })  the segmentation edge (bottom right).
 //
-// The screen owns only selection state; kaleidoscope() owns the composite and
-// applies art-first / transform-last, and surfaces the live output track via
-// onTrack (web yields a new track per command, native mutates in place). The
-// presets live in ../kaleidoscope.presets; this screen just commands them.
+// The screen owns only selection state and re-issues the full command on every
+// change (transform and mask are absolute). bindKaleidoscope owns the composite
+// and surfaces the live track via onTrack. Presets come from the book in
+// ../kaleidoscope.presets; transforms are not presets, they're the transform verb.
 
 import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { type KaleidoscopeSession, kaleidoscope } from 'react-native-webrtc-kaleidoscope';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { bindKaleidoscope, type KaleidoscopeControls } from 'react-native-webrtc-kaleidoscope';
 import { type PresetId, presets } from '../kaleidoscope.presets';
 import { BackgroundMenu, type BackgroundTile } from '../src/background-menu';
-import { EffectTuningPanel } from '../src/effect-tuning-panel';
+import { MaskPanel } from '../src/mask-panel';
 import { type Preset, RadioToggles } from '../src/radio-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-// Every bank is derived FROM the book, so the book is the single source of
-// truth: comment a preset out of kaleidoscope.presets.ts and it disappears from
-// both the prebuild copy AND this demo, with no second list to keep in sync.
+// Banks derived from the book by shader (single source of truth).
 type Entry = readonly [PresetId, (typeof presets)[PresetId]];
 const ENTRIES = Object.entries(presets) as Entry[];
-
 const titleCase = (s: string): string =>
   s
     .split('-')
@@ -34,14 +31,10 @@ const titleCase = (s: string): string =>
 const stripPrefix = (id: string, prefix: string): string =>
   titleCase(id.startsWith(prefix) ? id.slice(prefix.length) : id);
 
-// Which backgrounds are demo-owned (consumer-supplied) vs library-shipped,
-// purely to badge them in the UI. The book/prebuild mechanism is identical for
-// both; this is only provenance for the demo, to show a consumer image flows
-// through the same path.
+// Demo-owned (consumer-supplied) ids, for the badge only; the mechanism is
+// identical to the library presets.
 const DEMO_OWNED = new Set<PresetId>(['wolf-cave']);
 
-// Backgrounds render as thumbnails; label is the title-cased id, image from the
-// preset's own source.
 const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = ENTRIES.filter(
   ([, p]) => p.shader === 'background-image',
 ).map(([id, p]) => ({
@@ -50,7 +43,6 @@ const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = ENTRIES.filter
   source: (p as { options: { source: string } }).options.source,
   badge: DEMO_OWNED.has(id) ? 'demo-owned' : undefined,
 }));
-
 const BLUR_LIST: ReadonlyArray<Preset<PresetId>> = ENTRIES.filter(
   ([, p]) => p.shader === 'blur',
 ).map(([id]) => ({ id, label: stripPrefix(id, 'blur-') }));
@@ -58,28 +50,14 @@ const PLASMA_LIST: ReadonlyArray<Preset<PresetId>> = ENTRIES.filter(
   ([, p]) => p.shader === 'plasma',
 ).map(([id]) => ({ id, label: stripPrefix(id, 'plasma-') }));
 
-// Transforms split into Flip / Rotate with short labels and icons, keyed by op.
-const TRANSFORM_META: Record<string, { label: string; icon: string; group: 'flip' | 'rotate' }> = {
-  'flip-x': { label: 'X', icon: '↔', group: 'flip' },
-  'flip-y': { label: 'Y', icon: '↕', group: 'flip' },
-  'rotate-cw': { label: 'CW', icon: '↻', group: 'rotate' },
-  'rotate-ccw': { label: 'CCW', icon: '↺', group: 'rotate' },
-};
-const TRANSFORMS = ENTRIES.filter(([, p]) => p.shader === 'transform').map(([id, p]) => ({
-  id,
-  op: (p as { options: { op: string } }).options.op,
-}));
-const transformsIn = (group: 'flip' | 'rotate'): ReadonlyArray<Preset<PresetId>> =>
-  TRANSFORMS.filter(({ op }) => TRANSFORM_META[op]?.group === group).map(({ id, op }) => ({
-    id,
-    label: TRANSFORM_META[op].label,
-    icon: TRANSFORM_META[op].icon,
-  }));
-const FLIP_LIST = transformsIn('flip');
-const ROTATE_LIST = transformsIn('rotate');
+// Rotate is single-select among the snapped angles transform() accepts.
+const ROTATE_LIST: ReadonlyArray<Preset<string>> = [
+  { id: '0', label: '0°' },
+  { id: '90', label: '90°' },
+  { id: '180', label: '180°' },
+  { id: '270', label: '270°' },
+];
 
-// Build identity, so a tester can read off-device exactly which commit is
-// running and whether a new build actually shipped.
 const VERSION = Constants.expoConfig?.version ?? '?';
 const BUILD = (Constants.expoConfig?.extra?.build ?? {}) as { gitSha?: string; builtAt?: string };
 const GIT_SHA = (BUILD.gitSha ?? 'local').slice(0, 7);
@@ -88,14 +66,14 @@ const BUILD_LINE = `v${VERSION} · ${GIT_SHA} · ${BUILT_AT}`;
 
 const Section = ({
   title,
-  flex = 1,
+  flex,
   children,
 }: {
   title: string;
   flex?: number;
   children: ReactNode;
 }) => (
-  <View style={[styles.section, { flex }]}>
+  <View style={[styles.section, flex != null ? { flex } : null]}>
     <Text style={styles.sectionTitle}>{title}</Text>
     {children}
   </View>
@@ -105,54 +83,91 @@ const RowLabel = ({ children }: { children: ReactNode }) => (
   <Text style={styles.rowLabel}>{children}</Text>
 );
 
+const FlipToggle = ({
+  label,
+  icon,
+  on,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  icon: string;
+  on: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) => (
+  <Pressable
+    accessibilityRole="switch"
+    accessibilityState={{ checked: on, disabled }}
+    disabled={disabled}
+    onPress={onPress}
+    style={[styles.flipBtn, on && styles.flipBtnOn, disabled && styles.flipBtnDisabled]}
+  >
+    <Text style={styles.flipIcon}>{icon}</Text>
+    <Text style={styles.flipLabel}>{label}</Text>
+  </Pressable>
+);
+
 export default function DemoScreen() {
   const stream = useLoopbackStream();
-  // Selection per axis (single-select). The book id is the kaleidoscope command.
   const [art, setArt] = useState<PresetId | null>(null);
-  const [transform, setTransform] = useState<PresetId | null>(null);
+  const [flipX, setFlipX] = useState(false);
+  const [flipY, setFlipY] = useState(false);
+  const [rotate, setRotate] = useState(0);
+  const [hardness, setHardness] = useState(0.5);
+  const [threshold, setThreshold] = useState(0.5);
   const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
-  const [session, setSession] = useState<KaleidoscopeSession<typeof presets> | null>(null);
+  const [controls, setControls] = useState<KaleidoscopeControls<typeof presets> | null>(null);
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
     return (stream.stream.getVideoTracks()[0] ?? null) as unknown as MediaStreamTrack | null;
   }, [stream]);
 
-  // Bind kaleidoscope once per source track; dispose on teardown.
+  // Bind once per source track.
   useEffect(() => {
     if (!sourceTrack) {
-      setSession(null);
+      setControls(null);
       return;
     }
-    const s = kaleidoscope(sourceTrack, { presets, onTrack: setDisplayTrack });
-    setSession(s);
+    const c = bindKaleidoscope(sourceTrack, { presets, onTrack: setDisplayTrack });
+    setControls(c);
     return () => {
-      s.dispose();
+      c.dispose();
       setDisplayTrack(null);
     };
   }, [sourceTrack]);
 
-  // Apply the art selection (or clear the axis) through the command.
+  // Re-issue each verb on change (transform and mask are absolute). Split the
+  // null case so each call matches a kaleidoscope() overload (a preset id, or
+  // null to clear) rather than the union.
   useEffect(() => {
-    if (!session) return;
-    if (art) session.set(art);
-    else session.clear('art');
-  }, [session, art]);
-
-  // Apply the transform selection (or clear the axis).
+    if (!controls) return;
+    if (art) controls.kaleidoscope(art);
+    else controls.kaleidoscope(null);
+  }, [controls, art]);
   useEffect(() => {
-    if (!session) return;
-    if (transform) session.set(transform);
-    else session.clear('transform');
-  }, [session, transform]);
+    controls?.transform({ flip: { x: flipX, y: flipY }, rotate });
+  }, [controls, flipX, flipY, rotate]);
+  useEffect(() => {
+    controls?.mask({ hardness, threshold });
+  }, [controls, hardness, threshold]);
 
   const disabled = !sourceTrack;
+  const onReset = () => {
+    setArt(null);
+    setFlipX(false);
+    setFlipY(false);
+    setRotate(0);
+    setHardness(0.5);
+    setThreshold(0.5);
+  };
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <View style={styles.container}>
         <Text style={styles.title}>react-native-webrtc-kaleidoscope</Text>
-        <Text style={styles.subtitle}>demo · kaleidoscope() · one shader + a translation</Text>
+        <Text style={styles.subtitle}>demo · kaleidoscope · transform · mask</Text>
         <Text style={styles.buildLine}>{BUILD_LINE}</Text>
 
         <VideoPreview track={displayTrack ?? sourceTrack} />
@@ -168,7 +183,7 @@ export default function DemoScreen() {
         )}
 
         <View style={styles.sections}>
-          <Section title="Shaders" flex={4}>
+          <Section title="kaleidoscope" flex={4}>
             <RowLabel>Background</RowLabel>
             <BackgroundMenu
               tiles={BACKGROUND_TILES}
@@ -193,33 +208,59 @@ export default function DemoScreen() {
               columns={6}
             />
           </Section>
-          <Section title="Translations" flex={1}>
-            <RowLabel>Flip</RowLabel>
-            <RadioToggles
-              presets={FLIP_LIST}
-              value={transform}
-              onSelect={setTransform}
-              disabled={disabled}
-              columns={2}
-            />
-            <RowLabel>Rotate</RowLabel>
-            <RadioToggles
-              presets={ROTATE_LIST}
-              value={transform}
-              onSelect={setTransform}
-              disabled={disabled}
-              columns={2}
-            />
-          </Section>
-        </View>
 
-        <EffectTuningPanel />
+          <View style={styles.rightColumn}>
+            <Section title="transform">
+              <RowLabel>Flip</RowLabel>
+              <View style={styles.flipRow}>
+                <FlipToggle
+                  label="X"
+                  icon="↔"
+                  on={flipX}
+                  disabled={disabled}
+                  onPress={() => setFlipX((v) => !v)}
+                />
+                <FlipToggle
+                  label="Y"
+                  icon="↕"
+                  on={flipY}
+                  disabled={disabled}
+                  onPress={() => setFlipY((v) => !v)}
+                />
+              </View>
+              <RowLabel>Rotate</RowLabel>
+              <RadioToggles
+                presets={ROTATE_LIST}
+                value={String(rotate)}
+                onSelect={(v) => setRotate(v == null ? 0 : Number(v))}
+                disabled={disabled}
+                columns={4}
+              />
+            </Section>
+
+            <Section title="mask">
+              <MaskPanel
+                hardness={hardness}
+                threshold={threshold}
+                onChange={(m) => {
+                  setHardness(m.hardness);
+                  setThreshold(m.threshold);
+                }}
+                disabled={disabled}
+              />
+            </Section>
+
+            <Pressable onPress={onReset} style={styles.resetBtn}>
+              <Text style={styles.resetText}>Reset</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
-const MAX_WIDTH = 1280; // ~ Tailwind 7xl (80rem)
+const MAX_WIDTH = 1280;
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0b0b0b' },
@@ -235,7 +276,8 @@ const styles = StyleSheet.create({
   statusLine: { color: '#888', fontSize: 12 },
   errorLine: { color: '#ff6666', fontSize: 12 },
   sections: { flexDirection: 'row', flexWrap: 'wrap', gap: 24, marginTop: 8 },
-  section: { flex: 1, minWidth: 240, gap: 8 },
+  section: { minWidth: 240, gap: 8 },
+  rightColumn: { flex: 1, minWidth: 240, gap: 24 },
   sectionTitle: {
     color: '#aaa',
     fontSize: 12,
@@ -244,4 +286,25 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   rowLabel: { color: '#777', fontSize: 11, fontWeight: '600', marginTop: 4 },
+  flipRow: { flexDirection: 'row', gap: 8 },
+  flipBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 6,
+    alignItems: 'center',
+    gap: 2,
+  },
+  flipBtnOn: { backgroundColor: '#4a8f3f' },
+  flipBtnDisabled: { opacity: 0.5 },
+  flipIcon: { color: '#fff', fontSize: 22, lineHeight: 26 },
+  flipLabel: { color: '#fff', fontWeight: '500', fontSize: 13 },
+  resetBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#222',
+    borderRadius: 6,
+  },
+  resetText: { color: '#aaa', fontSize: 12, fontWeight: '600' },
 });

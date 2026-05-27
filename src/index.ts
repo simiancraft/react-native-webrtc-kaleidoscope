@@ -9,21 +9,22 @@
 import { requireNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 import { BACKGROUND_PRESETS } from './backgrounds';
-import { createSession, type Reconcile } from './kaleidoscope/session';
+import { createControls, type Reconcile, type SetMask } from './kaleidoscope/controls';
 import type {
   KaleidoscopeBindOptions,
-  KaleidoscopeSession,
+  KaleidoscopeControls,
   PresetBook,
 } from './kaleidoscope/types';
 import { type ApplyVideoEffects, toEffectSpec } from './types';
 
+// The native module's tuning functions. Only the three the JS layer drives are
+// declared: blur sigma (from a blur preset's options) and the mask edge (from
+// the mask() verb). The native module also exposes segmentation/debug/reset
+// functions, but nothing in JS calls them anymore, so they're not declared here.
 interface KaleidoscopeNativeModule {
   setBlurSigma: (value: number) => void;
   setMaskHardness: (value: number) => void;
   setMaskThreshold: (value: number) => void;
-  setSegmentationTargetShortSide: (value: number) => void;
-  setDebugTiming: (value: boolean) => void;
-  resetEffectTuning: () => void;
 }
 
 // Lazy because the module is not available during pure-JS tests; the
@@ -32,70 +33,22 @@ interface KaleidoscopeNativeModule {
 const nativeModule = (): KaleidoscopeNativeModule =>
   requireNativeModule<KaleidoscopeNativeModule>('RnWebrtcKaleidoscope');
 
-/**
- * Set the Gaussian sigma for the blur effect. Higher = softer blur.
- * Clamped to [0.5, 7] (the useful range before the linear-sampled kernel
- * truncates and bands). Default 5.
- */
-export const setBlurSigma = (value: number): void => {
-  nativeModule().setBlurSigma(value);
-};
-
-/**
- * Set the mask smoothstep hardness for blur and background-image
- * composites, in [0, 1]. 0 = soft halo, 1 = near-step edge. Default 0.5.
- */
-export const setMaskHardness = (value: number): void => {
-  nativeModule().setMaskHardness(value);
-};
-
-/**
- * Set the mask smoothstep threshold (center of the transition) in
- * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
- * pixels (helps tighten the silhouette against chair-edge noise);
- * lower values are more inclusive. Optimal value is platform-specific:
- * all three platforms run MediaPipe selfie segmentation, but the input
- * downscale and API variant differ and produce different confidence
- * distributions.
- */
-export const setMaskThreshold = (value: number): void => {
-  nativeModule().setMaskThreshold(value);
-};
-
-/**
- * Set the segmentation input short-side (px). The person mask is computed from
- * an input downscaled to this; lower = cheaper segmentation (helps on older
- * devices like the A11), softer mask edge. Default 384, clamped [128, 1080]
- * identically on both native platforms. Native only; the web pipeline ignores it.
- */
-export const setSegmentationTargetShortSide = (value: number): void => {
-  nativeModule().setSegmentationTargetShortSide(value);
-};
-
-/**
- * Toggle native per-frame GPU/segmentation timing logs (off by default). iOS
- * logs under os_log "Perf"; Android under the "Perf" logcat tag.
- */
-export const setDebugTiming = (value: boolean): void => {
-  nativeModule().setDebugTiming(value);
-};
-
-/**
- * Reset all effect tuning parameters to library defaults.
- */
-export const resetEffectTuning = (): void => {
-  nativeModule().resetEffectTuning();
-};
+// The native tuning functions (setBlurSigma / setMaskHardness / ...) remain on
+// the native module and are called internally: blur sigma flows from a blur
+// preset's options in applyVideoEffects below, and the mask edge flows from the
+// mask() verb (see bindKaleidoscope). The old global set* JS exports are gone;
+// effects are driven by kaleidoscope / transform / mask, not loose setters.
 
 export type { BackgroundPresetName } from './backgrounds';
 export type {
-  Axis,
   KaleidoscopeBindOptions,
-  KaleidoscopeSession,
+  KaleidoscopeControls,
+  MaskInput,
   Preset,
   PresetBook,
   ShaderName,
   ShaderOptionsMap,
+  TransformInput,
 } from './kaleidoscope/types';
 export type {
   ApplyVideoEffects,
@@ -240,19 +193,24 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
 };
 
 /**
- * Bind a track and a preset book, then command presets by name. The headline
- * surface: presets live in the consumer's project, this one verb drives them.
- * On native the track is mutated in place, so `session.track` is the bound
- * track and `onTrack` fires with it after each command. `applyVideoEffects`
- * remains the lower-level primitive beneath.
+ * Bind a track and a preset book; get the three verbs back
+ * (`{ kaleidoscope, transform, mask }`). On native the track is mutated in
+ * place, so `controls.track` is the bound track and `onTrack` fires with it
+ * after each `kaleidoscope`/`transform` command. `mask` updates the
+ * segmentation edge the per-frame processors read. `applyVideoEffects` remains
+ * the lower-level primitive beneath.
  */
-export const kaleidoscope = <P extends PresetBook>(
+export const bindKaleidoscope = <P extends PresetBook>(
   track: MediaStreamTrack,
   options: KaleidoscopeBindOptions<P>,
-): KaleidoscopeSession<P> => {
+): KaleidoscopeControls<P> => {
   const reconcile: Reconcile = {
     apply: (specs) => applyVideoEffects(track, specs),
     dispose: () => {},
   };
-  return createSession(track, options, reconcile);
+  const setMask: SetMask = (hardness, threshold) => {
+    nativeModule().setMaskHardness(hardness);
+    nativeModule().setMaskThreshold(threshold);
+  };
+  return createControls(track, options, reconcile, setMask);
 };
