@@ -14,6 +14,9 @@ export type BackgroundTile<Id extends string> = {
   label: string;
   // Web: the bundled image URL. Native: the preset name (not yet a thumbnail).
   source: string;
+  // Optional corner badge, e.g. "demo-owned" to mark a consumer-supplied image
+  // (one that came through the same book/prebuild path as the library presets).
+  badge?: string;
 };
 
 type Props<Id extends string> = {
@@ -30,7 +33,7 @@ export const BackgroundMenu = <Id extends string>({
   disabled = false,
 }: Props<Id>) => (
   <View style={styles.grid}>
-    {tiles.map(({ id, label, source }) => {
+    {tiles.map(({ id, label, source, badge }) => {
       const on = value === id;
       return (
         <Pressable
@@ -42,6 +45,11 @@ export const BackgroundMenu = <Id extends string>({
           style={[styles.tile, on && styles.tileOn, disabled && styles.tileDisabled]}
         >
           <Image source={{ uri: source }} style={styles.thumb} resizeMode="cover" />
+          {badge ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          ) : null}
           <View style={styles.labelWrap}>
             <Text style={styles.label} numberOfLines={2}>
               {label}
@@ -70,6 +78,16 @@ const styles = StyleSheet.create({
   },
   tileOn: { borderColor: '#4a8f3f' },
   tileDisabled: { opacity: 0.5 },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(217, 119, 6, 0.92)',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '700', letterSpacing: 0.3 },
   thumb: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   labelWrap: {
     ...StyleSheet.absoluteFillObject,

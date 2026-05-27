@@ -34,6 +34,12 @@ const titleCase = (s: string): string =>
 const stripPrefix = (id: string, prefix: string): string =>
   titleCase(id.startsWith(prefix) ? id.slice(prefix.length) : id);
 
+// Which backgrounds are demo-owned (consumer-supplied) vs library-shipped,
+// purely to badge them in the UI. The book/prebuild mechanism is identical for
+// both; this is only provenance for the demo, to show a consumer image flows
+// through the same path.
+const DEMO_OWNED = new Set<PresetId>(['wolf-cave']);
+
 // Backgrounds render as thumbnails; label is the title-cased id, image from the
 // preset's own source.
 const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = ENTRIES.filter(
@@ -42,6 +48,7 @@ const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = ENTRIES.filter
   id,
   label: titleCase(id),
   source: (p as { options: { source: string } }).options.source,
+  badge: DEMO_OWNED.has(id) ? 'demo-owned' : undefined,
 }));
 
 const BLUR_LIST: ReadonlyArray<Preset<PresetId>> = ENTRIES.filter(
