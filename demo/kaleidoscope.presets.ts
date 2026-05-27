@@ -30,10 +30,10 @@ export const presets = {
   // A demo-owned image (NOT part of the package), proving a consumer can add
   // their own background. On web, Asset.fromModule(require(...)).uri is the URL;
   // the prebuild plugin reads the require specifier to copy it into the native
-  // bundle as studio-loft.webp.
-  'studio-loft': {
+  // bundle as wolf-cave.webp.
+  'wolf-cave': {
     shader: 'background-image',
-    options: { source: Asset.fromModule(require('./assets/backgrounds/studio-loft.webp')).uri },
+    options: { source: Asset.fromModule(require('./assets/backgrounds/wolf-cave.webp')).uri },
   },
   'debug-resolutions': { shader: 'background-image', options: { source: debugResolutions } },
   'dark-office': { shader: 'background-image', options: { source: darkOffice } },
