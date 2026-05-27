@@ -25,7 +25,7 @@ import {
   type DisposablePipeline,
   type FrameTransform,
 } from './web/insertable-streams';
-import { PLASMA_FRAG_SRC } from './web/shaders';
+import { SHADER_SOURCES } from './web/shaders';
 import { tuning } from './web/tuning';
 
 // The tuning channel (tuning.*) is internal now: blur sigma flows from a blur
@@ -51,8 +51,8 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
-  PlasmaSpec,
   RGB,
+  ShaderSpec,
   TransformName,
   TransformSpec,
 } from './types';
@@ -75,16 +75,14 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
       return blur;
     case 'background-image':
       return makeBackgroundImage(spec.source);
-    case 'plasma':
-      // Plasma through the generic shader processor: its frag + uniforms, with
-      // uTime/uResolution supplied by the processor. Any future generative
-      // shader is the same call with a different frag + uniform map.
-      return makeShaderEffect(PLASMA_FRAG_SRC, {
-        uColorA: spec.colorA ?? [0.0, 0.3, 0.6],
-        uColorB: spec.colorB ?? [0.0, 0.6, 0.6],
-        uSpeed: spec.speed ?? 0.3,
-        uScale: spec.scale ?? 8.0,
-      });
+    case 'shader': {
+      // Any generative shader: look up its source by name from the codegen
+      // registry and run it through the generic processor with the spec's
+      // uniforms. No per-shader code — adding a shader adds a registry entry.
+      const src = SHADER_SOURCES[spec.shader];
+      if (!src) throw new Error(`kaleidoscope: unknown shader '${spec.shader}'`);
+      return makeShaderEffect(src, spec.uniforms);
+    }
   }
 };
 

@@ -4,32 +4,35 @@
 // and the effect the pipeline runs; the controls own the composite and
 // reconcile through here.
 //
-// Switching on `preset.shader` narrows `preset.options` to the matching member
-// (Preset is a discriminated union), so the only cast is folding the loosely
-// typed override in; the public `kaleidoscope` signature keeps overrides
-// type-safe. Transforms are not book shaders; the transform verb produces
-// discrete transform specs directly.
+// blur and background-image are special engines with their own specs.
+// Everything else is a generative background shader: its options become
+// u-prefixed uniforms by convention (`colorA` -> `uColorA`) and it flows
+// through the one generic ShaderSpec. So a new generative shader needs no case
+// here — only its `.frag` (which codegens into the shader registry) and its
+// option contract. Transforms are not book shaders; the transform verb handles
+// them.
 
 import type { EffectSpec } from '../types';
 import type { Preset, ShaderOptionsMap } from './types';
 
+// option key -> shader uniform name, e.g. `colorA` -> `uColorA`, `speed` -> `uSpeed`.
+const toUniformName = (key: string): string => `u${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+
 export const presetToEffectSpec = (preset: Preset, opts?: Record<string, unknown>): EffectSpec => {
-  switch (preset.shader) {
-    case 'blur': {
-      const o = { ...preset.options, ...opts } as ShaderOptionsMap['blur'];
-      return o.sigma == null ? { name: 'blur' } : { name: 'blur', sigma: o.sigma };
-    }
-    case 'background-image': {
-      const o = { ...preset.options, ...opts } as ShaderOptionsMap['background-image'];
-      return { name: 'background-image', source: o.source };
-    }
-    case 'plasma': {
-      const o = { ...preset.options, ...opts } as ShaderOptionsMap['plasma'];
-      return { name: 'plasma', ...o };
-    }
-    default: {
-      const never: never = preset;
-      throw new Error(`kaleidoscope: unknown shader ${String((never as Preset).shader)}`);
-    }
+  if (preset.shader === 'blur') {
+    const o = { ...preset.options, ...opts } as ShaderOptionsMap['blur'];
+    return o.sigma == null ? { name: 'blur' } : { name: 'blur', sigma: o.sigma };
   }
+  if (preset.shader === 'background-image') {
+    const o = { ...preset.options, ...opts } as ShaderOptionsMap['background-image'];
+    return { name: 'background-image', source: o.source };
+  }
+  // Generative shader: map options to uniforms by convention and run through
+  // the generic processor (registry-keyed by `shader`).
+  const merged = { ...preset.options, ...opts } as Record<string, number | readonly number[]>;
+  const uniforms: Record<string, number | readonly number[]> = {};
+  for (const [key, value] of Object.entries(merged)) {
+    uniforms[toUniformName(key)] = value;
+  }
+  return { name: 'shader', shader: preset.shader, uniforms };
 };

@@ -90,3 +90,9 @@ void main() {
   oColor = vec4(mix(uColorA, uColorB, mixT), 1.0);
 }
 `;
+
+// Generative background shaders, by name. The generic shader processor and the
+// dispatch iterate this; adding a generative .frag adds an entry here.
+export const SHADER_SOURCES: Readonly<Record<string, string>> = {
+  plasma: PLASMA_FRAG_SRC,
+} as const;

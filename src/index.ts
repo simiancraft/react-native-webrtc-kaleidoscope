@@ -25,6 +25,12 @@ interface KaleidoscopeNativeModule {
   setBlurSigma: (value: number) => void;
   setMaskHardness: (value: number) => void;
   setMaskThreshold: (value: number) => void;
+  // Generic shader uniform channel (#32). Optional: a native build predating
+  // the generic shader processor won't expose it, so callers guard with `?.`.
+  setShaderUniforms?: (
+    name: string,
+    uniforms: Readonly<Record<string, number | readonly number[]>>,
+  ) => void;
 }
 
 // Lazy because the module is not available during pure-JS tests; the
@@ -57,8 +63,8 @@ export type {
   EffectInput,
   EffectName,
   EffectSpec,
-  PlasmaSpec,
   RGB,
+  ShaderSpec,
   TransformName,
   TransformSpec,
 } from './types';
@@ -120,6 +126,12 @@ const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   if (spec.name === 'background-image') {
     return `background-image-${spec.source}`;
   }
+  // A generative shader's native name is the shader name itself (e.g. 'plasma').
+  // Until the native generic processor + registration land, this name is not in
+  // the registered set, so the filter drops it (safe no-op) rather than crashing.
+  if (spec.name === 'shader') {
+    return spec.shader;
+  }
   return spec.name;
 };
 
@@ -151,6 +163,11 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   for (const spec of specs) {
     if (spec.name === 'blur' && spec.sigma != null) {
       nativeModule().setBlurSigma(spec.sigma);
+    } else if (spec.name === 'shader') {
+      // Guarded: a native build without the generic shader processor lacks the
+      // function; the shader name is also dropped by the registry filter below
+      // until that processor + registration land.
+      nativeModule().setShaderUniforms?.(spec.shader, spec.uniforms);
     }
   }
   const allNames = specs.map(specToNativeName);

@@ -109,4 +109,11 @@ void main() {
   oColor = vec4(mix(uColorA, uColorB, mixT), 1.0);
 }
 """
+
+  // Generative background shaders, by name. The generic shader processor and
+  // directory-driven registration iterate this; adding a generative .frag adds
+  // an entry here automatically.
+  val GENERATIVE: Map<String, String> = mapOf(
+    "plasma" to PLASMA_FRAG,
+  )
 }

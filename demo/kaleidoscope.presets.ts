@@ -50,11 +50,12 @@ export const presets = {
   'blur-medium': { shader: 'blur', options: { sigma: 4 } },
   'blur-high': { shader: 'blur', options: { sigma: 7 } },
 
-  // Plasma: one plasma.frag, many uniform bundles.
-  'plasma-ocean': { shader: 'plasma', options: { colorA: [0.0, 0.3, 0.6], colorB: [0.0, 0.6, 0.6], speed: 0.3 } },
-  'plasma-sunset': { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 } },
-  'plasma-mint': { shader: 'plasma', options: { colorA: [0.1, 0.5, 0.3], colorB: [0.6, 0.9, 0.5], speed: 0.25 } },
-  'plasma-fast': { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.9 } },
+  // Plasma: one plasma.frag, many uniform bundles. (Options map to u-prefixed
+  // uniforms by convention; the book supplies the full set, no implicit defaults.)
+  'plasma-ocean': { shader: 'plasma', options: { colorA: [0.0, 0.3, 0.6], colorB: [0.0, 0.6, 0.6], speed: 0.3, scale: 8 } },
+  'plasma-sunset': { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3, scale: 8 } },
+  'plasma-mint': { shader: 'plasma', options: { colorA: [0.1, 0.5, 0.3], colorB: [0.6, 0.9, 0.5], speed: 0.25, scale: 8 } },
+  'plasma-fast': { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.9, scale: 10 } },
   // Transforms are NOT book presets: they're driven by the transform() verb
   // (flip/rotate), not curated art. The book is the art catalog only.
 } as const satisfies PresetBook;

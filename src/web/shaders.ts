@@ -32,9 +32,12 @@
 //     uTime + uColorA/uColorB/uSpeed/uScale, ignores the input frame; the
 //     processor renders it into the composite's background slot. See
 //     src/web/effects/plasma.ts.
+//   - SHADER_SOURCES: a name -> source registry of the generative background
+//     shaders (plasma, …), iterated by the dispatch so a new shader is data,
+//     not a new code path.
 export {
   BLUR_FRAG_SRC,
   COMPOSITE_FRAG_SRC,
   PASSTHROUGH_VERT_SRC,
-  PLASMA_FRAG_SRC,
+  SHADER_SOURCES,
 } from './shaders.generated';
