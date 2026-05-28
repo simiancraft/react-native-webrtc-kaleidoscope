@@ -21,6 +21,7 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
     renderOption,
     labelFor,
     tabLabelFor,
+    style,
   } = props;
   const { families, viewsByFamily, activeTab, setActiveTab } = usePicker(presets, labelFor);
 
@@ -30,6 +31,7 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
 
   return (
     <PickerLayout
+      style={style}
       tabsZone={families.map((family) => (
         <Tab
           key={family}

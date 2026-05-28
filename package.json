@@ -47,6 +47,12 @@
       "import": "./dist/ui/index.js",
       "default": "./dist/ui/index.js"
     },
+    "./nativewind": {
+      "types": "./dist/ui/nativewind.d.ts",
+      "react-native": "./src/ui/nativewind.ts",
+      "import": "./dist/ui/nativewind.js",
+      "default": "./dist/ui/nativewind.js"
+    },
     "./livekit": {
       "types": "./dist/livekit.d.ts",
       "browser": "./dist/livekit.js",
@@ -202,9 +208,13 @@
     "react-native": ">=0.74.0",
     "react-native-webrtc": ">=124.0.0",
     "@livekit/react-native-webrtc": ">=144.0.0",
-    "livekit-client": ">=2.0.0"
+    "livekit-client": ">=2.0.0",
+    "nativewind": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "nativewind": {
+      "optional": true
+    },
     "react-native-webrtc": {
       "optional": true
     },
@@ -231,6 +241,7 @@
     "expo-modules-core": "^1.12.0",
     "knip": "^6.5.0",
     "livekit-client": "^2.0.0",
+    "nativewind": "^4.2.4",
     "publint": "^0.3.18",
     "react": "18.2.0",
     "react-native": "0.74.5",

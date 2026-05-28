@@ -10,6 +10,7 @@
 // shared `.types.ts` for the platform-split resolver too); only `react` types.
 
 import type { ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type { PresetBook, ShaderName } from '../../kaleidoscope/types';
 
 /** A preset's shader family; the grouping (tab) axis. */
@@ -68,6 +69,8 @@ export interface PickerProps<P extends PresetBook = PresetBook>
     PickerStyleProps {
   /** The consumer's preset book. */
   readonly presets: P;
+  /** RN style override for the container; applied after the defaults. */
+  readonly style?: StyleProp<ViewStyle>;
   /** Map a preset id to a display label; defaults to a title-cased id. */
   readonly labelFor?: (id: string) => string;
   /** Label a family tab; defaults to a title-cased family name. */
