@@ -69,7 +69,7 @@ export interface PickerProps<P extends PresetBook = PresetBook>
   /** The consumer's preset book. */
   readonly presets: P;
   /** Map a preset id to a display label; defaults to a title-cased id. */
-  readonly labelFor?: (id: string & keyof P) => string;
+  readonly labelFor?: (id: string) => string;
   /** Label a family tab; defaults to a title-cased family name. */
   readonly tabLabelFor?: (family: Family) => string;
 }
