@@ -1,0 +1,9 @@
+{
+  "//": "Emit config for the published dist. The package is type:commonjs, so the dist must be real CommonJS, not ESM-syntax .js under a CJS type (which webpack and node import()/require() reject). The editor/typecheck config (tsconfig.json) stays ESM/bundler; this only governs `bun run build`. Metro consumers resolve src/*.ts directly and never see this output.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "node16",
+    "moduleResolution": "node16",
+    "verbatimModuleSyntax": false
+  }
+}

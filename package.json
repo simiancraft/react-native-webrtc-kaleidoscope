@@ -29,7 +29,6 @@
   "type": "commonjs",
   "sideEffects": false,
   "main": "./src/index.ts",
-  "module": "./dist/index.js",
   "react-native": "./src/index.ts",
   "types": "./dist/index.d.ts",
   "browser": {
@@ -179,7 +178,7 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "bun run clean && tsgo && mkdir -p dist/backgrounds && cp src/backgrounds/*.webp dist/backgrounds/",
+    "build": "bun run clean && tsgo -p tsconfig.build.json && mkdir -p dist/backgrounds && cp src/backgrounds/*.webp dist/backgrounds/",
     "typecheck": "tsgo --noEmit",
     "typecheck:test": "tsgo --noEmit --project tsconfig.test.json",
     "typecheck:demo": "cd demo && bunx tsc --noEmit",
@@ -188,7 +187,7 @@
     "format": "biome format --write .",
     "test": "bun test",
     "check": "bun run lint:fix && bun run typecheck && bun run typecheck:test && bun run typecheck:demo && bun run build && (cd demo && bun run build) && bun run test && bun run check:knip && bun run check:package",
-    "check:package": "publint",
+    "check:package": "publint --strict",
     "check:knip": "knip",
     "refresh:android": "cd demo && npm install",
     "prebuild:android": "bun run refresh:android && cd demo && bunx expo prebuild --platform android --no-install",
