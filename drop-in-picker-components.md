@@ -52,8 +52,6 @@ src/
         preset-options.tsx             # + non-image-family renderer (buttons)
         preset-tile.tsx                # + leaf: one background tile (className + style + slot)
         preset-option.tsx              # + leaf: one option button (className + style + slot)
-        background-grid.stories.tsx    # + web-testable stories
-        preset-options.stories.tsx     # +
       resolve-background-uri.ts        # + native: calls the Expo module function
       resolve-background-uri.web.ts    # + web: returns the preset source URL as-is
       resolve-background-uri.types.ts  # + shared contract (no platform-package imports)
@@ -88,20 +86,20 @@ drop-in-picker-components.md           # (this file; deleted in the final commit
 
 ### Commit 2: leaf parts (`preset-tile`, `preset-option`) + stories
 
-**Files created:** `src/ui/picker/presets/preset-tile.tsx`, `preset-option.tsx`, plus `.stories.tsx`. Each: presentational, one state, accepts `className` + `style`, no chassis-level flag props; selection shown by a named-zone swap, not a `selected`-flag ternary buried in JSX. Render-prop escape hatch honored here.
-**Gate:** full JS gate; stories render (web).
+**Files created:** `src/ui/picker/presets/preset-tile.tsx`, `preset-option.tsx`. Each: presentational, accepts `className` + `style`, RN StyleSheet defaults so it works without NativeWind; `selected`/`disabled` drive appearance via style/`cn`-style class merge, not buried structural ternaries. Exported from `src/ui/index.ts` (public primitives) so knip sees them before the renderers consume them.
+**Gate:** full JS gate (lint, typecheck, knip, build). The repo has no Storybook; visual verification happens at the demo web test (Commit 7).
 
 ### Commit 3: family renderers (`background-grid`, `preset-options`) + dispatch
 
 **Files created:** `src/ui/picker/presets/background-grid.tsx` (tiles; fixed-height tiles so RN doesn't collapse the way the demo did), `preset-options.tsx` (buttons). Family→renderer is a declarative dispatch table, not inline ternaries.
 **Files modified:** `picker.types.ts` if the renderer contract needs a shared shape.
-**Gate:** full JS gate; stories render.
+**Gate:** full JS gate.
 
 ### Commit 4: composite `KaleidoscopePicker` + `use-picker` + layout
 
 **Files created:** `src/ui/picker/index.tsx` (composite + `usePicker` orchestration: group the book by `shader`, controlled `value`/`onSelect` with uncontrolled fallback), `src/ui/picker/layout.tsx` (tab chrome as named zones).
 **Files modified:** `src/ui/index.ts` (export the public surface: `KaleidoscopePicker`, `BackgroundGrid`, `PresetOptions`, `PresetTile`, `PresetOption`, types).
-**Gate:** full JS gate; a story renders the full composite over a mock book.
+**Gate:** full JS gate.
 
 ### Commit 5: `resolveBackgroundUri` platform-split (web side live)
 
@@ -142,7 +140,7 @@ Kick off one EAS `preview` build (both platforms) from the committed branch; dev
 ## Verification checklist
 
 - [ ] `./ui` and `./nativewind` resolve as subpaths; core `./ui` imports no `nativewind`.
-- [ ] Composite + each primitive render in Storybook/web over a mock book.
+- [ ] Composite + each primitive render in the web demo over the book (no Storybook in repo; verified via the demo).
 - [ ] `className`, `style`, and render-prop each style a tile/option.
 - [ ] Web demo (Playwright): thumbnails display, selection works, NativeWind classes apply.
 - [ ] `resolveBackgroundUri` exists on both natives; parity test green.

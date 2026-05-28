@@ -5,8 +5,7 @@
 // `className` via the `./nativewind` interop -> render-prop slot). The core
 // imports no `nativewind`; only the `./nativewind` subpath does.
 //
-// Components are added in subsequent commits; this entry currently exposes the
-// shared contract.
+// Primitives (composable, headless); the family renderers and composite follow.
 
 export type {
   Family,
@@ -18,3 +17,5 @@ export type {
   RenderOption,
   RenderTile,
 } from './picker/picker.types';
+export { PresetOption } from './picker/presets/preset-option';
+export { PresetTile } from './picker/presets/preset-tile';
