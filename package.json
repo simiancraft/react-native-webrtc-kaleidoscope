@@ -48,10 +48,10 @@
       "default": "./dist/ui/index.js"
     },
     "./nativewind": {
-      "types": "./dist/ui/nativewind.d.ts",
-      "react-native": "./src/ui/nativewind.ts",
-      "import": "./dist/ui/nativewind.js",
-      "default": "./dist/ui/nativewind.js"
+      "types": "./dist/nativewind.d.ts",
+      "react-native": "./src/nativewind.ts",
+      "import": "./dist/nativewind.js",
+      "default": "./dist/nativewind.js"
     },
     "./livekit": {
       "types": "./dist/livekit.d.ts",

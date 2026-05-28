@@ -12,12 +12,12 @@
 // so the class string the consumer passes is resolved by their NativeWind setup.
 
 import { cssInterop } from 'nativewind';
-import { KaleidoscopePicker } from './picker';
-import { PickerLayout } from './picker/layout';
-import { BackgroundGrid } from './picker/presets/background-grid';
-import { PresetOption } from './picker/presets/preset-option';
-import { PresetOptions } from './picker/presets/preset-options';
-import { PresetTile } from './picker/presets/preset-tile';
+import { KaleidoscopePicker } from './ui/picker';
+import { PickerLayout } from './ui/picker/layout';
+import { BackgroundGrid } from './ui/picker/presets/background-grid';
+import { PresetOption } from './ui/picker/presets/preset-option';
+import { PresetOptions } from './ui/picker/presets/preset-options';
+import { PresetTile } from './ui/picker/presets/preset-tile';
 
 /**
  * Register the picker components with NativeWind so they accept `className`.
