@@ -13,42 +13,33 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { bindKaleidoscope, type KaleidoscopeControls } from 'react-native-webrtc-kaleidoscope';
+import {
+  KaleidoscopePicker,
+  PresetTile,
+  type RenderTile,
+} from 'react-native-webrtc-kaleidoscope/ui';
 import { type PresetId, presets } from '../kaleidoscope.presets';
-import { BackgroundMenu, type BackgroundTile } from '../src/background-menu';
 import { MaskPanel } from '../src/mask-panel';
 import { type Preset, RadioToggles } from '../src/radio-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
-// Banks derived from the book by shader (single source of truth).
-type Entry = readonly [PresetId, (typeof presets)[PresetId]];
-const ENTRIES = Object.entries(presets) as Entry[];
-const titleCase = (s: string): string =>
-  s
-    .split('-')
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-    .join(' ');
-const stripPrefix = (id: string, prefix: string): string =>
-  titleCase(id.startsWith(prefix) ? id.slice(prefix.length) : id);
-
 // Demo-owned (consumer-supplied) ids, for the badge only; the mechanism is
-// identical to the library presets.
+// identical to the library presets. The demo dogfoods the library's
+// KaleidoscopePicker, which derives its families from the book itself; the
+// badge rides on the picker's renderTile slot.
 const DEMO_OWNED = new Set<PresetId>(['wolf-cave']);
 
-const BACKGROUND_TILES: ReadonlyArray<BackgroundTile<PresetId>> = ENTRIES.filter(
-  ([, p]) => p.shader === 'background-image',
-).map(([id, p]) => ({
-  id,
-  label: titleCase(id),
-  source: (p as { options: { source: string } }).options.source,
-  badge: DEMO_OWNED.has(id) ? 'demo-owned' : undefined,
-}));
-const BLUR_LIST: ReadonlyArray<Preset<PresetId>> = ENTRIES.filter(
-  ([, p]) => p.shader === 'blur',
-).map(([id]) => ({ id, label: stripPrefix(id, 'blur-') }));
-const PLASMA_LIST: ReadonlyArray<Preset<PresetId>> = ENTRIES.filter(
-  ([, p]) => p.shader === 'plasma',
-).map(([id]) => ({ id, label: stripPrefix(id, 'plasma-') }));
+const renderDemoTile: RenderTile = (preset, state) => (
+  <PresetTile
+    label={preset.label}
+    uri={state.uri}
+    selected={state.selected}
+    disabled={state.disabled}
+    onPress={state.onPress}
+    badge={DEMO_OWNED.has(preset.id as PresetId) ? 'demo-owned' : undefined}
+  />
+);
 
 // Rotate is single-select among the snapped angles transform() accepts.
 const ROTATE_LIST: ReadonlyArray<Preset<string>> = [
@@ -184,28 +175,12 @@ export default function DemoScreen() {
 
         <View style={styles.sections}>
           <Section title="kaleidoscope" flex={4}>
-            <RowLabel>Background</RowLabel>
-            <BackgroundMenu
-              tiles={BACKGROUND_TILES}
+            <KaleidoscopePicker
+              presets={presets}
               value={art}
-              onSelect={setArt}
+              onSelect={(id) => setArt(id as PresetId | null)}
               disabled={disabled}
-            />
-            <RowLabel>Blur</RowLabel>
-            <RadioToggles
-              presets={BLUR_LIST}
-              value={art}
-              onSelect={setArt}
-              disabled={disabled}
-              columns={6}
-            />
-            <RowLabel>Plasma</RowLabel>
-            <RadioToggles
-              presets={PLASMA_LIST}
-              value={art}
-              onSelect={setArt}
-              disabled={disabled}
-              columns={6}
+              renderTile={renderDemoTile}
             />
           </Section>
 
