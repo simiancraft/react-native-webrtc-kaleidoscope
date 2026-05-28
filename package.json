@@ -32,6 +32,9 @@
   "module": "./dist/index.js",
   "react-native": "./src/index.ts",
   "types": "./dist/index.d.ts",
+  "browser": {
+    "./dist/ui/picker/resolve-background-uri.js": "./dist/ui/picker/resolve-background-uri.web.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
