@@ -17,7 +17,9 @@ interface PickerLayoutProps {
 export function PickerLayout({ tabsZone, bodyZone, style }: PickerLayoutProps) {
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.tabs}>{tabsZone}</View>
+      <View accessibilityRole="tablist" style={styles.tabs}>
+        {tabsZone}
+      </View>
       <View style={styles.body}>{bodyZone}</View>
     </View>
   );

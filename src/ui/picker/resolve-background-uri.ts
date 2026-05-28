@@ -15,7 +15,12 @@ interface BackgroundUriModule {
   readonly resolveBackgroundUri?: (id: string) => string | null;
 }
 
-export const resolveBackgroundUri: ResolveBackgroundUri = (id, source) => {
-  const mod = requireNativeModule<BackgroundUriModule>('RnWebrtcKaleidoscope');
-  return mod.resolveBackgroundUri?.(id) ?? source;
-};
+// Resolve the module once, lazily — it is registered at the Expo module's
+// OnCreate, before any picker renders. Hoisted out of the per-call path so a
+// grid of N tiles does not perform N module lookups per render.
+let cachedModule: BackgroundUriModule | undefined;
+const nativeModule = (): BackgroundUriModule =>
+  (cachedModule ??= requireNativeModule<BackgroundUriModule>('RnWebrtcKaleidoscope'));
+
+export const resolveBackgroundUri: ResolveBackgroundUri = (id, source) =>
+  nativeModule().resolveBackgroundUri?.(id) ?? source;

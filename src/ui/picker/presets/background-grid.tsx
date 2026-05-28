@@ -5,7 +5,7 @@
 // The thumbnail URI comes from the platform-split `resolveBackgroundUri`: the
 // source URL on web, the in-bundle file:// URI on native.
 
-import { Fragment } from 'react';
+import { Fragment, useMemo } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import type { PresetView, RenderTile } from '../picker.types';
 import { resolveBackgroundUri } from '../resolve-background-uri';
@@ -36,8 +36,14 @@ const defaultRenderTile: RenderTile = (preset, state) => (
 export function BackgroundGrid(props: BackgroundGridProps) {
   const { presets, value, onSelect, disabled = false, renderTile, style } = props;
   const renderItem = renderTile ?? defaultRenderTile;
+  // Resolve thumbnail URIs once per preset set (not per render/selection); the
+  // result is pure in (id, source).
+  const uriById = useMemo(
+    () => new Map(presets.map((p) => [p.id, resolveBackgroundUri(p.id, p.source)] as const)),
+    [presets],
+  );
   return (
-    <View style={[styles.grid, style]}>
+    <View accessibilityRole="radiogroup" style={[styles.grid, style]}>
       {presets.map((preset) => {
         const selected = value === preset.id;
         return (
@@ -45,7 +51,7 @@ export function BackgroundGrid(props: BackgroundGridProps) {
             {renderItem(preset, {
               selected,
               disabled,
-              uri: resolveBackgroundUri(preset.id, preset.source),
+              uri: uriById.get(preset.id),
               onPress: () => onSelect(selected ? null : preset.id),
             })}
           </Fragment>
