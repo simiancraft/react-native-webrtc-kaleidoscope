@@ -1,0 +1,60 @@
+// Family renderer: the background-image family as a thumbnail grid. Same
+// dispatch-once shape as PresetOptions; the tile renderer is the `renderTile`
+// slot or the default.
+//
+// The thumbnail URI is `preset.source` for now (a real URL on web). Commit 5
+// swaps this for the platform-split `resolveBackgroundUri`, which on native
+// turns the preset id into the in-bundle file:// URI.
+
+import { Fragment } from 'react';
+import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
+import type { PresetView, RenderTile } from '../picker.types';
+import { PresetTile } from './preset-tile';
+
+interface BackgroundGridProps {
+  readonly presets: ReadonlyArray<PresetView>;
+  readonly value: string | null;
+  readonly onSelect: (id: string | null) => void;
+  readonly disabled?: boolean;
+  /** Override the tile rendering (BYO tile, e.g. to add a badge). */
+  readonly renderTile?: RenderTile;
+  /** NativeWind class for the grid container; resolved via the `./nativewind` interop. */
+  readonly className?: string;
+  readonly style?: StyleProp<ViewStyle>;
+}
+
+const defaultRenderTile: RenderTile = (preset, state) => (
+  <PresetTile
+    label={preset.label}
+    uri={state.uri}
+    selected={state.selected}
+    disabled={state.disabled}
+    onPress={state.onPress}
+  />
+);
+
+export function BackgroundGrid(props: BackgroundGridProps) {
+  const { presets, value, onSelect, disabled = false, renderTile, style } = props;
+  const renderItem = renderTile ?? defaultRenderTile;
+  return (
+    <View style={[styles.grid, style]}>
+      {presets.map((preset) => {
+        const selected = value === preset.id;
+        return (
+          <Fragment key={preset.id}>
+            {renderItem(preset, {
+              selected,
+              disabled,
+              uri: preset.source,
+              onPress: () => onSelect(selected ? null : preset.id),
+            })}
+          </Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
+});

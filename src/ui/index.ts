@@ -17,5 +17,7 @@ export type {
   RenderOption,
   RenderTile,
 } from './picker/picker.types';
+export { BackgroundGrid } from './picker/presets/background-grid';
 export { PresetOption } from './picker/presets/preset-option';
+export { PresetOptions } from './picker/presets/preset-options';
 export { PresetTile } from './picker/presets/preset-tile';
