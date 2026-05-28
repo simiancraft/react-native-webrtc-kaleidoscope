@@ -28,7 +28,21 @@ export interface PickerModel {
   readonly setActiveTab: (family: Family) => void;
 }
 
+/**
+ * Tabbed, preset-book-driven picker. Controlled selection; emits the chosen id
+ * and the host applies it.
+ *
+ * @example
+ * <KaleidoscopePicker
+ *   presets={presets}
+ *   value={art}
+ *   onSelect={setArt}
+ * />
+ */
 export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) {
+  // `className` (declared on PickerProps) is intentionally not destructured: the
+  // ./nativewind cssInterop registration consumes it at the JSX boundary and
+  // merges the resolved classes into `style` before this body runs.
   const {
     presets,
     value,

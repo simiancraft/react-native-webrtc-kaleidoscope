@@ -14,6 +14,8 @@ interface PickerLayoutProps {
   readonly style?: StyleProp<ViewStyle>;
 }
 
+// `className` is consumed by the ./nativewind cssInterop at the boundary and
+// arrives merged into `style`, so it is not destructured/read here.
 export function PickerLayout({ tabsZone, bodyZone, style }: PickerLayoutProps) {
   return (
     <View style={[styles.container, style]}>

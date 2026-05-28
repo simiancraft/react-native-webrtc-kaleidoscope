@@ -25,10 +25,15 @@ export interface PresetView {
   readonly id: string;
   readonly label: string;
   readonly family: Family;
+  /** Background source (web URL or native preset name); present only for the image family. */
   readonly source?: string;
 }
 
-/** Per-item interaction state handed to a render-prop. */
+/**
+ * The item's own interaction state, passed to a render-prop so a BYO tile/button
+ * can reflect it. This is the leaf's interaction surface (its own selected/press
+ * lifecycle), not a relayed parent-state flag.
+ */
 export interface PresetItemState {
   readonly selected: boolean;
   readonly disabled: boolean;
