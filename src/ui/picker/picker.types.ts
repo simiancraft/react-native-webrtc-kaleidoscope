@@ -26,7 +26,7 @@ export interface PresetView {
   readonly label: string;
   readonly family: Family;
   /** Background source (web URL or native preset name); present only for the image family. */
-  readonly source?: string;
+  readonly source?: string | undefined;
 }
 
 /**
@@ -67,13 +67,13 @@ export interface PickerSelection<K extends string = string> {
 
 /** Props common to the picker surfaces; styling and templating hooks. */
 export interface PickerStyleProps {
-  readonly disabled?: boolean;
+  readonly disabled?: boolean | undefined;
   /** Container class; resolved by NativeWind via the `./nativewind` interop. */
-  readonly className?: string;
+  readonly className?: string | undefined;
   /** Override the background tile rendering. */
-  readonly renderTile?: RenderTile;
+  readonly renderTile?: RenderTile | undefined;
   /** Override the option-button rendering. */
-  readonly renderOption?: RenderOption;
+  readonly renderOption?: RenderOption | undefined;
 }
 
 /** Props for the drop-in composite picker (the tabbed kitchen sink). */
@@ -83,9 +83,9 @@ export interface PickerProps<P extends PresetBook = PresetBook>
   /** The consumer's preset book. */
   readonly presets: P;
   /** RN style override for the container; applied after the defaults. */
-  readonly style?: StyleProp<ViewStyle>;
+  readonly style?: StyleProp<ViewStyle> | undefined;
   /** Map a preset id to a display label; defaults to a title-cased id. */
-  readonly labelFor?: (id: keyof P & string) => string;
+  readonly labelFor?: ((id: keyof P & string) => string) | undefined;
   /** Label a family tab; defaults to a title-cased family name. */
-  readonly tabLabelFor?: (family: Family) => string;
+  readonly tabLabelFor?: ((family: Family) => string) | undefined;
 }

@@ -14,8 +14,8 @@ interface PickerLayoutProps {
   /** The active family's renderer (a BackgroundGrid or a PresetOptions); full-width, no wrapper added. */
   readonly bodyZone: ReactNode;
   /** NativeWind class for the container; resolved via the `./nativewind` interop. */
-  readonly className?: string;
-  readonly style?: StyleProp<ViewStyle>;
+  readonly className?: string | undefined;
+  readonly style?: StyleProp<ViewStyle> | undefined;
 }
 
 // `className` is consumed by the ./nativewind cssInterop at the boundary and

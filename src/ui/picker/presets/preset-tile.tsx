@@ -24,14 +24,14 @@ interface PresetTileProps {
   /** Resolved thumbnail URI (web URL or native file:// URI); undefined renders just the label. */
   readonly uri: string | undefined;
   readonly selected: boolean;
-  readonly disabled?: boolean;
+  readonly disabled?: boolean | undefined;
   readonly onPress: () => void;
   /** Optional corner badge, e.g. "demo-owned". */
-  readonly badge?: string;
+  readonly badge?: string | undefined;
   /** NativeWind class; resolved via the `./nativewind` interop registration. */
-  readonly className?: string;
+  readonly className?: string | undefined;
   /** RN style override; applied after the defaults. */
-  readonly style?: StyleProp<ViewStyle>;
+  readonly style?: StyleProp<ViewStyle> | undefined;
 }
 
 export function PresetTile(props: PresetTileProps) {

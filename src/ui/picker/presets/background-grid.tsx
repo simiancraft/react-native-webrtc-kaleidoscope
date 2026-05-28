@@ -15,12 +15,12 @@ interface BackgroundGridProps {
   readonly presets: ReadonlyArray<PresetView>;
   readonly value: string | null;
   readonly onSelect: (id: string | null) => void;
-  readonly disabled?: boolean;
+  readonly disabled?: boolean | undefined;
   /** Override the tile rendering (BYO tile, e.g. to add a badge). */
-  readonly renderTile?: RenderTile;
+  readonly renderTile?: RenderTile | undefined;
   /** NativeWind class for the grid container; resolved via the `./nativewind` interop. */
-  readonly className?: string;
-  readonly style?: StyleProp<ViewStyle>;
+  readonly className?: string | undefined;
+  readonly style?: StyleProp<ViewStyle> | undefined;
 }
 
 const defaultRenderTile: RenderTile = (preset, state) => (

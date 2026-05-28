@@ -14,12 +14,12 @@ import { Pressable, type StyleProp, StyleSheet, Text, type ViewStyle } from 'rea
 interface PresetOptionProps {
   readonly label: string;
   readonly selected: boolean;
-  readonly disabled?: boolean;
+  readonly disabled?: boolean | undefined;
   readonly onPress: () => void;
   /** NativeWind class; resolved via the `./nativewind` interop registration. */
-  readonly className?: string;
+  readonly className?: string | undefined;
   /** RN style override; applied after the defaults. */
-  readonly style?: StyleProp<ViewStyle>;
+  readonly style?: StyleProp<ViewStyle> | undefined;
 }
 
 export function PresetOption(props: PresetOptionProps) {

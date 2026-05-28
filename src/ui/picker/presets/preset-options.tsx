@@ -11,12 +11,12 @@ interface PresetOptionsProps {
   readonly presets: ReadonlyArray<PresetView>;
   readonly value: string | null;
   readonly onSelect: (id: string | null) => void;
-  readonly disabled?: boolean;
+  readonly disabled?: boolean | undefined;
   /** Override the option-button rendering (BYO button). */
-  readonly renderOption?: RenderOption;
+  readonly renderOption?: RenderOption | undefined;
   /** NativeWind class for the row container; resolved via the `./nativewind` interop. */
-  readonly className?: string;
-  readonly style?: StyleProp<ViewStyle>;
+  readonly className?: string | undefined;
+  readonly style?: StyleProp<ViewStyle> | undefined;
 }
 
 const defaultRenderOption: RenderOption = (preset, state) => (
