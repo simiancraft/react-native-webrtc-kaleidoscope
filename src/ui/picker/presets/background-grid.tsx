@@ -43,7 +43,11 @@ export function BackgroundGrid(props: BackgroundGridProps) {
     [presets],
   );
   return (
-    <View accessibilityRole="radiogroup" style={[styles.grid, style]}>
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel="Backgrounds"
+      style={[styles.grid, style]}
+    >
       {presets.map((preset) => {
         const selected = value === preset.id;
         return (

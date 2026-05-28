@@ -5,9 +5,13 @@ import type { ReactNode } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
 interface PickerLayoutProps {
-  /** The family tab bar. Conventionally a row of tab buttons, one per family. */
+  /**
+   * The family tab bar; conventionally a row of tab buttons, one per family.
+   * The layout already wraps this in a `tablist`-role row with flex/gap, so the
+   * filler should be the bare tab elements (don't add another row wrapper).
+   */
   readonly tabsZone: ReactNode;
-  /** The active family's renderer (a BackgroundGrid or a PresetOptions). */
+  /** The active family's renderer (a BackgroundGrid or a PresetOptions); full-width, no wrapper added. */
   readonly bodyZone: ReactNode;
   /** NativeWind class for the container; resolved via the `./nativewind` interop. */
   readonly className?: string;
@@ -19,7 +23,7 @@ interface PickerLayoutProps {
 export function PickerLayout({ tabsZone, bodyZone, style }: PickerLayoutProps) {
   return (
     <View style={[styles.container, style]}>
-      <View accessibilityRole="tablist" style={styles.tabs}>
+      <View accessibilityRole="tablist" accessibilityLabel="Effect families" style={styles.tabs}>
         {tabsZone}
       </View>
       <View style={styles.body}>{bodyZone}</View>

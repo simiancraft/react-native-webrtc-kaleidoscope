@@ -28,7 +28,7 @@ import { VideoPreview } from '../src/video-preview';
 // identical to the library presets. The demo dogfoods the library's
 // KaleidoscopePicker, which derives its families from the book itself; the
 // badge rides on the picker's renderTile slot.
-const DEMO_OWNED = new Set<PresetId>(['wolf-cave']);
+const DEMO_OWNED: ReadonlySet<string> = new Set(['wolf-cave']);
 
 const renderDemoTile: RenderTile = (preset, state) => (
   <PresetTile
@@ -37,7 +37,7 @@ const renderDemoTile: RenderTile = (preset, state) => (
     selected={state.selected}
     disabled={state.disabled}
     onPress={state.onPress}
-    badge={DEMO_OWNED.has(preset.id as PresetId) ? 'demo-owned' : undefined}
+    badge={DEMO_OWNED.has(preset.id) ? 'demo-owned' : undefined}
   />
 );
 

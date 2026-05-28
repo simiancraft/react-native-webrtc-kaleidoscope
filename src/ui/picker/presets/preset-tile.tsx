@@ -39,7 +39,7 @@ export function PresetTile(props: PresetTileProps) {
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityState={{ selected, disabled }}
+      accessibilityState={{ checked: selected, disabled }}
       disabled={disabled}
       onPress={onPress}
       style={[styles.tile, selected && styles.tileSelected, disabled && styles.tileDisabled, style]}

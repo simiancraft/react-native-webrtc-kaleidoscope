@@ -32,7 +32,11 @@ export function PresetOptions(props: PresetOptionsProps) {
   const { presets, value, onSelect, disabled = false, renderOption, style } = props;
   const renderItem = renderOption ?? defaultRenderOption;
   return (
-    <View accessibilityRole="radiogroup" style={[styles.row, style]}>
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel="Effect options"
+      style={[styles.row, style]}
+    >
       {presets.map((preset) => {
         const selected = value === preset.id;
         return (

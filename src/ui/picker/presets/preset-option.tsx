@@ -27,7 +27,7 @@ export function PresetOption(props: PresetOptionProps) {
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityState={{ selected, disabled }}
+      accessibilityState={{ checked: selected, disabled }}
       disabled={disabled}
       onPress={onPress}
       style={[styles.base, selected && styles.selected, disabled && styles.disabled, style]}
