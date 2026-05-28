@@ -178,7 +178,7 @@ export default function DemoScreen() {
             <KaleidoscopePicker
               presets={presets}
               value={art}
-              onSelect={(id) => setArt(id as PresetId | null)}
+              onSelect={setArt}
               disabled={disabled}
               renderTile={renderDemoTile}
               className="rounded-xl bg-neutral-900 p-3"

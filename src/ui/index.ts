@@ -7,7 +7,7 @@
 //
 // Primitives (composable, headless); the family renderers and composite follow.
 
-export { KaleidoscopePicker, usePicker } from './picker';
+export { KaleidoscopePicker, type PickerModel, usePicker } from './picker';
 export { PickerLayout } from './picker/layout';
 export type {
   Family,
