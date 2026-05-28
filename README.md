@@ -22,25 +22,26 @@
 
 ## Status
 
-**Active development; not yet production-ready.** Published to npm at `1.0.0` (semantic-release cut the first tag at 1.0.0; the number reflects release automation, not a maturity claim). The npm presentation, marketing, and release-quality polish will come in a later pass; right now the README's job is to tell the truth about what works.
+**Active development; not yet production-ready.** Published to npm (the badge above shows the current version; the number reflects release automation, not a maturity claim). The npm presentation, marketing, and release-quality polish will come in a later pass; right now the README's job is to tell the truth about what works.
 
 ### What works today
 
-- **`kaleidoscope`** — the art axis: blur, background image (eleven bundled presets plus your own assets), or a procedural shader (plasma), commanded by preset name.
+- **`kaleidoscope`** — the art axis: blur, background image (ten bundled backgrounds plus a calibration grid, or your own assets), or a procedural shader (plasma), commanded by preset name.
 - **`transform`** — absolute flips and rotation (snapped to 90°), reapplied as full state each call.
 - **`mask`** — the segmentation edge (hardness, threshold) shared by every art effect.
 - **Tree-shaking** — declare a preset book; only the assets you reference ship in your native bundle (web tree-shakes by import).
+- **Drop-in UI (optional)** — a preset-driven `KaleidoscopePicker` and headless primitives under `react-native-webrtc-kaleidoscope/ui`, NativeWind-ready via an opt-in interop. See [Drop-in UI](#drop-in-ui-optional).
 
 | Platform | Transform | Blur | Background replacement | Notes |
 |---|---|---|---|---|
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
 | Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MediaPipe Selfie Segmentation (Tasks) |
-| iOS (≥ 15) | ✓ | ✓ | ✓ | Metal + Vision (person segmentation), verified on device. Older A11 devices (iPhone X) run at a lower frame rate |
+| iOS (≥ 15) | ✓ | ✓ | ✓ | Metal + MediaPipe Selfie Segmentation (Tasks), verified on device. Older A11 devices (iPhone X) run at a lower frame rate |
 | Safari / Firefox | — | — | — | No Insertable Streams; `applyVideoEffects` throws a clear capability error |
 
 ### Coming soon
 
-- **Procedural backgrounds** (animated shaders behind the person, not just still images). Same composite path; the only new piece is each effect's background producer.
+- **Animated image-plate backgrounds** — a bundled still that moves (beyond the procedural `plasma` shader, which already renders behind the person today). Same composite path; the new piece is a per-effect background producer for animated plates.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
 ## Install
@@ -79,7 +80,7 @@ import { KaleidoscopeProcessor } from 'react-native-webrtc-kaleidoscope/livekit'
 await localVideoTrack.setProcessor(new KaleidoscopeProcessor(['blur']), true);
 ```
 
-The second argument shows the processed stream in your local preview. The processor tears down its Insertable-Streams pipeline on camera flip (`restart`) and unpublish (`destroy`), so repeated flips do not leak generators.
+The `true` second argument to `setProcessor` shows the processed stream in your local preview. The processor tears down its Insertable-Streams pipeline on camera flip (`restart`) and unpublish (`destroy`), so repeated flips do not leak generators.
 
 ## Configure
 
@@ -157,9 +158,41 @@ Numeric shader uniforms are normalized 0..1 by convention where practical; JSDoc
 
 **Tuning note:** all three platforms run MediaPipe selfie segmentation (Tasks Image Segmenter on native, the Selfie Segmentation Solution on web), so the mask edge that suits one may differ slightly from another. `mask({ hardness, threshold })` defaults to `0.5 / 0.5`; nudge it to match your camera and lighting.
 
+## Drop-in UI (optional)
+
+Build your own controls against the three verbs, or import a ready-made, headless picker from `react-native-webrtc-kaleidoscope/ui` that reads your preset book directly:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { KaleidoscopePicker } from 'react-native-webrtc-kaleidoscope/ui';
+import { presets } from './kaleidoscope.presets';
+
+// `kaleidoscope` is the verb returned by bindKaleidoscope(track, { presets }).
+function BackgroundControls({ kaleidoscope }) {
+  const [art, setArt] = useState<keyof typeof presets | null>(null);
+  useEffect(() => {
+    if (art) kaleidoscope(art);
+    else kaleidoscope(null);
+  }, [art, kaleidoscope]);
+
+  return <KaleidoscopePicker presets={presets} value={art} onSelect={setArt} />;
+}
+```
+
+`KaleidoscopePicker` is a tabbed composite (one tab per shader family). The same pieces are exported as standalone primitives — `BackgroundGrid`, `PresetOptions`, `PresetTile`, `PresetOption`, plus the `usePicker` hook and `PickerLayout` — so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
+
+**Styling, three tiers.** Sensible defaults out of the box; override with an RN `style` prop, a `className` prop, or a `renderTile` / `renderOption` render-prop slot for full control.
+
+**NativeWind-ready.** The components accept `className`. To turn it on, import the opt-in registration once in your NativeWind interop setup (`nativewind` is an optional peer dependency; the core `./ui` import never pulls it in):
+
+```ts
+import { registerKaleidoscopeNativeWind } from 'react-native-webrtc-kaleidoscope/nativewind';
+registerKaleidoscopeNativeWind();
+```
+
 ## Background presets
 
-Eleven backgrounds ship for the `background-image` effect, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
+Ten backgrounds ship for the `background-image` effect, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
 
 | Theme | Light | Dark |
 |---|---|---|
@@ -197,7 +230,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 The codebase lives across four surfaces:
 
 - `src/` — JS facade and shared types. `bindKaleidoscope` (the `kaleidoscope` / `transform` / `mask` verbs) over the `applyVideoEffects(track, effects)` primitive; the preset-book types live in `src/kaleidoscope/`.
-- `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. One shader file per stage in `src/web/shaders.ts`.
+- `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. The canonical GLSL in `shaders/` is code-generated into `src/web/shaders.generated.ts` (`src/web/shaders.ts` re-exports it); run `bun run build:shaders` after editing a shader.
 - `android/` — OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
 - `ios/` — Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model the Android target bundles). The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
 
