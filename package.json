@@ -40,6 +40,13 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "react-native": "./src/ui/index.ts",
+      "browser": "./dist/ui/index.js",
+      "import": "./dist/ui/index.js",
+      "default": "./dist/ui/index.js"
+    },
     "./livekit": {
       "types": "./dist/livekit.d.ts",
       "browser": "./dist/livekit.js",
