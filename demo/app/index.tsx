@@ -181,6 +181,7 @@ export default function DemoScreen() {
               onSelect={(id) => setArt(id as PresetId | null)}
               disabled={disabled}
               renderTile={renderDemoTile}
+              className="rounded-xl bg-neutral-900 p-3"
             />
           </Section>
 
