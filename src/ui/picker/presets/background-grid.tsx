@@ -2,13 +2,13 @@
 // dispatch-once shape as PresetOptions; the tile renderer is the `renderTile`
 // slot or the default.
 //
-// The thumbnail URI is `preset.source` for now (a real URL on web). Commit 5
-// swaps this for the platform-split `resolveBackgroundUri`, which on native
-// turns the preset id into the in-bundle file:// URI.
+// The thumbnail URI comes from the platform-split `resolveBackgroundUri`: the
+// source URL on web, the in-bundle file:// URI on native.
 
 import { Fragment } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import type { PresetView, RenderTile } from '../picker.types';
+import { resolveBackgroundUri } from '../resolve-background-uri';
 import { PresetTile } from './preset-tile';
 
 interface BackgroundGridProps {
@@ -45,7 +45,7 @@ export function BackgroundGrid(props: BackgroundGridProps) {
             {renderItem(preset, {
               selected,
               disabled,
-              uri: preset.source,
+              uri: resolveBackgroundUri(preset.id, preset.source),
               onPress: () => onSelect(selected ? null : preset.id),
             })}
           </Fragment>
