@@ -30,14 +30,17 @@ const valueExports = (src: string): string[] => {
 const cssInteropTargets = (src: string): string[] =>
   [...src.matchAll(/cssInterop\(\s*(\w+)/g)].map((m) => m[1] ?? '');
 
-// Hooks (use*) are not components and are correctly not cssInterop-registered.
-const isHook = (name: string): boolean => /^use[A-Z]/.test(name);
+// Styleable = a PascalCase component name (UpperFirst, alphanumeric). This
+// excludes hooks (use*, lowercase) and SCREAMING_CASE constants/contexts, so a
+// future non-component value export from ./ui is not wrongly demanded into the
+// cssInterop list. Constraint the extractor assumes: the ./ui barrel re-exports
+// with `export { X } from './...'` (a local re-export without `from` would be
+// invisible here); if that changes, revisit valueExports.
+const isComponentName = (name: string): boolean => /^[A-Z][a-zA-Z0-9]*$/.test(name);
 
 describe('picker nativewind interop parity', () => {
   test('every styleable ./ui export is cssInterop-registered in ./nativewind', () => {
-    const styleable = valueExports(uiIndex)
-      .filter((n) => !isHook(n))
-      .sort();
+    const styleable = valueExports(uiIndex).filter(isComponentName).sort();
     const registered = cssInteropTargets(nativewind).sort();
     expect(registered).toEqual(styleable);
     expect(registered.length).toBeGreaterThan(0);
