@@ -26,11 +26,11 @@
 
 ### What works today
 
-- **`kaleidoscope`** — the art axis: blur, background image (ten bundled backgrounds plus a calibration grid, or your own assets), or a procedural shader (plasma), commanded by preset name.
-- **`transform`** — absolute flips and rotation (snapped to 90°), reapplied as full state each call.
-- **`mask`** — the segmentation edge (hardness, threshold) shared by every art effect.
-- **Tree-shaking** — declare a preset book; only the assets you reference ship in your native bundle (web tree-shakes by import).
-- **Drop-in UI (optional)** — a preset-driven `KaleidoscopePicker` and headless primitives under `react-native-webrtc-kaleidoscope/ui`, NativeWind-ready via an opt-in interop. See [Drop-in UI](#drop-in-ui-optional).
+- **`kaleidoscope`**: the art axis. Blur, background image (ten bundled backgrounds plus a calibration grid, or your own assets), or a procedural shader (plasma), commanded by preset name.
+- **`transform`**: absolute flips and rotation (snapped to 90°), reapplied as full state each call.
+- **`mask`**: the segmentation edge (hardness, threshold) shared by every art effect.
+- **Tree-shaking**: declare a preset book; only the assets you reference ship in your native bundle (web tree-shakes by import).
+- **Drop-in UI (optional)**: a preset-driven `KaleidoscopePicker` and headless primitives under `react-native-webrtc-kaleidoscope/ui`, NativeWind-ready via an opt-in interop. See [Drop-in UI](#drop-in-ui-optional).
 
 | Platform | Transform | Blur | Background replacement | Notes |
 |---|---|---|---|---|
@@ -41,7 +41,7 @@
 
 ### Coming soon
 
-- **Animated image-plate backgrounds** — a bundled still that moves (beyond the procedural `plasma` shader, which already renders behind the person today). Same composite path; the new piece is a per-effect background producer for animated plates.
+- **Animated image-plate backgrounds**: a bundled still that moves (beyond the procedural `plasma` shader, which already renders behind the person today). Same composite path; the new piece is a per-effect background producer for animated plates.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
 ## Install
@@ -104,7 +104,7 @@ bunx expo prebuild
 
 ## Use
 
-First declare a **preset book** in your project: a flat catalog of `{ name, shader, options }`, the only things you can command. Everything is a shader — blur, background images, and procedural shaders all take the same shape. Declare it `as const satisfies PresetBook` for per-preset option typing.
+First declare a **preset book** in your project: a flat catalog of `{ name, shader, options }`, the only things you can command. Everything is a shader: blur, background images, and procedural shaders all take the same shape. Declare it `as const satisfies PresetBook` for per-preset option typing.
 
 ```ts
 // kaleidoscope.presets.ts
@@ -138,23 +138,23 @@ const { kaleidoscope, transform, mask } = bindKaleidoscope(track, {
   },
 });
 
-// kaleidoscope — the art axis (one of blur / background-image / plasma):
+// kaleidoscope, the art axis (one of blur / background-image / plasma):
 kaleidoscope('lava');                        // a preset id (autocompletes from your book)
 kaleidoscope('blur-heavy', { sigma: 5 });    // override the preset's options (typed to its shader)
 kaleidoscope(null);                          // clear the art
 
-// transform — absolute geometry. Every call is the full state from identity;
+// transform, absolute geometry. Every call is the full state from identity;
 // re-pass what you want to keep. rotate snaps to the nearest 90°.
 transform({ flip: { x: true }, rotate: 90 });
 transform();                                 // reset to identity
 
-// mask — the segmentation edge shared by every art effect. Both required, 0..1.
+// mask, the segmentation edge shared by every art effect. Both required, 0..1.
 mask({ hardness: 0.5, threshold: 0.5 });
 ```
 
 That is the whole runtime surface: `kaleidoscope`, `transform`, `mask`. (`applyVideoEffects(track, effects[])` remains exported as the lower-level primitive beneath them.)
 
-Numeric shader uniforms are normalized 0..1 by convention where practical; JSDoc documents each option's expected range as an IntelliSense hint (ranges are not enforced at runtime — validate in your own layer if you forward them to end users).
+Numeric shader uniforms are normalized 0..1 by convention where practical; JSDoc documents each option's expected range as an IntelliSense hint (ranges are not enforced at runtime; validate in your own layer if you forward them to end users).
 
 **Tuning note:** all three platforms run MediaPipe selfie segmentation (Tasks Image Segmenter on native, the Selfie Segmentation Solution on web), so the mask edge that suits one may differ slightly from another. `mask({ hardness, threshold })` defaults to `0.5 / 0.5`; nudge it to match your camera and lighting.
 
@@ -179,7 +179,7 @@ function BackgroundControls({ kaleidoscope }) {
 }
 ```
 
-`KaleidoscopePicker` is a tabbed composite (one tab per shader family). The same pieces are exported as standalone primitives — `BackgroundGrid`, `PresetOptions`, `PresetTile`, `PresetOption`, plus the `usePicker` hook and `PickerLayout` — so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
+`KaleidoscopePicker` is a tabbed composite (one tab per shader family). The same pieces are exported as standalone primitives (`BackgroundGrid`, `PresetOptions`, `PresetTile`, `PresetOption`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
 
 **Styling, three tiers.** Sensible defaults out of the box; override with an RN `style` prop, a `className` prop, or a `renderTile` / `renderOption` render-prop slot for full control.
 
@@ -214,7 +214,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 - **Output track.** On web each `kaleidoscope`/`transform` command rebuilds the Insertable-Streams pipeline and yields a NEW `MediaStreamTrack`, surfaced via `onTrack`; on native the bound track is mutated in place. `mask` updates the segmentation edge the running composite reads each frame, with no rebuild on either platform.
 - **Background source.** `background-image.source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
-- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers — and, since Metro doesn't tree-shake, simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
+- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
 - **Segmentation model on web.** The web blur and background-image effects load MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
 - **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers (Chrome, Edge); Safari and Firefox lack the API, so `applyVideoEffects` throws a clear capability error and the demo falls back to the unprocessed track.
 
@@ -229,10 +229,10 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 The codebase lives across four surfaces:
 
-- `src/` — JS facade and shared types. `bindKaleidoscope` (the `kaleidoscope` / `transform` / `mask` verbs) over the `applyVideoEffects(track, effects)` primitive; the preset-book types live in `src/kaleidoscope/`.
-- `src/web/` — WebGL2 pipeline. MediaPipe segmentation + GLSL composite. The canonical GLSL in `shaders/` is code-generated into `src/web/shaders.generated.ts` (`src/web/shaders.ts` re-exports it); run `bun run build:shaders` after editing a shader.
-- `android/` — OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
-- `ios/` — Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model the Android target bundles). The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
+- `src/`: JS facade and shared types. `bindKaleidoscope` (the `kaleidoscope` / `transform` / `mask` verbs) over the `applyVideoEffects(track, effects)` primitive; the preset-book types live in `src/kaleidoscope/`.
+- `src/web/`: WebGL2 pipeline. MediaPipe segmentation + GLSL composite. The canonical GLSL in `shaders/` is code-generated into `src/web/shaders.generated.ts` (`src/web/shaders.ts` re-exports it); run `bun run build:shaders` after editing a shader.
+- `android/`: OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
+- `ios/`: Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model the Android target bundles). The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
 
 The composite shader (`shaders/composite.frag`) is the same GLSL source for every effect category (blur, background-image, future procedural backgrounds). Per-effect difference is upstream of the composite: how the `uBackground` texture gets produced.
 
