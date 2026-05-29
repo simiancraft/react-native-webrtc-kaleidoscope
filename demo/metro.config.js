@@ -30,12 +30,15 @@ config.resolver.disableHierarchicalLookup = false;
 // NativeWind: process global.css and enable className across the app.
 const nwConfig = withNativeWind(config, { input: './global.css' });
 
-// The library ships React components consumed here, and it carries its own dev
-// copies of react / react-native / nativewind. Force those (plus the css-interop
-// runtime) to resolve to the demo's single copy: two React instances throw
-// "null useState" on the first hook, and a duplicate nativewind instance means
-// cssInterop registrations land on a different module than the one that renders.
-const FORCE_SINGLE = ['react', 'react-dom', 'react-native', 'nativewind', 'react-native-css-interop'];
+// The local dev tree carries react / react-native in BOTH the demo and the
+// workspace-root node_modules (the lib's dev deps), so force just those to the
+// demo's single copy or two React instances throw "null useState" on the first
+// hook. NativeWind and its react-native-css-interop runtime are deliberately NOT
+// forced: NativeWind's own Metro resolver resolves its jsx-runtime relative to
+// the importing file, and overriding the origin breaks that on EAS (the
+// `react-native-css-interop/jsx-runtime` "unable to resolve module" build
+// failure). They dedupe to a single copy on their own.
+const FORCE_SINGLE = ['react', 'react-dom', 'react-native'];
 const upstreamResolveRequest = nwConfig.resolver.resolveRequest;
 nwConfig.resolver.resolveRequest = (context, moduleName, platform) => {
   const resolve = upstreamResolveRequest ?? context.resolveRequest;
