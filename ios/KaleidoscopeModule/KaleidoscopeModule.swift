@@ -35,6 +35,15 @@ public class KaleidoscopeModule: Module {
       ShaderUniforms.set(name: name, uniforms: uniforms)
     }
 
+    // Resolve a displayable file:// URI for a bundled background by its book id,
+    // for the picker's native thumbnails (react-native-webrtc-kaleidoscope/ui).
+    // Returns nil when the asset isn't bundled, so the JS resolver falls back to
+    // the source. Uses the same bundle lookup as the background-image effect, so
+    // the thumbnail and the rendered background resolve to the same file.
+    Function("resolveBackgroundUri") { (id: String) -> String? in
+      BackgroundImageProcessor.bundledURL(for: id)?.absoluteString
+    }
+
     // Segmentation perf control. A JS device-tier sets this to trade mask
     // resolution for cost on lower-end devices (e.g. A11/iPhone X).
     Function("setSegmentationTargetShortSide") { (value: Int) in

@@ -68,4 +68,12 @@ describe('native registry parity', () => {
     // registered on only one platform, the call throws at runtime on the other.
     expect(expoFunctionNames(iosModule)).toEqual(expoFunctionNames(androidModule));
   });
+
+  test('resolveBackgroundUri (picker native thumbnails) is bridged on both platforms', () => {
+    // The picker's platform-split resolver calls mod.resolveBackgroundUri?.(id)
+    // keyed on the book id; both natives must define it (and key on that id) or
+    // native thumbnails silently fall back to the label-only placeholder.
+    expect(expoFunctionNames(androidModule)).toContain('resolveBackgroundUri');
+    expect(expoFunctionNames(iosModule)).toContain('resolveBackgroundUri');
+  });
 });

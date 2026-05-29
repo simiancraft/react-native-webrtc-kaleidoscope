@@ -47,6 +47,20 @@ class KaleidoscopeModule : Module() {
       ShaderUniforms.set(name, uniforms)
     }
 
+    // Resolve a displayable file:// URI for a bundled background by its book id,
+    // for the picker's native thumbnails (react-native-webrtc-kaleidoscope/ui).
+    // The prebuild copies each referenced WebP into assets/backgrounds/<id>.webp
+    // (see Registration.registerBackgroundImages); return the android_asset URI
+    // when present, else null so the JS resolver falls back to the source.
+    Function("resolveBackgroundUri") { id: String ->
+      val present = try {
+        appContext.reactContext?.assets?.list("backgrounds")?.contains("$id.webp") == true
+      } catch (t: Throwable) {
+        false
+      }
+      if (present) "file:///android_asset/backgrounds/$id.webp" else null
+    }
+
     Function("setDebugTiming") { value: Boolean ->
       EffectTuning.debugTiming = value
     }

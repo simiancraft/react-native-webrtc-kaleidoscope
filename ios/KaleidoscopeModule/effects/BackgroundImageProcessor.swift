@@ -73,6 +73,20 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     super.init()
   }
 
+  /// Resolve `<name>.webp` in the app bundle (the shipping path: the prebuild
+  /// copies curated presets into the APP target's resources, so they land in
+  /// `Bundle.main`) or, as a fallback, the Kaleidoscope resource bundle and its
+  /// `backgrounds/` subdir (legacy/test layouts). Shared by this effect and the
+  /// JS thumbnail resolver (`resolveBackgroundUri` in KaleidoscopeModule) so both
+  /// resolve to the exact same file.
+  static func bundledURL(for assetName: String) -> URL? {
+    let containing = Bundle(for: BackgroundImageProcessor.self)
+    let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
+    return Bundle.main.url(forResource: assetName, withExtension: "webp")
+      ?? resourceBundle.url(forResource: assetName, withExtension: "webp", subdirectory: "backgrounds")
+      ?? resourceBundle.url(forResource: assetName, withExtension: "webp")
+  }
+
   @objc(capturer:didCaptureVideoFrame:)
   public func capturer(
     _ capturer: RTCVideoCapturer,
@@ -111,18 +125,9 @@ public final class BackgroundImageProcessor: NSObject, VideoFrameProcessorDelega
     if let tex = backgroundTexture { return tex }
     if backgroundLoadFailed { return nil }
 
-    // Resolve <assetName>.webp. The "latent move" removed the curated presets
-    // from Kaleidoscope.bundle; the prebuild now copies each into the APP target's
-    // resources (see app.plugin.js iOS dangerous mod), so they land in
-    // Bundle.main. Search Bundle.main FIRST (the shipping path), then fall back to
-    // the Kaleidoscope resource bundle and its backgrounds/ subdir (the legacy /
-    // test layout, and any preset a consumer dropped into the pod's resources).
-    let containing = Bundle(for: BackgroundImageProcessor.self)
-    let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
-    let url = Bundle.main.url(forResource: assetName, withExtension: "webp")
-      ?? resourceBundle.url(forResource: assetName, withExtension: "webp", subdirectory: "backgrounds")
-      ?? resourceBundle.url(forResource: assetName, withExtension: "webp")
-    guard let url = url else {
+    // Resolve <assetName>.webp via the shared bundle lookup (the same file the JS
+    // thumbnail resolver returns). nil degrades to passthrough without retrying.
+    guard let url = BackgroundImageProcessor.bundledURL(for: assetName) else {
       os_log("background asset %{public}@.webp not found in app bundle or Kaleidoscope.bundle",
              log: BackgroundImageProcessor.log, type: .error, assetName)
       backgroundLoadFailed = true
