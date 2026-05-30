@@ -47,18 +47,25 @@ class KaleidoscopeModule : Module() {
       ShaderUniforms.set(name, uniforms)
     }
 
-    // Resolve a displayable file:// URI for a bundled background by its book id,
-    // for the picker's native thumbnails (react-native-webrtc-kaleidoscope/ui).
-    // The prebuild copies each referenced WebP into assets/backgrounds/<id>.webp
-    // (see Registration.registerBackgroundImages); return the android_asset URI
-    // when present, else null so the JS resolver falls back to the source.
+    // Resolve a displayable URI for a bundled background by its book id, for the
+    // picker's native thumbnails (react-native-webrtc-kaleidoscope/ui). The
+    // prebuild copies each referenced WebP into assets/backgrounds/<id>.webp (see
+    // Registration.registerBackgroundImages); return Fresco's `asset://` URI when
+    // present, else null so the JS resolver falls back to the source.
+    //
+    // Must be `asset:///` (Fresco's LocalAssetFetchProducer reads it through the
+    // AssetManager), NOT `file:///android_asset/...`: the latter routes to Fresco's
+    // local-file fetcher, which opens a real FileInputStream on the virtual
+    // `/android_asset` path and fails silently, leaving the tile blank. The
+    // background-replace effect reads the same asset via assets.open() directly,
+    // which is why the full background renders while the thumbnail did not.
     Function("resolveBackgroundUri") { id: String ->
       val present = try {
         appContext.reactContext?.assets?.list("backgrounds")?.contains("$id.webp") == true
       } catch (t: Throwable) {
         false
       }
-      if (present) "file:///android_asset/backgrounds/$id.webp" else null
+      if (present) "asset:///backgrounds/$id.webp" else null
     }
 
     Function("setDebugTiming") { value: Boolean ->

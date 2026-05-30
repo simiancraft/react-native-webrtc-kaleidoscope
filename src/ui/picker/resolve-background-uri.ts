@@ -1,7 +1,7 @@
 // Native variant: the prebuild copied the curated WebP to a conventional
-// in-bundle location; the native module returns a displayable `file://` URI for
-// it (Android `file:///android_asset/...`, iOS the `Bundle.main` URL). No second
-// copy of the image.
+// in-bundle location; the native module returns a displayable URI for it
+// (Android `asset:///...` so Fresco's asset fetcher loads it, iOS the
+// `Bundle.main` file URL). No second copy of the image.
 //
 // The `resolveBackgroundUri` Expo function is optional here: a native build
 // predating it (or a non-background effect build) simply lacks it, so guard with
