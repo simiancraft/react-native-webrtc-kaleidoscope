@@ -15,12 +15,19 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class KaleidoscopeModule : Module() {
+  // Application context captured at OnCreate. resolveBackgroundUri uses this
+  // instead of the lazy appContext.reactContext (which can be transiently null
+  // at call time) so the thumbnail existence check is as robust as the
+  // background-image factories, which hold their own captured context.
+  private var assetContext: android.content.Context? = null
+
   override fun definition() = ModuleDefinition {
     Name("RnWebrtcKaleidoscope")
 
     OnCreate {
       val ctx = appContext.reactContext
         ?: error("Kaleidoscope: no react context at OnCreate; cannot register Android effects")
+      assetContext = ctx.applicationContext
       Registration.registerAll(ctx)
     }
 
@@ -60,14 +67,18 @@ class KaleidoscopeModule : Module() {
     // background-replace effect reads the same asset via assets.open() directly,
     // which is why the full background renders while the thumbnail did not.
     Function("resolveBackgroundUri") { id: String ->
-      // Existence check via assets.open(), NOT assets.list(): AssetManager.list()
-      // is unreliable on real-device / AAPT2-packaged release builds (it returned
-      // empty on device while the asset was present), which left every library
-      // thumbnail blank on hardware even though the background-image effect — which
-      // uses assets.open() — loaded the same file fine. Mirror that working path:
-      // try to open, succeed -> the asset is bundled, return the asset:// URI.
+      // Device-robust existence check. Two independent device-vs-emulator hazards
+      // both left library thumbnails blank on hardware while the emulator looked
+      // fine, so guard against both:
+      //  - method: assets.open(), NOT assets.list(). AssetManager.list() returns
+      //    empty on real-device AAPT2 release packaging even when the asset is
+      //    present; open() works (the background-image effect uses open() and
+      //    loads on device).
+      //  - context: the captured applicationContext, NOT the lazy
+      //    appContext.reactContext, which can be transiently null at call time.
+      val ctx = assetContext ?: appContext.reactContext?.applicationContext
       val present = try {
-        appContext.reactContext?.assets?.open("backgrounds/$id.webp")?.use { true } == true
+        ctx?.assets?.open("backgrounds/$id.webp")?.use { true } == true
       } catch (t: Throwable) {
         false
       }
