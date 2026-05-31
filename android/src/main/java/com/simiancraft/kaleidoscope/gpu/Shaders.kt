@@ -41,6 +41,23 @@ void main() {
 }
 """
 
+  // Plain 2D-sampler passthrough. The RGB-input branch of an effect (i.e. when
+  // it is chained AFTER another effect that already emitted a GL_TEXTURE_2D
+  // TextureBuffer) runs this in place of OES_PASSTHROUGH_FRAG to land the
+  // upstream 2D source in the cached "original 2D" FBO. No texture matrix: the
+  // upstream effect already normalized orientation (display-upright, rotation
+  // 0), so this is an identity copy. Platform-local (no OES, no cross-runtime
+  // variant), so it stays hand-written here rather than in ShadersGenerated.
+  const val TWO_D_PASSTHROUGH_FRAG = """#version 300 es
+precision mediump float;
+uniform sampler2D uTex;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  oColor = texture(uTex, vUv);
+}
+"""
+
   // Separable 1D Gaussian using pre-computed weights + offsets uniform arrays.
   // 17 texture lookups per pixel (1 center + 8 symmetric pairs) and zero
   // exp() calls; the kernel is computed once on the CPU and uploaded once

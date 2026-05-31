@@ -11,10 +11,16 @@
 // mirror); MirrorFactory and its "mirror" registration are removed.
 //
 // Per frame:
-//   1. Render the input OES camera texture through the OES->2D passthrough into
-//      a cached DISPLAY-UPRIGHT "original 2D" FBO, exactly like BlurFactory /
-//      BackgroundImageFactory. Ingest folds the display rotation into the
-//      texture matrix, so the FBO is sized in display dims and already upright.
+//   1. Render the input texture into a cached DISPLAY-UPRIGHT "original 2D" FBO,
+//      exactly like BlurFactory / BackgroundImageFactory. The input is either:
+//        - an OES camera texture (first in the chain): OES->2D passthrough with
+//          Ingest folding the display rotation into the texture matrix, so the
+//          FBO is sized in display dims and already upright; or
+//        - an RGB GL_TEXTURE_2D texture (chained after an art effect or a
+//          preceding transform): a plain 2D-sampler passthrough copy, since the
+//          upstream pass already normalized orientation (display-upright,
+//          rotation 0). No texture matrix on this path; folding rotation again
+//          would double-apply it.
 //   2. Single TRANSFORM_FRAG pass: sample that upright 2D copy through the
 //      uUvTransform mat2 from Orientation.mat2For(op) into a fresh output
 //      texture sized display w x h (flips) or h x w (rotations).
@@ -65,6 +71,9 @@ private class TransformProcessor(
   private val lock = Any()
 
   private var oesToTwoD: GlProgram? = null
+  // 2D-sampler passthrough for the RGB-input branch (chained after an art
+  // effect or a preceding transform, whose output is a GL_TEXTURE_2D buffer).
+  private var twoDToTwoD: GlProgram? = null
   private var transformProgram: GlProgram? = null
 
   // Cached display-oriented "original 2D" copy at full input resolution.
@@ -110,10 +119,16 @@ private class TransformProcessor(
       // Chained after a CPU effect emitting I420 — silently forward.
       return null
     }
-    if (inputBuffer.type != VideoFrame.TextureBuffer.Type.OES) {
-      Log.w(TAG, "TextureBuffer type is ${inputBuffer.type}; expected OES. Forwarding original.")
-      return null
-    }
+    // Both texture types are valid inputs:
+    //  - OES (GL_TEXTURE_EXTERNAL_OES): the raw camera frame, first in the
+    //    chain. Sampled through OES_PASSTHROUGH_FRAG with the composed texture
+    //    matrix so the FBO lands display-upright (Ingest normalization).
+    //  - RGB (GL_TEXTURE_2D): the output of a preceding art effect
+    //    (background/blur/shader) or a preceding transform. That upstream pass
+    //    already normalized orientation (display-upright, rotation 0), so it is
+    //    copied into the FBO via a plain 2D-sampler passthrough with NO texture
+    //    matrix; re-applying Ingest here would double-apply the rotation.
+    val isOes = inputBuffer.type == VideoFrame.TextureBuffer.Type.OES
     val bufW = inputBuffer.width
     val bufH = inputBuffer.height
     if (bufW <= 0 || bufH <= 0) {
@@ -123,9 +138,11 @@ private class TransformProcessor(
 
     // Ingest normalization: the OES->2D pass lands a DISPLAY-UPRIGHT frame, so
     // the original FBO is sized in DISPLAY dims and the op runs in pure screen
-    // space (Orientation no longer consults frame.rotation).
-    val width = Ingest.displayWidth(bufW, bufH, frame.rotation)
-    val height = Ingest.displayHeight(bufW, bufH, frame.rotation)
+    // space (Orientation no longer consults frame.rotation). For an RGB input
+    // the upstream effect already emitted display dims at rotation 0, so the
+    // buffer dims ARE the display dims; do not fold rotation a second time.
+    val width = if (isOes) Ingest.displayWidth(bufW, bufH, frame.rotation) else bufW
+    val height = if (isOes) Ingest.displayHeight(bufW, bufH, frame.rotation) else bufH
 
     // Rotations swap the (display) output dimensions; flips keep them.
     val swap = Orientation.swapsDimensions(op)
@@ -140,22 +157,36 @@ private class TransformProcessor(
       ensurePrograms()
       ensureIntermediates(width, height)
       val origFbo = originalFbo ?: error("originalFbo null after ensure")
-      val oes = oesToTwoD ?: error("oesToTwoD program null after ensure")
       val transform = transformProgram ?: error("transformProgram null after ensure")
 
-      // ===== Pass 1: OES camera -> display-oriented "original 2D" =====
-      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-      GLES30.glBindTexture(GL_TEXTURE_EXTERNAL_OES, inputBuffer.textureId)
+      // ===== Pass 1: input texture -> display-oriented "original 2D" =====
+      // Two input acquisitions land the same display-upright "original 2D" FBO;
+      // only the sampler + matrix differ. Pass 2 below is identical for both.
       origFbo.bind()
-      oes.use()
-      oes.setInt("uTex", 0)
-      // Compose transformMatrix with the display rotation so the FBO lands upright.
-      val texMatrix = Ingest.composedTexMatrix(inputBuffer.transformMatrix, frame.rotation)
-      GLES30.glUniformMatrix4fv(oes.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
-      GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("transform OES->2D")
+      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+      if (isOes) {
+        val oes = oesToTwoD ?: error("oesToTwoD program null after ensure")
+        GLES30.glBindTexture(GL_TEXTURE_EXTERNAL_OES, inputBuffer.textureId)
+        oes.use()
+        oes.setInt("uTex", 0)
+        // Compose transformMatrix with the display rotation so the FBO lands upright.
+        val texMatrix = Ingest.composedTexMatrix(inputBuffer.transformMatrix, frame.rotation)
+        GLES30.glUniformMatrix4fv(oes.uniformLocation("uTexMatrix"), 1, false, texMatrix, 0)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        GlDebug.check("transform OES->2D")
+      } else {
+        // RGB / GL_TEXTURE_2D input: upstream already display-upright at
+        // rotation 0. Plain passthrough copy; no texture matrix (mirrors
+        // Mask's 2D downsample and the bg/blur 2D-source handling).
+        val twoD = twoDToTwoD ?: error("twoDToTwoD program null after ensure")
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, inputBuffer.textureId)
+        twoD.use()
+        twoD.setInt("uTex", 0)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        GlDebug.check("transform 2D->2D")
+      }
 
       // ===== Pass 2: geometric reorientation into a fresh output texture =====
       // Output FBO is sized for the (possibly swapped) output dims. The
@@ -254,6 +285,10 @@ private class TransformProcessor(
     if (oesToTwoD == null) {
       oesToTwoD = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.OES_PASSTHROUGH_FRAG)
       GlDebug.check("oesToTwoD program compile/link")
+    }
+    if (twoDToTwoD == null) {
+      twoDToTwoD = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.TWO_D_PASSTHROUGH_FRAG)
+      GlDebug.check("twoDToTwoD program compile/link")
     }
     if (transformProgram == null) {
       transformProgram = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.TRANSFORM_FRAG)
