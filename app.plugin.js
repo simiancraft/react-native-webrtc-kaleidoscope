@@ -177,6 +177,14 @@ function patchPodfile(contents, pod) {
 // handles Android, which merges app assets into the build directly.
 const PRESET_BOOK_FILENAME = 'kaleidoscope.presets.ts';
 
+// Manifest of bundled background ids (a JSON array), written next to the copied
+// WebPs on both platforms so native Registration can discover the curated set
+// without enumerating the directory at runtime. The curated set is fully known
+// here at prebuild time, so emit it explicitly rather than rediscovering it via
+// AssetManager.list() (iOS never enumerated; this aligns Android with that
+// proven pattern). Read via open()/Bundle, never list().
+const BACKGROUNDS_MANIFEST = 'kaleidoscope-backgrounds.json';
+
 // identifier -> import specifier, for single named imports.
 function parseImports(source) {
   const imports = {};
@@ -255,7 +263,7 @@ function copyAndroidBackgrounds(projectRoot, platformProjectRoot) {
   }
   const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'backgrounds');
   fs.mkdirSync(destDir, { recursive: true });
-  let copied = 0;
+  const copiedIds = [];
   for (const { id, specifier } of refs) {
     const srcPath = resolveAssetPath(specifier, projectRoot);
     if (!srcPath) {
@@ -265,10 +273,19 @@ function copyAndroidBackgrounds(projectRoot, platformProjectRoot) {
       continue;
     }
     fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
-    copied += 1;
+    copiedIds.push(id);
   }
+  // Write the manifest the Android Registration reads (a JSON array of ids),
+  // mirroring copyIosBackgrounds so both platforms discover the curated set the
+  // same way: from an explicit prebuild-written list, not a runtime directory
+  // scan. Reading it via assets.open() avoids depending on AssetManager.list(),
+  // whose reliability on AAPT2-packaged release builds is not guaranteed.
+  fs.writeFileSync(
+    path.join(destDir, BACKGROUNDS_MANIFEST),
+    `${JSON.stringify(copiedIds, null, 2)}\n`,
+  );
   console.log(
-    `[react-native-webrtc-kaleidoscope] Copied ${copied} curated background(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
+    `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} curated background(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
   );
 }
 
@@ -371,7 +388,7 @@ function copyIosBackgrounds(projectRoot, platformProjectRoot) {
   }
 
   // Write the manifest the iOS Registration reads (a JSON array of ids).
-  const manifestName = 'kaleidoscope-backgrounds.json';
+  const manifestName = BACKGROUNDS_MANIFEST;
   fs.writeFileSync(path.join(destDir, manifestName), `${JSON.stringify(copiedIds, null, 2)}\n`);
 
   // Add every copied WebP + the manifest to the app target's Copy Bundle

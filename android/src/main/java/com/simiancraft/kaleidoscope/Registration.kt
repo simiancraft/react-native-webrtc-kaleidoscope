@@ -19,6 +19,7 @@ package com.simiancraft.kaleidoscope
 import android.content.Context
 import android.util.Log
 import com.oney.WebRTCModule.videoEffects.ProcessorProvider
+import org.json.JSONArray
 import com.simiancraft.kaleidoscope.effects.BackgroundImageFactory
 import com.simiancraft.kaleidoscope.effects.BlurFactory
 import com.simiancraft.kaleidoscope.effects.ShaderFactory
@@ -30,6 +31,9 @@ object Registration {
   private const val TAG = "Kaleidoscope.Registration"
   private const val BACKGROUNDS_DIR = "backgrounds"
   private const val WEBP_SUFFIX = ".webp"
+  // JSON array of bundled ids the prebuild writes alongside the WebPs (see
+  // app.plugin.js copyAndroidBackgrounds). Read via assets.open(), never list().
+  private const val BACKGROUNDS_MANIFEST = "kaleidoscope-backgrounds.json"
 
   @JvmStatic
   fun registerAll(context: Context) {
@@ -47,28 +51,52 @@ object Registration {
     registerGenerativeShaders(context)
   }
 
-  // Enumerate assets/backgrounds and register one BackgroundImageFactory per
-  // <id>.webp. JS emits "background-image-<id>"; registering exactly the files
-  // present is the point (the prebuild curates the directory). A missing or
-  // empty directory is normal (a consumer that ships no presets) and must not
-  // crash registration.
+  // Register one BackgroundImageFactory per curated background id. JS emits
+  // "background-image-<id>"; registering exactly the bundled ids is the point
+  // (the prebuild curates them). A missing/empty set is normal (a consumer that
+  // ships no presets) and must not crash registration.
   private fun registerBackgroundImages(context: Context) {
-    val entries = try {
-      context.assets.list(BACKGROUNDS_DIR)
-    } catch (t: Throwable) {
-      Log.w(TAG, "could not list assets/$BACKGROUNDS_DIR; skipping background-image effects", t)
-      null
-    } ?: return
-
-    for (entry in entries) {
-      if (!entry.endsWith(WEBP_SUFFIX)) continue
-      val id = entry.removeSuffix(WEBP_SUFFIX)
+    val ids = readBackgroundManifest(context) ?: listBackgroundIds(context)
+    for (id in ids) {
       ProcessorProvider.addProcessor(
         "background-image-$id",
         BackgroundImageFactory(context, id),
       )
     }
-    Log.i(TAG, "registered ${entries.count { it.endsWith(WEBP_SUFFIX) }} background-image preset(s)")
+    Log.i(TAG, "registered ${ids.size} background-image preset(s)")
+  }
+
+  // Primary discovery: the prebuild-written manifest (a JSON array of ids), read
+  // via assets.open(). The curated set is known at prebuild time and written
+  // explicitly (see app.plugin.js), so registration reads that list rather than
+  // re-scanning the directory with assets.list(), whose reliability on
+  // AAPT2-packaged release builds is not guaranteed. This also aligns Android
+  // with iOS, which has always discovered from its manifest. Returns null when
+  // the manifest is absent (an older prebuild) so the caller falls back to
+  // enumeration.
+  private fun readBackgroundManifest(context: Context): List<String>? =
+    try {
+      val json = context.assets
+        .open("$BACKGROUNDS_DIR/$BACKGROUNDS_MANIFEST")
+        .use { it.readBytes().toString(Charsets.UTF_8) }
+      val arr = JSONArray(json)
+      (0 until arr.length()).map { arr.getString(it) }
+    } catch (t: Throwable) {
+      Log.w(TAG, "no readable $BACKGROUNDS_MANIFEST; falling back to directory enumeration", t)
+      null
+    }
+
+  // Fallback discovery for builds whose prebuild predates the manifest:
+  // enumerate assets/backgrounds. Unreliable on real-device release packaging
+  // (see readBackgroundManifest); kept only for backward compatibility.
+  private fun listBackgroundIds(context: Context): List<String> {
+    val entries = try {
+      context.assets.list(BACKGROUNDS_DIR)
+    } catch (t: Throwable) {
+      Log.w(TAG, "could not list assets/$BACKGROUNDS_DIR; skipping background-image effects", t)
+      null
+    } ?: return emptyList()
+    return entries.filter { it.endsWith(WEBP_SUFFIX) }.map { it.removeSuffix(WEBP_SUFFIX) }
   }
 
   // Register one generic ShaderFactory per generative shader in the codegen'd
