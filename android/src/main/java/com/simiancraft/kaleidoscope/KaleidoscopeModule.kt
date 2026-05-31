@@ -60,8 +60,14 @@ class KaleidoscopeModule : Module() {
     // background-replace effect reads the same asset via assets.open() directly,
     // which is why the full background renders while the thumbnail did not.
     Function("resolveBackgroundUri") { id: String ->
+      // Existence check via assets.open(), NOT assets.list(): AssetManager.list()
+      // is unreliable on real-device / AAPT2-packaged release builds (it returned
+      // empty on device while the asset was present), which left every library
+      // thumbnail blank on hardware even though the background-image effect — which
+      // uses assets.open() — loaded the same file fine. Mirror that working path:
+      // try to open, succeed -> the asset is bundled, return the asset:// URI.
       val present = try {
-        appContext.reactContext?.assets?.list("backgrounds")?.contains("$id.webp") == true
+        appContext.reactContext?.assets?.open("backgrounds/$id.webp")?.use { true } == true
       } catch (t: Throwable) {
         false
       }
