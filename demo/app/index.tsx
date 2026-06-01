@@ -12,13 +12,20 @@ import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { bindKaleidoscope, type KaleidoscopeControls } from 'react-native-webrtc-kaleidoscope';
+import {
+  bindKaleidoscope,
+  clearLayerUniforms,
+  type KaleidoscopeControls,
+  LAYER_CONTROLS,
+  setLayerUniforms,
+} from 'react-native-webrtc-kaleidoscope';
 import {
   KaleidoscopePicker,
   PresetTile,
   type RenderTile,
 } from 'react-native-webrtc-kaleidoscope/ui';
 import { type PresetId, presets } from '../kaleidoscope.presets';
+import { LayerControlPanel } from '../src/layer-controls';
 import { MaskPanel } from '../src/mask-panel';
 import { type Preset, RadioToggles } from '../src/radio-toggles';
 import { useLoopbackStream } from '../src/use-loopback-stream';
@@ -28,7 +35,16 @@ import { VideoPreview } from '../src/video-preview';
 // identical to the library presets. The demo dogfoods the library's
 // KaleidoscopePicker, which derives its families from the book itself; the
 // badge rides on the picker's renderTile slot.
-const DEMO_OWNED: ReadonlySet<string> = new Set(['wolf-cave']);
+const DEMO_OWNED: ReadonlySet<string> = new Set([
+  'wolf-cave',
+  'underwater',
+  'wizard-tower',
+  'fairy-cave',
+  'nebula',
+  'simianlights',
+  'clouds',
+  'observation-deck',
+]);
 
 const renderDemoTile: RenderTile = (preset, state) => (
   <PresetTile
@@ -40,6 +56,22 @@ const renderDemoTile: RenderTile = (preset, state) => (
     badge={DEMO_OWNED.has(preset.id) ? 'demo-owned' : undefined}
   />
 );
+
+// Pull a scene's tunable layers (clouds/godrays/fireflies) from the book, keyed
+// by shader name, to seed the generated control panels.
+type UniformMap = Record<string, number | readonly number[]>;
+const tunableLayersOf = (id: PresetId | null): Record<string, UniformMap> | null => {
+  if (!id) return null;
+  const p = presets[id];
+  if (!p || p.shader !== 'scene') return null;
+  const out: Record<string, UniformMap> = {};
+  for (const layer of p.layers) {
+    if ('uniforms' in layer && layer.shader in LAYER_CONTROLS) {
+      out[layer.shader] = { ...layer.uniforms };
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null;
+};
 
 // Rotate is single-select among the snapped angles transform() accepts.
 const ROTATE_LIST: ReadonlyArray<Preset<string>> = [
@@ -109,6 +141,7 @@ export default function DemoScreen() {
   const [threshold, setThreshold] = useState(0.5);
   const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
   const [controls, setControls] = useState<KaleidoscopeControls<typeof presets> | null>(null);
+  const [layerOverrides, setLayerOverrides] = useState<Record<string, UniformMap> | null>(null);
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
@@ -143,6 +176,26 @@ export default function DemoScreen() {
   useEffect(() => {
     controls?.mask({ hardness, threshold });
   }, [controls, hardness, threshold]);
+  // Layer tuning: when a scene with tunable layers is active, seed each layer's
+  // controls from its baked uniforms and push them into the running compositor;
+  // clear otherwise.
+  useEffect(() => {
+    const tunable = tunableLayersOf(art);
+    setLayerOverrides(tunable);
+    for (const shader of Object.keys(LAYER_CONTROLS)) clearLayerUniforms(shader);
+    if (tunable) {
+      for (const [shader, uniforms] of Object.entries(tunable)) setLayerUniforms(shader, uniforms);
+    }
+  }, [art]);
+
+  const onLayerChange = (shader: string, name: string, value: number | readonly number[]) => {
+    setLayerOverrides((prev) => {
+      const cur = prev ?? {};
+      const next = { ...cur, [shader]: { ...(cur[shader] ?? {}), [name]: value } };
+      setLayerUniforms(shader, next[shader] ?? {});
+      return next;
+    });
+  };
 
   const disabled = !sourceTrack;
   const onReset = () => {
@@ -183,6 +236,18 @@ export default function DemoScreen() {
               renderTile={renderDemoTile}
               className="rounded-xl bg-neutral-900 p-3"
             />
+            {layerOverrides &&
+              Object.entries(layerOverrides).map(([shader, uniforms]) => (
+                <View key={shader} style={styles.layerControls}>
+                  <LayerControlPanel
+                    title={shader}
+                    controls={LAYER_CONTROLS[shader] ?? []}
+                    values={uniforms}
+                    onChange={(name, value) => onLayerChange(shader, name, value)}
+                    disabled={disabled}
+                  />
+                </View>
+              ))}
           </Section>
 
           <View style={styles.rightColumn}>
@@ -262,6 +327,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   rowLabel: { color: '#777', fontSize: 11, fontWeight: '600', marginTop: 4 },
+  layerControls: { marginTop: 12, gap: 8 },
   flipRow: { flexDirection: 'row', gap: 8 },
   flipBtn: {
     flex: 1,

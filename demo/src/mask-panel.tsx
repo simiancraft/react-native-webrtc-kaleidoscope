@@ -23,7 +23,9 @@ function Row({ label, value, disabled, onChange }: RowProps) {
       </View>
       <Slider
         style={styles.slider}
-        minimumValue={0}
+        // Floor at 0.01: at exactly 0 the mask smoothstep range collapses
+        // (lo === hi) and the edge breaks. 0.01 keeps it well-defined.
+        minimumValue={0.01}
         maximumValue={1}
         step={0.01}
         value={value}
