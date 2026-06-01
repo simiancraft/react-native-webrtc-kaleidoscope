@@ -36,10 +36,10 @@ person, or the mask has nothing to find.
 A recent Android emulator (>= 36.6.4) can feed a still image straight into the camera:
 
 ```
--camera-back imagefile:<abs-path-to>/integration/assets/person.png
+-camera-back imagefile:<abs-path-to>/integration/fixtures/person.png
 ```
 
-`assets/person.png` is a provided, well-framed test subject. A good starting framing is a
+`fixtures/person.png` is a provided, well-framed test subject. A good starting framing is a
 single person, upper body, centered, filling roughly 40% of the frame height on a
 contrasting background; it segments cleanly and leaves obvious background to replace.
 
