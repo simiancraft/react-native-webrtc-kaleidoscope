@@ -51,9 +51,12 @@ extension MetalRenderer {
     desc.label = label
     desc.vertexFunction = passthroughVertex
     desc.fragmentFunction = fragment
-    // The Metal Swift API's colorAttachments subscript returns a non-optional
-    // descriptor (auto-vivified), matching MetalRenderer.makePipeline's usage.
-    let attachment = desc.colorAttachments[0]
+    // The pipeline descriptor's colorAttachments subscript returns an
+    // implicitly-unwrapped optional; binding it to a `let` collapses that to a
+    // plain Optional, so force-unwrap here (index 0 is always present). Note this
+    // differs from MTLRenderPassDescriptor.colorAttachments (used in
+    // beginSceneEncoder below), whose subscript is non-optional.
+    let attachment = desc.colorAttachments[0]!
     attachment.pixelFormat = .bgra8Unorm
     switch blend {
     case .opaqueBase:
