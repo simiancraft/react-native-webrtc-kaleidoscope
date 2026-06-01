@@ -1,4 +1,4 @@
-// Beams and motes: dust motes drifting inside independently colored polygon
+// Light beams and motes: dust motes drifting inside independently colored polygon
 // light beams, on a TRANSPARENT background (use blend 'additive'). Ported from a
 // Shadertoy prototype (mainImage/iTime/iResolution/fragCoord) to this repo's
 // GLSL ES 3.00 multi-runtime convention.

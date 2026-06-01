@@ -1,15 +1,15 @@
-// Beams-and-motes layer-shader interface: typed uniforms + control descriptor. A
-// transparent overlay of dust motes drifting inside three independently colored
-// polygon light beams (use blend 'additive'). Shader source is
-// shaders/beams-and-motes.frag. Beam geometry and per-beam colors are fixed in
-// the shader; the tunables below grade and pace the whole field. Defaults
-// reproduce the stock prototype look.
+// Light-beams-and-motes layer-shader interface: typed uniforms + control
+// descriptor. A transparent overlay of dust motes drifting inside three
+// independently colored polygon light beams (use blend 'additive'). Shader
+// source is shaders/light-beams-and-motes.frag. Beam geometry and per-beam colors
+// are fixed in the shader; the tunables below grade and pace the whole field.
+// Defaults reproduce the stock prototype look.
 
 import type { RGB } from '../types';
 import type { UniformControl } from './types';
 
-/** Typed uniforms for the `beams-and-motes` layer shader. */
-export type BeamsAndMotesUniforms = {
+/** Typed uniforms for the `light-beams-and-motes` layer shader. */
+export type LightBeamsAndMotesUniforms = {
   /** Overall tint / color grade; [1,1,1] keeps the stock beam colors. */
   readonly uColor: RGB;
   /** Animation rate; 1 = stock, 0 freezes the field. */
@@ -26,8 +26,8 @@ export type BeamsAndMotesUniforms = {
   readonly uOverlayAlpha: number;
 };
 
-/** The `beams-and-motes` shader's tunable uniforms; defaults reproduce the stock look. */
-export const BEAMS_AND_MOTES_CONTROLS: readonly UniformControl[] = [
+/** The `light-beams-and-motes` shader's tunable uniforms; defaults reproduce the stock look. */
+export const LIGHT_BEAMS_AND_MOTES_CONTROLS: readonly UniformControl[] = [
   { name: 'uColor', kind: 'color', default: [1, 1, 1], doc: 'Overall tint / color grade.' },
   {
     name: 'uSpeed',
