@@ -15,7 +15,7 @@ import type {
   KaleidoscopeControls,
   PresetBook,
 } from './kaleidoscope/types';
-import { type ApplyVideoEffects, toEffectSpec } from './types';
+import { type ApplyVideoEffects, type LayerSpec, type SceneSpec, toEffectSpec } from './types';
 
 // The native module's tuning functions. Only the three the JS layer drives are
 // declared: blur sigma (from a blur preset's options) and the mask edge (from
@@ -31,6 +31,10 @@ interface KaleidoscopeNativeModule {
     name: string,
     uniforms: Readonly<Record<string, number | readonly number[]>>,
   ) => void;
+  // Scene layer-stack channel. Optional: a native build predating the scene
+  // compositor won't expose it, so callers guard with `?.`. JS sends the active
+  // scene's ordered layer stack as a JSON string; native parses + composites it.
+  setSceneLayers?: (json: string) => void;
 }
 
 // Lazy because the module is not available during pure-JS tests; the
@@ -49,6 +53,7 @@ export type { BackgroundPresetName } from './backgrounds';
 export type {
   AnamorphicLensFlareUniforms,
   CloudsUniforms,
+  CorporateBlobsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
   LightBeamsAndMotesUniforms,
@@ -63,6 +68,7 @@ export type {
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
   CLOUDS_CONTROLS,
+  CORPORATE_BLOBS_CONTROLS,
   FIREFLIES_CONTROLS,
   GODRAYS_CONTROLS,
   LAYER_CONTROLS,
@@ -150,6 +156,43 @@ const registeredForPlatform = (): readonly string[] =>
 
 const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlatform());
 
+// Derive the native plate id for a scene `image` layer's `source`. On native an
+// `image` layer resolves a bundled WebP under assets/scene-plates/<id>.webp,
+// where <id> is the basename of the source asset (the prebuild plugin copies
+// each scene plate under that same basename). The runtime `source` is a Metro/
+// expo-asset URI (a URL), so we take its last path segment and strip the query,
+// hash, and extension. This MUST agree with the basename the prebuild plugin
+// derives from the `require('...')` specifier in the preset book.
+const plateIdFromSource = (source: string): string => {
+  const noQuery = source.split(/[?#]/, 1)[0] ?? source;
+  const segment = noQuery.substring(noQuery.lastIndexOf('/') + 1);
+  return segment.replace(/\.[^.]+$/, '');
+};
+
+// Serialize a scene's layer stack to the JSON shape the native SceneLayers
+// channel parses: an array of { shader, target, blend?, source?, uniforms? }.
+// An `image` layer's web URI `source` is replaced with the native plate id; all
+// other layers pass their shader/target/blend/uniforms through unchanged.
+const serializeSceneLayers = (layers: ReadonlyArray<LayerSpec>): string => {
+  const wire = layers.map((layer) => {
+    const base: Record<string, unknown> = {
+      shader: layer.shader,
+      target: layer.target ?? 'background',
+    };
+    if (layer.blend != null) base.blend = layer.blend;
+    if (layer.shader === 'image') {
+      // Prefer an explicit, stable plate id: the native asset URI is empty/hashed
+      // at module-eval, so deriving the id from it is unreliable. Fall back to the
+      // URI basename only when no id is given.
+      base.source = layer.id ?? plateIdFromSource(layer.source);
+    } else if ('uniforms' in layer) {
+      base.uniforms = layer.uniforms;
+    }
+    return base;
+  });
+  return JSON.stringify(wire);
+};
+
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // background-image uses one registered factory per source preset.
   // {name: 'background-image', source: 'dark-office'} -> 'background-image-dark-office'
@@ -163,6 +206,11 @@ const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // the registered set, so the filter drops it (safe no-op) rather than crashing.
   if (spec.name === 'shader') {
     return spec.shader;
+  }
+  // A scene runs through the single registered "scene" compositor; its layer
+  // stack is delivered out-of-band via setSceneLayers (see applyVideoEffects).
+  if (spec.name === 'scene') {
+    return 'scene';
   }
   return spec.name;
 };
@@ -200,6 +248,11 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
       // function; the shader name is also dropped by the registry filter below
       // until that processor + registration land.
       nativeModule().setShaderUniforms?.(spec.shader, spec.uniforms);
+    } else if (spec.name === 'scene') {
+      // Deliver the scene's layer stack out-of-band before the "scene" name is
+      // dispatched. Guarded: a native build without the scene compositor lacks
+      // the function (and drops the "scene" name below if not registered).
+      nativeModule().setSceneLayers?.(serializeSceneLayers((spec as SceneSpec).layers));
     }
   }
   // background-image and shader names are book-driven: the prebuild copied them
@@ -209,7 +262,7 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   // the static set (always are).
   const mapped = specs.map((spec) => ({
     name: specToNativeName(spec),
-    trusted: spec.name === 'background-image' || spec.name === 'shader',
+    trusted: spec.name === 'background-image' || spec.name === 'shader' || spec.name === 'scene',
   }));
   const names = mapped
     .filter((m) => m.trusted || NATIVE_REGISTERED_EFFECTS.has(m.name))

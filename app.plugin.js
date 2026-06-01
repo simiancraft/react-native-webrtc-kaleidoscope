@@ -195,6 +195,48 @@ function parseImports(source) {
   return imports;
 }
 
+// Derive a scene plate id from its source specifier: the basename without
+// extension (e.g. './assets/backgrounds/wizards-tower.webp' -> 'wizards-tower',
+// 'react-native-webrtc-kaleidoscope/backgrounds/stylized-dark' -> 'stylized-dark').
+// This MUST match plateIdFromSource() in src/index.ts, which derives the same id
+// from the runtime asset URI so native resolves assets/scene-plates/<id>.webp.
+function plateIdFromSpecifier(specifier) {
+  const segment = specifier.substring(specifier.lastIndexOf('/') + 1);
+  return segment.replace(/\.[^.]+$/, '');
+}
+
+// Scene `image` layers: parse every `{ shader: 'image', source: <expr> }` inside a
+// scene's layer array (across all scenes in the book) and resolve each source to a
+// plate id + asset specifier, the same two ways as background refs (a require()
+// literal or a bare imported identifier). Scene plates are a DISTINCT asset family
+// from background-image presets (they are cut-out foregrounds owned by scenes), so
+// they bundle under scene-plates/<id>.webp rather than backgrounds/.
+function parseSceneImageRefs(source) {
+  const imports = parseImports(source);
+  const refs = [];
+  const seen = new Set();
+  // `shader: 'image', source: <expr>` up to the source's closing brace. Source
+  // expressions contain no `}` (a require(...) call or a bare identifier).
+  const re = /shader\s*:\s*['"]image['"]\s*,\s*source\s*:\s*([^}]+?)\s*\}/g;
+  for (const m of source.matchAll(re)) {
+    const expr = m[1];
+    const requireLiteral = expr.match(/require\(\s*['"]([^'"]+)['"]\s*\)/);
+    let specifier = null;
+    if (requireLiteral) {
+      specifier = requireLiteral[1];
+    } else {
+      const ident = expr.trim().match(/^([A-Za-z0-9_$]+)$/);
+      if (ident && imports[ident[1]]) specifier = imports[ident[1]];
+    }
+    if (!specifier) continue;
+    const id = plateIdFromSpecifier(specifier);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    refs.push({ id, specifier });
+  }
+  return refs;
+}
+
 // Background-image presets: book key (the id) -> source identifier.
 function parseBackgroundRefs(source) {
   const imports = parseImports(source);
@@ -286,6 +328,41 @@ function copyAndroidBackgrounds(projectRoot, platformProjectRoot) {
   );
   console.log(
     `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} curated background(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
+  );
+}
+
+// Copy each scene `image`-layer plate into the Android app's assets under
+// scene-plates/<id>.webp, so SceneFactory can resolve it by the same basename id
+// JS sends. Scene plates are separate from background-image presets (which were
+// deliberately NOT made flat backgrounds), so they bundle in their own directory.
+// Idempotent; non-fatal (warn, never throw).
+function copyAndroidScenePlates(projectRoot, platformProjectRoot) {
+  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
+  let source;
+  try {
+    source = fs.readFileSync(bookPath, 'utf8');
+  } catch {
+    // The background copy already warned about a missing book; stay quiet here.
+    return;
+  }
+  const refs = parseSceneImageRefs(source);
+  if (refs.length === 0) return;
+  const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'scene-plates');
+  fs.mkdirSync(destDir, { recursive: true });
+  const copiedIds = [];
+  for (const { id, specifier } of refs) {
+    const srcPath = resolveAssetPath(specifier, projectRoot);
+    if (!srcPath) {
+      console.warn(
+        `[react-native-webrtc-kaleidoscope] Could not resolve scene plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
+      );
+      continue;
+    }
+    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
+    copiedIds.push(id);
+  }
+  console.log(
+    `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} scene plate(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
   );
 }
 
@@ -451,6 +528,13 @@ const withKaleidoscope = (config) => {
       } catch (error) {
         console.warn(
           `[react-native-webrtc-kaleidoscope] Could not copy curated backgrounds into the Android bundle; backgrounds may be missing at runtime. ${String(error)}`,
+        );
+      }
+      try {
+        copyAndroidScenePlates(modRequest.projectRoot, modRequest.platformProjectRoot);
+      } catch (error) {
+        console.warn(
+          `[react-native-webrtc-kaleidoscope] Could not copy scene plates into the Android bundle; scene image layers may be missing at runtime. ${String(error)}`,
         );
       }
     }

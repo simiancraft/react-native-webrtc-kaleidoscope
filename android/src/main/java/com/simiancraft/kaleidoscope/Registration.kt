@@ -22,6 +22,7 @@ import com.oney.WebRTCModule.videoEffects.ProcessorProvider
 import org.json.JSONArray
 import com.simiancraft.kaleidoscope.effects.BackgroundImageFactory
 import com.simiancraft.kaleidoscope.effects.BlurFactory
+import com.simiancraft.kaleidoscope.effects.SceneFactory
 import com.simiancraft.kaleidoscope.effects.ShaderFactory
 import com.simiancraft.kaleidoscope.effects.TransformFactory
 import com.simiancraft.kaleidoscope.gpu.Orientation
@@ -49,6 +50,10 @@ object Registration {
 
     registerBackgroundImages(context)
     registerGenerativeShaders(context)
+
+    // One scene compositor serves every scene; the active layer stack is data,
+    // delivered from JS via setSceneLayers (see SceneLayers / KaleidoscopeModule).
+    ProcessorProvider.addProcessor("scene", SceneFactory(context))
   }
 
   // Register one BackgroundImageFactory per curated background id. JS emits

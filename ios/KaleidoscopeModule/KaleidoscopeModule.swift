@@ -35,6 +35,14 @@ public class KaleidoscopeModule: Module {
       ShaderUniforms.set(name: name, uniforms: uniforms)
     }
 
+    // Scene layer-stack channel. Mirrors android/.../KaleidoscopeModule.kt's
+    // setSceneLayers: JS sends the active scene's ordered layer stack as a JSON
+    // string. The iOS scene compositor is not built yet, so this is a no-op
+    // placeholder that keeps the JS<->native bridge at parity with Android; it
+    // gets wired to the iOS SceneFactory when that lands.
+    Function("setSceneLayers") { (_: String) in
+    }
+
     // Resolve a displayable file:// URI for a bundled background by its book id,
     // for the picker's native thumbnails (react-native-webrtc-kaleidoscope/ui).
     // Returns nil when the asset isn't bundled, so the JS resolver falls back to

@@ -86,7 +86,11 @@ export const presets = {
           uSoftness: 0.23,
         },
       },
-      { shader: 'image', source: Asset.fromModule(require('./assets/backgrounds/wizards-tower.webp')).uri },
+      {
+        shader: 'image',
+        source: Asset.fromModule(require('./assets/backgrounds/wizards-tower.webp')).uri,
+        id: 'wizards-tower',
+      },
       // You, standing in the chamber.
       { shader: 'direct', target: 'subject' },
     ],
@@ -111,7 +115,11 @@ export const presets = {
         },
       },
       // The deck interior; the window is cut out so the field shows through.
-      { shader: 'image', source: Asset.fromModule(require('./assets/backgrounds/observation-deck.webp')).uri },
+      {
+        shader: 'image',
+        source: Asset.fromModule(require('./assets/backgrounds/observation-deck.webp')).uri,
+        id: 'observation-deck',
+      },
       // You, standing at the window.
       { shader: 'direct', target: 'subject' },
       // Lens flare across the glass, on top of everything. Magenta/pink tint
@@ -155,7 +163,11 @@ export const presets = {
           uSoftness: 0.18,
         },
       },
-      { shader: 'image', source: Asset.fromModule(require('./assets/backgrounds/fairy-treehouse.webp')).uri },
+      {
+        shader: 'image',
+        source: Asset.fromModule(require('./assets/backgrounds/fairy-treehouse.webp')).uri,
+        id: 'fairy-treehouse',
+      },
       {
         shader: 'fireflies',
         blend: 'additive',
@@ -171,7 +183,7 @@ export const presets = {
   underwater: {
     shader: 'scene',
     layers: [
-      { shader: 'image', source: stylizedDark },
+      { shader: 'image', source: stylizedDark, id: 'stylized-dark' },
       {
         shader: 'godrays',
         blend: 'additive',

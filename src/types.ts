@@ -105,7 +105,7 @@ export type LayerTarget = 'background' | 'subject';
  * Register a generative layer shader by adding it here.
  */
 export type LayerShaderOptions = {
-  readonly image: { readonly source: string };
+  readonly image: { readonly source: string; readonly id?: string };
   readonly direct: Record<never, never>;
   readonly godrays: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
   readonly clouds: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };

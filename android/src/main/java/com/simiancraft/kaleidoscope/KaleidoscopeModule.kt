@@ -54,6 +54,16 @@ class KaleidoscopeModule : Module() {
       ShaderUniforms.set(name, uniforms)
     }
 
+    // Scene layer-stack channel. JS serializes the active scene's ordered layer
+    // stack (shader, target, blend, plate source id, uniforms) to a JSON string;
+    // SceneLayers parses it once and the single registered "scene" processor
+    // composites whatever stack is current. Delivering it as a side-channel
+    // (like setShaderUniforms) keeps the upstream registry's flat-string contract
+    // intact: "scene" is one registered name whose contents JS swaps.
+    Function("setSceneLayers") { json: String ->
+      SceneLayers.set(json)
+    }
+
     // Resolve a displayable URI for a bundled background by its book id, for the
     // picker's native thumbnails (react-native-webrtc-kaleidoscope/ui). The
     // prebuild copies each referenced WebP into assets/backgrounds/<id>.webp (see

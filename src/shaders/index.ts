@@ -5,6 +5,7 @@
 
 import { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare';
 import { CLOUDS_CONTROLS } from './clouds';
+import { CORPORATE_BLOBS_CONTROLS } from './corporate-blobs';
 import { FIREFLIES_CONTROLS } from './fireflies';
 import { GODRAYS_CONTROLS } from './godrays';
 import { LIGHT_BEAMS_AND_MOTES_CONTROLS } from './light-beams-and-motes';
@@ -17,6 +18,8 @@ export type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare';
 export { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare';
 export type { CloudsUniforms } from './clouds';
 export { CLOUDS_CONTROLS } from './clouds';
+export type { CorporateBlobsUniforms } from './corporate-blobs';
+export { CORPORATE_BLOBS_CONTROLS } from './corporate-blobs';
 export type { FirefliesUniforms } from './fireflies';
 export { FIREFLIES_CONTROLS } from './fireflies';
 export type { GodraysUniforms } from './godrays';
@@ -45,4 +48,5 @@ export const LAYER_CONTROLS: Readonly<Record<string, readonly UniformControl[]>>
   simianlights: SIMIANLIGHTS_CONTROLS,
   'anamorphic-lensflare': ANAMORPHIC_LENSFLARE_CONTROLS,
   'light-beams-and-motes': LIGHT_BEAMS_AND_MOTES_CONTROLS,
+  'corporate-blobs': CORPORATE_BLOBS_CONTROLS,
 };

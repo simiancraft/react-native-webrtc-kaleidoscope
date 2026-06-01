@@ -48,6 +48,7 @@ export type {
 export type {
   AnamorphicLensFlareUniforms,
   CloudsUniforms,
+  CorporateBlobsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
   LightBeamsAndMotesUniforms,
@@ -59,6 +60,7 @@ export type {
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
   CLOUDS_CONTROLS,
+  CORPORATE_BLOBS_CONTROLS,
   FIREFLIES_CONTROLS,
   GODRAYS_CONTROLS,
   LAYER_CONTROLS,

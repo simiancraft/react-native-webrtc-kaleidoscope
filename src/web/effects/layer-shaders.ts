@@ -536,6 +536,497 @@ void main() {
 }
 `;
 
+// Light beams and motes: dust motes drifting inside three independently colored
+// polygon light beams, a transparent OVERLAY (straight alpha; use blend
+// 'additive'). Mirrors shaders/light-beams-and-motes.frag.
+export const LIGHT_BEAMS_AND_MOTES_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
+uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = untinted
+uniform float uSpeed;         // animation rate; 1.0 = stock, 0 freezes the field
+uniform float uBeamAlpha;     // beam fill strength (absolute); stock 0.18
+uniform float uMoteAlpha;     // mote brightness (absolute); stock 0.48
+uniform float uGlowSize;      // mote glow radius, in mote-size multiples
+uniform float uBeamSoftness;  // beam polygon edge softness
+uniform float uOverlayAlpha;  // overall overlay opacity, applied to final alpha
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+// ---------- Mote controls (internal constants) ----------
+#define MOTE_COUNT        128   // loop bound: compile-time constant, not a uniform
+#define DRIFT_SPEED       0.060
+#define FALL_SPEED        0.012
+#define SWIRL_AMOUNT      0.065
+#define TURBULENCE        0.030
+#define MOTE_SIZE_MIN     0.0013
+#define MOTE_SIZE_MAX     0.0048
+
+// ================================================================
+// BEAM POINT NAMING
+//
+// Each beam is a 4-point polygon/trapezoid.
+//
+// SOURCE_LEFT  / SOURCE_RIGHT:
+//   The narrow end where light enters the image (near the top).
+// SPREAD_RIGHT / SPREAD_LEFT:
+//   The wider end where the beam lands/spreads (lower in the image).
+//
+// Polygon order: SOURCE_LEFT -> SOURCE_RIGHT -> SPREAD_RIGHT -> SPREAD_LEFT.
+// ================================================================
+
+// Beam 1: reddish, from top-left toward lower-center/right; wider at the base.
+const vec2 BEAM_1_SOURCE_LEFT  = vec2(0.02, 1.05);
+const vec2 BEAM_1_SOURCE_RIGHT = vec2(0.17, 1.05);
+const vec2 BEAM_1_SPREAD_RIGHT = vec2(0.68, 0.00);
+const vec2 BEAM_1_SPREAD_LEFT  = vec2(0.36, 0.00);
+const vec3 BEAM_1_COLOR = vec3(1.00, 0.42, 0.32);
+const float BEAM_1_STRENGTH = 0.72;
+
+// Beam 2: greenish, from center-top downward; slight perspective flare.
+const vec2 BEAM_2_SOURCE_LEFT  = vec2(0.45, 1.05);
+const vec2 BEAM_2_SOURCE_RIGHT = vec2(0.57, 1.05);
+const vec2 BEAM_2_SPREAD_RIGHT = vec2(0.73, 0.00);
+const vec2 BEAM_2_SPREAD_LEFT  = vec2(0.33, 0.00);
+const vec3 BEAM_2_COLOR = vec3(0.54, 1.00, 0.62);
+const float BEAM_2_STRENGTH = 0.48;
+
+// Beam 3: cool violet-blue, from top-right toward lower-center/left; wider base.
+const vec2 BEAM_3_SOURCE_LEFT  = vec2(0.82, 1.05);
+const vec2 BEAM_3_SOURCE_RIGHT = vec2(0.99, 1.05);
+const vec2 BEAM_3_SPREAD_RIGHT = vec2(0.70, 0.00);
+const vec2 BEAM_3_SPREAD_LEFT  = vec2(0.38, 0.00);
+const vec3 BEAM_3_COLOR = vec3(0.55, 0.66, 1.00);
+const float BEAM_3_STRENGTH = 0.58;
+
+float hash1(float n) {
+    return fract(sin(n) * 43758.5453123);
+}
+
+vec2 hash2(float n) {
+    return vec2(hash1(n + 11.17), hash1(n + 47.83));
+}
+
+float softMote(vec2 uv, vec2 center, float radius) {
+    float d = length(uv - center);
+    return exp(-pow(d / radius, 2.0));
+}
+
+// Soft convex quad mask. Order follows the polygon perimeter:
+// source-left, source-right, spread-right, spread-left.
+float quadMask(
+    vec2 p,
+    vec2 sourceLeft,
+    vec2 sourceRight,
+    vec2 spreadRight,
+    vec2 spreadLeft,
+    float softness
+) {
+    vec2 a = sourceLeft;
+    vec2 b = sourceRight;
+    vec2 c = spreadRight;
+    vec2 d = spreadLeft;
+
+    vec2 e0 = b - a;
+    vec2 e1 = c - b;
+    vec2 e2 = d - c;
+    vec2 e3 = a - d;
+
+    float s0 = e0.x * (p.y - a.y) - e0.y * (p.x - a.x);
+    float s1 = e1.x * (p.y - b.y) - e1.y * (p.x - b.x);
+    float s2 = e2.x * (p.y - c.y) - e2.y * (p.x - c.x);
+    float s3 = e3.x * (p.y - d.y) - e3.y * (p.x - d.x);
+
+    float insidePositive =
+        smoothstep(-softness, softness, s0) *
+        smoothstep(-softness, softness, s1) *
+        smoothstep(-softness, softness, s2) *
+        smoothstep(-softness, softness, s3);
+
+    float insideNegative =
+        smoothstep(-softness, softness, -s0) *
+        smoothstep(-softness, softness, -s1) *
+        smoothstep(-softness, softness, -s2) *
+        smoothstep(-softness, softness, -s3);
+
+    return max(insidePositive, insideNegative);
+}
+
+// Subtle animated variation inside each beam.
+float beamTexture(vec2 uv, float seed) {
+    float t = uTime * uSpeed;
+
+    float broadBands =
+        0.55 + 0.45 * sin(uv.x * 7.0 + uv.y * 4.0 + t * 0.06 + seed);
+
+    float fineBands =
+        0.75 + 0.25 * sin(uv.x * 23.0 - uv.y * 11.0 + t * 0.11 + seed * 2.7);
+
+    return mix(0.65, 1.0, broadBands * fineBands);
+}
+
+float beamAmount(
+    vec2 uv,
+    vec2 sourceLeft,
+    vec2 sourceRight,
+    vec2 spreadRight,
+    vec2 spreadLeft,
+    float strength,
+    float seed
+) {
+    return
+        quadMask(
+            uv,
+            sourceLeft,
+            sourceRight,
+            spreadRight,
+            spreadLeft,
+            uBeamSoftness
+        ) *
+        strength *
+        beamTexture(uv, seed);
+}
+
+float totalBeamAmount(vec2 uv) {
+    float beam1 = beamAmount(
+        uv,
+        BEAM_1_SOURCE_LEFT, BEAM_1_SOURCE_RIGHT, BEAM_1_SPREAD_RIGHT, BEAM_1_SPREAD_LEFT,
+        BEAM_1_STRENGTH, 1.0
+    );
+
+    float beam2 = beamAmount(
+        uv,
+        BEAM_2_SOURCE_LEFT, BEAM_2_SOURCE_RIGHT, BEAM_2_SPREAD_RIGHT, BEAM_2_SPREAD_LEFT,
+        BEAM_2_STRENGTH, 8.0
+    );
+
+    float beam3 = beamAmount(
+        uv,
+        BEAM_3_SOURCE_LEFT, BEAM_3_SOURCE_RIGHT, BEAM_3_SPREAD_RIGHT, BEAM_3_SPREAD_LEFT,
+        BEAM_3_STRENGTH, 14.0
+    );
+
+    return clamp(beam1 + beam2 + beam3, 0.0, 1.0);
+}
+
+vec3 beamColorAt(vec2 uv) {
+    float beam1 = beamAmount(
+        uv,
+        BEAM_1_SOURCE_LEFT, BEAM_1_SOURCE_RIGHT, BEAM_1_SPREAD_RIGHT, BEAM_1_SPREAD_LEFT,
+        BEAM_1_STRENGTH, 1.0
+    );
+
+    float beam2 = beamAmount(
+        uv,
+        BEAM_2_SOURCE_LEFT, BEAM_2_SOURCE_RIGHT, BEAM_2_SPREAD_RIGHT, BEAM_2_SPREAD_LEFT,
+        BEAM_2_STRENGTH, 8.0
+    );
+
+    float beam3 = beamAmount(
+        uv,
+        BEAM_3_SOURCE_LEFT, BEAM_3_SOURCE_RIGHT, BEAM_3_SPREAD_RIGHT, BEAM_3_SPREAD_LEFT,
+        BEAM_3_STRENGTH, 14.0
+    );
+
+    vec3 weightedColor =
+        BEAM_1_COLOR * beam1 +
+        BEAM_2_COLOR * beam2 +
+        BEAM_3_COLOR * beam3;
+
+    float total = max(beam1 + beam2 + beam3, 0.0001);
+
+    return weightedColor / total;
+}
+
+void main() {
+    // vUv is already 0..1 with bottom-left origin; this is the Shadertoy uv.
+    vec2 uv = vUv;
+
+    vec3 col = vec3(0.0);
+    float alpha = 0.0;
+
+    float beams = totalBeamAmount(uv);
+    vec3 beamColor = beamColorAt(uv);
+
+    col += beamColor * beams * uBeamAlpha;
+    alpha += beams * uBeamAlpha * 0.45;
+
+    // Integer-counted loop: the original float-counted loop (i < MOTE_COUNT) is
+    // replaced by an int counter over a compile-time constant bound. i is
+    // reconstructed as float(n), so the per-mote seeds and motion are
+    // bit-identical to the prototype; only the loop form changes.
+    for (int n = 0; n < MOTE_COUNT; n++) {
+        float i = float(n);
+        float seed = i * 91.73;
+
+        vec2 pos = hash2(seed);
+
+        float depth = hash1(seed + 3.0);
+        float size = mix(MOTE_SIZE_MIN, MOTE_SIZE_MAX, depth);
+        float speed = mix(0.45, 1.35, hash1(seed + 5.0));
+
+        float t = uTime * uSpeed * speed;
+
+        pos.x += sin(t * DRIFT_SPEED * 1.7 + seed) * SWIRL_AMOUNT;
+        pos.x += sin(t * DRIFT_SPEED * 3.9 + seed * 0.41) * TURBULENCE;
+        pos.x += uTime * uSpeed * DRIFT_SPEED * mix(-0.10, 0.10, hash1(seed + 8.0));
+
+        pos.y += sin(t * DRIFT_SPEED * 2.4 + seed * 0.37) * SWIRL_AMOUNT * 0.55;
+        pos.y += sin(t * DRIFT_SPEED * 5.1 + seed * 1.73) * TURBULENCE * 0.65;
+        pos.y -= uTime * uSpeed * FALL_SPEED * speed;
+
+        pos = fract(pos);
+
+        float moteBeamAmount = totalBeamAmount(pos);
+        if (moteBeamAmount <= 0.001) {
+            continue;
+        }
+
+        vec3 moteColor = beamColorAt(pos);
+
+        float mote = softMote(uv, pos, size);
+        float core = softMote(uv, pos, size * 0.42);
+        float glow = softMote(uv, pos, size * uGlowSize);
+
+        float shimmer =
+            0.72 +
+            0.28 * sin(uTime * uSpeed * mix(0.22, 0.95, hash1(seed + 9.0)) + seed);
+
+        float strength =
+            mix(0.05, 0.34, depth) *
+            shimmer *
+            moteBeamAmount *
+            uMoteAlpha;
+
+        col += moteColor * glow * strength * 0.12;
+        col += moteColor * mote * strength * 0.36;
+        col += vec3(1.0) * core * strength * 0.10;
+
+        alpha += glow * strength * 0.030;
+        alpha += mote * strength * 0.105;
+        alpha += core * strength * 0.110;
+    }
+
+    float haze =
+        beams *
+        beams *
+        (0.6 + 0.4 * sin(uv.x * 8.0 + uv.y * 5.0 + uTime * uSpeed * 0.08));
+
+    col += beamColor * haze * 0.018;
+    alpha += haze * 0.010;
+
+    // Overall tint / color grade.
+    col *= uColor;
+
+    alpha = clamp(alpha * uOverlayAlpha, 0.0, 1.0);
+
+    oColor = vec4(col, alpha);
+}
+`;
+
+// Corporate blobs: large decorative edge/vignette blobs in flat brand colors, a
+// transparent OVERLAY (premultiplied output). Mirrors shaders/corporate-blobs.frag.
+export const CORPORATE_BLOBS_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
+uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = stock colors
+uniform float uGlobalAlpha;   // overall blob opacity; stock 0.58
+uniform float uScale;         // global blob size multiplier; stock 2.55
+uniform float uEdgePull;      // pushes blobs outward from center; stock 0.32
+uniform float uCenterClear;   // radius around center that repels blobs; stock 0.42
+uniform float uMotionAmount;  // positional drift magnitude; 1.0 = stock, 0 = still
+uniform float uMotionSpeed;   // drift + morph rate; 1.0 = stock, 0 freezes motion
+uniform float uEdgeSoftness;  // blob edge falloff; stock 0.024
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+// BLOB_COUNT must stay a compile-time constant (GLSL ES loop bound).
+#define BLOB_COUNT            8
+
+// Internal animation constants (not tunable; keep the look coherent).
+#define CENTER_CLEAR_PUSH     0.34
+#define SCALE_PULSE_AMOUNT    0.10
+#define SCALE_PULSE_SPEED     0.42
+#define ROTATION_SWAY_AMOUNT  0.12
+#define ROTATION_SWAY_SPEED   0.11
+#define SHAPE_MORPH_SPEED     1.00
+
+struct Blob {
+    vec2 pos;
+    float scale;
+    float opacity;
+    float speed;
+    float drift;
+    float rotation;
+    float variant;
+    vec3 color;
+};
+
+const vec3 LIGHT_BLUE  = vec3(0.376, 0.647, 0.980);
+const vec3 DARK_GREEN  = vec3(0.063, 0.725, 0.506);
+const vec3 YELLOW      = vec3(0.984, 0.749, 0.141);
+const vec3 ORANGE      = vec3(0.976, 0.451, 0.086);
+const vec3 LIGHT_GREEN = vec3(0.133, 0.773, 0.369);
+const vec3 RED         = vec3(0.851, 0.275, 0.937);
+const vec3 BROWN       = vec3(0.341, 0.325, 0.306);
+const vec3 DARK_BLUE   = vec3(0.008, 0.518, 0.780);
+
+Blob getBlob(float i) {
+    if (i < 0.5) return Blob(vec2(-1.18, -0.55), 0.62, 0.48, 0.22, 0.14, 0.10, 0.0, LIGHT_BLUE);
+    if (i < 1.5) return Blob(vec2( 1.12, -0.35), 0.66, 0.40, 0.18, 0.13, 1.00, 1.0, DARK_GREEN);
+    if (i < 2.5) return Blob(vec2( 0.95,  0.88), 0.58, 0.44, 0.20, 0.14, 2.20, 2.0, YELLOW);
+    if (i < 3.5) return Blob(vec2(-0.98,  0.82), 0.56, 0.38, 0.16, 0.12, 0.70, 3.0, ORANGE);
+    if (i < 4.5) return Blob(vec2( 1.28,  0.28), 0.50, 0.34, 0.24, 0.11, 1.80, 4.0, LIGHT_GREEN);
+    if (i < 5.5) return Blob(vec2(-0.25, -1.12), 0.54, 0.36, 0.19, 0.11, 2.60, 5.0, RED);
+    if (i < 6.5) return Blob(vec2(-1.30,  0.10), 0.48, 0.30, 0.17, 0.12, 0.40, 6.0, BROWN);
+    return             Blob(vec2( 0.28,  1.18), 0.52, 0.30, 0.14, 0.10, 0.90, 7.0, DARK_BLUE);
+}
+
+mat2 rotate2d(float a) {
+    float s = sin(a);
+    float c = cos(a);
+    return mat2(c, -s, s, c);
+}
+
+float variantRadius(float angle, float variant, float phase) {
+    float r = 1.0;
+
+    if (variant < 0.5) {
+        r += 0.115 * sin(angle * 2.0 + 0.20 + phase * 0.20);
+        r += 0.075 * sin(angle * 3.0 - 1.10 - phase * 0.13);
+        r += 0.035 * sin(angle * 5.0 + 2.00 + phase * 0.09);
+    } else if (variant < 1.5) {
+        r += 0.090 * sin(angle * 2.0 - 0.80 + phase * 0.18);
+        r += 0.105 * sin(angle * 3.0 + 0.70 - phase * 0.10);
+        r += 0.030 * sin(angle * 6.0 - 1.50 + phase * 0.08);
+    } else if (variant < 2.5) {
+        r += 0.130 * sin(angle * 2.0 + 1.10 + phase * 0.16);
+        r += 0.060 * sin(angle * 4.0 - 0.30 - phase * 0.12);
+        r += 0.045 * sin(angle * 5.0 + 2.80 + phase * 0.07);
+    } else if (variant < 3.5) {
+        r += 0.080 * sin(angle * 2.0 + 2.30 + phase * 0.14);
+        r += 0.120 * sin(angle * 3.0 - 0.40 - phase * 0.11);
+        r += 0.040 * sin(angle * 7.0 + 1.10 + phase * 0.06);
+    } else if (variant < 4.5) {
+        r += 0.035 * sin(angle * 2.0 + 0.10 + phase * 0.12);
+        r += 0.030 * sin(angle * 3.0 + 1.80 - phase * 0.09);
+        r += 0.020 * sin(angle * 5.0 - 0.90 + phase * 0.05);
+    } else if (variant < 5.5) {
+        r += 0.145 * sin(angle * 2.0 - 1.30 + phase * 0.17);
+        r += 0.070 * sin(angle * 3.0 + 2.40 - phase * 0.11);
+        r += 0.035 * sin(angle * 5.0 + 0.20 + phase * 0.08);
+    } else if (variant < 6.5) {
+        r += 0.045 * sin(angle * 2.0 + 1.70 + phase * 0.10);
+        r += 0.035 * sin(angle * 4.0 - 2.10 - phase * 0.08);
+        r += 0.025 * sin(angle * 6.0 + 0.50 + phase * 0.05);
+    } else {
+        r += 0.170 * sin(angle * 2.0 + 2.80 + phase * 0.20);
+        r += 0.090 * sin(angle * 3.0 - 1.90 - phase * 0.15);
+        r += 0.055 * sin(angle * 5.0 + 0.80 + phase * 0.09);
+    }
+
+    return r;
+}
+
+vec2 applyCenterRepulsor(vec2 center) {
+    float d = length(center);
+    vec2 dir = normalize(center + vec2(0.0001, 0.0001));
+
+    center += dir * uEdgePull;
+
+    float centerInfluence = 1.0 - smoothstep(uCenterClear, uCenterClear + 0.35, d);
+    center += dir * centerInfluence * CENTER_CLEAR_PUSH;
+
+    return center;
+}
+
+float animatedScale(float baseScale, float blobIndex, float blobSpeed) {
+    float localPhase =
+        uTime * SCALE_PULSE_SPEED * (0.65 + blobSpeed * 1.35) +
+        blobIndex * 2.731;
+
+    float pulseA = sin(localPhase);
+    float pulseB = sin(localPhase * 0.47 + blobIndex * 5.13) * 0.45;
+
+    float scaleMultiplier = 1.0 + (pulseA + pulseB) * SCALE_PULSE_AMOUNT;
+
+    return baseScale * max(0.05, scaleMultiplier);
+}
+
+float blobMask(vec2 p, vec2 center, Blob b, float phase, float liveScale) {
+    vec2 q = p - center;
+
+    vec2 squash = vec2(
+        1.0 + 0.14 * sin(b.variant * 1.91),
+        1.0 + 0.14 * cos(b.variant * 2.37)
+    );
+
+    float rotationSway =
+        sin(uTime * ROTATION_SWAY_SPEED * (0.6 + b.speed) + b.variant * 3.0) *
+        ROTATION_SWAY_AMOUNT;
+
+    q = rotate2d(b.rotation + rotationSway) * q;
+    q /= squash;
+
+    float angle = atan(q.y, q.x);
+    float dist = length(q);
+
+    float r = liveScale * uScale * 0.5 * variantRadius(angle, b.variant, phase);
+
+    return 1.0 - smoothstep(r, r + uEdgeSoftness, dist);
+}
+
+void main() {
+    vec2 uv = vUv;
+
+    vec2 p = uv * 2.0 - 1.0;
+    p.x *= uResolution.x / uResolution.y;
+
+    vec3 blobCol = vec3(0.0);
+    float blobAlpha = 0.0;
+
+    // Integer-counted loop over a compile-time bound; i is reconstructed as
+    // float(n), so the per-blob lookups and phases match the prototype.
+    for (int n = 0; n < BLOB_COUNT; n++) {
+        float i = float(n);
+        Blob b = getBlob(i);
+
+        float phase =
+            uTime * b.speed * uMotionSpeed * SHAPE_MORPH_SPEED +
+            i * 4.137;
+
+        vec2 center = b.pos;
+
+        center.x += sin(phase * 0.41 + i * 1.70) * b.drift * uMotionAmount;
+        center.x += sin(phase * 0.19 + i * 3.10) * b.drift * uMotionAmount * 0.45;
+        center.y += cos(phase * 0.33 + i * 2.30) * b.drift * uMotionAmount * 0.75;
+        center.y += sin(phase * 0.17 + i * 4.40) * b.drift * uMotionAmount * 0.35;
+
+        center = applyCenterRepulsor(center);
+
+        float liveScale = animatedScale(b.scale, i, b.speed);
+        float mask = blobMask(p, center, b, phase, liveScale);
+
+        float inner = pow(mask, 1.35);
+        float rim = mask * (1.0 - smoothstep(0.45, 1.0, mask));
+
+        vec3 gelColor = b.color * inner + b.color * rim * 0.18;
+        float a = mask * b.opacity * uGlobalAlpha;
+
+        blobCol += gelColor * a * (1.0 - blobAlpha);
+        blobAlpha += a * (1.0 - blobAlpha);
+    }
+
+    // Premultiplied output; tint grades the (premultiplied) color, not alpha.
+    oColor = vec4(blobCol * uColor, blobAlpha);
+}
+`;
+
 /** Layer shaders the web scene compositor can resolve by name. */
 export const LAYER_SHADER_SOURCES: Readonly<Record<string, string>> = {
   godrays: GODRAYS_FRAG_SRC,
@@ -545,4 +1036,6 @@ export const LAYER_SHADER_SOURCES: Readonly<Record<string, string>> = {
   nebula: NEBULA_FRAG_SRC,
   simianlights: SIMIANLIGHTS_FRAG_SRC,
   'anamorphic-lensflare': ANAMORPHIC_LENSFLARE_FRAG_SRC,
+  'light-beams-and-motes': LIGHT_BEAMS_AND_MOTES_FRAG_SRC,
+  'corporate-blobs': CORPORATE_BLOBS_FRAG_SRC,
 };

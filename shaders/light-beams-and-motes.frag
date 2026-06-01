@@ -228,7 +228,7 @@ vec3 beamColorAt(vec2 uv) {
 }
 
 void main() {
-    // vUv is already 0..1 with bottom-left origin; this is the Shadertoy `uv`.
+    // vUv is already 0..1 with bottom-left origin; this is the Shadertoy uv.
     vec2 uv = vUv;
 
     vec3 col = vec3(0.0);
@@ -240,10 +240,10 @@ void main() {
     col += beamColor * beams * uBeamAlpha;
     alpha += beams * uBeamAlpha * 0.45;
 
-    // Integer-counted loop: the original `for (float i = 0.0; i < MOTE_COUNT; i++)`
-    // with a float counter is replaced by an int counter over a compile-time
-    // constant bound. `i` is reconstructed as float(n), so the per-mote seeds and
-    // motion are bit-identical to the prototype; only the loop form changes.
+    // Integer-counted loop: the original float-counted loop (i < MOTE_COUNT) is
+    // replaced by an int counter over a compile-time constant bound. i is
+    // reconstructed as float(n), so the per-mote seeds and motion are
+    // bit-identical to the prototype; only the loop form changes.
     for (int n = 0; n < MOTE_COUNT; n++) {
         float i = float(n);
         float seed = i * 91.73;

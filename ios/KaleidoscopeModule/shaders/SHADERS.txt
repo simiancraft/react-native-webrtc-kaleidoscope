@@ -2,6 +2,7 @@ anamorphic-lensflare.frag
 blur.frag
 clouds.frag
 composite.frag
+corporate-blobs.frag
 fireflies.frag
 godrays.frag
 light-beams-and-motes.frag
