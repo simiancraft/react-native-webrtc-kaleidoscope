@@ -1,0 +1,46 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution [[buffer(0)]], constant float& uTime [[buffer(1)]], constant float& uFadeDistance [[buffer(2)]], constant float& uTopGlow [[buffer(3)]], constant float& uWobbleSpeed [[buffer(4)]], constant float& uWobbleAmount [[buffer(5)]], constant float& uRayCount [[buffer(6)]], constant float& uRaySpeed [[buffer(7)]], constant float& uRaySoftness [[buffer(8)]], constant float& uRayIntensity [[buffer(9)]], constant float3& uLightColor [[buffer(10)]])
+{
+    main0_out out = {};
+    float _133 = in.vUv.y - 1.0;
+    float2 _155 = float2(in.vUv.y * 3.0, uTime * uWobbleSpeed);
+    float2 _271 = floor(_155);
+    float2 _273 = fract(_155);
+    float2 _281 = (_273 * _273) * (float2(3.0) - (_273 * 2.0));
+    float _283 = _271.x;
+    float _285 = _271.y;
+    float _286 = _285 * 57.0;
+    float _291 = _283 + 1.0;
+    float _302 = (_285 + 1.0) * 57.0;
+    float _317 = _281.x;
+    float _169 = ((((in.vUv.x - 0.5) * (uResolution.x / uResolution.y)) + 0.5) + ((mix(mix(fract(sin(_283 + _286) * 43758.546875), fract(sin(_291 + _286) * 43758.546875), _317), mix(fract(sin(_283 + _302) * 43758.546875), fract(sin(_291 + _302) * 43758.546875), _317), _281.y) - 0.5) * uWobbleAmount)) * uRayCount;
+    float _175 = uTime * uRaySpeed;
+    float2 _217 = float2(in.vUv.x * 10.0, (in.vUv.y * 4.0) - (uTime * 0.300000011920928955078125));
+    float2 _364 = floor(_217);
+    float2 _366 = fract(_217);
+    float2 _374 = (_366 * _366) * (float2(3.0) - (_366 * 2.0));
+    float _376 = _364.x;
+    float _378 = _364.y;
+    float _379 = _378 * 57.0;
+    float _384 = _376 + 1.0;
+    float _395 = (_378 + 1.0) * 57.0;
+    float _410 = _374.x;
+    float _240 = fast::clamp(uRayIntensity * (((pow((((sin(_169 + _175) * 0.64999997615814208984375) + (sin((_169 * 1.730000019073486328125) - (_175 * 0.699999988079071044921875)) * 0.3499999940395355224609375)) * 0.5) + 0.5, uRaySoftness) * mix(0.75, 1.25, mix(mix(fract(sin(_376 + _379) * 43758.546875), fract(sin(_384 + _379) * 43758.546875), _410), mix(fract(sin(_376 + _395) * 43758.546875), fract(sin(_384 + _395) * 43758.546875), _410), _374.y))) * exp(_133 * uFadeDistance)) + (exp(_133 * 8.0) * uTopGlow)), 0.0, 1.0);
+    out.oColor = float4(uLightColor * _240, _240);
+    return out;
+}
+

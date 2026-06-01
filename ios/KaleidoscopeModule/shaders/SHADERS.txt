@@ -1,5 +1,10 @@
+anamorphic-lensflare.frag
+beams-and-motes.frag
 blur.frag
+clouds.frag
 composite.frag
+fireflies.frag
+godrays.frag
 nebula.frag
 passthrough.vert
 plasma.frag
