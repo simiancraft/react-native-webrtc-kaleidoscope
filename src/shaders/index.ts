@@ -4,6 +4,7 @@
 // reads to show controls for whatever tunable layers the active scene contains.
 
 import { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare';
+import { BEAMS_AND_MOTES_CONTROLS } from './beams-and-motes';
 import { CLOUDS_CONTROLS } from './clouds';
 import { FIREFLIES_CONTROLS } from './fireflies';
 import { GODRAYS_CONTROLS } from './godrays';
@@ -14,6 +15,8 @@ import type { UniformControl } from './types';
 
 export type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare';
 export { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare';
+export type { BeamsAndMotesUniforms } from './beams-and-motes';
+export { BEAMS_AND_MOTES_CONTROLS } from './beams-and-motes';
 export type { CloudsUniforms } from './clouds';
 export { CLOUDS_CONTROLS } from './clouds';
 export type { FirefliesUniforms } from './fireflies';
@@ -41,4 +44,5 @@ export const LAYER_CONTROLS: Readonly<Record<string, readonly UniformControl[]>>
   nebula: NEBULA_CONTROLS,
   simianlights: SIMIANLIGHTS_CONTROLS,
   'anamorphic-lensflare': ANAMORPHIC_LENSFLARE_CONTROLS,
+  'beams-and-motes': BEAMS_AND_MOTES_CONTROLS,
 };

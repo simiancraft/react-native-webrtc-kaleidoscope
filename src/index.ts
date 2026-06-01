@@ -48,6 +48,7 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 export type { BackgroundPresetName } from './backgrounds';
 export type {
   AnamorphicLensFlareUniforms,
+  BeamsAndMotesUniforms,
   CloudsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
@@ -61,6 +62,7 @@ export type {
 // are no-op stubs on native so a consumer can import the same names on both.
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
+  BEAMS_AND_MOTES_CONTROLS,
   CLOUDS_CONTROLS,
   FIREFLIES_CONTROLS,
   GODRAYS_CONTROLS,

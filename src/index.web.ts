@@ -47,6 +47,7 @@ export type {
 } from './kaleidoscope/types';
 export type {
   AnamorphicLensFlareUniforms,
+  BeamsAndMotesUniforms,
   CloudsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
@@ -57,6 +58,7 @@ export type {
 } from './shaders';
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
+  BEAMS_AND_MOTES_CONTROLS,
   CLOUDS_CONTROLS,
   FIREFLIES_CONTROLS,
   GODRAYS_CONTROLS,
