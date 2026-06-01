@@ -1,9 +1,10 @@
 # Unify Every Effect Into One Layered Composite
 
-**Status:** Draft
+**Status:** In progress
 **Scope:** cross-stack
 **Date:** 2026-06-01
 **Last reviewed:** 2026-06-01
+**Progress:** A1 ✅ (web compositor generalized), A2 ✅ (contract flip); A3/A4 next, then web test, then Phase R reorg, then native.
 **Context:** The library carries two effect shapes (a single-shader path and a multi-layer scene path) plus a per-effect native factory per preset; all of it is on one unreleased branch with no consumers, so it can be collapsed to one shape now instead of carried forever.
 
 ## Goal
@@ -151,6 +152,40 @@ demo/
 
 **Gate:** `bun test` passes; `bun run check` green.
 
+### Phase R — Coherence reorg (after the web test, before native)
+
+Establish three self-contained root folders, each folder-per-item, out of the
+tsc/build path; the codegen (`build:shaders`) and the prebuild copy read from
+them. Packaged composites move out of the demo book into `composites/`, so the
+book becomes a list of imports and end-users get a folder pattern to copy. Runs
+after Phase A is web-tested (validate the unified behavior before churning every
+path) and before Phase B/C (so the native phases consume the new layout). This
+phase wants its own interrogation pass before its commits are drafted in detail
+(it touches `build:shaders`, the `backgrounds` subpath exports, and
+`app.plugin.js`); the structure below is the agreed target.
+
+**Target structure (root, out of the build path):**
+
+```
+shaders/<name>/       <name>.frag, <name>.vert?, <name>.ts (types + controls), README.md
+images/<name>/        <name>.webp, <name>.thumb.webp?, <name>.ts
+composites/<name>/    <name>.ts (the Composite; imports its layers' shaders + images),
+                      <name>.thumb.webp (authored still of the assembled composite)
+```
+
+Rules:
+- `images/` replaces `backgrounds/` (rename); the `backgrounds` subpath exports become `images`.
+- A thumbnail lives in its item's folder. A composite's thumbnail is a screenshot of the assembled result; it spans a shader-and-image amalgam, so it belongs to the composite, not to any one ingredient. No flat `thumbnails/` directory.
+- The demo keeps only `wolf-cave` as a consumer-owned proof-of-concept; every other image and the packaged composites live in the library root folders.
+- The demo book imports the packaged composites from `composites/`; the book is then a thin import list.
+
+Commits (high level; detail after interrogation):
+- **R1:** fold each shader into `shaders/<name>/` (frag, vert?, types `.ts`, README); point `build:shaders` and the per-shader imports at the new layout; `check:shaders` drift green.
+- **R2:** rename `backgrounds` → `images`; fold each into `images/<name>/` (image, optional `.thumb`, `.ts`); update the subpath exports and `app.plugin.js` copy; move the scene plates and the non-PoC backgrounds out of the demo into `images/`.
+- **R3:** add `composites/<name>/` (the `Composite` def + its `.thumb`); move the packaged composites out of `demo/kaleidoscope.presets.ts` into `composites/`; the demo book imports them; the demo keeps only `wolf-cave`.
+
+**Gate (each commit):** `bun run check` and `bun run check:shaders` pass.
+
 ### Phase B — Android (the working state for Android testing)
 
 #### Commit B1: Generalize the Android compositor
@@ -235,6 +270,8 @@ demo/
 - [ ] Blur is a camera-sampling layer; `direct/background` draws the camera; any layer can target `subject`.
 - [ ] Demo: category menu (Worlds first), thumbnail/button rail, procedural sliders emitting patches; transform + mask unchanged.
 - [ ] `bun run check` green; Android `testDebugUnitTest` green; emulator pass; EAS iOS build compiles.
+- [ ] Three root folders (`shaders/`, `images/`, `composites/`), folder-per-item, out of the build path; `images/` replaces `backgrounds/`.
+- [ ] Each thumbnail lives in its item's folder; packaged composites live in `composites/`; the demo book is an import list; the demo keeps only `wolf-cave`.
 - [ ] README rewritten.
 - [ ] Plan file deleted (Inspector Gadget Rule: no orphan plans).
 
