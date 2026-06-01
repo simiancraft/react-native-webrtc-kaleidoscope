@@ -47,6 +47,34 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 
 export type { BackgroundPresetName } from './backgrounds';
 export type {
+  AnamorphicLensFlareUniforms,
+  CloudsUniforms,
+  FirefliesUniforms,
+  GodraysUniforms,
+  NebulaUniforms,
+  PlasmaUniforms,
+  SimianlightsUniforms,
+  UniformControl,
+} from './shaders';
+// Per-shader control descriptors + the registry (platform-agnostic data). The
+// live layer-uniform tuning channel is web-only (scenes run on web today); these
+// are no-op stubs on native so a consumer can import the same names on both.
+export {
+  ANAMORPHIC_LENSFLARE_CONTROLS,
+  CLOUDS_CONTROLS,
+  FIREFLIES_CONTROLS,
+  GODRAYS_CONTROLS,
+  LAYER_CONTROLS,
+  NEBULA_CONTROLS,
+  PLASMA_CONTROLS,
+  SIMIANLIGHTS_CONTROLS,
+} from './shaders';
+export const setLayerUniforms = (
+  _shader: string,
+  _uniforms: Readonly<Record<string, number | readonly number[]>>,
+): void => {};
+export const clearLayerUniforms = (_shader: string): void => {};
+export type {
   KaleidoscopeBindOptions,
   KaleidoscopeControls,
   MaskInput,

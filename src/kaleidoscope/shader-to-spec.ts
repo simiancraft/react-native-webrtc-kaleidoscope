@@ -13,16 +13,21 @@
 // them.
 
 import type { EffectSpec } from '../types';
-import type { Preset, ShaderOptionsMap } from './types';
+import type { BookEntry, ShaderOptionsMap } from './types';
 
 // option key -> shader uniform name, e.g. `colorA` -> `uColorA`, `speed` -> `uSpeed`.
 const toUniformName = (key: string): string => `u${key.charAt(0).toUpperCase()}${key.slice(1)}`;
 
 export const presetToEffectSpec = (
-  preset: Preset,
+  preset: BookEntry,
   opts?: Record<string, unknown>,
   id?: string,
 ): EffectSpec => {
+  // A scene passes its layer stack straight through to the compositor; the
+  // layers already carry their own sources/uniforms/blend. No options merge.
+  if (preset.shader === 'scene') {
+    return { name: 'scene', layers: preset.layers };
+  }
   if (preset.shader === 'blur') {
     const o = { ...preset.options, ...opts } as ShaderOptionsMap['blur'];
     return o.sigma == null ? { name: 'blur' } : { name: 'blur', sigma: o.sigma };

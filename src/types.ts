@@ -83,7 +83,71 @@ export type ShaderSpec = {
   readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
 };
 
-export type EffectSpec = TransformSpec | BlurSpec | BackgroundImageSpec | ShaderSpec;
+/** How a scene layer blends over the layers beneath it (painter's order). */
+export type BlendMode = 'normal' | 'additive';
+
+/**
+ * Which part of the frame a layer applies to. Omit for `'background'` (the
+ * accumulated stack so far); `'subject'` stencils the layer to the segmented
+ * person. The same shader can run on either target.
+ */
+export type LayerTarget = 'background' | 'subject';
+
+/**
+ * The closed catalog of layer shaders and the fields each one requires. Keeping
+ * it closed (mirrors `ShaderOptionsMap` for presets) is what lets the `shader`
+ * discriminant narrow cleanly on a `LayerSpec`:
+ *   - `'image'`  replaces the target with a still image (needs `source`).
+ *   - `'direct'` passes the target through unchanged (a matrix passthrough): on
+ *     the subject that is the masked person; on the background it is a no-op.
+ *   - a generative/overlay shader (e.g. `'godrays'`) renders its frag fed
+ *     `uTime`/`uResolution` plus the supplied u-prefixed `uniforms`.
+ * Register a generative layer shader by adding it here.
+ */
+export type LayerShaderOptions = {
+  readonly image: { readonly source: string };
+  readonly direct: Record<never, never>;
+  readonly godrays: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
+  readonly clouds: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
+  readonly fireflies: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
+  readonly plasma: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
+  readonly nebula: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
+  readonly simianlights: {
+    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+  };
+  readonly 'anamorphic-lensflare': {
+    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+  };
+};
+
+/** A layer shader name; the `LayerSpec` discriminant. */
+export type LayerShaderName = keyof LayerShaderOptions;
+
+/**
+ * One scene layer: a `shader` applied to a `target`, with an optional `blend`.
+ * The `shader` is the discriminant and carries that shader's required fields
+ * (a discriminated union over the closed `LayerShaderOptions`), so narrowing on
+ * `layer.shader` gives `source` / `uniforms` / nothing as appropriate.
+ */
+export type LayerSpec = {
+  readonly [S in LayerShaderName]: {
+    readonly shader: S;
+    readonly target?: LayerTarget;
+    readonly blend?: BlendMode;
+  } & LayerShaderOptions[S];
+}[LayerShaderName];
+
+/**
+ * A composed scene: an ordered painter's stack of layers, run by the scene
+ * compositor as a single effect (one stage), distinct from the serial
+ * single-effect path. Layer 0 is the base; later layers blend over it.
+ */
+export type SceneSpec = {
+  readonly name: 'scene';
+  readonly layers: ReadonlyArray<LayerSpec>;
+};
+
+export type EffectSpec = TransformSpec | BlurSpec | BackgroundImageSpec | ShaderSpec | SceneSpec;
 
 /**
  * Legacy alias for the discriminant. Useful for typed switch statements and

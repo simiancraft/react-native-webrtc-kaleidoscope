@@ -23,8 +23,14 @@
 #version 300 es
 precision highp float;
 
-uniform float uTime;        // seconds, monotonically increasing; range [0, inf)
-uniform vec2 uResolution;   // framebuffer size in pixels; both components > 0
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
+uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = untinted
+uniform float uBrightness;    // final glow multiplier; 1.0 = stock
+uniform float uSpeed;         // drift + rotation rate; 1.0 = stock, 0 freezes
+uniform float uTwinkleSpeed;  // star color-cycle rate; 1.0 = stock
+uniform float uScale;         // starfield zoom / density; >1 = more, smaller stars
+uniform float uStarGlow;      // star-core size; 1.0 = stock
 
 in highp vec2 vUv;
 out vec4 oColor;
@@ -48,7 +54,7 @@ float Star(vec2 uv, float flaresize, float rotAngle, float randomN) {
   // center, which yields inf/NaN under Metal. max(d, 1e-4) caps the core
   // brightness without visibly changing the look (the concentric
   // smoothstep fade below already clamps it).
-  float starcore = 0.09 / max(d, 1e-4);
+  float starcore = 0.09 * uStarGlow / max(d, 1e-4);
   uv *= Rotate(-2.0 * PI * rotAngle);
   float flareMax = 1.0;
 
@@ -76,7 +82,7 @@ vec3 StarFieldLayer(vec2 uv, float rotAngle) {
   vec2 gv = fract(uv) - 0.5;
   vec2 id = floor(uv);
 
-  float deltaTimeTwinkle = uTime * 0.35;
+  float deltaTimeTwinkle = uTime * 0.35 * uTwinkleSpeed;
 
   // sweep the 8 neighbors plus the home cell so stars are not clipped at
   // cell borders. Constant 3x3 bounds.
@@ -116,7 +122,7 @@ void main() {
   // Normalized pixel coordinates centered at screen middle.
   vec2 uv = (fragCoord - 0.5 * uResolution.xy) / uResolution.y;
 
-  float deltaTime = uTime * 0.01;
+  float deltaTime = uTime * 0.01 * uSpeed;
 
   vec3 col = vec3(0.0);
 
@@ -135,10 +141,11 @@ void main() {
     float layerOffset = i * (3430.0 + fract(i));
     mat2 layerRot = Rotate(rotAngle * i * -10.0);
     uv *= layerRot;
-    vec2 starfieldUv = uv * layerScale + layerOffset;
+    vec2 starfieldUv = uv * layerScale * uScale + layerOffset;
     col += StarFieldLayer(starfieldUv, rotAngle) * layerFader;
   }
 
-  // Opaque procedural background.
+  // Glow + color grade, then opaque procedural background.
+  col *= uBrightness * uColor;
   oColor = vec4(col, 1.0);
 }

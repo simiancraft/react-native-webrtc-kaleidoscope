@@ -11,9 +11,9 @@
 import type { EffectSpec, TransformName } from '../types';
 import { presetToEffectSpec } from './shader-to-spec';
 import type {
+  BookEntry,
   KaleidoscopeBindOptions,
   KaleidoscopeControls,
-  Preset,
   PresetBook,
   TransformInput,
 } from './types';
@@ -62,7 +62,7 @@ export const createControls = <P extends PresetBook>(
 
   return {
     kaleidoscope: (cmd: keyof P | null, opts?: Record<string, unknown>) => {
-      art = cmd == null ? null : presetToEffectSpec(presets[cmd] as Preset, opts, String(cmd));
+      art = cmd == null ? null : presetToEffectSpec(presets[cmd] as BookEntry, opts, String(cmd));
       apply();
     },
     transform: (t) => {

@@ -13,8 +13,11 @@ import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type { PresetBook, ShaderName } from '../../kaleidoscope/types';
 
-/** A preset's shader family; the grouping (tab) axis. */
-export type Family = ShaderName;
+/**
+ * A book entry's family; the grouping (tab) axis. A single-shader preset's
+ * family is its shader; a composed scene's family is `'scene'` (its own tab).
+ */
+export type Family = ShaderName | 'scene';
 
 /**
  * A preset flattened for display. `id` is the book key the picker emits and the

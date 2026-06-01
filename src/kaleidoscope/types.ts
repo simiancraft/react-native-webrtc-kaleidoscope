@@ -14,7 +14,7 @@
 // normalized 0..1 where practical; ranges are documented in JSDoc as hints for
 // IntelliSense and tooling, not enforced at runtime (validation is userland).
 
-import type { BackgroundImageSpec, RGB } from '../types';
+import type { BackgroundImageSpec, LayerSpec, RGB } from '../types';
 
 /**
  * The art shader catalog and each shader's option type. A book preset picks one
@@ -52,7 +52,20 @@ export type Preset = {
   [S in ShaderName]: { readonly shader: S; readonly options: ShaderOptionsMap[S] };
 }[ShaderName];
 
-export type PresetBook = Readonly<Record<string, Preset>>;
+/**
+ * A composed scene: an ordered painter's stack of layers under one book name,
+ * which gets its own family/tab in the picker. `kaleidoscope(sceneId)` runs the
+ * whole stack as one effect (the layered compositor), distinct from a Preset.
+ */
+export type Scene = {
+  readonly shader: 'scene';
+  readonly layers: ReadonlyArray<LayerSpec>;
+};
+
+/** A book entry is a single-shader Preset or a multi-layer Scene. */
+export type BookEntry = Preset | Scene;
+
+export type PresetBook = Readonly<Record<string, BookEntry>>;
 
 /**
  * Absolute, stateless geometric transform. Every call is the full desired state
@@ -88,7 +101,16 @@ export type KaleidoscopeBindOptions<P extends PresetBook> = {
 
 /** The art verb: set a preset by name (with optional option override), or clear. */
 interface KaleidoscopeCommand<P extends PresetBook> {
-  <C extends keyof P>(cmd: C, opts?: Partial<ShaderOptionsMap[P[C]['shader']]>): void;
+  <C extends keyof P>(
+    cmd: C,
+    // A single-shader Preset takes an optional options override; a Scene carries
+    // its layers in the book, so it takes no command-time options.
+    ...opts: P[C] extends { readonly shader: infer S }
+      ? S extends ShaderName
+        ? [opts?: Partial<ShaderOptionsMap[S]>]
+        : []
+      : []
+  ): void;
   (cmd: null): void;
 }
 

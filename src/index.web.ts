@@ -18,6 +18,7 @@ import type {
 import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import { makeBackgroundImage } from './web/effects/background-image';
 import { blur } from './web/effects/blur';
+import { makeScene } from './web/effects/scene';
 import { makeShaderEffect } from './web/effects/shader-effect';
 import { makeTransform } from './web/effects/transform';
 import {
@@ -45,6 +46,26 @@ export type {
   TransformInput,
 } from './kaleidoscope/types';
 export type {
+  AnamorphicLensFlareUniforms,
+  CloudsUniforms,
+  FirefliesUniforms,
+  GodraysUniforms,
+  NebulaUniforms,
+  PlasmaUniforms,
+  SimianlightsUniforms,
+  UniformControl,
+} from './shaders';
+export {
+  ANAMORPHIC_LENSFLARE_CONTROLS,
+  CLOUDS_CONTROLS,
+  FIREFLIES_CONTROLS,
+  GODRAYS_CONTROLS,
+  LAYER_CONTROLS,
+  NEBULA_CONTROLS,
+  PLASMA_CONTROLS,
+  SIMIANLIGHTS_CONTROLS,
+} from './shaders';
+export type {
   ApplyVideoEffects,
   BackgroundImageSpec,
   BlurSpec,
@@ -56,6 +77,9 @@ export type {
   TransformName,
   TransformSpec,
 } from './types';
+// Live layer-uniform tuning channel (web) + the clouds control descriptor the
+// demo generates tuning controls from.
+export { clearLayerUniforms, setLayerUniforms } from './web/effects/scene';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
   switch (spec.name) {
@@ -83,6 +107,10 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
       if (!src) throw new Error(`kaleidoscope: unknown shader '${spec.shader}'`);
       return makeShaderEffect(src, spec.uniforms);
     }
+    case 'scene':
+      // A composed scene: the layer stack runs as a single compositor stage
+      // (painter's order, per-layer blend), not a serial chain of replace-stages.
+      return makeScene(spec.layers);
   }
 };
 
