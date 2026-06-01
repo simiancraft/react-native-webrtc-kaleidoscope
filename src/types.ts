@@ -107,6 +107,8 @@ export type LayerTarget = 'background' | 'subject';
 export type LayerShaderOptions = {
   readonly image: { readonly source: string; readonly id?: string };
   readonly direct: Record<never, never>;
+  /** Camera-sampling separable gaussian; `sigma` is its softness. */
+  readonly blur: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
   readonly godrays: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
   readonly clouds: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
   readonly fireflies: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };

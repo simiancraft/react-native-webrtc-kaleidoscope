@@ -4,6 +4,7 @@
 // reads to show controls for whatever tunable layers the active scene contains.
 
 import { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare';
+import { BLUR_CONTROLS } from './blur';
 import { CLOUDS_CONTROLS } from './clouds';
 import { CORPORATE_BLOBS_CONTROLS } from './corporate-blobs';
 import { FIREFLIES_CONTROLS } from './fireflies';
@@ -16,6 +17,8 @@ import type { UniformControl } from './types';
 
 export type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare';
 export { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare';
+export type { BlurUniforms } from './blur';
+export { BLUR_CONTROLS } from './blur';
 export type { CloudsUniforms } from './clouds';
 export { CLOUDS_CONTROLS } from './clouds';
 export type { CorporateBlobsUniforms } from './corporate-blobs';
@@ -40,6 +43,7 @@ export { defaultUniforms, type UniformControl } from './types';
  * up here. `image`/`direct` have no tunable uniforms, so they're absent.
  */
 export const LAYER_CONTROLS: Readonly<Record<string, readonly UniformControl[]>> = {
+  blur: BLUR_CONTROLS,
   clouds: CLOUDS_CONTROLS,
   godrays: GODRAYS_CONTROLS,
   fireflies: FIREFLIES_CONTROLS,

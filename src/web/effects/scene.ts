@@ -3,15 +3,21 @@
 // This is the LAYERED path (distinct from the serial single-effect chain in
 // index.web.ts). A scene is one stage: layer 0 is the opaque base, later layers
 // blend over it in array order. Each layer is `{ shader, target?, blend? }`:
-//   - shader 'image'  : replace the target with a still texture (cover-fit).
-//   - shader 'direct' : passthrough. On target 'subject' that is the masked
-//     camera person; on 'background' it is a no-op.
+//   - shader 'image'  : a still texture (cover-fit), premultiplied.
+//   - shader 'direct' : passthrough of its channel. On 'subject' that is the
+//     masked camera person; on 'background' it is the raw camera fullscreen.
+//   - shader 'blur'   : a camera-sampling separable gaussian (its `sigma` uniform).
 //   - a generative shader (e.g. 'godrays') : render its frag with `uniforms`.
-//   - target defaults to 'background'; 'subject' stencils to the segmented person.
+//   - target defaults to 'background' (fullscreen); 'subject' stencils to the mask.
 //
-// A layer that targets the subject (or a 'direct' subject layer) brings in
-// segmentation; a scene with none ignores the camera (pure generated background).
-// The mask edge is the shared mask() tuning, so the demo sliders drive scenes.
+// Two pixel sources: camera-sampling layers ('direct', 'blur') read the live
+// frame; content-generating layers ('image', generative) make their own pixels.
+// `target` decides the stencil for either: a 'background' layer draws fullscreen;
+// a 'subject' layer is multiplied by the mask alpha so it shows only over the
+// segmented person. Direct/subject takes a one-pass fast path (cam x mask); every
+// other subject layer renders to a scratch texture and a masked-composite pass
+// stencils it. The mask edge is the shared mask() tuning, so the demo sliders
+// drive scenes.
 
 import type { LayerSpec } from '../../types';
 import type { FrameTransform } from '../insertable-streams';
@@ -20,6 +26,8 @@ import { PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 import { LAYER_SHADER_SOURCES } from './layer-shaders';
 
+// Cover-fit blit: sample a texture (premultiplied) with a center-crop UV scale.
+// Used for image layers and to draw a finished scratch (cover scale 1,1) to output.
 const BLIT_FRAG_SRC = `#version 300 es
 precision highp float;
 uniform sampler2D uTex;
@@ -29,14 +37,23 @@ out vec4 oColor;
 void main() {
   vec2 uv = (vUv - 0.5) * uCoverScale + 0.5;
   vec4 c = texture(uTex, uv);
-  // Premultiply so a straight-alpha image (transparent sky/opening) composites
-  // correctly with the "over" blend: transparent regions show the stack beneath.
   oColor = vec4(c.rgb * c.a, c.a);
 }
 `;
 
-// Subject: the masked camera person, output PREMULTIPLIED (rgb already scaled by
-// the mask alpha) so a normal "over" blend composites the person onto the stack.
+// Raw camera fullscreen (direct/background), opaque.
+const CAMERA_FRAG_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uCamera;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  oColor = vec4(texture(uCamera, vUv).rgb, 1.0);
+}
+`;
+
+// Direct/subject fast path: the masked camera person, output PREMULTIPLIED so a
+// normal "over" blend composites the person onto the stack.
 const SUBJECT_FRAG_SRC = `#version 300 es
 precision highp float;
 uniform sampler2D uCamera;
@@ -52,6 +69,55 @@ void main() {
   float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
   float a = clamp(smoothstep(uMaskLo, uMaskHi, raw), 0.0, 1.0);
   oColor = vec4(cam * a, a);
+}
+`;
+
+// Separable gaussian, 9-tap (offsets -4..4), sigma-weighted. One pass per
+// direction (uDir is the texel step on the active axis). Samples the camera or a
+// half-blurred scratch; output keeps the source alpha (camera is opaque).
+const BLUR_FRAG_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uDir;
+uniform float uSigma;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  float s2 = 2.0 * uSigma * uSigma;
+  float w[5];
+  float sum = 0.0;
+  for (int i = 0; i < 5; i++) {
+    w[i] = exp(-(float(i) * float(i)) / s2);
+    sum += (i == 0) ? w[i] : 2.0 * w[i];
+  }
+  vec4 acc = texture(uTex, vUv) * (w[0] / sum);
+  for (int i = 1; i < 5; i++) {
+    vec2 off = uDir * float(i);
+    acc += texture(uTex, vUv + off) * (w[i] / sum);
+    acc += texture(uTex, vUv - off) * (w[i] / sum);
+  }
+  oColor = acc;
+}
+`;
+
+// Masked-composite: stencil a rendered layer (in uTex, treated as premultiplied)
+// to the subject by multiplying through the mask alpha. Keeps the result
+// premultiplied so the caller's "over"/"additive" blend composites it correctly.
+const MASKED_FRAG_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform sampler2D uMask;
+uniform vec2 uMaskUvScale;
+uniform vec2 uMaskUvOffset;
+uniform float uMaskLo;
+uniform float uMaskHi;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec4 c = texture(uTex, vUv);
+  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
+  float a = clamp(smoothstep(uMaskLo, uMaskHi, raw), 0.0, 1.0);
+  oColor = c * a;
 }
 `;
 
@@ -115,6 +181,22 @@ const createTexture = (gl: WebGL2RenderingContext): WebGLTexture => {
   return tex;
 };
 
+type Fbo = { tex: WebGLTexture; fbo: WebGLFramebuffer };
+
+// A render target sized to the frame: an RGBA texture with a framebuffer bound to
+// it, for the blur ping-pong and the subject-stencil scratch.
+const createFbo = (gl: WebGL2RenderingContext, width: number, height: number): Fbo => {
+  const tex = createTexture(gl);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  const fbo = gl.createFramebuffer();
+  if (!fbo) throw new Error('kaleidoscope: gl.createFramebuffer returned null');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex, fbo };
+};
+
 const uploadTexture = (
   gl: WebGL2RenderingContext,
   tex: WebGLTexture,
@@ -170,7 +252,13 @@ type ShaderLayerGpu = {
   uniforms: Map<string, WebGLUniformLocation | null>;
 };
 
-type SubjectGpu = {
+type CameraGpu = {
+  prog: WebGLProgram;
+  uCamera: WebGLUniformLocation | null;
+  tex: WebGLTexture;
+};
+
+type DirectSubjectGpu = {
   prog: WebGLProgram;
   uCamera: WebGLUniformLocation | null;
   uMask: WebGLUniformLocation | null;
@@ -178,8 +266,23 @@ type SubjectGpu = {
   uMaskUvOffset: WebGLUniformLocation | null;
   uMaskLo: WebGLUniformLocation | null;
   uMaskHi: WebGLUniformLocation | null;
-  cameraTex: WebGLTexture;
-  maskTex: WebGLTexture;
+};
+
+type BlurGpu = {
+  prog: WebGLProgram;
+  uTex: WebGLUniformLocation | null;
+  uDir: WebGLUniformLocation | null;
+  uSigma: WebGLUniformLocation | null;
+};
+
+type MaskedGpu = {
+  prog: WebGLProgram;
+  uTex: WebGLUniformLocation | null;
+  uMask: WebGLUniformLocation | null;
+  uMaskUvScale: WebGLUniformLocation | null;
+  uMaskUvOffset: WebGLUniformLocation | null;
+  uMaskLo: WebGLUniformLocation | null;
+  uMaskHi: WebGLUniformLocation | null;
 };
 
 type GpuState = {
@@ -194,7 +297,22 @@ type GpuState = {
   };
   imageTextures: Map<string, { tex: WebGLTexture; width: number; height: number }>;
   shaderPrograms: Map<string, ShaderLayerGpu>;
-  subject: SubjectGpu | null;
+  // Camera-sampling support: staged camera + its passthrough program. Present
+  // when any 'direct' or 'blur' layer is in the stack.
+  camera: CameraGpu | null;
+  // The segmentation mask texture. Present when any layer targets the subject.
+  maskTex: WebGLTexture | null;
+  // direct/subject one-pass fast path (cam x mask).
+  directSubject: DirectSubjectGpu | null;
+  // Separable blur program. Present when any 'blur' layer is in the stack.
+  blur: BlurGpu | null;
+  // Masked-composite (stencil any rendered layer to the subject). Present when a
+  // non-direct subject layer is in the stack.
+  masked: MaskedGpu | null;
+  // Scratch render targets: scratchA holds a layer's rendered content (and the
+  // blur's horizontal pass); scratchB holds the blur's vertical pass.
+  scratchA: Fbo | null;
+  scratchB: Fbo | null;
   // Identity of the layer set this state was built for. Switching scenes at the
   // same resolution must rebuild (different shaders/targets, different programs).
   layersSig: string;
@@ -206,14 +324,23 @@ const layersSignature = (layers: ReadonlyArray<LayerSpec>): string =>
   layers.map((l) => `${l.shader}:${l.target ?? 'background'}`).join('|');
 
 const disposeState = (s: GpuState): void => {
-  const { gl, blit, shaderPrograms, imageTextures, subject } = s;
-  gl.deleteProgram(blit.prog);
-  for (const p of shaderPrograms.values()) gl.deleteProgram(p.prog);
-  for (const t of imageTextures.values()) gl.deleteTexture(t.tex);
-  if (subject) {
-    gl.deleteProgram(subject.prog);
-    gl.deleteTexture(subject.cameraTex);
-    gl.deleteTexture(subject.maskTex);
+  const { gl } = s;
+  gl.deleteProgram(s.blit.prog);
+  for (const p of s.shaderPrograms.values()) gl.deleteProgram(p.prog);
+  for (const t of s.imageTextures.values()) gl.deleteTexture(t.tex);
+  if (s.camera) {
+    gl.deleteProgram(s.camera.prog);
+    gl.deleteTexture(s.camera.tex);
+  }
+  if (s.maskTex) gl.deleteTexture(s.maskTex);
+  if (s.directSubject) gl.deleteProgram(s.directSubject.prog);
+  if (s.blur) gl.deleteProgram(s.blur.prog);
+  if (s.masked) gl.deleteProgram(s.masked.prog);
+  for (const f of [s.scratchA, s.scratchB]) {
+    if (f) {
+      gl.deleteFramebuffer(f.fbo);
+      gl.deleteTexture(f.tex);
+    }
   }
 };
 
@@ -231,6 +358,8 @@ const ensureInputCanvas = (width: number, height: number): OffscreenCanvasRender
   return inputCtx2D as OffscreenCanvasRenderingContext2D;
 };
 
+const isCameraSampler = (shader: string): boolean => shader === 'direct' || shader === 'blur';
+
 const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerSpec>): GpuState => {
   const sig = layersSignature(layers);
   if (state && state.width === width && state.height === height && state.layersSig === sig) {
@@ -244,11 +373,20 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
   const gl = canvas.getContext('webgl2');
   if (!gl) throw new Error('kaleidoscope: WebGL2 not available; scenes require a WebGL2 browser');
 
+  const needsCamera = layers.some((l) => isCameraSampler(l.shader));
+  const needsMask = layers.some((l) => l.target === 'subject');
+  const hasDirectSubject = layers.some((l) => l.shader === 'direct' && l.target === 'subject');
+  const hasGenericSubject = layers.some((l) => l.shader !== 'direct' && l.target === 'subject');
+  const hasBlur = layers.some((l) => l.shader === 'blur');
+
   const blitProg = linkProgram(gl, PASSTHROUGH_VERT_SRC, BLIT_FRAG_SRC);
+
   const shaderPrograms = new Map<string, ShaderLayerGpu>();
   for (const layer of layers) {
-    // Only generative layers carry uniforms; 'image' and 'direct' do not.
-    if (!('uniforms' in layer) || shaderPrograms.has(layer.shader)) continue;
+    // Generative layers only: 'image'/'direct' carry no uniforms, and 'blur' has
+    // a sigma uniform but is not a generative frag (it runs the blur program).
+    if (!(layer.shader in LAYER_SHADER_SOURCES) || shaderPrograms.has(layer.shader)) continue;
+    if (!('uniforms' in layer)) continue;
     const src = LAYER_SHADER_SOURCES[layer.shader];
     if (!src) throw new Error(`kaleidoscope: unknown scene layer shader '${layer.shader}'`);
     const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, src);
@@ -264,10 +402,18 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
     });
   }
 
-  let subject: SubjectGpu | null = null;
-  if (layers.some((l) => l.target === 'subject')) {
+  let camera: CameraGpu | null = null;
+  if (needsCamera) {
+    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, CAMERA_FRAG_SRC);
+    camera = { prog, uCamera: gl.getUniformLocation(prog, 'uCamera'), tex: createTexture(gl) };
+  }
+
+  const maskTex = needsMask ? createTexture(gl) : null;
+
+  let directSubject: DirectSubjectGpu | null = null;
+  if (hasDirectSubject) {
     const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, SUBJECT_FRAG_SRC);
-    subject = {
+    directSubject = {
       prog,
       uCamera: gl.getUniformLocation(prog, 'uCamera'),
       uMask: gl.getUniformLocation(prog, 'uMask'),
@@ -275,10 +421,38 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
       uMaskUvOffset: gl.getUniformLocation(prog, 'uMaskUvOffset'),
       uMaskLo: gl.getUniformLocation(prog, 'uMaskLo'),
       uMaskHi: gl.getUniformLocation(prog, 'uMaskHi'),
-      cameraTex: createTexture(gl),
-      maskTex: createTexture(gl),
     };
   }
+
+  let blur: BlurGpu | null = null;
+  if (hasBlur) {
+    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, BLUR_FRAG_SRC);
+    blur = {
+      prog,
+      uTex: gl.getUniformLocation(prog, 'uTex'),
+      uDir: gl.getUniformLocation(prog, 'uDir'),
+      uSigma: gl.getUniformLocation(prog, 'uSigma'),
+    };
+  }
+
+  let masked: MaskedGpu | null = null;
+  if (hasGenericSubject) {
+    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, MASKED_FRAG_SRC);
+    masked = {
+      prog,
+      uTex: gl.getUniformLocation(prog, 'uTex'),
+      uMask: gl.getUniformLocation(prog, 'uMask'),
+      uMaskUvScale: gl.getUniformLocation(prog, 'uMaskUvScale'),
+      uMaskUvOffset: gl.getUniformLocation(prog, 'uMaskUvOffset'),
+      uMaskLo: gl.getUniformLocation(prog, 'uMaskLo'),
+      uMaskHi: gl.getUniformLocation(prog, 'uMaskHi'),
+    };
+  }
+
+  // scratchA: any subject layer that renders content, or the blur horizontal
+  // pass. scratchB: the blur vertical pass result.
+  const scratchA = hasGenericSubject || hasBlur ? createFbo(gl, width, height) : null;
+  const scratchB = hasBlur ? createFbo(gl, width, height) : null;
 
   state = {
     gl,
@@ -292,7 +466,13 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
     },
     imageTextures: new Map(),
     shaderPrograms,
-    subject,
+    camera,
+    maskTex,
+    directSubject,
+    blur,
+    masked,
+    scratchA,
+    scratchB,
     layersSig: sig,
   };
   return state;
@@ -323,11 +503,17 @@ export const clearLayerUniforms = (shader: string): void => {
   delete layerUniformOverrides[shader];
 };
 
+const mergedUniforms = (layer: Extract<LayerSpec, { uniforms: UniformMap }>): UniformMap => {
+  const override = layerUniformOverrides[layer.shader];
+  return override ? { ...layer.uniforms, ...override } : layer.uniforms;
+};
+
 export const makeScene = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
   const imageSources = layers.filter(
     (l): l is Extract<LayerSpec, { shader: 'image' }> => l.shader === 'image',
   );
   const needsSegmentation = layers.some((l) => l.target === 'subject');
+  const needsCamera = layers.some((l) => isCameraSampler(l.shader));
 
   return async (frame) => {
     const w = frame.displayWidth;
@@ -352,51 +538,93 @@ export const makeScene = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
       imageTextures.set(src, { tex, width: img.width, height: img.height });
     }
 
-    // Subject: stage the camera frame, kick segmentation, upload camera + mask.
+    // Stage the camera frame: needed for any camera-sampling layer and as the
+    // segmenter input. Upload to the shared camera texture; kick segmentation and
+    // upload the mask when a subject layer is present.
     let subjectReady = false;
-    if (needsSegmentation && s.subject) {
+    if (needsCamera || needsSegmentation) {
       const inputCtx = ensureInputCanvas(w, h);
       inputCtx.drawImage(frame, 0, 0, w, h);
       const inputSource = inputCanvas2D as unknown as CanvasImageSource;
-      requestMaskIfIdle(inputSource);
-      const results = getLatestMask();
-      if (results) {
-        uploadTexture(gl, s.subject.cameraTex, inputSource as unknown as TexImageSource, true);
-        uploadTexture(
-          gl,
-          s.subject.maskTex,
-          results.segmentationMask as unknown as TexImageSource,
-          false,
-        );
-        subjectReady = true;
+      if (needsCamera && s.camera) {
+        uploadTexture(gl, s.camera.tex, inputSource as unknown as TexImageSource, true);
+      }
+      if (needsSegmentation && s.maskTex) {
+        requestMaskIfIdle(inputSource);
+        const results = getLatestMask();
+        if (results) {
+          uploadTexture(
+            gl,
+            s.maskTex,
+            results.segmentationMask as unknown as TexImageSource,
+            false,
+          );
+          subjectReady = true;
+        }
       }
     }
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, w, h);
-    gl.disable(gl.DEPTH_TEST);
     const now = performance.now() / 1000;
+    const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
 
-    for (let i = 0; i < layers.length; i++) {
-      const layer = layers[i];
-      if (!layer) continue;
-      const target = layer.target ?? 'background';
-      const isBase = i === 0;
-      // Base layer is opaque; later layers blend by their mode.
-      if (isBase || layer.blend == null || layer.blend === 'normal') {
-        if (isBase) gl.disable(gl.BLEND);
-        else {
-          gl.enable(gl.BLEND);
-          gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied "over"
-        }
-      } else {
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.ONE, gl.ONE); // premultiplied additive
+    // Bind a mask sampler on texture unit 1 for the subject programs (V-flipped in
+    // the sampler, matching the single-effect composite path).
+    const bindMask = (
+      uMask: WebGLUniformLocation | null,
+      uScale: WebGLUniformLocation | null,
+      uOffset: WebGLUniformLocation | null,
+      uLo: WebGLUniformLocation | null,
+      uHi: WebGLUniformLocation | null,
+    ): void => {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, s.maskTex);
+      gl.uniform1i(uMask, 1);
+      gl.uniform2f(uScale, 1, -1);
+      gl.uniform2f(uOffset, 0, 1);
+      gl.uniform1f(uLo, maskLo);
+      gl.uniform1f(uHi, maskHi);
+    };
+
+    const drawQuad = (): void => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Render a layer's content into scratchA (blend off, cleared), returning the
+    // texture that holds it. Blur is special: it runs the separable passes
+    // (camera -> scratchA -> scratchB) and returns scratchB.
+    const renderContentToScratch = (layer: LayerSpec): WebGLTexture | null => {
+      gl.disable(gl.BLEND);
+      if (layer.shader === 'blur') {
+        if (!s.blur || !s.camera || !s.scratchA || !s.scratchB) return null;
+        const sigmaVal = layer.uniforms.sigma;
+        const sigma = typeof sigmaVal === 'number' ? sigmaVal : 4;
+        // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
+        gl.useProgram(s.blur.prog);
+        gl.uniform1f(s.blur.uSigma, sigma);
+        // Horizontal pass: camera -> scratchA.
+        gl.bindFramebuffer(gl.FRAMEBUFFER, s.scratchA.fbo);
+        gl.viewport(0, 0, w, h);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, s.camera.tex);
+        gl.uniform1i(s.blur.uTex, 0);
+        gl.uniform2f(s.blur.uDir, 1 / w, 0);
+        drawQuad();
+        // Vertical pass: scratchA -> scratchB.
+        gl.bindFramebuffer(gl.FRAMEBUFFER, s.scratchB.fbo);
+        gl.viewport(0, 0, w, h);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, s.scratchA.tex);
+        gl.uniform1i(s.blur.uTex, 0);
+        gl.uniform2f(s.blur.uDir, 0, 1 / h);
+        drawQuad();
+        return s.scratchB.tex;
       }
-
+      if (!s.scratchA) return null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, s.scratchA.fbo);
+      gl.viewport(0, 0, w, h);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
       if (layer.shader === 'image') {
         const img = imageTextures.get(layer.source);
-        if (!img) continue;
+        if (!img) return null;
         // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
         gl.useProgram(blit.prog);
         gl.activeTexture(gl.TEXTURE0);
@@ -404,44 +632,135 @@ export const makeScene = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
         gl.uniform1i(blit.uTex, 0);
         const [sx, sy] = coverScale(w, h, img.width, img.height);
         gl.uniform2f(blit.uCoverScale, sx, sy);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      } else if (layer.shader === 'direct') {
-        // Passthrough. On the subject that is the masked person; on the
-        // background it is a no-op (nothing to pass through but the stack itself).
-        if (target !== 'subject' || !s.subject || !subjectReady) continue;
+        drawQuad();
+        return s.scratchA.tex;
+      }
+      // Generative.
+      const prog = shaderPrograms.get(layer.shader);
+      if (!prog || !('uniforms' in layer)) return null;
+      // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
+      gl.useProgram(prog.prog);
+      gl.uniform1f(prog.uTime, now);
+      gl.uniform2f(prog.uResolution, w, h);
+      for (const [name, value] of Object.entries(mergedUniforms(layer))) {
+        bindUniform(gl, prog.uniforms.get(name) ?? null, value);
+      }
+      drawQuad();
+      return s.scratchA.tex;
+    };
+
+    gl.disable(gl.DEPTH_TEST);
+
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (!layer) continue;
+      const target = layer.target ?? 'background';
+      const isBase = i === 0;
+
+      const setOutputBlend = (): void => {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, w, h);
+        if (isBase) {
+          gl.disable(gl.BLEND);
+        } else if (layer.blend === 'additive') {
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.ONE, gl.ONE); // premultiplied additive
+        } else {
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied "over"
+        }
+      };
+
+      if (target === 'subject') {
+        // Subject layers need the mask; skip until it warms up.
+        if (!s.maskTex || !subjectReady) continue;
+        if (layer.shader === 'direct') {
+          // One-pass fast path: cam x mask.
+          if (!s.directSubject || !s.camera) continue;
+          setOutputBlend();
+          // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
+          gl.useProgram(s.directSubject.prog);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, s.camera.tex);
+          gl.uniform1i(s.directSubject.uCamera, 0);
+          bindMask(
+            s.directSubject.uMask,
+            s.directSubject.uMaskUvScale,
+            s.directSubject.uMaskUvOffset,
+            s.directSubject.uMaskLo,
+            s.directSubject.uMaskHi,
+          );
+          drawQuad();
+        } else {
+          // Render the layer content to a scratch, then stencil it through the mask.
+          if (!s.masked) continue;
+          const contentTex = renderContentToScratch(layer);
+          if (!contentTex) continue;
+          setOutputBlend();
+          // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
+          gl.useProgram(s.masked.prog);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, contentTex);
+          gl.uniform1i(s.masked.uTex, 0);
+          bindMask(
+            s.masked.uMask,
+            s.masked.uMaskUvScale,
+            s.masked.uMaskUvOffset,
+            s.masked.uMaskLo,
+            s.masked.uMaskHi,
+          );
+          drawQuad();
+        }
+        continue;
+      }
+
+      // Background layers draw fullscreen.
+      if (layer.shader === 'image') {
+        const img = imageTextures.get(layer.source);
+        if (!img) continue;
+        setOutputBlend();
         // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
-        gl.useProgram(s.subject.prog);
+        gl.useProgram(blit.prog);
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, s.subject.cameraTex);
-        gl.uniform1i(s.subject.uCamera, 0);
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, s.subject.maskTex);
-        gl.uniform1i(s.subject.uMask, 1);
-        // Web uploads the mask un-flipped and V-flips in the sampler (matches the
-        // single-effect composite path).
-        gl.uniform2f(s.subject.uMaskUvScale, 1, -1);
-        gl.uniform2f(s.subject.uMaskUvOffset, 0, 1);
-        const [maskLo, maskHi] = maskSmoothstepRange(tuning.maskHardness, tuning.maskThreshold);
-        gl.uniform1f(s.subject.uMaskLo, maskLo);
-        gl.uniform1f(s.subject.uMaskHi, maskHi);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.bindTexture(gl.TEXTURE_2D, img.tex);
+        gl.uniform1i(blit.uTex, 0);
+        const [sx, sy] = coverScale(w, h, img.width, img.height);
+        gl.uniform2f(blit.uCoverScale, sx, sy);
+        drawQuad();
+      } else if (layer.shader === 'direct') {
+        // Raw camera fullscreen.
+        if (!s.camera) continue;
+        setOutputBlend();
+        // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
+        gl.useProgram(s.camera.prog);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, s.camera.tex);
+        gl.uniform1i(s.camera.uCamera, 0);
+        drawQuad();
+      } else if (layer.shader === 'blur') {
+        const contentTex = renderContentToScratch(layer);
+        if (!contentTex) continue;
+        setOutputBlend();
+        // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
+        gl.useProgram(blit.prog);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, contentTex);
+        gl.uniform1i(blit.uTex, 0);
+        gl.uniform2f(blit.uCoverScale, 1, 1);
+        drawQuad();
       } else {
-        // A generative shader. Stenciling one to the subject (brightness,
-        // redaction) is a later step; for now generative layers run on the
-        // background.
-        if (target === 'subject') continue;
+        // Generative background.
         const prog = shaderPrograms.get(layer.shader);
-        if (!prog) continue;
+        if (!prog || !('uniforms' in layer)) continue;
+        setOutputBlend();
         // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
         gl.useProgram(prog.prog);
         gl.uniform1f(prog.uTime, now);
         gl.uniform2f(prog.uResolution, w, h);
-        const override = layerUniformOverrides[layer.shader];
-        const merged = override ? { ...layer.uniforms, ...override } : layer.uniforms;
-        for (const [name, value] of Object.entries(merged)) {
+        for (const [name, value] of Object.entries(mergedUniforms(layer))) {
           bindUniform(gl, prog.uniforms.get(name) ?? null, value);
         }
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        drawQuad();
       }
     }
 
