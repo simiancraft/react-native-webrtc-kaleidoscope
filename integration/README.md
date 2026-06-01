@@ -36,12 +36,30 @@ person, or the mask has nothing to find.
 A recent Android emulator (>= 36.6.4) can feed a still image straight into the camera:
 
 ```
--camera-back imagefile:<abs-path-to>/integration/fixtures/person.png
+-camera-back imagefile:<abs-path-to>/integration/fixtures/person-framed.png
 ```
 
-`fixtures/person.png` is a provided, well-framed test subject. A good starting framing is a
-single person, upper body, centered, filling roughly 40% of the frame height on a
-contrasting background; it segments cleanly and leaves obvious background to replace.
+### Framing (load the camera scene correctly)
+
+Feed **`fixtures/person-framed.png`**, not the bare subject. The emulator's
+imagefile-to-sensor path does NOT present the image 1:1; it crops and shifts it, so a
+subject placed dead-center in the source lands off to the right in the app preview with
+the head clipped. Pre-compensate in the source image.
+
+The working framing (call it the "great scale"), which lands the subject centered and
+fully in frame:
+
+- **Frame:** 9:16 portrait (e.g. 1080 x 1920).
+- **Subject height:** ~0.42 of the frame height (head-to-feet, not a close-up).
+- **Subject center:** x = **0.25 W**, y = **0.58 H**. The left-quarter x is deliberate;
+  it cancels the sensor-path's rightward shift so the subject reads centered on screen.
+- **Background:** opaque and contrasting with the subject (a light neutral gray works);
+  segmentation needs a clear figure/ground split, and the background is what gets replaced.
+
+`fixtures/person.png` is the bare full-body subject (transparent background) to regenerate
+from. These offsets are emulator/AVD/version specific: feed the image, select no effect to
+see the raw camera preview, screenshot it, and nudge the subject's x-center until it reads
+centered before trusting a run.
 
 Driving the UI by on-screen control labels and taking a screenshot after each makes the
 sweep repeatable and reviewable. Write run output under `snapshots/<platform>/<run>/`,
