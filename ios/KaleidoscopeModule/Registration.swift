@@ -68,6 +68,12 @@ public enum Registration {
 
     registerBackgroundImages()
     registerGenerativeShaders()
+
+    // One scene compositor serves EVERY scene; the active layer stack is data,
+    // delivered out-of-band via setSceneLayers (SceneLayers) and read per frame.
+    // A single registered instance, like the other iOS processors. Mirrors
+    // android/.../Registration.kt registering SceneFactory under "scene".
+    ProcessorProvider.addProcessor(SceneProcessor(), forName: "scene")
   }
 
   // Register one BackgroundImageProcessor per id in the prebuild-written

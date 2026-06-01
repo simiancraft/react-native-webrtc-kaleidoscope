@@ -1,0 +1,136 @@
+// Scene-layer spec side-channel for the iOS scene compositor. Direct port of
+// android/.../SceneLayers.kt.
+//
+// The Expo Module's setSceneLayers(json) JS function writes here; SceneProcessor
+// reads the current layer stack each frame and composites it. This mirrors
+// ShaderUniforms' "deliver spec without re-registering" pattern, but carries the
+// whole ordered layer stack (the scene is one registered effect name, "scene",
+// whose contents JS swaps as the active scene changes).
+//
+// The wire shape is a JSON array of layer objects (see parse()). JS sends it as a
+// String across the Expo bridge; we parse it once at set() time into immutable
+// value-type models the capture thread can read under a cheap lock. set() runs
+// on the JS/Expo thread; get() on the capture thread. An os_unfair_lock around
+// the snapshot reference is the memory barrier (the Swift analogue of Android's
+// @Volatile + immutable List), matching ShaderUniforms / EffectTuning on iOS.
+//
+// A malformed layer is skipped with a log rather than crashing the render thread;
+// an unparseable whole payload leaves the previous scene in place.
+
+import Foundation
+import os.log
+
+/// One parsed scene layer. The `shader` discriminant decides which fields matter.
+/// A value type, so a `SceneLayers.get()` snapshot the capture thread reads is an
+/// immutable copy that a concurrent set() cannot mutate underneath it.
+struct SceneLayer {
+  let shader: String
+  let target: String // "background" | "subject"
+  let blend: String? // "normal" | "additive" | nil (base = opaque)
+  let source: String? // plate id for an `image` layer; nil otherwise
+  let uniforms: [String: [Float]] // generative-layer uniforms, by name
+}
+
+enum SceneLayers {
+  private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "SceneLayers")
+
+  private static var unsafeLock = os_unfair_lock_s()
+  private static var layers: [SceneLayer] = []
+
+  /// The current parsed layer stack; a stable snapshot safe to read on the
+  /// capture thread. Returns a value-type array copy.
+  static func get() -> [SceneLayer] {
+    os_unfair_lock_lock(&unsafeLock)
+    defer { os_unfair_lock_unlock(&unsafeLock) }
+    return layers
+  }
+
+  /// Parse and store the scene layer stack from the JS-supplied JSON string.
+  /// Called on the Expo module thread (JS-driven), not the capture thread.
+  /// Leaves the previous scene in place on a whole-payload parse failure.
+  static func set(_ json: String) {
+    guard let parsed = parse(json) else {
+      os_log("failed to parse scene layers; keeping previous scene",
+             log: log, type: .error)
+      return
+    }
+    os_unfair_lock_lock(&unsafeLock)
+    layers = parsed
+    os_unfair_lock_unlock(&unsafeLock)
+    os_log("scene layers set: %d layer(s) [%{public}@]",
+           log: log, type: .info,
+           parsed.count, parsed.map { $0.shader }.joined(separator: ","))
+  }
+
+  /// Clear the active scene (used when a non-scene effect takes over).
+  static func clear() {
+    os_unfair_lock_lock(&unsafeLock)
+    layers = []
+    os_unfair_lock_unlock(&unsafeLock)
+  }
+
+  // Parse the JSON array into value-type models. Returns nil on a whole-payload
+  // failure (not an array, not valid JSON); a single malformed layer is skipped
+  // with a log, mirroring SceneLayers.kt.
+  private static func parse(_ json: String) -> [SceneLayer]? {
+    guard let data = json.data(using: .utf8) else { return nil }
+    let root: Any
+    do {
+      root = try JSONSerialization.jsonObject(with: data)
+    } catch {
+      return nil
+    }
+    guard let array = root as? [Any] else { return nil }
+    var out = [SceneLayer]()
+    out.reserveCapacity(array.count)
+    for (index, element) in array.enumerated() {
+      guard let obj = element as? [String: Any] else { continue }
+      guard let shader = obj["shader"] as? String, !shader.isEmpty else {
+        os_log("layer %d has no shader; skipping", log: log, type: .info, index)
+        continue
+      }
+      let target = (obj["target"] as? String) ?? "background"
+      let blend = obj["blend"] as? String
+      let source = obj["source"] as? String
+      let uniforms = parseUniforms(obj["uniforms"])
+      out.append(SceneLayer(shader: shader, target: target, blend: blend,
+                            source: source, uniforms: uniforms))
+    }
+    return out
+  }
+
+  // name -> [Float]. A JSON number -> [f]; a JSON array of numbers -> [Float].
+  // A non-numeric or malformed value is skipped with a log (the shader keeps its
+  // MSL default for that name). NSNumber covers JSON's number type across the
+  // Foundation deserializer; bool-typed NSNumbers are accepted as 0/1 (harmless
+  // for a uniform channel). Mirrors SceneLayers.parseUniforms.
+  private static func parseUniforms(_ value: Any?) -> [String: [Float]] {
+    guard let obj = value as? [String: Any] else { return [:] }
+    var out = [String: [Float]]()
+    out.reserveCapacity(obj.count)
+    for (key, raw) in obj {
+      if let floats = normalize(raw) {
+        out[key] = floats
+      } else {
+        os_log("skipping uniform %{public}@: unsupported type", log: log, type: .info, key)
+      }
+    }
+    return out
+  }
+
+  private static func normalize(_ value: Any) -> [Float]? {
+    if let number = value as? NSNumber {
+      return [number.floatValue]
+    }
+    if let array = value as? [Any] {
+      var out = [Float]()
+      out.reserveCapacity(array.count)
+      for element in array {
+        guard let number = element as? NSNumber else { return nil }
+        out.append(number.floatValue)
+      }
+      return out
+    }
+    return nil
+  }
+}

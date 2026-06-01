@@ -501,6 +501,112 @@ function copyIosBackgrounds(projectRoot, platformProjectRoot) {
   );
 }
 
+// Copy each scene `image`-layer plate into the iOS app target's resources and
+// register each in the app target's Copy Bundle Resources build phase, so the
+// WebP ships in the .app and SceneProcessor can resolve it from Bundle.main by
+// the same basename id JS sends. Mirrors copyAndroidScenePlates (Android) and
+// copyIosBackgrounds (the pbxproj-editing pattern); scene plates are a distinct
+// asset family from background-image presets, so they are copied independently.
+//
+// Xcode flattens resource file references into the bundle root, so a plate added
+// here lands as <id>.webp in Bundle.main; SceneProcessor.plateURL resolves it via
+// the flat Bundle.main lookup (it tries a scene-plates/ subdirectory first, which
+// is a harmless miss under this flat layout). No manifest is written: unlike
+// background-image presets, scene plates are discovered by the id in each JS
+// scene `image` layer's `source`, not enumerated at native registration time.
+// Idempotent and non-fatal on error (warn, never throw).
+function copyIosScenePlates(projectRoot, platformProjectRoot) {
+  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
+  let source;
+  try {
+    source = fs.readFileSync(bookPath, 'utf8');
+  } catch {
+    // copyIosBackgrounds already warned about a missing book; stay quiet here.
+    return;
+  }
+  const refs = parseSceneImageRefs(source);
+  if (refs.length === 0) return;
+
+  let IOSConfig;
+  try {
+    // eslint-disable-next-line global-require
+    ({ IOSConfig } = require(require.resolve('@expo/config-plugins', { paths: [projectRoot] })));
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not load @expo/config-plugins to register iOS scene plates; scene image layers may be missing at runtime. ${String(error)}`,
+    );
+    return;
+  }
+  const { XcodeUtils } = IOSConfig;
+
+  let projectName;
+  try {
+    const xcodeprojDir = fs
+      .readdirSync(platformProjectRoot)
+      .find((entry) => entry.endsWith('.xcodeproj'));
+    if (!xcodeprojDir) {
+      console.warn(
+        '[react-native-webrtc-kaleidoscope] No .xcodeproj under the iOS project root yet; skipping iOS scene-plate registration.',
+      );
+      return;
+    }
+    projectName = xcodeprojDir.replace(/\.xcodeproj$/, '');
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not locate the iOS .xcodeproj; skipping iOS scene-plate registration. ${String(error)}`,
+    );
+    return;
+  }
+
+  const destDir = path.join(platformProjectRoot, projectName);
+  fs.mkdirSync(destDir, { recursive: true });
+
+  const copiedIds = [];
+  for (const { id, specifier } of refs) {
+    const srcPath = resolveAssetPath(specifier, projectRoot);
+    if (!srcPath) {
+      console.warn(
+        `[react-native-webrtc-kaleidoscope] Could not resolve iOS scene plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
+      );
+      continue;
+    }
+    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
+    copiedIds.push(id);
+  }
+  if (copiedIds.length === 0) {
+    console.warn(
+      '[react-native-webrtc-kaleidoscope] No iOS scene plates resolved; skipping pbxproj resource registration.',
+    );
+    return;
+  }
+
+  let project;
+  try {
+    project = XcodeUtils.getPbxproj(projectRoot);
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not read the iOS pbxproj to add scene plates; scene image layers may be missing at runtime. ${String(error)}`,
+    );
+    return;
+  }
+  for (const id of copiedIds) {
+    XcodeUtils.addResourceFileToGroup({
+      filepath: `${projectName}/${id}.webp`,
+      groupName: projectName,
+      isBuildFile: true,
+      project,
+      verbose: false,
+    });
+  }
+  fs.writeFileSync(
+    path.join(platformProjectRoot, `${projectName}.xcodeproj`, 'project.pbxproj'),
+    project.writeSync(),
+  );
+  console.log(
+    `[react-native-webrtc-kaleidoscope] Bundled ${copiedIds.length} scene plate(s) into the iOS app target from ${PRESET_BOOK_FILENAME}.`,
+  );
+}
+
 const withKaleidoscope = (config) => {
   if (!config.mods) {
     config.mods = {};
@@ -630,6 +736,13 @@ const withKaleidoscope = (config) => {
       } catch (error) {
         console.warn(
           `[react-native-webrtc-kaleidoscope] Could not bundle curated backgrounds into the iOS app target; backgrounds may be missing at runtime. ${String(error)}`,
+        );
+      }
+      try {
+        copyIosScenePlates(modRequest.projectRoot, platformProjectRoot);
+      } catch (error) {
+        console.warn(
+          `[react-native-webrtc-kaleidoscope] Could not bundle scene plates into the iOS app target; scene image layers may be missing at runtime. ${String(error)}`,
         );
       }
     }

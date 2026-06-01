@@ -37,10 +37,10 @@ public class KaleidoscopeModule: Module {
 
     // Scene layer-stack channel. Mirrors android/.../KaleidoscopeModule.kt's
     // setSceneLayers: JS sends the active scene's ordered layer stack as a JSON
-    // string. The iOS scene compositor is not built yet, so this is a no-op
-    // placeholder that keeps the JS<->native bridge at parity with Android; it
-    // gets wired to the iOS SceneFactory when that lands.
-    Function("setSceneLayers") { (_: String) in
+    // string; SceneLayers parses it into the snapshot the registered "scene"
+    // SceneProcessor composites each frame.
+    Function("setSceneLayers") { (json: String) in
+      SceneLayers.set(json)
     }
 
     // Resolve a displayable file:// URI for a bundled background by its book id,
