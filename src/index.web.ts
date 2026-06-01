@@ -4,63 +4,71 @@
 // resolution; the `.web.ts` suffix here is just our source convention, not what
 // selects this file at consume time.
 //
-// applyVideoEffects(track, effects) wires an Insertable-Streams pipeline that
-// chains each effect's transform and returns a new MediaStreamTrack carrying
-// the transformed frames. Pass the returned track to a `<video>` element or
-// to `RTCRtpSender.replaceTrack(...)`.
+// Every visual effect is one composite (a layer stack) or one transform. A
+// composite wires an Insertable-Streams stage that runs the whole layer stack
+// through the compositor and returns a new MediaStreamTrack carrying the
+// transformed frames. Pass the returned track to a `<video>` element or to
+// `RTCRtpSender.replaceTrack(...)`.
 
-import { createControls, type Reconcile, type SetMask } from './kaleidoscope/controls';
+import {
+  createControls,
+  type Reconcile,
+  type SetLayerUniforms,
+  type SetMask,
+} from './kaleidoscope/controls';
 import type {
   KaleidoscopeBindOptions,
   KaleidoscopeControls,
   PresetBook,
 } from './kaleidoscope/types';
-import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
-import { makeBackgroundImage } from './web/effects/background-image';
-import { blur } from './web/effects/blur';
-import { makeScene } from './web/effects/scene';
-import { makeShaderEffect } from './web/effects/shader-effect';
+import { type EffectInput, type EffectSpec, toEffectSpec } from './types';
+import { makeScene, setLayerUniforms as setSceneLayerUniforms } from './web/effects/scene';
 import { makeTransform } from './web/effects/transform';
 import {
   applyEffectToTrack,
   type DisposablePipeline,
   type FrameTransform,
 } from './web/insertable-streams';
-import { SHADER_SOURCES } from './web/shaders';
 import { tuning } from './web/tuning';
 
-// The tuning channel (tuning.*) is internal now: blur sigma flows from a blur
-// preset's options via specToTransform, and the mask edge flows from the mask()
-// verb (see bindKaleidoscope). The old global set* exports are gone; effects are
-// driven by kaleidoscope / transform / mask, not loose setters.
+// The tuning channel (tuning.*) is internal: the mask edge flows from the mask()
+// verb (see bindKaleidoscope). Per-layer uniform tuning flows from the
+// kaleidoscope verb's patch path into the scene compositor's live channel. The
+// old global set* exports are gone; effects are driven by kaleidoscope /
+// transform / mask, not loose setters.
 
 export type { BackgroundPresetName } from './backgrounds';
 export type {
+  Composite,
   KaleidoscopeBindOptions,
   KaleidoscopeControls,
+  LayerPatch,
   MaskInput,
   Preset,
   PresetBook,
-  ShaderName,
-  ShaderOptionsMap,
   TransformInput,
 } from './kaleidoscope/types';
 export type {
   AnamorphicLensFlareUniforms,
+  BlurUniforms,
   CloudsUniforms,
   CorporateBlobsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
   LightBeamsAndMotesUniforms,
   NebulaUniforms,
+  PatchableShaderName,
   PlasmaUniforms,
+  ShaderUniformsMap,
   SimianlightsUniforms,
   UniformControl,
 } from './shaders';
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
+  BLUR_CONTROLS,
   CLOUDS_CONTROLS,
   CORPORATE_BLOBS_CONTROLS,
+  defaultUniforms,
   FIREFLIES_CONTROLS,
   GODRAYS_CONTROLS,
   LAYER_CONTROLS,
@@ -70,20 +78,19 @@ export {
   SIMIANLIGHTS_CONTROLS,
 } from './shaders';
 export type {
-  ApplyVideoEffects,
-  BackgroundImageSpec,
-  BlurSpec,
+  BlendMode,
+  CompositeSpec,
   EffectInput,
   EffectName,
   EffectSpec,
+  LayerShaderName,
+  LayerShaderOptions,
+  LayerSpec,
+  LayerTarget,
   RGB,
-  ShaderSpec,
   TransformName,
   TransformSpec,
 } from './types';
-// Live layer-uniform tuning channel (web) + the clouds control descriptor the
-// demo generates tuning controls from.
-export { clearLayerUniforms, setLayerUniforms } from './web/effects/scene';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
   switch (spec.name) {
@@ -92,28 +99,10 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
     case 'rotate-cw':
     case 'rotate-ccw':
       return makeTransform(spec.name);
-    case 'blur':
-      // Route the per-spec sigma into the tuning channel the per-frame blur
-      // transform already reads (mirrors the native facade). Omitted sigma
-      // leaves the current/default value. One blur is ever active, so a
-      // shared value is correct.
-      if (spec.sigma != null) {
-        tuning.setBlurSigma(spec.sigma);
-      }
-      return blur;
-    case 'background-image':
-      return makeBackgroundImage(spec.source);
-    case 'shader': {
-      // Any generative shader: look up its source by name from the codegen
-      // registry and run it through the generic processor with the spec's
-      // uniforms. No per-shader code — adding a shader adds a registry entry.
-      const src = SHADER_SOURCES[spec.shader];
-      if (!src) throw new Error(`kaleidoscope: unknown shader '${spec.shader}'`);
-      return makeShaderEffect(src, spec.uniforms);
-    }
-    case 'scene':
-      // A composed scene: the layer stack runs as a single compositor stage
-      // (painter's order, per-layer blend), not a serial chain of replace-stages.
+    case 'composite':
+      // The layer stack runs as a single compositor stage (painter's order,
+      // per-layer blend), not a serial chain of replace-stages. Blur, image, and
+      // generative layers all live inside it.
       return makeScene(spec.layers);
   }
 };
@@ -157,18 +146,15 @@ export const applyVideoEffectsDisposable = (
   };
 };
 
-export const applyVideoEffects: ApplyVideoEffects = (track, effects) =>
-  applyVideoEffectsDisposable(track, effects).track;
-
 /**
  * Bind a track and a preset book; get the three verbs back
  * (`{ kaleidoscope, transform, mask }`). Presets live in the consumer's
- * project; these verbs drive them. On web each `kaleidoscope`/`transform`
- * command rebuilds the Insertable-Streams pipeline and yields a new output
- * track, so read the live track from `onTrack` (or `controls.track`); the prior
- * pipeline is disposed each command and on `dispose()`. `mask` updates the
- * segmentation edge the running pipeline reads per frame (no rebuild).
- * `applyVideoEffects` remains the lower-level primitive beneath.
+ * project; these verbs drive them. On web each `kaleidoscope` preset switch and
+ * each `transform` command rebuilds the Insertable-Streams pipeline and yields a
+ * new output track, so read the live track from `onTrack` (or `controls.track`);
+ * the prior pipeline is disposed each command and on `dispose()`. A `kaleidoscope`
+ * patch of the active preset and `mask` both update what the running pipeline
+ * reads per frame (no rebuild).
  */
 export const bindKaleidoscope = <P extends PresetBook>(
   track: MediaStreamTrack,
@@ -190,5 +176,10 @@ export const bindKaleidoscope = <P extends PresetBook>(
     tuning.setMaskHardness(hardness);
     tuning.setMaskThreshold(threshold);
   };
-  return createControls(track, options, reconcile, setMask);
+  // Live per-layer uniform channel: a patch of the active preset writes here
+  // (keyed by layer id) and the running compositor merges it each frame.
+  const setLayerUniforms: SetLayerUniforms = (id, uniforms) => {
+    setSceneLayerUniforms(id, uniforms);
+  };
+  return createControls(track, options, reconcile, setMask, setLayerUniforms);
 };

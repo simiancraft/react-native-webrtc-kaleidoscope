@@ -11,10 +11,10 @@ import type { Family, PickerProps, PresetView, RenderOption, RenderTile } from '
 import { BackgroundGrid } from './presets/background-grid';
 import { PresetOptions } from './presets/preset-options';
 
-// The single family rendered as image tiles. Centralized so the two places that
-// switch on it — the source extraction in usePicker and the renderer routing in
-// FamilyBody — can't drift; a future second tile-family changes only this seam.
-const TILE_FAMILY = 'background-image' as const;
+// The category rendered as image tiles. Centralized so the renderer routing in
+// FamilyBody has one source of truth; every other category renders as buttons.
+// (A3 generalizes this to "render tiles when a thumbnail is present".)
+const TILE_FAMILY = 'Backgrounds' as const;
 
 /** The grouping usePicker returns; named so BYO-layout consumers can type it. */
 export interface PickerModel {
@@ -108,13 +108,12 @@ export function usePicker<P extends PresetBook>(
     for (const id of Object.keys(presets)) {
       const preset = presets[id];
       if (!preset) continue;
-      const family = preset.shader;
-      const source = preset.shader === TILE_FAMILY ? preset.options.source : undefined;
+      const family = preset.category;
       const view: PresetView = {
         id,
-        label: labelFor?.(id as keyof P & string) ?? titleCase(id),
+        label: labelFor?.(id as keyof P & string) ?? preset.name,
         family,
-        source: typeof source === 'string' ? source : undefined,
+        source: typeof preset.thumbnail === 'string' ? preset.thumbnail : undefined,
       };
       if (!byFamily.has(family)) {
         fams.push(family);

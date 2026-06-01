@@ -3,15 +3,25 @@
 // from, and the shader's documentation). LAYER_CONTROLS is the registry the demo
 // reads to show controls for whatever tunable layers the active scene contains.
 
+import type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare';
 import { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare';
+import type { BlurUniforms } from './blur';
 import { BLUR_CONTROLS } from './blur';
+import type { CloudsUniforms } from './clouds';
 import { CLOUDS_CONTROLS } from './clouds';
+import type { CorporateBlobsUniforms } from './corporate-blobs';
 import { CORPORATE_BLOBS_CONTROLS } from './corporate-blobs';
+import type { FirefliesUniforms } from './fireflies';
 import { FIREFLIES_CONTROLS } from './fireflies';
+import type { GodraysUniforms } from './godrays';
 import { GODRAYS_CONTROLS } from './godrays';
+import type { LightBeamsAndMotesUniforms } from './light-beams-and-motes';
 import { LIGHT_BEAMS_AND_MOTES_CONTROLS } from './light-beams-and-motes';
+import type { NebulaUniforms } from './nebula';
 import { NEBULA_CONTROLS } from './nebula';
+import type { PlasmaUniforms } from './plasma';
 import { PLASMA_CONTROLS } from './plasma';
+import type { SimianlightsUniforms } from './simianlights';
 import { SIMIANLIGHTS_CONTROLS } from './simianlights';
 import type { UniformControl } from './types';
 
@@ -36,6 +46,28 @@ export { PLASMA_CONTROLS } from './plasma';
 export type { SimianlightsUniforms } from './simianlights';
 export { SIMIANLIGHTS_CONTROLS } from './simianlights';
 export { defaultUniforms, type UniformControl } from './types';
+
+/**
+ * The uniform-bearing layer shaders → their typed uniforms. `image` and `direct`
+ * carry no uniforms, so they are absent. This is the map a `LayerPatch` narrows
+ * over: `{ shader: 'plasma', uniforms }` types `uniforms` as `Partial<PlasmaUniforms>`,
+ * giving authors IntelliSense on a `kaleidoscope(id, patches)` call.
+ */
+export type ShaderUniformsMap = {
+  readonly blur: BlurUniforms;
+  readonly clouds: CloudsUniforms;
+  readonly godrays: GodraysUniforms;
+  readonly fireflies: FirefliesUniforms;
+  readonly plasma: PlasmaUniforms;
+  readonly nebula: NebulaUniforms;
+  readonly simianlights: SimianlightsUniforms;
+  readonly 'anamorphic-lensflare': AnamorphicLensFlareUniforms;
+  readonly 'light-beams-and-motes': LightBeamsAndMotesUniforms;
+  readonly 'corporate-blobs': CorporateBlobsUniforms;
+};
+
+/** A patchable (uniform-bearing) layer shader name. */
+export type PatchableShaderName = keyof ShaderUniformsMap;
 
 /**
  * Tunable layer shaders → their control descriptors. The demo renders one control

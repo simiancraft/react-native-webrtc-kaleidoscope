@@ -37,6 +37,16 @@ uniform float uCenterClear;   // radius around center that repels blobs; stock 0
 uniform float uMotionAmount;  // positional drift magnitude; 1.0 = stock, 0 = still
 uniform float uMotionSpeed;   // drift + morph rate; 1.0 = stock, 0 freezes motion
 uniform float uEdgeSoftness;  // blob edge falloff; stock 0.024
+// Per-blob base colors, multiplied by uColor at output. Defaults (the stock
+// brand palette) live in CORPORATE_BLOBS_CONTROLS.
+uniform vec3 uBlobColor1;     // stock: light blue
+uniform vec3 uBlobColor2;     // stock: dark green
+uniform vec3 uBlobColor3;     // stock: yellow
+uniform vec3 uBlobColor4;     // stock: orange
+uniform vec3 uBlobColor5;     // stock: light green
+uniform vec3 uBlobColor6;     // stock: magenta
+uniform vec3 uBlobColor7;     // stock: brown
+uniform vec3 uBlobColor8;     // stock: dark blue
 
 in highp vec2 vUv;
 out vec4 oColor;
@@ -63,24 +73,15 @@ struct Blob {
     vec3 color;
 };
 
-const vec3 LIGHT_BLUE  = vec3(0.376, 0.647, 0.980);
-const vec3 DARK_GREEN  = vec3(0.063, 0.725, 0.506);
-const vec3 YELLOW      = vec3(0.984, 0.749, 0.141);
-const vec3 ORANGE      = vec3(0.976, 0.451, 0.086);
-const vec3 LIGHT_GREEN = vec3(0.133, 0.773, 0.369);
-const vec3 RED         = vec3(0.851, 0.275, 0.937);
-const vec3 BROWN       = vec3(0.341, 0.325, 0.306);
-const vec3 DARK_BLUE   = vec3(0.008, 0.518, 0.780);
-
 Blob getBlob(float i) {
-    if (i < 0.5) return Blob(vec2(-1.18, -0.55), 0.62, 0.48, 0.22, 0.14, 0.10, 0.0, LIGHT_BLUE);
-    if (i < 1.5) return Blob(vec2( 1.12, -0.35), 0.66, 0.40, 0.18, 0.13, 1.00, 1.0, DARK_GREEN);
-    if (i < 2.5) return Blob(vec2( 0.95,  0.88), 0.58, 0.44, 0.20, 0.14, 2.20, 2.0, YELLOW);
-    if (i < 3.5) return Blob(vec2(-0.98,  0.82), 0.56, 0.38, 0.16, 0.12, 0.70, 3.0, ORANGE);
-    if (i < 4.5) return Blob(vec2( 1.28,  0.28), 0.50, 0.34, 0.24, 0.11, 1.80, 4.0, LIGHT_GREEN);
-    if (i < 5.5) return Blob(vec2(-0.25, -1.12), 0.54, 0.36, 0.19, 0.11, 2.60, 5.0, RED);
-    if (i < 6.5) return Blob(vec2(-1.30,  0.10), 0.48, 0.30, 0.17, 0.12, 0.40, 6.0, BROWN);
-    return             Blob(vec2( 0.28,  1.18), 0.52, 0.30, 0.14, 0.10, 0.90, 7.0, DARK_BLUE);
+    if (i < 0.5) return Blob(vec2(-1.18, -0.55), 0.62, 0.48, 0.22, 0.14, 0.10, 0.0, uBlobColor1);
+    if (i < 1.5) return Blob(vec2( 1.12, -0.35), 0.66, 0.40, 0.18, 0.13, 1.00, 1.0, uBlobColor2);
+    if (i < 2.5) return Blob(vec2( 0.95,  0.88), 0.58, 0.44, 0.20, 0.14, 2.20, 2.0, uBlobColor3);
+    if (i < 3.5) return Blob(vec2(-0.98,  0.82), 0.56, 0.38, 0.16, 0.12, 0.70, 3.0, uBlobColor4);
+    if (i < 4.5) return Blob(vec2( 1.28,  0.28), 0.50, 0.34, 0.24, 0.11, 1.80, 4.0, uBlobColor5);
+    if (i < 5.5) return Blob(vec2(-0.25, -1.12), 0.54, 0.36, 0.19, 0.11, 2.60, 5.0, uBlobColor6);
+    if (i < 6.5) return Blob(vec2(-1.30,  0.10), 0.48, 0.30, 0.17, 0.12, 0.40, 6.0, uBlobColor7);
+    return             Blob(vec2( 0.28,  1.18), 0.52, 0.30, 0.14, 0.10, 0.90, 7.0, uBlobColor8);
 }
 
 mat2 rotate2d(float a) {

@@ -2,13 +2,16 @@ import { describe, expect, test } from 'bun:test';
 import { toEffectSpec } from '../src/types';
 
 describe('toEffectSpec', () => {
-  test('wraps a bare effect name into a spec object', () => {
-    expect(toEffectSpec('blur')).toEqual({ name: 'blur' });
+  test('wraps a bare transform name into a spec object', () => {
     expect(toEffectSpec('flip-x')).toEqual({ name: 'flip-x' });
+    expect(toEffectSpec('rotate-cw')).toEqual({ name: 'rotate-cw' });
   });
 
-  test('passes a spec object through by reference', () => {
-    const spec = { name: 'background-image', source: 'dark-office' } as const;
+  test('passes a composite spec object through by reference', () => {
+    const spec = {
+      name: 'composite',
+      layers: [{ id: 'you', shader: 'direct', target: 'subject' }],
+    } as const;
     expect(toEffectSpec(spec)).toBe(spec);
   });
 });

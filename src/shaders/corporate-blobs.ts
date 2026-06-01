@@ -10,8 +10,24 @@ import type { UniformControl } from './types';
 
 /** Typed uniforms for the `corporate-blobs` layer shader. */
 export type CorporateBlobsUniforms = {
-  /** Overall tint / color grade; [1,1,1] keeps the stock brand colors. */
+  /** Overall tint / color grade, multiplied over every blob; [1,1,1] = no grade. */
   readonly uColor: RGB;
+  /** Blob 1 base color (stock: light blue). */
+  readonly uBlobColor1: RGB;
+  /** Blob 2 base color (stock: dark green). */
+  readonly uBlobColor2: RGB;
+  /** Blob 3 base color (stock: yellow). */
+  readonly uBlobColor3: RGB;
+  /** Blob 4 base color (stock: orange). */
+  readonly uBlobColor4: RGB;
+  /** Blob 5 base color (stock: light green). */
+  readonly uBlobColor5: RGB;
+  /** Blob 6 base color (stock: magenta). */
+  readonly uBlobColor6: RGB;
+  /** Blob 7 base color (stock: brown). */
+  readonly uBlobColor7: RGB;
+  /** Blob 8 base color (stock: dark blue). */
+  readonly uBlobColor8: RGB;
   /** Overall blob opacity; stock 0.58. */
   readonly uGlobalAlpha: number;
   /** Global blob size multiplier; stock 2.55. */
@@ -31,6 +47,29 @@ export type CorporateBlobsUniforms = {
 /** The `corporate-blobs` shader's tunable uniforms; defaults reproduce the stock look. */
 export const CORPORATE_BLOBS_CONTROLS: readonly UniformControl[] = [
   { name: 'uColor', kind: 'color', default: [1, 1, 1], doc: 'Overall tint / color grade.' },
+  {
+    name: 'uBlobColor1',
+    kind: 'color',
+    default: [0.376, 0.647, 0.98],
+    doc: 'Blob 1 (light blue).',
+  },
+  {
+    name: 'uBlobColor2',
+    kind: 'color',
+    default: [0.063, 0.725, 0.506],
+    doc: 'Blob 2 (dark green).',
+  },
+  { name: 'uBlobColor3', kind: 'color', default: [0.984, 0.749, 0.141], doc: 'Blob 3 (yellow).' },
+  { name: 'uBlobColor4', kind: 'color', default: [0.976, 0.451, 0.086], doc: 'Blob 4 (orange).' },
+  {
+    name: 'uBlobColor5',
+    kind: 'color',
+    default: [0.133, 0.773, 0.369],
+    doc: 'Blob 5 (light green).',
+  },
+  { name: 'uBlobColor6', kind: 'color', default: [0.851, 0.275, 0.937], doc: 'Blob 6 (magenta).' },
+  { name: 'uBlobColor7', kind: 'color', default: [0.341, 0.325, 0.306], doc: 'Blob 7 (brown).' },
+  { name: 'uBlobColor8', kind: 'color', default: [0.008, 0.518, 0.78], doc: 'Blob 8 (dark blue).' },
   {
     name: 'uGlobalAlpha',
     kind: 'float',

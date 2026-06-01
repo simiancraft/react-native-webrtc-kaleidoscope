@@ -1,10 +1,10 @@
 /**
- * Effect specs are parameterized objects. Each effect's shape carries the
- * uniforms its shader needs; the library exposes one shader per effect family
- * (blur, background-image, etc.) and consumers pick uniform values per call.
+ * Effect specs are parameterized objects. Every visual effect is one
+ * `CompositeSpec` (an ordered painter's stack of layers, run by the one
+ * compositor) or one `TransformSpec` (a geometric reorientation). There is no
+ * longer a singleton-shader path: blur, background images, and generative
+ * shaders are all layers inside a composite.
  */
-
-import type { BackgroundPresetName } from './backgrounds';
 
 /**
  * Geometric reorientation of the frame: an axis flip or a 90-degree rotation.
@@ -19,69 +19,8 @@ export type TransformSpec = {
   readonly name: TransformName;
 };
 
-export type BlurSpec = {
-  readonly name: 'blur';
-  /**
-   * Gaussian blur sigma (softness); higher = softer. Optional; when omitted
-   * the library default applies. Clamped to [0.5, 7] on both native and web.
-   *
-   * Upstream's `_setVideoEffects(names)` has no argument slot, so this rides
-   * the effect-tuning side-channel that already carries uniforms across the
-   * bridge: the facade routes it through the Expo Module's tuning function and
-   * the per-frame processors read it each frame. The single-active-art-axis
-   * model makes a per-call value correct (only one blur is ever active).
-   */
-  readonly sigma?: number;
-};
-
-export type BackgroundImageSpec = {
-  readonly name: 'background-image';
-  /**
-   * Either a bundled preset name (autocompleted; see src/backgrounds.ts) or
-   * a free-form URL / data URI. Web accepts both; native only resolves
-   * bundled preset names because the upstream rn-webrtc registry takes flat
-   * strings, not URIs.
-   *
-   * The `string & {}` trick preserves preset-name autocomplete while still
-   * permitting arbitrary URL inputs without a separate union branch.
-   *
-   * SECURITY (web): a URL/data-URI `source` is fetched in the page origin and
-   * decoded to a texture. If you wire this from end-user input, validate the
-   * URL yourself; the library does not allowlist fetch targets. Decoded
-   * dimensions are capped and the per-source cache is bounded, but an
-   * unvalidated `source` can still issue a same-origin request you did not
-   * intend.
-   */
-  readonly source: BackgroundPresetName | (string & {});
-  /**
-   * Native identity (the preset/book id). On native the effect is registered
-   * and the asset is copied by this id (`background-image-<id>`), so the
-   * dispatch sends the id, not the resolved `source` (which is a URL on web and
-   * a name on native, and differs from the id for a consumer's own image). Set
-   * by `kaleidoscope(cmd)`; absent for raw `applyVideoEffects`, which falls
-   * back to `source`.
-   */
-  readonly id?: string;
-};
-
 /** RGB color, each channel in [0, 1]. */
 export type RGB = readonly [number, number, number];
-
-/**
- * A generic generative-shader background. `shader` names an entry in the
- * codegen shader registry (e.g. `'plasma'`); `uniforms` are its u-prefixed
- * values, bound by name and type. The person is composited over the shader's
- * output through the segmentation mask. This one spec carries every procedural
- * shader, so adding a shader needs no new spec, dispatch case, or processor —
- * just the `.frag` (which codegens into the registry) and its option contract.
- *
- * `uTime`/`uResolution` are supplied by the processor and not listed here.
- */
-export type ShaderSpec = {
-  readonly name: 'shader';
-  readonly shader: string;
-  readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
-};
 
 /** How a scene layer blends over the layers beneath it (painter's order). */
 export type BlendMode = 'normal' | 'additive';
@@ -105,7 +44,7 @@ export type LayerTarget = 'background' | 'subject';
  * Register a generative layer shader by adding it here.
  */
 export type LayerShaderOptions = {
-  readonly image: { readonly source: string; readonly id?: string };
+  readonly image: { readonly source: string };
   readonly direct: Record<never, never>;
   /** Camera-sampling separable gaussian; `sigma` is its softness. */
   readonly blur: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
@@ -120,6 +59,12 @@ export type LayerShaderOptions = {
   readonly 'anamorphic-lensflare': {
     readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
   };
+  readonly 'light-beams-and-motes': {
+    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+  };
+  readonly 'corporate-blobs': {
+    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+  };
 };
 
 /** A layer shader name; the `LayerSpec` discriminant. */
@@ -130,9 +75,15 @@ export type LayerShaderName = keyof LayerShaderOptions;
  * The `shader` is the discriminant and carries that shader's required fields
  * (a discriminated union over the closed `LayerShaderOptions`), so narrowing on
  * `layer.shader` gives `source` / `uniforms` / nothing as appropriate.
+ *
+ * `id` is required and unique WITHIN one composite. It is the address a
+ * `LayerPatch` resolves against (the live uniform channel keys overrides by it),
+ * and for an `image` layer it doubles as the native plate id (the bundled WebP
+ * basename), since the native facade sends `layer.id` as the plate `source`.
  */
 export type LayerSpec = {
   readonly [S in LayerShaderName]: {
+    readonly id: string;
     readonly shader: S;
     readonly target?: LayerTarget;
     readonly blend?: BlendMode;
@@ -140,26 +91,29 @@ export type LayerSpec = {
 }[LayerShaderName];
 
 /**
- * A composed scene: an ordered painter's stack of layers, run by the scene
- * compositor as a single effect (one stage), distinct from the serial
- * single-effect path. Layer 0 is the base; later layers blend over it.
+ * A composed effect: an ordered painter's stack of layers, run by the one
+ * compositor as a single stage. Layer 0 is the base; later layers blend over
+ * it. This is the sole art spec; every former singleton (blur, background
+ * image, generative shader) is now a layer inside a composite.
  */
-export type SceneSpec = {
-  readonly name: 'scene';
+export type CompositeSpec = {
+  readonly name: 'composite';
   readonly layers: ReadonlyArray<LayerSpec>;
 };
 
-export type EffectSpec = TransformSpec | BlurSpec | BackgroundImageSpec | ShaderSpec | SceneSpec;
+export type EffectSpec = CompositeSpec | TransformSpec;
 
 /**
- * Legacy alias for the discriminant. Useful for typed switch statements and
- * the bare-string call shape (`applyVideoEffects(track, ['blur'])`).
+ * The discriminant. Useful for typed switch statements and the bare-string call
+ * shape for the parameterless transforms (`applyVideoEffects(track, ['flip-x'])`).
+ * `'composite'` is a name too, but a bare `'composite'` carries no layers, so
+ * only the transform names are meaningful as bare-string inputs.
  */
 export type EffectName = EffectSpec['name'];
 
 /**
- * applyVideoEffects accepts either a bare effect name (no params; library
- * picks sensible defaults) or a full EffectSpec object with parameters.
+ * applyVideoEffects accepts either a bare effect name (the parameterless
+ * transforms) or a full EffectSpec object (a composite or a transform).
  */
 export type EffectInput = EffectSpec | EffectName;
 

@@ -321,7 +321,7 @@ type GpuState = {
 let state: GpuState | null = null;
 
 const layersSignature = (layers: ReadonlyArray<LayerSpec>): string =>
-  layers.map((l) => `${l.shader}:${l.target ?? 'background'}`).join('|');
+  layers.map((l) => `${l.id}:${l.shader}:${l.target ?? 'background'}`).join('|');
 
 const disposeState = (s: GpuState): void => {
   const { gl } = s;
@@ -485,30 +485,41 @@ const coverScale = (outW: number, outH: number, imgW: number, imgH: number): [nu
   return outAspect > imgAspect ? [1, imgAspect / outAspect] : [outAspect / imgAspect, 1];
 };
 
-// Live tuning channel: per-shader-name uniform overrides the running compositor
+// Live tuning channel: per-layer-id uniform overrides the running compositor
 // merges over a layer's baked uniforms each frame, with no pipeline rebuild
-// (mirrors the mask() tuning). The demo's generated controls push here so a
-// slider drag updates the scene smoothly. Keyed by shader name, so it applies to
-// whichever scene is active that uses that shader.
+// (mirrors the mask() tuning). The kaleidoscope verb pushes here so a slider drag
+// updates the scene smoothly. Keyed by layer id (unique within a composite), so a
+// patch addresses exactly one layer even when two layers share a shader.
+//
+// These are INTERNAL: the kaleidoscope verb absorbs them (controls.ts injects
+// setLayerUniforms via the web facade). They are not part of the public surface,
+// but stay exported so the facade and controls can drive them.
 type UniformMap = Readonly<Record<string, number | readonly number[]>>;
 const layerUniformOverrides: Record<string, UniformMap> = {};
 
-/** Override the uniforms of a layer shader (by name) in the running scene. */
-export const setLayerUniforms = (shader: string, uniforms: UniformMap): void => {
-  layerUniformOverrides[shader] = uniforms;
+/** Override a layer's uniforms (by layer id) in the running scene; merges. */
+export const setLayerUniforms = (id: string, uniforms: UniformMap): void => {
+  layerUniformOverrides[id] = { ...layerUniformOverrides[id], ...uniforms };
 };
 
-/** Drop a layer shader's override, reverting to the scene's baked uniforms. */
-export const clearLayerUniforms = (shader: string): void => {
-  delete layerUniformOverrides[shader];
+/** Drop a layer's override (by layer id), reverting to its baked uniforms. */
+const clearLayerUniforms = (id: string): void => {
+  delete layerUniformOverrides[id];
 };
 
 const mergedUniforms = (layer: Extract<LayerSpec, { uniforms: UniformMap }>): UniformMap => {
-  const override = layerUniformOverrides[layer.shader];
+  const override = layerUniformOverrides[layer.id];
   return override ? { ...layer.uniforms, ...override } : layer.uniforms;
 };
 
 export const makeScene = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
+  // A preset switch builds a fresh scene; drop any live overrides whose layer id
+  // is not in this stack so a reused id (e.g. 'you') can't carry a stale override
+  // from the previous preset into this one.
+  const ids = new Set(layers.map((l) => l.id));
+  for (const id of Object.keys(layerUniformOverrides)) {
+    if (!ids.has(id)) clearLayerUniforms(id);
+  }
   const imageSources = layers.filter(
     (l): l is Extract<LayerSpec, { shader: 'image' }> => l.shader === 'image',
   );

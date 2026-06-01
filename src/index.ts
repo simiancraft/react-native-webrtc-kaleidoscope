@@ -8,32 +8,31 @@
 
 import { requireNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
-import { BACKGROUND_PRESETS } from './backgrounds';
-import { createControls, type Reconcile, type SetMask } from './kaleidoscope/controls';
+import {
+  createControls,
+  type Reconcile,
+  type SetLayerUniforms,
+  type SetMask,
+} from './kaleidoscope/controls';
 import type {
   KaleidoscopeBindOptions,
   KaleidoscopeControls,
   PresetBook,
 } from './kaleidoscope/types';
-import { type ApplyVideoEffects, type LayerSpec, type SceneSpec, toEffectSpec } from './types';
+import { type ApplyVideoEffects, type CompositeSpec, type LayerSpec, toEffectSpec } from './types';
 
 // The native module's tuning functions. Only the three the JS layer drives are
 // declared: blur sigma (from a blur preset's options) and the mask edge (from
 // the mask() verb). The native module also exposes segmentation/debug/reset
 // functions, but nothing in JS calls them anymore, so they're not declared here.
 interface KaleidoscopeNativeModule {
-  setBlurSigma: (value: number) => void;
   setMaskHardness: (value: number) => void;
   setMaskThreshold: (value: number) => void;
-  // Generic shader uniform channel (#32). Optional: a native build predating
-  // the generic shader processor won't expose it, so callers guard with `?.`.
-  setShaderUniforms?: (
-    name: string,
-    uniforms: Readonly<Record<string, number | readonly number[]>>,
-  ) => void;
-  // Scene layer-stack channel. Optional: a native build predating the scene
+  // Composite layer-stack channel. Optional: a native build predating the
   // compositor won't expose it, so callers guard with `?.`. JS sends the active
-  // scene's ordered layer stack as a JSON string; native parses + composites it.
+  // composite's ordered layer stack as a JSON string; native parses + composites
+  // it. Blur sigma and generative uniforms now ride inside each layer's
+  // `uniforms`, so there is no separate setBlurSigma/setShaderUniforms channel.
   setSceneLayers?: (json: string) => void;
 }
 
@@ -43,32 +42,45 @@ interface KaleidoscopeNativeModule {
 const nativeModule = (): KaleidoscopeNativeModule =>
   requireNativeModule<KaleidoscopeNativeModule>('RnWebrtcKaleidoscope');
 
-// The native tuning functions (setBlurSigma / setMaskHardness / ...) remain on
-// the native module and are called internally: blur sigma flows from a blur
-// preset's options in applyVideoEffects below, and the mask edge flows from the
-// mask() verb (see bindKaleidoscope). The old global set* JS exports are gone;
-// effects are driven by kaleidoscope / transform / mask, not loose setters.
+// The native tuning functions (setMaskHardness / setMaskThreshold) remain on the
+// native module and are called internally: the mask edge flows from the mask()
+// verb (see bindKaleidoscope). The composite layer stack flows through
+// setSceneLayers. The old global set* JS exports are gone; effects are driven by
+// kaleidoscope / transform / mask, not loose setters.
 
 export type { BackgroundPresetName } from './backgrounds';
 export type {
+  Composite,
+  KaleidoscopeBindOptions,
+  KaleidoscopeControls,
+  LayerPatch,
+  MaskInput,
+  Preset,
+  PresetBook,
+  TransformInput,
+} from './kaleidoscope/types';
+export type {
   AnamorphicLensFlareUniforms,
+  BlurUniforms,
   CloudsUniforms,
   CorporateBlobsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
   LightBeamsAndMotesUniforms,
   NebulaUniforms,
+  PatchableShaderName,
   PlasmaUniforms,
+  ShaderUniformsMap,
   SimianlightsUniforms,
   UniformControl,
 } from './shaders';
-// Per-shader control descriptors + the registry (platform-agnostic data). The
-// live layer-uniform tuning channel is web-only (scenes run on web today); these
-// are no-op stubs on native so a consumer can import the same names on both.
+// Per-shader control descriptors + the registry (platform-agnostic data).
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
+  BLUR_CONTROLS,
   CLOUDS_CONTROLS,
   CORPORATE_BLOBS_CONTROLS,
+  defaultUniforms,
   FIREFLIES_CONTROLS,
   GODRAYS_CONTROLS,
   LAYER_CONTROLS,
@@ -77,30 +89,17 @@ export {
   PLASMA_CONTROLS,
   SIMIANLIGHTS_CONTROLS,
 } from './shaders';
-export const setLayerUniforms = (
-  _shader: string,
-  _uniforms: Readonly<Record<string, number | readonly number[]>>,
-): void => {};
-export const clearLayerUniforms = (_shader: string): void => {};
 export type {
-  KaleidoscopeBindOptions,
-  KaleidoscopeControls,
-  MaskInput,
-  Preset,
-  PresetBook,
-  ShaderName,
-  ShaderOptionsMap,
-  TransformInput,
-} from './kaleidoscope/types';
-export type {
-  ApplyVideoEffects,
-  BackgroundImageSpec,
-  BlurSpec,
+  BlendMode,
+  CompositeSpec,
   EffectInput,
   EffectName,
   EffectSpec,
+  LayerShaderName,
+  LayerShaderOptions,
+  LayerSpec,
+  LayerTarget,
   RGB,
-  ShaderSpec,
   TransformName,
   TransformSpec,
 } from './types';
@@ -126,65 +125,43 @@ interface WebRTCTrackExtensions {
 // because rn-webrtc's setVideoEffects calls ProcessorProvider.getProcessor()
 // and filters nulls into an empty list, which then hits the
 // VideoEffectProcessor empty-processors-list bug (refcount goes negative,
-// EglRenderer crashes one frame later). Until each effect ships a native
-// factory, dropping its name here is the safe behavior.
+// EglRenderer crashes one frame later). Dropping an unregistered name here is
+// the safe behavior.
 //
-// Background-image preset names come from src/backgrounds.ts; the encoder
-// turns `{name:'background-image', source:'dark-office'}` into the flat-string
-// `'background-image-dark-office'` because the rn-webrtc native registry is
-// keyed by flat strings (parameterization via uniforms is a follow-up).
-//
-// iOS registers the same effects via ios/.../Registration.swift. Each
-// platform's allowlist matches exactly what its native Registration installs;
-// anything else is filtered out before reaching upstream so a name with no
-// registered processor never triggers the empty-processors-list crash.
-// The four geometric transform ops share one native processor per platform
-// (TransformFactory on Android, TransformProcessor on iOS); each is a flat name.
+// The art axis is now one registered "composite" compositor: blur, images, and
+// generative shaders are all layers inside it, delivered out-of-band via
+// setSceneLayers. The four geometric transform ops share one native processor
+// per platform (TransformFactory on Android, TransformProcessor on iOS); each is
+// a flat name. iOS registers the same set via ios/.../Registration.swift.
 const TRANSFORM_EFFECTS: readonly string[] = ['flip-x', 'flip-y', 'rotate-cw', 'rotate-ccw'];
 
 // Android (Registration.kt) and iOS (Registration.swift) install an identical
 // effect set, so one list covers both natives. If the platforms ever diverge,
 // split this back into per-platform lists keyed off Platform.OS.
-const NATIVE_REGISTERED_EFFECTS_LIST: readonly string[] = [
-  ...TRANSFORM_EFFECTS,
-  'blur',
-  ...BACKGROUND_PRESETS.map((name) => `background-image-${name}`),
-];
+const NATIVE_REGISTERED_EFFECTS_LIST: readonly string[] = [...TRANSFORM_EFFECTS, 'composite'];
 
 const registeredForPlatform = (): readonly string[] =>
   Platform.OS === 'android' || Platform.OS === 'ios' ? NATIVE_REGISTERED_EFFECTS_LIST : [];
 
 const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlatform());
 
-// Derive the native plate id for a scene `image` layer's `source`. On native an
-// `image` layer resolves a bundled WebP under assets/scene-plates/<id>.webp,
-// where <id> is the basename of the source asset (the prebuild plugin copies
-// each scene plate under that same basename). The runtime `source` is a Metro/
-// expo-asset URI (a URL), so we take its last path segment and strip the query,
-// hash, and extension. This MUST agree with the basename the prebuild plugin
-// derives from the `require('...')` specifier in the preset book.
-const plateIdFromSource = (source: string): string => {
-  const noQuery = source.split(/[?#]/, 1)[0] ?? source;
-  const segment = noQuery.substring(noQuery.lastIndexOf('/') + 1);
-  return segment.replace(/\.[^.]+$/, '');
-};
-
-// Serialize a scene's layer stack to the JSON shape the native SceneLayers
-// channel parses: an array of { shader, target, blend?, source?, uniforms? }.
-// An `image` layer's web URI `source` is replaced with the native plate id; all
-// other layers pass their shader/target/blend/uniforms through unchanged.
+// Serialize a composite's layer stack to the JSON shape the native SceneLayers
+// channel parses: an array of { id, shader, target, blend?, source?, uniforms? }.
+// Every layer carries its `id`. An `image` layer's native `source` IS its `id`
+// (the bundled WebP basename the prebuild plugin copied under that name); all
+// other layers carry their uniforms.
 const serializeSceneLayers = (layers: ReadonlyArray<LayerSpec>): string => {
   const wire = layers.map((layer) => {
     const base: Record<string, unknown> = {
+      id: layer.id,
       shader: layer.shader,
       target: layer.target ?? 'background',
     };
     if (layer.blend != null) base.blend = layer.blend;
     if (layer.shader === 'image') {
-      // Prefer an explicit, stable plate id: the native asset URI is empty/hashed
-      // at module-eval, so deriving the id from it is unreliable. Fall back to the
-      // URI basename only when no id is given.
-      base.source = layer.id ?? plateIdFromSource(layer.source);
+      // The layer id is the plate id (the bundled WebP basename); the native
+      // compositor resolves assets/scene-plates/<id>.webp from it.
+      base.source = layer.id;
     } else if ('uniforms' in layer) {
       base.uniforms = layer.uniforms;
     }
@@ -194,23 +171,10 @@ const serializeSceneLayers = (layers: ReadonlyArray<LayerSpec>): string => {
 };
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
-  // background-image uses one registered factory per source preset.
-  // {name: 'background-image', source: 'dark-office'} -> 'background-image-dark-office'
-  if (spec.name === 'background-image') {
-    // The book id is the native identity (matches the prebuild-copied filename
-    // and the directory-discovery registration); source is the web/render value.
-    return `background-image-${spec.id ?? spec.source}`;
-  }
-  // A generative shader's native name is the shader name itself (e.g. 'plasma').
-  // Until the native generic processor + registration land, this name is not in
-  // the registered set, so the filter drops it (safe no-op) rather than crashing.
-  if (spec.name === 'shader') {
-    return spec.shader;
-  }
-  // A scene runs through the single registered "scene" compositor; its layer
-  // stack is delivered out-of-band via setSceneLayers (see applyVideoEffects).
-  if (spec.name === 'scene') {
-    return 'scene';
+  // The composite runs through the single registered "composite" compositor; its
+  // layer stack is delivered out-of-band via setSceneLayers (see applyVideoEffects).
+  if (spec.name === 'composite') {
+    return 'composite';
   }
   return spec.name;
 };
@@ -223,7 +187,10 @@ const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
 // entry be collected when the track is.
 const lastAppliedSignatureByTrack = new WeakMap<object, string>();
 
-export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
+// The lower-level native primitive: route a spec array through the upstream
+// `_setVideoEffects`. Internal now (the public surface is the three verbs);
+// `bindKaleidoscope`'s reconcile drives it.
+const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const t = track as MediaStreamTrack & WebRTCTrackExtensions;
   if (t.remote) {
     throw new Error('kaleidoscope: cannot apply effects to remote tracks');
@@ -234,35 +201,21 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
     );
   }
   const specs = effects.map(toEffectSpec);
-  // Route per-spec parameters through the effect-tuning side-channel before
-  // applying. Upstream's `_setVideoEffects(names)` has no argument slot, so
-  // parameters reach the native processors via the Expo Module's tuning
-  // functions, which the per-frame processors already read each frame. For the
-  // single-active-art-axis model a global value is correct (only one blur is
-  // ever active). The setter is idempotent, so it runs before the dedup gate.
+  // Deliver the composite's layer stack out-of-band before the "composite" name
+  // is dispatched. Blur sigma and generative uniforms ride inside each layer's
+  // `uniforms`. Guarded: a native build without the compositor lacks the function
+  // (and drops the "composite" name below if not registered).
   for (const spec of specs) {
-    if (spec.name === 'blur' && spec.sigma != null) {
-      nativeModule().setBlurSigma(spec.sigma);
-    } else if (spec.name === 'shader') {
-      // Guarded: a native build without the generic shader processor lacks the
-      // function; the shader name is also dropped by the registry filter below
-      // until that processor + registration land.
-      nativeModule().setShaderUniforms?.(spec.shader, spec.uniforms);
-    } else if (spec.name === 'scene') {
-      // Deliver the scene's layer stack out-of-band before the "scene" name is
-      // dispatched. Guarded: a native build without the scene compositor lacks
-      // the function (and drops the "scene" name below if not registered).
-      nativeModule().setSceneLayers?.(serializeSceneLayers((spec as SceneSpec).layers));
+    if (spec.name === 'composite') {
+      nativeModule().setSceneLayers?.(serializeSceneLayers((spec as CompositeSpec).layers));
     }
   }
-  // background-image and shader names are book-driven: the prebuild copied them
-  // and native registration (directory discovery for images, the GENERATIVE
-  // registry for shaders) registered exactly them, so they pass the crash-guard
-  // even though they aren't in the static set. Transforms and blur must be in
-  // the static set (always are).
+  // The composite name is book-driven: the prebuild copied the plates and native
+  // registration installed the one "composite" compositor, so it passes the
+  // crash-guard. Transforms must be in the static set (always are).
   const mapped = specs.map((spec) => ({
     name: specToNativeName(spec),
-    trusted: spec.name === 'background-image' || spec.name === 'shader' || spec.name === 'scene',
+    trusted: spec.name === 'composite',
   }));
   const names = mapped
     .filter((m) => m.trusted || NATIVE_REGISTERED_EFFECTS.has(m.name))
@@ -310,9 +263,8 @@ export const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
  * Bind a track and a preset book; get the three verbs back
  * (`{ kaleidoscope, transform, mask }`). On native the track is mutated in
  * place, so `controls.track` is the bound track and `onTrack` fires with it
- * after each `kaleidoscope`/`transform` command. `mask` updates the
- * segmentation edge the per-frame processors read. `applyVideoEffects` remains
- * the lower-level primitive beneath.
+ * after each `kaleidoscope` preset switch and `transform` command. `mask`
+ * updates the segmentation edge the per-frame processors read.
  */
 export const bindKaleidoscope = <P extends PresetBook>(
   track: MediaStreamTrack,
@@ -326,5 +278,10 @@ export const bindKaleidoscope = <P extends PresetBook>(
     nativeModule().setMaskHardness(hardness);
     nativeModule().setMaskThreshold(threshold);
   };
-  return createControls(track, options, reconcile, setMask);
+  // Native has no live per-layer uniform channel yet (Phase B): a patch of the
+  // active preset is a no-op here, so the verb's patch path is inert on native
+  // until the compositor reads layer-id-keyed overrides. The verb still drives
+  // preset switches through reconcile.
+  const setLayerUniforms: SetLayerUniforms = () => {};
+  return createControls(track, options, reconcile, setMask, setLayerUniforms);
 };

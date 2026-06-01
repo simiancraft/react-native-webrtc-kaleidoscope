@@ -3,41 +3,12 @@
 // `./shaders.generated`; this module re-exports it so web effect code imports
 // from one stable path. Do not hand-edit the generated file.
 //
-// The three shared shaders:
+// The compositor folds every effect into one layered stage (see
+// src/web/effects/scene.ts), so the only shared source the runtime still imports
+// from here is the full-screen-quad vertex shader:
 //   - PASSTHROUGH_VERT_SRC: full-screen quad via gl_VertexID (no VAO/VBO);
 //     caller does gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4).
-//   - BLUR_FRAG_SRC: separable 1D Gaussian, 9-tap precomputed kernel
-//     (uWeights[9] / uOffsets[9], no per-pixel exp). The caller computes the
-//     kernel from sigma on the CPU and uploads the arrays; see
-//     src/web/effects/blur.ts (blurKernel).
-//   - COMPOSITE_FRAG_SRC: mix(background, original, mask). Identical body
-//     across web, Android, and (post-transpile) iOS.
-//
-// Texture-orientation convention (lives in the host uniforms, NOT the shader,
-// so the composite body stays identical across runtimes):
-//   - uOriginal / uBackground land with semantic "top of source" at GL v=1.
-//     Web uploads with UNPACK_FLIP_Y_WEBGL=true (bg staged through an
-//     OffscreenCanvas first, since flipY does not apply to ImageBitmap).
-//   - uMask is sampled at vUv * uMaskUvScale + uMaskUvOffset. Web direct-uploads
-//     the mask with flipY=false and V-flips in the sampling uniforms
-//     ((1,-1)/(0,1)); canvas-staging would mangle MediaPipe's soft confidence
-//     values via premultiplied alpha and break the hardness slider. Android's
-//     readback round-trip leaves the mask aligned, so its uniforms are identity.
-//   - uBgUvScale / uBgUvOffset cover-fit center-crop the background when its
-//     aspect ratio differs from the output; (1,1)/(0,0) for a full-size bg.
-//   - uMaskLo / uMaskHi parameterize the smoothstep, derived from a hardness
-//     factor via maskSmoothstepRange in src/web/tuning.ts (mirrors Android's
-//     MaskTuning.smoothstepRange).
-//   - PLASMA_FRAG_SRC: generative two-color time-morph background. Reads
-//     uTime + uColorA/uColorB/uSpeed/uScale, ignores the input frame; the
-//     processor renders it into the composite's background slot. See
-//     src/web/effects/plasma.ts.
-//   - SHADER_SOURCES: a name -> source registry of the generative background
-//     shaders (plasma, …), iterated by the dispatch so a new shader is data,
-//     not a new code path.
-export {
-  BLUR_FRAG_SRC,
-  COMPOSITE_FRAG_SRC,
-  PASSTHROUGH_VERT_SRC,
-  SHADER_SOURCES,
-} from './shaders.generated';
+// The former single-effect fragment sources (BLUR_FRAG_SRC, COMPOSITE_FRAG_SRC,
+// SHADER_SOURCES) are no longer consumed: the compositor carries its own blur,
+// camera, masked-composite, and per-layer generative programs inline.
+export { PASSTHROUGH_VERT_SRC } from './shaders.generated';

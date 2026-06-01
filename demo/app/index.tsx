@@ -14,10 +14,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   bindKaleidoscope,
-  clearLayerUniforms,
   type KaleidoscopeControls,
   LAYER_CONTROLS,
-  setLayerUniforms,
+  type LayerPatch,
 } from 'react-native-webrtc-kaleidoscope';
 import {
   KaleidoscopePicker,
@@ -44,6 +43,7 @@ const DEMO_OWNED: ReadonlySet<string> = new Set([
   'simianlights',
   'clouds',
   'observation-deck',
+  'corporate-blobs',
 ]);
 
 const renderDemoTile: RenderTile = (preset, state) => (
@@ -57,17 +57,20 @@ const renderDemoTile: RenderTile = (preset, state) => (
   />
 );
 
-// Pull a scene's tunable layers (clouds/godrays/fireflies) from the book, keyed
-// by shader name, to seed the generated control panels.
+// Pull a composite's tunable layers (clouds/godrays/blur/plasma/...) from the
+// book, keyed by LAYER ID, to seed the generated control panels. Each carries
+// its shader (to pick the right LAYER_CONTROLS and to type the emitted patch)
+// and its baked uniforms.
 type UniformMap = Record<string, number | readonly number[]>;
-const tunableLayersOf = (id: PresetId | null): Record<string, UniformMap> | null => {
+type TunableLayer = { readonly shader: string; readonly uniforms: UniformMap };
+const tunableLayersOf = (id: PresetId | null): Record<string, TunableLayer> | null => {
   if (!id) return null;
   const p = presets[id];
-  if (!p || p.shader !== 'scene') return null;
-  const out: Record<string, UniformMap> = {};
+  if (!p) return null;
+  const out: Record<string, TunableLayer> = {};
   for (const layer of p.layers) {
     if ('uniforms' in layer && layer.shader in LAYER_CONTROLS) {
-      out[layer.shader] = { ...layer.uniforms };
+      out[layer.id] = { shader: layer.shader, uniforms: { ...layer.uniforms } };
     }
   }
   return Object.keys(out).length > 0 ? out : null;
@@ -141,7 +144,7 @@ export default function DemoScreen() {
   const [threshold, setThreshold] = useState(0.75);
   const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
   const [controls, setControls] = useState<KaleidoscopeControls<typeof presets> | null>(null);
-  const [layerOverrides, setLayerOverrides] = useState<Record<string, UniformMap> | null>(null);
+  const [layerOverrides, setLayerOverrides] = useState<Record<string, TunableLayer> | null>(null);
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
@@ -176,23 +179,30 @@ export default function DemoScreen() {
   useEffect(() => {
     controls?.mask({ hardness, threshold });
   }, [controls, hardness, threshold]);
-  // Layer tuning: when a scene with tunable layers is active, seed each layer's
-  // controls from its baked uniforms and push them into the running compositor;
-  // clear otherwise.
+  // Layer tuning: when a composite with tunable layers is active, seed each
+  // layer's controls from its baked uniforms (keyed by layer id). The verb's
+  // preset switch already reset the live channel, so no explicit clear is needed.
   useEffect(() => {
-    const tunable = tunableLayersOf(art);
-    setLayerOverrides(tunable);
-    for (const shader of Object.keys(LAYER_CONTROLS)) clearLayerUniforms(shader);
-    if (tunable) {
-      for (const [shader, uniforms] of Object.entries(tunable)) setLayerUniforms(shader, uniforms);
-    }
+    setLayerOverrides(tunableLayersOf(art));
   }, [art]);
 
-  const onLayerChange = (shader: string, name: string, value: number | readonly number[]) => {
+  // A slider drag emits a LayerPatch addressed by layer id; routing it through
+  // kaleidoscope(activeId, [patch]) merges it live (no rebuild) when the patched
+  // preset is the active one.
+  const onLayerChange = (id: string, name: string, value: number | readonly number[]) => {
     setLayerOverrides((prev) => {
       const cur = prev ?? {};
-      const next = { ...cur, [shader]: { ...(cur[shader] ?? {}), [name]: value } };
-      setLayerUniforms(shader, next[shader] ?? {});
+      const layer = cur[id];
+      if (!layer) return prev;
+      const next = { ...cur, [id]: { ...layer, uniforms: { ...layer.uniforms, [name]: value } } };
+      if (art && controls) {
+        const patch = {
+          id,
+          shader: layer.shader,
+          uniforms: { [name]: value },
+        } as LayerPatch;
+        controls.kaleidoscope(art, [patch]);
+      }
       return next;
     });
   };
@@ -237,13 +247,13 @@ export default function DemoScreen() {
               className="rounded-xl bg-neutral-900 p-3"
             />
             {layerOverrides &&
-              Object.entries(layerOverrides).map(([shader, uniforms]) => (
-                <View key={shader} style={styles.layerControls}>
+              Object.entries(layerOverrides).map(([id, layer]) => (
+                <View key={id} style={styles.layerControls}>
                   <LayerControlPanel
-                    title={shader}
-                    controls={LAYER_CONTROLS[shader] ?? []}
-                    values={uniforms}
-                    onChange={(name, value) => onLayerChange(shader, name, value)}
+                    title={id}
+                    controls={LAYER_CONTROLS[layer.shader] ?? []}
+                    values={layer.uniforms}
+                    onChange={(name, value) => onLayerChange(id, name, value)}
                     disabled={disabled}
                   />
                 </View>

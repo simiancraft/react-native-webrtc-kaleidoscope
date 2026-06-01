@@ -1,71 +1,62 @@
 // The three-verb surface: types.
 //
 // Bind a track and a preset book once; get three typed verbs back:
-//   - kaleidoscope(cmd, opts?)  the art axis: which shader fills the background
-//     (blur / background-image / plasma). cmd is a preset id from the book
-//     (narrowed), opts optionally overrides that preset's options (narrowed to
-//     the preset's shader). kaleidoscope(null) clears the art.
+//   - kaleidoscope(cmd, patches?)  the art axis: which composite (layer stack)
+//     fills the frame. cmd is a preset id from the book (narrowed), or null to
+//     clear. patches optionally merge per-layer uniform overrides (addressed by
+//     layer id); patching the currently-active preset routes through the live
+//     no-rebuild channel, so sliders stay smooth.
 //   - transform(t?)             the geometry axis: absolute flips + 90° rotation.
 //   - mask(m)                   the segmentation edge shared by every art effect.
 //
-// Shaders live in the library; consumers add presets over them, never new
-// shaders. Option types are hand-authored here (generating them from the shader
-// source is tracked in #30). Per shader-world convention, numeric uniforms are
+// Shaders live in the library; consumers add presets (composites) over them,
+// never new shaders. Per shader-world convention, numeric uniforms are
 // normalized 0..1 where practical; ranges are documented in JSDoc as hints for
 // IntelliSense and tooling, not enforced at runtime (validation is userland).
 
-import type { BackgroundImageSpec, LayerSpec, RGB } from '../types';
+import type { PatchableShaderName, ShaderUniformsMap } from '../shaders';
+import type { LayerSpec } from '../types';
 
 /**
- * The art shader catalog and each shader's option type. A book preset picks one
- * of these and freezes its options; `kaleidoscope` commands the preset by name.
+ * A composite: an ordered painter's stack of layers under one book name, plus
+ * display metadata (`name`, `category`, optional `thumbnail`). `kaleidoscope(id)`
+ * runs the whole stack as one effect through the one compositor.
  */
-export type ShaderOptionsMap = {
-  readonly blur: {
-    /** Gaussian blur sigma (softness). Higher = softer. Clamped [0.5, 7]. */
-    readonly sigma?: number;
-  };
-  readonly 'background-image': {
-    /** Bundled preset name, a URL/data-URI (web), or a required asset. */
-    readonly source: BackgroundImageSpec['source'];
-  };
-  readonly plasma: {
-    /** First palette color, RGB each channel 0..1. */
-    readonly colorA?: RGB;
-    /** Second palette color, RGB each channel 0..1. */
-    readonly colorB?: RGB;
-    /** Animation rate. 0 freezes the field. */
-    readonly speed?: number;
-    /** Spatial frequency. Higher = more, tighter cells. */
-    readonly scale?: number;
-  };
-};
-
-export type ShaderName = keyof ShaderOptionsMap;
-
-/**
- * A preset: a shader paired with options of the matching type (a discriminated
- * union keyed on `shader`, so a wrong options shape is a compile error). The
- * book is a flat record of these keyed by the consumer's chosen name.
- */
-export type Preset = {
-  [S in ShaderName]: { readonly shader: S; readonly options: ShaderOptionsMap[S] };
-}[ShaderName];
-
-/**
- * A composed scene: an ordered painter's stack of layers under one book name,
- * which gets its own family/tab in the picker. `kaleidoscope(sceneId)` runs the
- * whole stack as one effect (the layered compositor), distinct from a Preset.
- */
-export type Scene = {
-  readonly shader: 'scene';
+export type Composite = {
+  /** Human-readable label for the picker. */
+  readonly name: string;
+  /** Grouping axis for the picker (e.g. 'Worlds', 'Backgrounds', 'Blur'). */
+  readonly category: string;
+  /** Optional thumbnail source (an image source); shown in the picker rail. */
+  readonly thumbnail?: string;
+  /** The painter's stack, back to front. Each layer's `id` is unique here. */
   readonly layers: ReadonlyArray<LayerSpec>;
 };
 
-/** A book entry is a single-shader Preset or a multi-layer Scene. */
-export type BookEntry = Preset | Scene;
+/** The consumer's book: a flat record of composites keyed by id. */
+export type PresetBook = Readonly<Record<string, Composite>>;
 
-export type PresetBook = Readonly<Record<string, BookEntry>>;
+/**
+ * A materialized book entry: a `Composite` plus the `id` it was keyed by. This
+ * is what the picker and the tuner iterate (the book is keyed; this carries the
+ * key inline so a flattened list keeps its identity).
+ */
+export type Preset = { readonly id: string } & Composite;
+
+/**
+ * A live per-layer uniform override. Addresses a layer by `id` and carries
+ * `shader` only to drive uniform-type narrowing (IntelliSense): a
+ * `{ shader: 'plasma' }` patch types `uniforms` as `Partial<PlasmaUniforms>`.
+ * The runtime resolves by `id` and MERGES the partial uniforms over the layer's
+ * baked values; the `shader` field is asserted, not used to look up the layer.
+ */
+export type LayerPatch = {
+  readonly [S in PatchableShaderName]: {
+    readonly id: string;
+    readonly shader: S;
+    readonly uniforms: Partial<ShaderUniformsMap[S]>;
+  };
+}[PatchableShaderName];
 
 /**
  * Absolute, stateless geometric transform. Every call is the full desired state
@@ -99,26 +90,23 @@ export type KaleidoscopeBindOptions<P extends PresetBook> = {
   readonly onTrack?: (track: MediaStreamTrack) => void;
 };
 
-/** The art verb: set a preset by name (with optional option override), or clear. */
-interface KaleidoscopeCommand<P extends PresetBook> {
-  <C extends keyof P>(
-    cmd: C,
-    // A single-shader Preset takes an optional options override; a Scene carries
-    // its layers in the book, so it takes no command-time options.
-    ...opts: P[C] extends { readonly shader: infer S }
-      ? S extends ShaderName
-        ? [opts?: Partial<ShaderOptionsMap[S]>]
-        : []
-      : []
-  ): void;
-  (cmd: null): void;
-}
+/**
+ * The art verb: select a composite by id (rebuilding the pipeline), or clear it
+ * with `null`. When `cmd` is the currently-active preset id and `patches` is
+ * given, the patches merge through the live no-rebuild uniform channel (keyed by
+ * layer id) instead of rebuilding, so a slider drag stays smooth.
+ */
+type KaleidoscopeCommand<P extends PresetBook> = (
+  cmd: keyof P | null,
+  patches?: ReadonlyArray<LayerPatch>,
+) => void;
 
 /**
  * The three verbs for one bound track and book, plus the live track and a
- * teardown. `kaleidoscope` and `transform` rebuild the composite (web yields a
- * new track via onTrack); `mask` updates the segmentation edge the running
- * composite reads each frame, so it needs no rebuild.
+ * teardown. `kaleidoscope` (preset switch) and `transform` rebuild the composite
+ * (web yields a new track via onTrack); a `kaleidoscope` patch of the active
+ * preset and `mask` both update what the running composite reads each frame, so
+ * they need no rebuild.
  */
 export interface KaleidoscopeControls<P extends PresetBook> {
   readonly kaleidoscope: KaleidoscopeCommand<P>;

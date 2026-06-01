@@ -11,24 +11,24 @@
 
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import type { PresetBook, ShaderName } from '../../kaleidoscope/types';
+import type { PresetBook } from '../../kaleidoscope/types';
 
 /**
- * A book entry's family; the grouping (tab) axis. A single-shader preset's
- * family is its shader; a composed scene's family is `'scene'` (its own tab).
+ * A composite's family; the grouping (tab) axis. With the unified composite
+ * shape this is the book entry's `category` (e.g. 'Worlds', 'Backgrounds').
  */
-export type Family = ShaderName | 'scene';
+export type Family = string;
 
 /**
  * A preset flattened for display. `id` is the book key the picker emits and the
- * effect dispatches by; `source` is present only for `background-image` presets
- * (a URL on web, a preset name on native) and feeds the thumbnail resolver.
+ * effect dispatches by; `source` is a thumbnail source (the composite's
+ * `thumbnail`) when present, feeding the thumbnail tile/resolver.
  */
 export interface PresetView {
   readonly id: string;
   readonly label: string;
   readonly family: Family;
-  /** Background source (web URL or native preset name); present only for the image family. */
+  /** Thumbnail source (web URL or native preset name); present when the book entry has one. */
   readonly source?: string | undefined;
 }
 
