@@ -137,8 +137,8 @@ export default function DemoScreen() {
   const [flipX, setFlipX] = useState(false);
   const [flipY, setFlipY] = useState(false);
   const [rotate, setRotate] = useState(0);
-  const [hardness, setHardness] = useState(0.5);
-  const [threshold, setThreshold] = useState(0.5);
+  const [hardness, setHardness] = useState(0.6);
+  const [threshold, setThreshold] = useState(0.75);
   const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
   const [controls, setControls] = useState<KaleidoscopeControls<typeof presets> | null>(null);
   const [layerOverrides, setLayerOverrides] = useState<Record<string, UniformMap> | null>(null);
@@ -203,8 +203,8 @@ export default function DemoScreen() {
     setFlipX(false);
     setFlipY(false);
     setRotate(0);
-    setHardness(0.5);
-    setThreshold(0.5);
+    setHardness(0.6);
+    setThreshold(0.75);
   };
 
   return (
