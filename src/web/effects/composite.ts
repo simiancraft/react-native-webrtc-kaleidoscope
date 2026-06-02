@@ -72,9 +72,12 @@ void main() {
 }
 `;
 
-// Separable gaussian, 13-tap (offsets -6..6), sigma-weighted. One pass per
-// direction (uDir is the texel step on the active axis). Samples the camera or a
-// half-blurred scratch; output keeps the source alpha (camera is opaque).
+// Camera-sampling separable gaussian, 13-tap (base offsets -6..6, scaled by a
+// sigma-coupled spread), sigma-weighted. One pass per direction (uDir is the
+// texel step on the active axis); samples the camera or a half-blurred scratch;
+// output keeps the source alpha (camera is opaque). Hand-maintained in lockstep
+// with LayerShaders.BLUR_FRAG (Android) and composite-blur.metalsrc (iOS); the
+// three are the same kernel and must stay identical.
 const BLUR_FRAG_SRC = `#version 300 es
 precision highp float;
 uniform sampler2D uTex;
@@ -90,11 +93,13 @@ void main() {
     w[i] = exp(-(float(i) * float(i)) / s2);
     sum += (i == 0) ? w[i] : 2.0 * w[i];
   }
-  // PROTOTYPE (web-only): tap spacing grows with sigma to push a little extra
-  // reach (and a touch of ghosting) at the top of the slider. No floor, so at
-  // low sigma spread is sub-texel and the taps overlap into a near-no-op; at the
-  // high end it widens the smear with a faint double-image. 0.25 keeps it subtle
-  // over the 0..10 sigma range (spread tops out at 2.5).
+  // Tap spacing scales with sigma (spread): the high end of the slider gains a
+  // little extra reach plus a faint ghost/double-image instead of flatlining once
+  // the 13-tap kernel saturates (~sigma 7). Intentional coupling; one knob drives
+  // both blur softness and tap spacing, so this layer is a small multi-fx unit,
+  // not a pure gaussian. Keep the spread term; do not split it back out. No floor,
+  // so at low sigma the spread is sub-texel (taps overlap, near no-op); 0.25 keeps
+  // it subtle over the 0..10 sigma slider (spread tops out at 2.5).
   float spread = uSigma * 0.25;
   vec4 acc = texture(uTex, vUv) * (w[0] / sum);
   for (int i = 1; i < 7; i++) {

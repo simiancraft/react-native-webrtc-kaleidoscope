@@ -147,7 +147,7 @@ export function LayerControls({ controls, values, onChange, disabled = false }: 
           return (
             <ColorRow
               key={c.name}
-              label={c.name}
+              label={c.label ?? c.name}
               rgb={Array.isArray(rgb) ? rgb : c.default}
               onChange={(v) => onChange(c.name, v)}
               disabled={disabled}
@@ -158,7 +158,7 @@ export function LayerControls({ controls, values, onChange, disabled = false }: 
         return (
           <FloatRow
             key={c.name}
-            label={c.name}
+            label={c.label ?? c.name}
             value={typeof v === 'number' ? v : c.default}
             min={c.min}
             max={c.max}

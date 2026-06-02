@@ -9,10 +9,21 @@ import type { RGB } from '../../src/types';
  * default. `color` is an RGB triple (0..1 per channel); `float` is a scalar with
  * a range. Reusable across shaders.
  */
+// `name` is the uniform key (it maps to the shader uniform and the layer's
+// `uniforms` record). `label` is the optional display string for the generated
+// control; when present the UI shows it instead of `name`, so a control can read
+// "blur" while still writing the `sigma` uniform. Defaults to `name`.
 export type UniformControl =
-  | { readonly name: string; readonly kind: 'color'; readonly default: RGB; readonly doc: string }
   | {
       readonly name: string;
+      readonly label?: string;
+      readonly kind: 'color';
+      readonly default: RGB;
+      readonly doc: string;
+    }
+  | {
+      readonly name: string;
+      readonly label?: string;
       readonly kind: 'float';
       readonly default: number;
       readonly min: number;

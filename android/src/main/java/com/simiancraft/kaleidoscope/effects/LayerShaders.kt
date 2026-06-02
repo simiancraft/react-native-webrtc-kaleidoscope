@@ -76,12 +76,13 @@ void main() {
 }
 """
 
-  // Camera-sampling separable gaussian, 9-tap (offsets -4..4), sigma-weighted.
-  // Hand-written to mirror BLUR_FRAG_SRC in composite.ts (NOT the codegen'd
-  // Shaders.BLUR_FRAG, which is the downscaled bilinear kernel of the old
-  // BlurFactory). One pass per direction (uDir is the texel step on the active
-  // axis): horizontal camera -> scratch, then vertical scratch -> scratch. Output
-  // keeps the source alpha (the camera FBO is opaque).
+  // Camera-sampling separable gaussian, 13-tap (base offsets -6..6, scaled by a
+  // sigma-coupled spread), sigma-weighted. Hand-written to mirror BLUR_FRAG_SRC in
+  // composite.ts (NOT the codegen'd Shaders.BLUR_FRAG, which is the downscaled
+  // bilinear kernel of the old BlurFactory). One pass per direction (uDir is the
+  // texel step on the active axis): horizontal camera -> scratch, then vertical
+  // scratch -> scratch. Output keeps the source alpha (the camera FBO is opaque).
+  // Keep identical to the web and iOS copies.
   const val BLUR_FRAG = """#version 300 es
 precision highp float;
 uniform sampler2D uTex;
@@ -91,15 +92,20 @@ in highp vec2 vUv;
 out vec4 oColor;
 void main() {
   float s2 = 2.0 * uSigma * uSigma;
-  float w[5];
+  float w[7];
   float sum = 0.0;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 7; i++) {
     w[i] = exp(-(float(i) * float(i)) / s2);
     sum += (i == 0) ? w[i] : 2.0 * w[i];
   }
+  // Tap spacing scales with sigma (spread): adds reach plus a faint double-image
+  // at the high end instead of flatlining once the kernel saturates. Intentional
+  // coupling (blur softness AND tap spacing on one knob); a small multi-fx unit,
+  // not a pure gaussian. Keep the spread term.
+  float spread = uSigma * 0.25;
   vec4 acc = texture(uTex, vUv) * (w[0] / sum);
-  for (int i = 1; i < 5; i++) {
-    vec2 off = uDir * float(i);
+  for (int i = 1; i < 7; i++) {
+    vec2 off = uDir * float(i) * spread;
     acc += texture(uTex, vUv + off) * (w[i] / sum);
     acc += texture(uTex, vUv - off) * (w[i] / sum);
   }

@@ -125,7 +125,7 @@ export const presets = {
     name: 'Medium',
     category: 'Blur',
     layers: [
-      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 4 } },
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
@@ -133,7 +133,7 @@ export const presets = {
     name: 'High',
     category: 'Blur',
     layers: [
-      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 7 } },
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
