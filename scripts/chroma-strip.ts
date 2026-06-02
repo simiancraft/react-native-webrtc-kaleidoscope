@@ -59,12 +59,20 @@ import { $ } from 'bun';
 const DEFAULT_COLOR = '#FF00FF'; // magenta
 const DEFAULT_FUZZ = 10; // percent tolerance around the key color
 const DEFAULT_SHRINK = 0; // px to grow the transparent region after keying
+const DEFAULT_STRENGTH = 5; // --magenta hue-alpha ramp steepness
 
 type Args = {
   input: string;
   color: string;
   fuzz: number;
   shrink: number;
+  // --magenta: hue-based feathered alpha instead of the distance key. Alpha is
+  // driven by magenta-ness (how far R and B both exceed G), so neutral pixels
+  // (white/gray/black, R≈G≈B) stay fully opaque while pink goes transparent on a
+  // soft gradient. For neon-on-neutral brand plates where a distance key either
+  // leaves a glow halo or erodes the faintly-tinted background.
+  magenta: boolean;
+  strength: number;
   out: string;
 };
 
@@ -77,6 +85,10 @@ function usage(): never {
       `  --fuzz    tolerance percent around the color (default ${DEFAULT_FUZZ}). Higher = strips more.`,
       `  --shrink  grow the transparent region by N px after keying (default ${DEFAULT_SHRINK}). Eats the thin`,
       '            keyed-color fringe a glowing matte leaves at the edge, without raising --fuzz into the scene.',
+      '  --magenta hue mode: alpha from magenta-ness (R,B >> G), feathered. Neutral (white/gray/black)',
+      '            pixels stay opaque, so it removes neon pink from a neutral plate with no bg erosion.',
+      `            Ignores --color/--fuzz. Pair with --strength (default ${DEFAULT_STRENGTH}).`,
+      `  --strength steepness of the --magenta ramp (default ${DEFAULT_STRENGTH}); higher = sharper, lower = softer.`,
       '  --out     output path (default <input>.cutout.webp). Always written as lossless WebP.',
     ].join('\n'),
   );
@@ -94,6 +106,8 @@ function parseArgs(argv: readonly string[]): Args {
   let color = DEFAULT_COLOR;
   let fuzz = DEFAULT_FUZZ;
   let shrink = DEFAULT_SHRINK;
+  let magenta = false;
+  let strength = DEFAULT_STRENGTH;
   let out: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
@@ -102,6 +116,8 @@ function parseArgs(argv: readonly string[]): Args {
     else if (a === '--color') color = argv[++i] ?? usage();
     else if (a === '--fuzz') fuzz = Number(argv[++i]);
     else if (a === '--shrink') shrink = Number(argv[++i]);
+    else if (a === '--magenta') magenta = true;
+    else if (a === '--strength') strength = Number(argv[++i]);
     else if (a === '--out') out = argv[++i] ?? usage();
     else if (a?.startsWith('--')) {
       console.error(`Unknown flag: ${a}`);
@@ -122,12 +138,16 @@ function parseArgs(argv: readonly string[]): Args {
     console.error(`--shrink must be an integer in [0, 50]; got ${shrink}`);
     usage();
   }
+  if (!Number.isFinite(strength) || strength <= 0 || strength > 64) {
+    console.error(`--strength must be a number in (0, 64]; got ${strength}`);
+    usage();
+  }
 
   // Default output: alongside the input, basename + .cutout.webp.
   const p = parse(input);
   const resolvedOut = out ?? join(p.dir || '.', `${p.name}.cutout.webp`);
 
-  return { input, color: normalizeColor(color), fuzz, shrink, out: resolvedOut };
+  return { input, color: normalizeColor(color), fuzz, shrink, magenta, strength, out: resolvedOut };
 }
 
 // Prefer ImageMagick 7's `magick`; fall back to v6's `convert`.
@@ -147,7 +167,7 @@ async function resolveMagick(): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  const { input, color, fuzz, shrink, out } = parseArgs(Bun.argv.slice(2));
+  const { input, color, fuzz, shrink, magenta, strength, out } = parseArgs(Bun.argv.slice(2));
 
   if (!existsSync(input)) {
     console.error(`Input not found: ${input}`);
@@ -164,6 +184,23 @@ async function main(): Promise<void> {
   // geometry instead. Empty (no-op) when shrink is 0.
   const shrinkOps =
     shrink > 0 ? ['-channel', 'A', '-morphology', 'Erode', `Disk:${shrink}`, '+channel'] : [];
+
+  // Keying op. Distance mode (default): hard chroma key, every pixel within
+  // --fuzz of --color goes transparent. Magenta mode (--magenta): set alpha from
+  // magenta-ness, alpha = 1 - clamp(strength * (min(R,B) - G)). Neutral pixels
+  // (R≈G≈B) -> min(R,B)-G ≈ 0 -> stay opaque (no background erosion, ever); pink
+  // (R,B >> G) -> transparent, feathered along the glow gradient. Higher
+  // --strength = a steeper (less feathered) ramp. The min(R,B)-G metric is
+  // magenta-specific (the only saturated hue in these brand plates).
+  const keyOps = magenta
+    ? [
+        '-channel',
+        'A',
+        '-fx',
+        `1 - max(0, min(${strength} * (min(u.r, u.b) - u.g), 1))`,
+        '+channel',
+      ]
+    : ['-fuzz', `${fuzz}%`, '-transparent', color];
 
   // The ImageMagick pipeline, token by token (order matters — operators apply
   // left to right to the image in flight):
@@ -186,7 +223,7 @@ async function main(): Promise<void> {
   //   ${out}                   write; format is inferred from the extension
   //                            (we always hand it .webp).
   try {
-    await $`${magick} ${input} -alpha set -fuzz ${`${fuzz}%`} -transparent ${color} ${shrinkOps} -define webp:lossless=true ${out}`.quiet();
+    await $`${magick} ${input} -alpha set ${keyOps} ${shrinkOps} -define webp:lossless=true ${out}`.quiet();
   } catch (err) {
     console.error(`ImageMagick failed keying ${input}`);
     console.error(err instanceof Error ? err.message : String(err));
@@ -218,10 +255,9 @@ async function main(): Promise<void> {
   }
 
   const shrinkNote = shrink > 0 ? ` shrink ${shrink}px` : '';
+  const mode = magenta ? `magenta hue @ strength ${strength}` : `key ${color} @ fuzz ${fuzz}%`;
   console.log(`chroma-strip: ${input}`);
-  console.log(
-    `  key ${color} @ fuzz ${fuzz}%${shrinkNote}  ->  ${out} (${transparentPct} transparent)`,
-  );
+  console.log(`  ${mode}${shrinkNote}  ->  ${out} (${transparentPct} transparent)`);
 }
 
 main();
