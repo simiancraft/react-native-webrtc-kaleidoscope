@@ -1,6 +1,7 @@
 anamorphic-lensflare.frag
 blur.frag
 clouds.frag
+composite-camera.frag
 composite.frag
 corporate-blobs.frag
 fireflies.frag

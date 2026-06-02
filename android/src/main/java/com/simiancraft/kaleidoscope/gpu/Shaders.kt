@@ -73,6 +73,12 @@ void main() {
   // and offsets from sigma on the CPU and uploads the arrays each program use.
   val BLUR_FRAG = ShadersGenerated.BLUR_FRAG
 
+  // Composite compositor CAMERA layer (direct/background): raw display-upright
+  // camera, opaque. Canonical source shaders/_shared/composite-camera.frag,
+  // generated into ShadersGenerated; delegated here. Migrated off the hand-written
+  // LayerShaders.CAMERA_FRAG.
+  val COMPOSITE_CAMERA_FRAG = ShadersGenerated.COMPOSITE_CAMERA_FRAG
+
   // Composite: mix(background, original, mask). One shader, byte-identical
   // to src/web/shaders.ts's COMPOSITE_FRAG_SRC.
   //

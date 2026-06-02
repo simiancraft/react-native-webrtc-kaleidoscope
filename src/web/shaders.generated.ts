@@ -36,6 +36,16 @@ void main() {
 }
 `;
 
+export const COMPOSITE_CAMERA_FRAG_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uCamera;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  oColor = vec4(texture(uCamera, vUv).rgb, 1.0);
+}
+`;
+
 export const BLUR_FRAG_SRC = `#version 300 es
 precision mediump float;
 uniform sampler2D uTex;

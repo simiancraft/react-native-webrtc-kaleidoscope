@@ -63,18 +63,8 @@ void main() {
 }
 """
 
-  // Raw camera fullscreen (direct/background), opaque. Mirrors CAMERA_FRAG_SRC in
-  // composite.ts; samples the display-upright camera 2D copy and emits straight RGB
-  // with alpha 1, so a non-blended base draw fills the frame.
-  const val CAMERA_FRAG = """#version 300 es
-precision highp float;
-uniform sampler2D uCamera;
-in highp vec2 vUv;
-out vec4 oColor;
-void main() {
-  oColor = vec4(texture(uCamera, vUv).rgb, 1.0);
-}
-"""
+  // CAMERA layer migrated to the single-source pipeline; see
+  // Shaders.COMPOSITE_CAMERA_FRAG (canonical shaders/_shared/composite-camera.frag).
 
   // Camera-sampling separable gaussian, 13-tap (base offsets -6..6, scaled by a
   // sigma-coupled spread), sigma-weighted. Hand-written to mirror BLUR_FRAG_SRC in

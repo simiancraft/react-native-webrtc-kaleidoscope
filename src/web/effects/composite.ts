@@ -22,7 +22,7 @@
 import type { LayerSpec } from '../../types';
 import type { FrameTransform } from '../insertable-streams';
 import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
-import { PASSTHROUGH_VERT_SRC } from '../shaders';
+import { COMPOSITE_CAMERA_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 import { LAYER_SHADER_SOURCES } from './layer-shaders';
 
@@ -41,16 +41,8 @@ void main() {
 }
 `;
 
-// Raw camera fullscreen (direct/background), opaque.
-const CAMERA_FRAG_SRC = `#version 300 es
-precision highp float;
-uniform sampler2D uCamera;
-in highp vec2 vUv;
-out vec4 oColor;
-void main() {
-  oColor = vec4(texture(uCamera, vUv).rgb, 1.0);
-}
-`;
+// Raw camera fullscreen (direct/background), opaque. Now single-sourced via the
+// pipeline: COMPOSITE_CAMERA_FRAG_SRC (canonical shaders/_shared/composite-camera.frag).
 
 // Direct/subject fast path: the masked camera person, output PREMULTIPLIED so a
 // normal "over" blend composites the person onto the stack.
@@ -416,7 +408,7 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
 
   let camera: CameraGpu | null = null;
   if (needsCamera) {
-    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, CAMERA_FRAG_SRC);
+    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_CAMERA_FRAG_SRC);
     camera = { prog, uCamera: gl.getUniformLocation(prog, 'uCamera'), tex: createTexture(gl) };
   }
 

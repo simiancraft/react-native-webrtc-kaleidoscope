@@ -554,7 +554,7 @@ private class CompositeProcessor(
       GlDebug.check("composite subject program compile/link")
     }
     if (cameraProgram == null) {
-      cameraProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.CAMERA_FRAG)
+      cameraProgram = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.COMPOSITE_CAMERA_FRAG)
       GlDebug.check("composite camera program compile/link")
     }
     if (blurProgram == null) {

@@ -90,11 +90,18 @@ const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 const ANDROID_CODEGEN = [
   'passthrough.vert',
   'composite.frag',
+  'composite-camera.frag',
   'blur.frag',
   'transform.frag',
   'plasma.frag',
 ] as const;
-const WEB_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag', 'plasma.frag'] as const;
+const WEB_CODEGEN = [
+  'passthrough.vert',
+  'composite.frag',
+  'composite-camera.frag',
+  'blur.frag',
+  'plasma.frag',
+] as const;
 const ALL_CODEGEN = Array.from(new Set<string>([...ANDROID_CODEGEN, ...WEB_CODEGEN]));
 
 // Generative background shaders: the ones the generic shader processor runs
@@ -135,11 +142,14 @@ function stripToVersion(raw: string): string {
   return raw.replace(/^[\s\S]*?(#version)/, '$1');
 }
 
-// passthrough.vert -> PASSTHROUGH_VERT, composite.frag -> COMPOSITE_FRAG.
+// passthrough.vert -> PASSTHROUGH_VERT, composite.frag -> COMPOSITE_FRAG,
+// composite-camera.frag -> COMPOSITE_CAMERA_FRAG. Hyphens in the basename map to
+// underscores so the const stays a valid Kotlin/TS identifier; the transpiled
+// .metalsrc keeps the hyphenated filename.
 function constBase(filename: string): string {
   const { name, ext } = parse(filename);
   const stage = ext === '.vert' ? 'VERT' : 'FRAG';
-  return `${name.toUpperCase()}_${stage}`;
+  return `${name.toUpperCase().replace(/-/g, '_')}_${stage}`;
 }
 
 async function transpileOne(filename: string, inputPath: string): Promise<void> {
