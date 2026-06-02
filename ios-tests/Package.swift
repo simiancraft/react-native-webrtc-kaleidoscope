@@ -1,10 +1,10 @@
 // swift-tools-version:5.9
 //
-// Standalone SwiftPM harness for the iOS scene layer-stack parser.
+// Standalone SwiftPM harness for the iOS composite layer-stack parser.
 //
-// It compiles ONLY the real ios/KaleidoscopeModule/SceneLayers.swift (symlinked
-// into Sources/SceneLayersKit, so there is one source of truth) and runs the
-// XCTest mirror of the Android SceneLayersTest against it. The file is pure
+// It compiles ONLY the real ios/KaleidoscopeModule/CompositeLayers.swift (symlinked
+// into Sources/CompositeLayersKit, so there is one source of truth) and runs the
+// XCTest mirror of the Android CompositeLayersTest against it. The file is pure
 // Foundation + os.log, so no Expo, Metal, MediaPipe, or WebRTC dependency is
 // needed; `swift test` builds and runs it in seconds on any mac.
 //
@@ -20,14 +20,14 @@
 import PackageDescription
 
 let package = Package(
-  name: "SceneLayersKit",
+  name: "CompositeLayersKit",
   platforms: [.macOS(.v11)],
   targets: [
-    .target(name: "SceneLayersKit", path: "Sources/SceneLayersKit"),
+    .target(name: "CompositeLayersKit", path: "Sources/CompositeLayersKit"),
     .testTarget(
-      name: "SceneLayersKitTests",
-      dependencies: ["SceneLayersKit"],
-      path: "Tests/SceneLayersKitTests"
+      name: "CompositeLayersKitTests",
+      dependencies: ["CompositeLayersKit"],
+      path: "Tests/CompositeLayersKitTests"
     ),
   ]
 )

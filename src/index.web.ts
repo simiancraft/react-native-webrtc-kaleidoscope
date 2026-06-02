@@ -13,6 +13,7 @@
 import {
   createControls,
   type Reconcile,
+  type ResetLayerUniforms,
   type SetLayerUniforms,
   type SetMask,
 } from './kaleidoscope/controls';
@@ -22,7 +23,11 @@ import type {
   PresetBook,
 } from './kaleidoscope/types';
 import { type EffectInput, type EffectSpec, toEffectSpec } from './types';
-import { makeScene, setLayerUniforms as setSceneLayerUniforms } from './web/effects/scene';
+import {
+  makeComposite,
+  resetLayerUniforms as resetCompositeLayerUniforms,
+  setLayerUniforms as setCompositeLayerUniforms,
+} from './web/effects/composite';
 import { makeTransform } from './web/effects/transform';
 import {
   applyEffectToTrack,
@@ -33,7 +38,7 @@ import { tuning } from './web/tuning';
 
 // The tuning channel (tuning.*) is internal: the mask edge flows from the mask()
 // verb (see bindKaleidoscope). Per-layer uniform tuning flows from the
-// kaleidoscope verb's patch path into the scene compositor's live channel. The
+// kaleidoscope verb's patch path into the composite compositor's live channel. The
 // old global set* exports are gone; effects are driven by kaleidoscope /
 // transform / mask, not loose setters.
 
@@ -103,7 +108,7 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
       // The layer stack runs as a single compositor stage (painter's order,
       // per-layer blend), not a serial chain of replace-stages. Blur, image, and
       // generative layers all live inside it.
-      return makeScene(spec.layers);
+      return makeComposite(spec.layers);
   }
 };
 
@@ -179,7 +184,12 @@ export const bindKaleidoscope = <P extends PresetBook>(
   // Live per-layer uniform channel: a patch of the active preset writes here
   // (keyed by layer id) and the running compositor merges it each frame.
   const setLayerUniforms: SetLayerUniforms = (id, uniforms) => {
-    setSceneLayerUniforms(id, uniforms);
+    setCompositeLayerUniforms(id, uniforms);
   };
-  return createControls(track, options, reconcile, setMask, setLayerUniforms);
+  // A preset switch drops every live override so reused layer ids revert to the
+  // new preset's baked uniforms (see createControls).
+  const resetLayerUniforms: ResetLayerUniforms = () => {
+    resetCompositeLayerUniforms();
+  };
+  return createControls(track, options, reconcile, setMask, setLayerUniforms, resetLayerUniforms);
 };

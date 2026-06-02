@@ -54,21 +54,23 @@ class KaleidoscopeModule : Module() {
       ShaderUniforms.set(name, uniforms)
     }
 
-    // Scene layer-stack channel. JS serializes the active scene's ordered layer
-    // stack (shader, target, blend, plate source id, uniforms) to a JSON string;
-    // SceneLayers parses it once and the single registered "scene" processor
-    // composites whatever stack is current. Delivering it as a side-channel
-    // (like setShaderUniforms) keeps the upstream registry's flat-string contract
-    // intact: "scene" is one registered name whose contents JS swaps.
-    Function("setSceneLayers") { json: String ->
-      SceneLayers.set(json)
+    // Composite layer-stack channel. JS serializes the active composite's ordered
+    // layer stack (shader, target, blend, image source id, uniforms) to a JSON
+    // string; CompositeLayers parses it once and the single registered "composite"
+    // processor composites whatever stack is current. Delivering it as a
+    // side-channel (like setShaderUniforms) keeps the upstream registry's
+    // flat-string contract intact: "composite" is one registered name whose
+    // contents JS swaps.
+    Function("setCompositeLayers") { json: String ->
+      CompositeLayers.set(json)
     }
 
-    // Resolve a displayable URI for a bundled background by its book id, for the
-    // picker's native thumbnails (react-native-webrtc-kaleidoscope/ui). The
-    // prebuild copies each referenced WebP into assets/backgrounds/<id>.webp (see
-    // Registration.registerBackgroundImages); return Fresco's `asset://` URI when
-    // present, else null so the JS resolver falls back to the source.
+    // Resolve a displayable URI for a bundled composite image by its book id, for
+    // the picker's native thumbnails (react-native-webrtc-kaleidoscope/ui). The
+    // prebuild copies every referenced WebP into assets/images/<id>.webp
+    // (app.plugin.js, the same images the compositor reads); return Fresco's
+    // `asset://` URI when present, else null so the JS resolver falls back to the
+    // source.
     //
     // Must be `asset:///` (Fresco's LocalAssetFetchProducer reads it through the
     // AssetManager), NOT `file:///android_asset/...`: the latter routes to Fresco's
@@ -88,11 +90,11 @@ class KaleidoscopeModule : Module() {
       //    appContext.reactContext, which can be transiently null at call time.
       val ctx = assetContext ?: appContext.reactContext?.applicationContext
       val present = try {
-        ctx?.assets?.open("backgrounds/$id.webp")?.use { true } == true
+        ctx?.assets?.open("images/$id.webp")?.use { true } == true
       } catch (t: Throwable) {
         false
       }
-      if (present) "asset:///backgrounds/$id.webp" else null
+      if (present) "asset:///images/$id.webp" else null
     }
 
     Function("setDebugTiming") { value: Boolean ->

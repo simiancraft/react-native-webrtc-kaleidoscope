@@ -4,7 +4,7 @@
 // from one stable path. Do not hand-edit the generated file.
 //
 // The compositor folds every effect into one layered stage (see
-// src/web/effects/scene.ts), so the only shared source the runtime still imports
+// src/web/effects/composite.ts), so the only shared source the runtime still imports
 // from here is the full-screen-quad vertex shader:
 //   - PASSTHROUGH_VERT_SRC: full-screen quad via gl_VertexID (no VAO/VBO);
 //     caller does gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4).

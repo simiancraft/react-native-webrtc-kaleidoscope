@@ -1,21 +1,21 @@
 // Frame-processor registration for Android. Called from
 // KaleidoscopeModule.OnCreate at Expo Module init time, before any track
 // requests an effect by name. The Context is needed by the compositor so it can
-// read bundled assets: the scene-plate WebP images and the
+// read bundled assets: the composite image WebP files and the
 // selfie_segmenter.tflite model (loaded via SegmentationEngine).
 //
 // The art axis is one registered "composite" compositor: blur, background
 // images, and generative shaders are all layers inside a composite, delivered
-// from JS via setSceneLayers (see SceneLayers / KaleidoscopeModule). There is no
-// longer a per-effect factory per preset; the layer stack is data, swapped from
-// JS as the active composite changes, so adding a preset needs no Kotlin change.
-// Only the four geometric transforms stay statically named alongside it.
+// from JS via setCompositeLayers (see CompositeLayers / KaleidoscopeModule). There
+// is no longer a per-effect factory per preset; the layer stack is data, swapped
+// from JS as the active composite changes, so adding a preset needs no Kotlin
+// change. Only the four geometric transforms stay statically named alongside it.
 
 package com.simiancraft.kaleidoscope
 
 import android.content.Context
 import com.oney.WebRTCModule.videoEffects.ProcessorProvider
-import com.simiancraft.kaleidoscope.effects.SceneFactory
+import com.simiancraft.kaleidoscope.effects.CompositeFactory
 import com.simiancraft.kaleidoscope.effects.TransformFactory
 import com.simiancraft.kaleidoscope.gpu.Orientation
 
@@ -31,7 +31,7 @@ object Registration {
     ProcessorProvider.addProcessor("rotate-ccw", TransformFactory(Orientation.Op.ROTATE_CCW))
 
     // The single art compositor; every art effect (image, blur, generative) is a
-    // layer in the stack JS delivers via setSceneLayers.
-    ProcessorProvider.addProcessor("composite", SceneFactory(context))
+    // layer in the stack JS delivers via setCompositeLayers.
+    ProcessorProvider.addProcessor("composite", CompositeFactory(context))
   }
 }

@@ -50,7 +50,7 @@ describe('native registry parity', () => {
   test('every transform op + the composite compositor is registered on both platforms', () => {
     // The art axis collapsed to one registered "composite" compositor (blur,
     // images, and generative shaders are now layers inside a composite, delivered
-    // via setSceneLayers); only the four geometric transforms stay statically
+    // via setCompositeLayers); only the four geometric transforms stay statically
     // named alongside it. The old per-effect names ("blur", "background-image-<id>",
     // the bare generative names) are gone on both platforms.
     for (const name of [...TRANSFORM_OPS, 'composite']) {

@@ -13,17 +13,17 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Scene compositor CAMERA layer (direct/background): the raw display-upright
+// Composite compositor CAMERA layer (direct/background): the raw display-upright
 // camera fullscreen, opaque. Mirrors LayerShaders.CAMERA_FRAG (Android) /
 // CAMERA_FRAG_SRC (web). The camera "original" texture is already display-upright
 // from CoreImage ingest (Ingest.swift) and is sampled in the SAME (output) render
 // pass as a direct image/subject layer, so no V term is needed here (only the
-// scratch-backed layers carry a per-pass V parity term; see SceneProcessor).
+// scratch-backed layers carry a per-pass V parity term; see CompositeProcessor).
 // Output straight RGB with alpha 1 so the base draw fills the frame.
 //
 // Hand-authored to match the spirv-cross idiom (struct main0_in/out, main0
 // entry, `[[texture(n)]]`/`[[sampler(n)]]` samplers); ShaderLibrary loads it the
-// same way as the transpiled .metalsrc, and SceneProcessor binds uCamera at
+// same way as the transpiled .metalsrc, and CompositeProcessor binds uCamera at
 // texture(0), its sampler at sampler(0). No uniform buffers.
 fragment main0_out main0(main0_in in [[stage_in]], texture2d<float> uCamera [[texture(0)]], sampler uCameraSmplr [[sampler(0)]])
 {

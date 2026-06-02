@@ -36,11 +36,11 @@ public class KaleidoscopeModule: Module {
     }
 
     // Composite layer-stack channel. Mirrors android/.../KaleidoscopeModule.kt's
-    // setSceneLayers: JS sends the active composite's ordered layer stack as a
-    // JSON string; SceneLayers parses it into the snapshot the registered
-    // "composite" SceneProcessor composites each frame.
-    Function("setSceneLayers") { (json: String) in
-      SceneLayers.set(json)
+    // setCompositeLayers: JS sends the active composite's ordered layer stack as a
+    // JSON string; CompositeLayers parses it into the snapshot the registered
+    // "composite" CompositeProcessor composites each frame.
+    Function("setCompositeLayers") { (json: String) in
+      CompositeLayers.set(json)
     }
 
     // Resolve a displayable file:// URI for a bundled background by its book id,

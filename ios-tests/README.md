@@ -1,13 +1,13 @@
 # ios-tests
 
-A standalone SwiftPM harness for the iOS **scene layer-stack parser**
-(`ios/KaleidoscopeModule/SceneLayers.swift`). It is the iOS half of the
+A standalone SwiftPM harness for the iOS **composite layer-stack parser**
+(`ios/KaleidoscopeModule/CompositeLayers.swift`). It is the iOS half of the
 cross-platform parity suite; the Android half is
-`android/src/test/java/com/simiancraft/kaleidoscope/SceneLayersTest.kt`, run by
+`android/src/test/java/com/simiancraft/kaleidoscope/CompositeLayersTest.kt`, run by
 `testDebugUnitTest`.
 
 The two test files mirror each other case for case. The parser is the contract
-between `serializeSceneLayers` (`src/index.ts`, the single producer of the wire
+between `serializeCompositeLayers` (`src/index.ts`, the single producer of the wire
 JSON) and the native compositors; if the Kotlin and Swift parsers disagree on a
 shared case, one side's suite fails.
 
@@ -19,10 +19,10 @@ swift test
 ```
 
 Needs a Swift toolchain. It builds **only** the one real source file (symlinked
-into `Sources/SceneLayersKit/`, so there is one source of truth), with no Expo,
+into `Sources/CompositeLayersKit/`, so there is one source of truth), with no Expo,
 Metal, MediaPipe, or WebRTC dependency, so it builds and runs in seconds.
 
-`SceneLayers.swift` uses `os.log` and `os_unfair_lock`, which are Darwin only, so
+`CompositeLayers.swift` uses `os.log` and `os_unfair_lock`, which are Darwin only, so
 this runs on **macOS, not Linux** (and not in the current ubuntu-only CI). It
 ships nowhere: it sits outside `ios/` so the podspec's `KaleidoscopeModule/**`
 glob and the npm `files` allowlist (which ships `ios/` wholesale) cannot pull
@@ -31,7 +31,7 @@ XCTest into a production build.
 ## Shared contract (must agree on both platforms)
 
 - root must be a JSON array, else the whole payload is rejected and the previous
-  scene is kept
+  composite is kept
 - each element must be an object, else it is skipped
 - `shader` is required and non-empty, else that layer is skipped
 - `target` defaults to `"background"`
@@ -43,7 +43,7 @@ XCTest into a production build.
 ## Known divergences (NOT covered by the shared cases, by design)
 
 These come from `org.json` (Android) vs Foundation `JSONSerialization` (iOS) and
-only occur on inputs `serializeSceneLayers` never emits, so they are harmless
+only occur on inputs `serializeCompositeLayers` never emits, so they are harmless
 today. They are documented, not tested, until we decide to converge or keep them:
 
 1. **Boolean uniform value.** `{"uColor": true}` — iOS accepts it as `1.0`

@@ -1,7 +1,7 @@
 // Per-shader interface barrel. Each layer shader exports its typed uniforms and
 // a control descriptor (the runtime metadata the demo generates tuning controls
 // from, and the shader's documentation). LAYER_CONTROLS is the registry the demo
-// reads to show controls for whatever tunable layers the active scene contains.
+// reads to show controls for whatever tunable layers the active composite contains.
 
 import type { UniformControl } from '../../shaders/_shared/types';
 import type { AnamorphicLensFlareUniforms } from '../../shaders/anamorphic-lensflare/anamorphic-lensflare';
@@ -71,7 +71,7 @@ export type PatchableShaderName = keyof ShaderUniformsMap;
 
 /**
  * Tunable layer shaders → their control descriptors. The demo renders one control
- * panel per tunable layer in the active scene by looking each layer's shader name
+ * panel per tunable layer in the active composite by looking each layer's shader name
  * up here. `image`/`direct` have no tunable uniforms, so they're absent.
  */
 export const LAYER_CONTROLS: Readonly<Record<string, readonly UniformControl[]>> = {

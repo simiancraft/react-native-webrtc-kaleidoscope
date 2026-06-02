@@ -1,28 +1,28 @@
 import XCTest
 
-@testable import SceneLayersKit
+@testable import CompositeLayersKit
 
-/// Unit tests for the scene layer-stack wire contract on iOS: the JSON that
-/// serializeSceneLayers (src/index.ts) sends across the bridge and that
-/// SceneLayers.set/get/clear parses into the snapshot the compositor reads each
-/// frame. These mirror, case for case, android/.../SceneLayersTest.kt, so a
+/// Unit tests for the composite layer-stack wire contract on iOS: the JSON that
+/// serializeCompositeLayers (src/index.ts) sends across the bridge and that
+/// CompositeLayers.set/get/clear parses into the snapshot the compositor reads each
+/// frame. These mirror, case for case, android/.../CompositeLayersTest.kt, so a
 /// divergence in either parser fails on one side. The wire shape and the rules
 /// (target default, scalar/vector uniform normalization, lenient per-layer skip,
 /// keep-previous on a whole-payload failure) are the shared contract; the two
 /// implementations are different languages but MUST agree here.
-final class SceneLayersTests: XCTestCase {
-  // SceneLayers is a process-global singleton; reset between cases so a prior
+final class CompositeLayersTests: XCTestCase {
+  // CompositeLayers is a process-global singleton; reset between cases so a prior
   // set() can't leak into the next assertion.
   override func setUp() {
     super.setUp()
-    SceneLayers.clear()
+    CompositeLayers.clear()
   }
 
-  // The wizard-tower scene exactly as serializeSceneLayers emits it: a
+  // The wizard-tower composite exactly as serializeCompositeLayers emits it: a
   // generative base (clouds, uniforms), the cut-out plate (image, source = the
   // stable plate id), then you (direct, subject). The canonical happy path.
   func testParsesWizardTowerStack() {
-    SceneLayers.set(
+    CompositeLayers.set(
       """
       [
         {"id":"sky","shader":"clouds","target":"background","uniforms":{"uExposure":1.26,"uSkyLowColor":[0.99,0.62,0.03],"uCloudSpeed":0.92}},
@@ -31,7 +31,7 @@ final class SceneLayersTests: XCTestCase {
       ]
       """
     )
-    let layers = SceneLayers.get()
+    let layers = CompositeLayers.get()
     XCTAssertEqual(layers.count, 3)
 
     let clouds = layers[0]
@@ -59,7 +59,7 @@ final class SceneLayersTests: XCTestCase {
   // An overlay layer carries a blend mode; additive must round-trip, and the
   // base layer (no blend key) must stay nil (the compositor reads nil = opaque).
   func testParsesAdditiveBlendOverOpaqueBase() {
-    SceneLayers.set(
+    CompositeLayers.set(
       """
       [
         {"id":"plate","shader":"image","target":"background","source":"stylized-dark"},
@@ -67,7 +67,7 @@ final class SceneLayersTests: XCTestCase {
       ]
       """
     )
-    let layers = SceneLayers.get()
+    let layers = CompositeLayers.get()
     XCTAssertEqual(layers.count, 2)
     XCTAssertEqual(layers[0].id, "plate")
     XCTAssertNil(layers[0].blend)
@@ -78,10 +78,10 @@ final class SceneLayersTests: XCTestCase {
 
   // `id` is always on the wire now; a payload missing it falls back to the array
   // index so the address stays stable and unique-per-stack rather than colliding.
-  // Mirrors SceneLayersTest.fallsBackToIndexWhenIdMissing.
+  // Mirrors CompositeLayersTest.fallsBackToIndexWhenIdMissing.
   func testFallsBackToIndexWhenIdMissing() {
-    SceneLayers.set(#"[{"shader":"clouds","uniforms":{}},{"shader":"direct","target":"subject"}]"#)
-    let layers = SceneLayers.get()
+    CompositeLayers.set(#"[{"shader":"clouds","uniforms":{}},{"shader":"direct","target":"subject"}]"#)
+    let layers = CompositeLayers.get()
     XCTAssertEqual(layers.count, 2)
     XCTAssertEqual(layers[0].id, "0")
     XCTAssertEqual(layers[1].id, "1")
@@ -89,15 +89,15 @@ final class SceneLayersTests: XCTestCase {
 
   // target defaults to "background" when the wire omits it.
   func testDefaultsMissingTargetToBackground() {
-    SceneLayers.set(#"[{"shader":"clouds","uniforms":{}}]"#)
-    XCTAssertEqual(SceneLayers.get()[0].target, "background")
+    CompositeLayers.set(#"[{"shader":"clouds","uniforms":{}}]"#)
+    XCTAssertEqual(CompositeLayers.get()[0].target, "background")
   }
 
   // A scalar uniform normalizes to a one-element array; a numeric array stays a
   // vector, in order.
   func testNormalizesScalarAndVectorUniforms() {
-    SceneLayers.set(#"[{"shader":"plasma","uniforms":{"speed":0.3,"colorA":[0.0,0.3,0.6]}}]"#)
-    let u = SceneLayers.get()[0].uniforms
+    CompositeLayers.set(#"[{"shader":"plasma","uniforms":{"speed":0.3,"colorA":[0.0,0.3,0.6]}}]"#)
+    let u = CompositeLayers.get()[0].uniforms
     assertFloats(u["speed"], [0.3])
     assertFloats(u["colorA"], [0.0, 0.3, 0.6])
   }
@@ -105,8 +105,8 @@ final class SceneLayersTests: XCTestCase {
   // A uniform whose value is neither a number nor a numeric array is skipped;
   // the shader keeps its MSL default for that name. Well-formed siblings stay.
   func testSkipsNonNumericUniformKeepingSiblings() {
-    SceneLayers.set(#"[{"shader":"plasma","uniforms":{"speed":0.3,"bad":"nope"}}]"#)
-    let u = SceneLayers.get()[0].uniforms
+    CompositeLayers.set(#"[{"shader":"plasma","uniforms":{"speed":0.3,"bad":"nope"}}]"#)
+    let u = CompositeLayers.get()[0].uniforms
     assertFloats(u["speed"], [0.3])
     XCTAssertNil(u["bad"])
   }
@@ -114,32 +114,32 @@ final class SceneLayersTests: XCTestCase {
   // A layer with no shader is skipped; well-formed siblings survive (the parse
   // is per-layer lenient, not all-or-nothing).
   func testSkipsLayerWithoutShader() {
-    SceneLayers.set(#"[{"target":"background"},{"shader":"direct","target":"subject"}]"#)
-    let layers = SceneLayers.get()
+    CompositeLayers.set(#"[{"target":"background"},{"shader":"direct","target":"subject"}]"#)
+    let layers = CompositeLayers.get()
     XCTAssertEqual(layers.count, 1)
     XCTAssertEqual(layers[0].shader, "direct")
   }
 
   func testParsesEmptyStack() {
-    SceneLayers.set("[]")
-    XCTAssertTrue(SceneLayers.get().isEmpty)
+    CompositeLayers.set("[]")
+    XCTAssertTrue(CompositeLayers.get().isEmpty)
   }
 
-  // A whole-payload parse failure (not a JSON array) leaves the previous scene
+  // A whole-payload parse failure (not a JSON array) leaves the previous composite
   // in place rather than blanking the frame.
-  func testKeepsPreviousSceneOnMalformedPayload() {
-    SceneLayers.set(#"[{"shader":"direct","target":"subject"}]"#)
-    SceneLayers.set("not json at all")
-    let layers = SceneLayers.get()
+  func testKeepsPreviousCompositeOnMalformedPayload() {
+    CompositeLayers.set(#"[{"shader":"direct","target":"subject"}]"#)
+    CompositeLayers.set("not json at all")
+    let layers = CompositeLayers.get()
     XCTAssertEqual(layers.count, 1)
     XCTAssertEqual(layers[0].shader, "direct")
   }
 
-  // clear() drops the active scene (a non-scene effect taking over).
+  // clear() drops the active composite (a non-composite effect taking over).
   func testClearEmptiesStack() {
-    SceneLayers.set(#"[{"shader":"direct","target":"subject"}]"#)
-    SceneLayers.clear()
-    XCTAssertTrue(SceneLayers.get().isEmpty)
+    CompositeLayers.set(#"[{"shader":"direct","target":"subject"}]"#)
+    CompositeLayers.clear()
+    XCTAssertTrue(CompositeLayers.get().isEmpty)
   }
 
   // MARK: - helpers

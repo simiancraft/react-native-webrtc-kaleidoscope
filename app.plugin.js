@@ -177,14 +177,6 @@ function patchPodfile(contents, pod) {
 // handles Android, which merges app assets into the build directly.
 const PRESET_BOOK_FILENAME = 'kaleidoscope.presets.ts';
 
-// Manifest of bundled background ids (a JSON array), written next to the copied
-// WebPs on both platforms so native Registration can discover the curated set
-// without enumerating the directory at runtime. The curated set is fully known
-// here at prebuild time, so emit it explicitly rather than rediscovering it via
-// AssetManager.list() (iOS never enumerated; this aligns Android with that
-// proven pattern). Read via open()/Bundle, never list().
-const BACKGROUNDS_MANIFEST = 'kaleidoscope-backgrounds.json';
-
 // local binding -> import specifier, for single named imports. Handles both
 // `{ X }` and `{ X as Y }`; the LOCAL name (Y when aliased, else X) is what a
 // layer's `source` expression references, so a packaged composite that imports
@@ -199,23 +191,23 @@ function parseImports(source) {
   return imports;
 }
 
-// Derive a scene plate id from its source specifier: the basename without
+// Derive an image plate id from its source specifier: the basename without
 // extension (e.g. './assets/backgrounds/wizards-tower.webp' -> 'wizards-tower',
 // 'react-native-webrtc-kaleidoscope/images/stylized-dark' -> 'stylized-dark').
 // This MUST match plateIdFromSource() in src/index.ts, which derives the same id
-// from the runtime asset URI so native resolves assets/scene-plates/<id>.webp.
+// from the runtime asset URI so native resolves assets/images/<id>.webp.
 function plateIdFromSpecifier(specifier) {
   const segment = specifier.substring(specifier.lastIndexOf('/') + 1);
   return segment.replace(/\.[^.]+$/, '');
 }
 
-// Scene `image` layers: extract every image layer's native plate id + asset
+// Composite `image` layers: extract every image layer's native plate id + asset
 // specifier from a source file (the preset book, OR an imported composite). The
 // plate id is the layer's `id` (the basename JS sends as the native `source`, so
-// native resolves assets/scene-plates/<id>.webp); the specifier resolves to the
+// native resolves assets/images/<id>.webp); the specifier resolves to the
 // .webp (a require() literal or a bare imported identifier). Every image layer
 // is one asset family now (there is no separate background-image shape).
-function parseSceneImageRefs(source) {
+function parseImageRefs(source) {
   const imports = parseImports(source);
   const refs = [];
   const seen = new Set();
@@ -260,18 +252,18 @@ function resolveCompositeSource(specifier, projectRoot) {
   }
 }
 
-// Every scene plate the book needs: the image layers declared inline in the book
+// Every image plate the book needs: the image layers declared inline in the book
 // PLUS the image layers inside every packaged composite the book imports. One
 // source of truth for both the Android and iOS plate copy, so neither platform
 // can drift from the book the way it did when only inline layers were scanned.
-function collectScenePlateRefs(bookSource, projectRoot) {
+function collectImageRefs(bookSource, projectRoot) {
   const refs = [];
   const seen = new Set();
   // Resolve each layer's asset at collection time, where the source FILE's dir is
   // known: a relative specifier (a composite's `../../images/<name>`) resolves
   // against that dir; a package specifier resolves via the library export.
   const addFrom = (src, baseDir) => {
-    for (const { id, specifier } of parseSceneImageRefs(src)) {
+    for (const { id, specifier } of parseImageRefs(src)) {
       if (seen.has(id)) continue;
       seen.add(id);
       refs.push({ id, specifier, srcPath: resolveAssetPath(specifier, baseDir, projectRoot) });
@@ -290,35 +282,7 @@ function collectScenePlateRefs(bookSource, projectRoot) {
   return refs;
 }
 
-// Background-image presets: book key (the id) -> source identifier.
-function parseBackgroundRefs(source) {
-  const imports = parseImports(source);
-  const refs = [];
-  // Capture the source expression up to the options-closing brace, then read a
-  // specifier from it two ways: a `require('./asset')` literal (a consumer's own
-  // asset) or a bare imported identifier (a library preset, resolved via its
-  // import). Source expressions contain no `}`.
-  const re =
-    /['"]([\w-]+)['"]\s*:\s*\{\s*shader\s*:\s*['"]background-image['"]\s*,\s*options\s*:\s*\{\s*source\s*:\s*([^}]+?)\s*\}/g;
-  for (const m of source.matchAll(re)) {
-    const id = m[1];
-    const expr = m[2];
-    const requireLiteral = expr.match(/require\(\s*['"]([^'"]+)['"]\s*\)/);
-    if (requireLiteral) {
-      refs.push({ id, specifier: requireLiteral[1] });
-      continue;
-    }
-    const ident = expr.trim().match(/^([A-Za-z0-9_$]+)$/);
-    if (ident && imports[ident[1]]) {
-      refs.push({ id, specifier: imports[ident[1]] });
-    }
-  }
-  return refs;
-}
-
-// Resolve a preset's source specifier to an absolute WebP path. Library presets
-// expose the raw asset at the `<specifier>.webp` subpath export; a consumer's
-// own asset is a relative path resolved against the project root.
+// Resolve an `image` layer's `source` specifier to an on-disk WebP path.
 function resolveAssetPath(specifier, baseDir, projectRoot) {
   // A relative/absolute specifier resolves against the file it appears in
   // (baseDir): the book's own dir for an inline layer, the composite's dir for an
@@ -343,78 +307,28 @@ function resolveAssetPath(specifier, baseDir, projectRoot) {
   }
 }
 
-// Copy each referenced background into the Android app's assets, named by its
-// preset id, so native registration can discover it by id. Idempotent: a
-// re-prebuild overwrites with the same bytes.
-function copyAndroidBackgrounds(projectRoot, platformProjectRoot) {
+// Copy each `image`-layer plate into the Android app's assets under
+// images/<id>.webp, so CompositeFactory can resolve it by the same basename id
+// JS sends. Idempotent; non-fatal (warn, never throw).
+function copyAndroidImages(projectRoot, platformProjectRoot) {
   const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
   let source;
   try {
     source = fs.readFileSync(bookPath, 'utf8');
   } catch {
-    console.warn(
-      `[react-native-webrtc-kaleidoscope] No ${PRESET_BOOK_FILENAME} at the project root; skipping background copy. Create it per the README to curate bundled backgrounds.`,
-    );
+    // No preset book at the project root; nothing to bundle (a consumer that
+    // declares no image layers needs none). Non-fatal and quiet.
     return;
   }
-  const refs = parseBackgroundRefs(source);
-  if (refs.length === 0) {
-    console.warn(
-      `[react-native-webrtc-kaleidoscope] Parsed no background-image presets from ${PRESET_BOOK_FILENAME}; nothing copied. Check the entry shape documented in the README.`,
-    );
-    return;
-  }
-  const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'backgrounds');
-  fs.mkdirSync(destDir, { recursive: true });
-  const copiedIds = [];
-  for (const { id, specifier } of refs) {
-    const srcPath = resolveAssetPath(specifier, projectRoot);
-    if (!srcPath) {
-      console.warn(
-        `[react-native-webrtc-kaleidoscope] Could not resolve background source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
-      );
-      continue;
-    }
-    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
-    copiedIds.push(id);
-  }
-  // Write the manifest the Android Registration reads (a JSON array of ids),
-  // mirroring copyIosBackgrounds so both platforms discover the curated set the
-  // same way: from an explicit prebuild-written list, not a runtime directory
-  // scan. Reading it via assets.open() avoids depending on AssetManager.list(),
-  // whose reliability on AAPT2-packaged release builds is not guaranteed.
-  fs.writeFileSync(
-    path.join(destDir, BACKGROUNDS_MANIFEST),
-    `${JSON.stringify(copiedIds, null, 2)}\n`,
-  );
-  console.log(
-    `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} curated background(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
-  );
-}
-
-// Copy each scene `image`-layer plate into the Android app's assets under
-// scene-plates/<id>.webp, so SceneFactory can resolve it by the same basename id
-// JS sends. Scene plates are separate from background-image presets (which were
-// deliberately NOT made flat backgrounds), so they bundle in their own directory.
-// Idempotent; non-fatal (warn, never throw).
-function copyAndroidScenePlates(projectRoot, platformProjectRoot) {
-  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
-  let source;
-  try {
-    source = fs.readFileSync(bookPath, 'utf8');
-  } catch {
-    // The background copy already warned about a missing book; stay quiet here.
-    return;
-  }
-  const refs = collectScenePlateRefs(source, projectRoot);
+  const refs = collectImageRefs(source, projectRoot);
   if (refs.length === 0) return;
-  const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'scene-plates');
+  const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'images');
   fs.mkdirSync(destDir, { recursive: true });
   const copiedIds = [];
   for (const { id, specifier, srcPath } of refs) {
     if (!srcPath) {
       console.warn(
-        `[react-native-webrtc-kaleidoscope] Could not resolve scene plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
+        `[react-native-webrtc-kaleidoscope] Could not resolve image plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
       );
       continue;
     }
@@ -422,169 +336,33 @@ function copyAndroidScenePlates(projectRoot, platformProjectRoot) {
     copiedIds.push(id);
   }
   console.log(
-    `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} scene plate(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
+    `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} image plate(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
   );
 }
 
-// Copy each referenced background into the iOS app target's resources, named by
-// its preset id, and add each to the app target's Copy Bundle Resources build
-// phase so the WebP ships in the .app and BackgroundImageProcessor can resolve
-// it from Bundle.main. Also write a manifest (kaleidoscope-backgrounds.json, a
-// JSON array of the copied ids) into the same resources and bundle it, so the
-// iOS Registration can discover exactly the curated set without a hardcoded list
-// (the iOS analogue of Android enumerating assets/backgrounds). Mirrors
-// copyAndroidBackgrounds; idempotent and non-fatal on error (warn, never throw).
-//
-// @expo/config-plugins is loaded HERE, at mod runtime, via the realpath trick the
-// file header documents (require.resolve from the consumer project root) so the
-// top-level stays dependency-free for the EAS worker. We drive the raw pbxproj
-// (IOSConfig.XcodeUtils) directly inside this dangerous mod rather than
-// registering a separate withXcodeProject mod, which would force a top-level
-// import.
-function copyIosBackgrounds(projectRoot, platformProjectRoot) {
-  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
-  let source;
-  try {
-    source = fs.readFileSync(bookPath, 'utf8');
-  } catch {
-    console.warn(
-      `[react-native-webrtc-kaleidoscope] No ${PRESET_BOOK_FILENAME} at the project root; skipping iOS background copy. Create it per the README to curate bundled backgrounds.`,
-    );
-    return;
-  }
-  const refs = parseBackgroundRefs(source);
-  if (refs.length === 0) {
-    console.warn(
-      `[react-native-webrtc-kaleidoscope] Parsed no background-image presets from ${PRESET_BOOK_FILENAME}; nothing copied for iOS. Check the entry shape documented in the README.`,
-    );
-    return;
-  }
-
-  // Resolve @expo/config-plugins from the consumer root so this never needs a
-  // top-level import (EAS worker realpath has no node_modules). If it cannot be
-  // resolved we cannot edit the pbxproj; warn and bail (non-fatal).
-  let IOSConfig;
-  try {
-    // eslint-disable-next-line global-require
-    ({ IOSConfig } = require(require.resolve('@expo/config-plugins', { paths: [projectRoot] })));
-  } catch (error) {
-    console.warn(
-      `[react-native-webrtc-kaleidoscope] Could not load @expo/config-plugins to register iOS background resources; backgrounds may be missing at runtime. ${String(error)}`,
-    );
-    return;
-  }
-  const { XcodeUtils } = IOSConfig;
-  // Derive the project name from the .xcodeproj directory on disk, NOT
-  // IOSConfig.XcodeUtils.getProjectName: the latter resolves via getAppDelegate,
-  // which on an Objective-C template (AppDelegate.mm) throws on Expo SDKs that
-  // only recognise a Swift AppDelegate. The .xcodeproj dir name is the project
-  // name and is template-agnostic. Bail (non-fatal) if none is found.
-  let projectName;
-  try {
-    const xcodeprojDir = fs
-      .readdirSync(platformProjectRoot)
-      .find((entry) => entry.endsWith('.xcodeproj'));
-    if (!xcodeprojDir) {
-      console.warn(
-        '[react-native-webrtc-kaleidoscope] No .xcodeproj under the iOS project root yet; skipping iOS background registration.',
-      );
-      return;
-    }
-    projectName = xcodeprojDir.replace(/\.xcodeproj$/, '');
-  } catch (error) {
-    console.warn(
-      `[react-native-webrtc-kaleidoscope] Could not locate the iOS .xcodeproj; skipping iOS background registration. ${String(error)}`,
-    );
-    return;
-  }
-
-  // The Xcode group whose on-disk directory is <platformProjectRoot>/<projectName>/
-  // is the standard place Expo plugins drop bundled app resources (alongside
-  // Info.plist). Physically copy each WebP there, then reference it in the pbxproj
-  // under the same group so the path stored matches the file on disk.
-  const destDir = path.join(platformProjectRoot, projectName);
-  fs.mkdirSync(destDir, { recursive: true });
-
-  const copiedIds = [];
-  for (const { id, specifier } of refs) {
-    const srcPath = resolveAssetPath(specifier, projectRoot);
-    if (!srcPath) {
-      console.warn(
-        `[react-native-webrtc-kaleidoscope] Could not resolve iOS background source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
-      );
-      continue;
-    }
-    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
-    copiedIds.push(id);
-  }
-  if (copiedIds.length === 0) {
-    console.warn(
-      '[react-native-webrtc-kaleidoscope] No iOS backgrounds resolved; skipping pbxproj resource registration.',
-    );
-    return;
-  }
-
-  // Write the manifest the iOS Registration reads (a JSON array of ids).
-  const manifestName = BACKGROUNDS_MANIFEST;
-  fs.writeFileSync(path.join(destDir, manifestName), `${JSON.stringify(copiedIds, null, 2)}\n`);
-
-  // Add every copied WebP + the manifest to the app target's Copy Bundle
-  // Resources. addResourceFileToGroup is idempotent: it skips a duplicate
-  // filepath already in the group (logs only with verbose), so a re-prebuild
-  // neither duplicates the build-file nor corrupts the project.
-  let project;
-  try {
-    // getPbxproj takes the PROJECT root (parent of ios/) and globs ios/*.xcodeproj.
-    project = XcodeUtils.getPbxproj(projectRoot);
-  } catch (error) {
-    console.warn(
-      `[react-native-webrtc-kaleidoscope] Could not read the iOS pbxproj to add background resources; backgrounds may be missing at runtime. ${String(error)}`,
-    );
-    return;
-  }
-  const filenames = [...copiedIds.map((id) => `${id}.webp`), manifestName];
-  for (const filename of filenames) {
-    XcodeUtils.addResourceFileToGroup({
-      filepath: `${projectName}/${filename}`,
-      groupName: projectName,
-      isBuildFile: true,
-      project,
-      verbose: false,
-    });
-  }
-  fs.writeFileSync(
-    path.join(platformProjectRoot, `${projectName}.xcodeproj`, 'project.pbxproj'),
-    project.writeSync(),
-  );
-  console.log(
-    `[react-native-webrtc-kaleidoscope] Bundled ${copiedIds.length} curated background(s) + manifest into the iOS app target from ${PRESET_BOOK_FILENAME}.`,
-  );
-}
-
-// Copy each scene `image`-layer plate into the iOS app target's resources and
+// Copy each `image`-layer plate into the iOS app target's resources and
 // register each in the app target's Copy Bundle Resources build phase, so the
-// WebP ships in the .app and SceneProcessor can resolve it from Bundle.main by
-// the same basename id JS sends. Mirrors copyAndroidScenePlates (Android) and
-// copyIosBackgrounds (the pbxproj-editing pattern); scene plates are a distinct
-// asset family from background-image presets, so they are copied independently.
+// WebP ships in the .app and CompositeProcessor can resolve it from Bundle.main by
+// the same basename id JS sends. Mirrors copyAndroidImages (Android).
 //
 // Xcode flattens resource file references into the bundle root, so a plate added
-// here lands as <id>.webp in Bundle.main; SceneProcessor.plateURL resolves it via
-// the flat Bundle.main lookup (it tries a scene-plates/ subdirectory first, which
-// is a harmless miss under this flat layout). No manifest is written: unlike
-// background-image presets, scene plates are discovered by the id in each JS
-// scene `image` layer's `source`, not enumerated at native registration time.
-// Idempotent and non-fatal on error (warn, never throw).
-function copyIosScenePlates(projectRoot, platformProjectRoot) {
+// here lands as <id>.webp in Bundle.main; CompositeProcessor.plateURL resolves it via
+// the flat Bundle.main lookup (it tries an images/ subdirectory first, which is a
+// harmless miss under this flat layout). No manifest is written: image plates are
+// discovered by the id in each JS composite `image` layer's `source`, not
+// enumerated at native registration time. Idempotent and non-fatal (warn, never
+// throw).
+function copyIosImages(projectRoot, platformProjectRoot) {
   const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
   let source;
   try {
     source = fs.readFileSync(bookPath, 'utf8');
   } catch {
-    // copyIosBackgrounds already warned about a missing book; stay quiet here.
+    // No preset book at the project root; nothing to bundle (a consumer that
+    // declares no image layers needs none). Non-fatal and quiet.
     return;
   }
-  const refs = collectScenePlateRefs(source, projectRoot);
+  const refs = collectImageRefs(source, projectRoot);
   if (refs.length === 0) return;
 
   let IOSConfig;
@@ -593,7 +371,7 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
     ({ IOSConfig } = require(require.resolve('@expo/config-plugins', { paths: [projectRoot] })));
   } catch (error) {
     console.warn(
-      `[react-native-webrtc-kaleidoscope] Could not load @expo/config-plugins to register iOS scene plates; scene image layers may be missing at runtime. ${String(error)}`,
+      `[react-native-webrtc-kaleidoscope] Could not load @expo/config-plugins to register iOS image plates; image layers may be missing at runtime. ${String(error)}`,
     );
     return;
   }
@@ -606,14 +384,14 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
       .find((entry) => entry.endsWith('.xcodeproj'));
     if (!xcodeprojDir) {
       console.warn(
-        '[react-native-webrtc-kaleidoscope] No .xcodeproj under the iOS project root yet; skipping iOS scene-plate registration.',
+        '[react-native-webrtc-kaleidoscope] No .xcodeproj under the iOS project root yet; skipping iOS image registration.',
       );
       return;
     }
     projectName = xcodeprojDir.replace(/\.xcodeproj$/, '');
   } catch (error) {
     console.warn(
-      `[react-native-webrtc-kaleidoscope] Could not locate the iOS .xcodeproj; skipping iOS scene-plate registration. ${String(error)}`,
+      `[react-native-webrtc-kaleidoscope] Could not locate the iOS .xcodeproj; skipping iOS image registration. ${String(error)}`,
     );
     return;
   }
@@ -625,7 +403,7 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
   for (const { id, specifier, srcPath } of refs) {
     if (!srcPath) {
       console.warn(
-        `[react-native-webrtc-kaleidoscope] Could not resolve iOS scene plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
+        `[react-native-webrtc-kaleidoscope] Could not resolve iOS image plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
       );
       continue;
     }
@@ -634,7 +412,7 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
   }
   if (copiedIds.length === 0) {
     console.warn(
-      '[react-native-webrtc-kaleidoscope] No iOS scene plates resolved; skipping pbxproj resource registration.',
+      '[react-native-webrtc-kaleidoscope] No iOS image plates resolved; skipping pbxproj resource registration.',
     );
     return;
   }
@@ -644,7 +422,7 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
     project = XcodeUtils.getPbxproj(projectRoot);
   } catch (error) {
     console.warn(
-      `[react-native-webrtc-kaleidoscope] Could not read the iOS pbxproj to add scene plates; scene image layers may be missing at runtime. ${String(error)}`,
+      `[react-native-webrtc-kaleidoscope] Could not read the iOS pbxproj to add image plates; image layers may be missing at runtime. ${String(error)}`,
     );
     return;
   }
@@ -662,7 +440,7 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
     project.writeSync(),
   );
   console.log(
-    `[react-native-webrtc-kaleidoscope] Bundled ${copiedIds.length} scene plate(s) into the iOS app target from ${PRESET_BOOK_FILENAME}.`,
+    `[react-native-webrtc-kaleidoscope] Bundled ${copiedIds.length} image plate(s) into the iOS app target from ${PRESET_BOOK_FILENAME}.`,
   );
 }
 
@@ -677,7 +455,7 @@ const withKaleidoscope = (config) => {
     config.mods.android = {};
   }
 
-  // Android: copy the curated backgrounds into the app bundle at prebuild.
+  // Android: copy every referenced image plate into the app bundle at prebuild.
   // Registered the same dependency-free way as the iOS mod below (mutate
   // config.mods directly so no @expo/config-plugins import is needed on EAS).
   const previousAndroidDangerous = config.mods.android.dangerous;
@@ -689,17 +467,10 @@ const withKaleidoscope = (config) => {
     const modRequest = result.modRequest || {};
     if (modRequest.platformProjectRoot && modRequest.projectRoot) {
       try {
-        copyAndroidBackgrounds(modRequest.projectRoot, modRequest.platformProjectRoot);
+        copyAndroidImages(modRequest.projectRoot, modRequest.platformProjectRoot);
       } catch (error) {
         console.warn(
-          `[react-native-webrtc-kaleidoscope] Could not copy curated backgrounds into the Android bundle; backgrounds may be missing at runtime. ${String(error)}`,
-        );
-      }
-      try {
-        copyAndroidScenePlates(modRequest.projectRoot, modRequest.platformProjectRoot);
-      } catch (error) {
-        console.warn(
-          `[react-native-webrtc-kaleidoscope] Could not copy scene plates into the Android bundle; scene image layers may be missing at runtime. ${String(error)}`,
+          `[react-native-webrtc-kaleidoscope] Could not copy image plates into the Android bundle; image layers may be missing at runtime. ${String(error)}`,
         );
       }
     }
@@ -787,21 +558,14 @@ const withKaleidoscope = (config) => {
         );
       }
     }
-    // Copy the curated backgrounds into the iOS app target + write the manifest
-    // the iOS Registration reads. Same non-fatal contract as the patches above.
+    // Copy the referenced image plates into the iOS app target. Same non-fatal
+    // contract as the patches above.
     if (platformProjectRoot && modRequest.projectRoot) {
       try {
-        copyIosBackgrounds(modRequest.projectRoot, platformProjectRoot);
+        copyIosImages(modRequest.projectRoot, platformProjectRoot);
       } catch (error) {
         console.warn(
-          `[react-native-webrtc-kaleidoscope] Could not bundle curated backgrounds into the iOS app target; backgrounds may be missing at runtime. ${String(error)}`,
-        );
-      }
-      try {
-        copyIosScenePlates(modRequest.projectRoot, platformProjectRoot);
-      } catch (error) {
-        console.warn(
-          `[react-native-webrtc-kaleidoscope] Could not bundle scene plates into the iOS app target; scene image layers may be missing at runtime. ${String(error)}`,
+          `[react-native-webrtc-kaleidoscope] Could not bundle image plates into the iOS app target; image layers may be missing at runtime. ${String(error)}`,
         );
       }
     }

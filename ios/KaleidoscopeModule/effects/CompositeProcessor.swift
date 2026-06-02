@@ -1,44 +1,44 @@
-// iOS scene compositor. Mirrors android/.../effects/SceneFactory.kt on the iOS
+// iOS composite compositor. Mirrors android/.../effects/CompositeFactory.kt on the iOS
 // Metal pipeline.
 //
-// The multi-layer generalization of ShaderProcessor: a scene is an ordered
-// painter's stack of layers (SceneLayers, delivered from JS via setSceneLayers),
+// The multi-layer generalization of ShaderProcessor: a composite is an ordered
+// painter's stack of layers (CompositeLayers, delivered from JS via setCompositeLayers),
 // composited into ONE output texture, layer 0 opaque, later layers blended over.
-// One processor instance serves EVERY scene; the layer stack is data, swapped
-// from JS as the active scene changes, so adding a scene needs no Swift change.
+// One processor instance serves EVERY composite; the layer stack is data, swapped
+// from JS as the active composite changes, so adding a composite needs no Swift change.
 //
 // Per frame (builds on BackgroundImageProcessor / ShaderProcessor):
 //   1. Ingest the camera CVPixelBuffer (NV12) into the DISPLAY-UPRIGHT "original"
 //      BGRA Metal texture via CoreImage (Ingest.swift), as elsewhere.
 //   2. If any layer targets the subject, read the latest mask (Segmenter). The
-//      scene's BACKGROUND layers are mask-independent, so the scene composites
+//      composite's BACKGROUND layers are mask-independent, so the composite composites
 //      every frame and ONLY the subject layer is skipped until a mask has
-//      completed (mirroring SceneFactory drawing the rest of the stack and
+//      completed (mirroring CompositeFactory drawing the rest of the stack and
 //      skipping the subject on maskTexId == -1). Kick a new segmentation when
 //      idle.
 //   3. Composite every layer into the output buffer's BGRA texture. Each layer's
-//      OUTPUT draw is its own scene encoder (the first actual draw clears to
+//      OUTPUT draw is its own composite encoder (the first actual draw clears to
 //      opaque black, establishing the base; later draws `.load` and blend with
 //      premultiplied over (normal) or add (additive)). A scratch-backed layer
 //      renders its content into a .private scratch texture in a SEPARATE pass
-//      first. Per layer kind (mirrors the generalized scene.ts / SceneFactory):
-//        - 'image'/background  : cover-fit the plate (scene-image.metalsrc).
-//        - 'direct'/background : raw camera fullscreen (scene-camera.metalsrc).
+//      first. Per layer kind (mirrors the generalized composite.ts / CompositeFactory):
+//        - 'image'/background  : cover-fit the plate (composite-image.metalsrc).
+//        - 'direct'/background : raw camera fullscreen (composite-camera.metalsrc).
 //        - 'blur'/background   : two-pass camera-sampling gaussian
-//                     (scene-blur.metalsrc) into scratchA->scratchB, then blit
-//                     (scene-blit.metalsrc).
+//                     (composite-blur.metalsrc) into scratchA->scratchB, then blit
+//                     (composite-blit.metalsrc).
 //        - generative/background : render its frag (the layer .metalsrc, generic
 //                     uniform-by-name binding) with uTime/uResolution + uniforms.
-//        - 'direct'/subject    : the masked person (scene-subject.metalsrc).
+//        - 'direct'/subject    : the masked person (composite-subject.metalsrc).
 //        - ANY other layer / subject : render the layer to a scratch, then a
-//                     masked-composite (scene-masked.metalsrc) multiplies it by
+//                     masked-composite (composite-masked.metalsrc) multiplies it by
 //                     the mask alpha. So generative/blur/image can target subject.
 //      Subject layers are skipped until a mask has completed (step 2).
 //   4. Hand off via R3 frame-pipelining (commitPipelined), returning the PREVIOUS
 //      completed frame, exactly like the other processors.
 //
 // One instance, shared across every frame, so all mutable state is guarded by an
-// os_unfair_lock. Every failure path logs under Kaleidoscope.Scene and returns
+// os_unfair_lock. Every failure path logs under Kaleidoscope.Composite and returns
 // the ORIGINAL frame; the processor must never crash the capture pipeline.
 
 import Foundation
@@ -55,9 +55,9 @@ import livekit_react_native_webrtc
 import react_native_webrtc
 #endif
 
-@objc(KaleidoscopeSceneProcessor)
-public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
-  private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Scene")
+@objc(KaleidoscopeCompositeProcessor)
+public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
+  private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Composite")
 
   private var unsafeLock = os_unfair_lock_s()
   private var renderer: MetalRenderer?
@@ -104,7 +104,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private var startTime: CFTimeInterval?
 
   private static let builtinNames: Set<String> = ["uTime", "uResolution"]
-  private static let scenePlatesSubdir = "scene-plates"
+  private static let imagesSubdir = "images"
 
   private struct PlateTexture {
     let texture: MTLTexture
@@ -125,8 +125,8 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     do {
       return try process(frame)
     } catch {
-      os_log("scene failed; forwarding original. %{public}@",
-             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      os_log("composite failed; forwarding original. %{public}@",
+             log: CompositeProcessor.log, type: .error, error.localizedDescription)
       return frame
     }
   }
@@ -135,7 +135,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     if let renderer = renderer { return renderer }
     if rendererFailed { throw RendererError.noMetalDevice }
     do {
-      let created = try MetalRenderer(bundle: Bundle(for: SceneProcessor.self))
+      let created = try MetalRenderer(bundle: Bundle(for: CompositeProcessor.self))
       renderer = created
       return created
     } catch {
@@ -145,9 +145,9 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   }
 
   private func process(_ frame: RTCVideoFrame) throws -> RTCVideoFrame {
-    let layers = SceneLayers.get()
+    let layers = CompositeLayers.get()
     if layers.isEmpty {
-      // No scene spec delivered yet (or it was cleared). Forward the original.
+      // No composite spec delivered yet (or it was cleared). Forward the original.
       return frame
     }
 
@@ -170,10 +170,10 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
 
     // Step 2: mask, only if a subject layer is present. Unlike the single-effect
-    // processors (which forward the original until a mask warms up), a scene's
-    // BACKGROUND layers are mask-independent, so we composite the scene regardless
+    // processors (which forward the original until a mask warms up), a composite's
+    // BACKGROUND layers are mask-independent, so we composite the stack regardless
     // and skip ONLY the subject layer when no mask has completed yet — mirroring
-    // SceneFactory, which draws the rest of the stack and skips the subject on
+    // CompositeFactory, which draws the rest of the stack and skips the subject on
     // maskTexId == -1. Always kick a new segmentation if idle so the mask keeps
     // refreshing.
     let needsSubject = layers.contains { $0.target == "subject" }
@@ -211,10 +211,10 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     )
 
     let commandBuffer = try renderer.makeCommandBuffer()
-    commandBuffer.label = "Kaleidoscope.Scene"
+    commandBuffer.label = "Kaleidoscope.Composite"
 
     // Composite the stack into the output texture. Unlike a single open encoder
-    // for the whole stack, each layer's OUTPUT draw gets its own scene encoder:
+    // for the whole stack, each layer's OUTPUT draw gets its own composite encoder:
     // the base opens `.clear` (opaque black), later layers open `.load`
     // (preserve the running composite). A scratch-backed layer (blur, or any
     // non-direct subject layer) renders its content into a .private scratch in a
@@ -238,8 +238,8 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     // so the frame is defined rather than reading the pooled buffer's stale
     // contents. A cheap clear-only pass.
     if isFirstOutputDraw {
-      let clearEncoder = try renderer.beginSceneEncoder(
-        commandBuffer: commandBuffer, target: outputTexture, clear: true, label: "scene-clear"
+      let clearEncoder = try renderer.beginCompositeEncoder(
+        commandBuffer: commandBuffer, target: outputTexture, clear: true, label: "composite-clear"
       )
       clearEncoder.endEncoding()
     }
@@ -259,7 +259,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       currentOutput: output,
       keepAlive: keepAlive,
       debugTiming: EffectTuning.debugTiming,
-      timingLabel: "scene"
+      timingLabel: "composite"
     ) else {
       return frame
     }
@@ -267,10 +267,10 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     return FrameBridge.makeOutputFrame(pixelBuffer: ready, like: frame)
   }
 
-  // Map (isBase, blend string) to a SceneBlend. Base is opaque; "additive" maps
+  // Map (isBase, blend string) to a CompositeBlend. Base is opaque; "additive" maps
   // to add; everything else (nil, "normal") maps to premultiplied over. Mirrors
-  // SceneFactory.applyBlend.
-  private func blendFor(isBase: Bool, blend: String?) -> MetalRenderer.SceneBlend {
+  // CompositeFactory.applyBlend.
+  private func blendFor(isBase: Bool, blend: String?) -> MetalRenderer.CompositeBlend {
     if isBase { return .opaqueBase }
     if blend == "additive" { return .additive }
     return .over
@@ -284,16 +284,16 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private static let scratchEvenParity =
     (scale: SIMD2<Float>(1, 1), offset: SIMD2<Float>(0, 0))
 
-  // Composite one layer onto the output. Mirrors the per-layer body of scene.ts /
-  // SceneFactory.drawLayer: a 'subject' layer is mask-stenciled (direct takes the
+  // Composite one layer onto the output. Mirrors the per-layer body of composite.ts /
+  // CompositeFactory.drawLayer: a 'subject' layer is mask-stenciled (direct takes the
   // one-pass cam x mask fast path; any other shader renders to a scratch then a
   // masked-composite multiplies by the mask alpha), a 'background' layer draws
   // fullscreen (image cover-fit, direct raw camera, blur the two-pass gaussian,
   // generative its frag). Any failure to build a pipeline / load a plate / compile
   // a shader skips THIS layer (logged once) rather than aborting the frame, so a
-  // partial scene still composites — mirroring SceneFactory's per-layer skips.
+  // partial composite still composites — mirroring CompositeFactory's per-layer skips.
   //
-  // Each output draw opens its OWN scene encoder (clear on the first actual draw,
+  // Each output draw opens its OWN composite encoder (clear on the first actual draw,
   // load after); scratch-backed layers render their content in a separate pass
   // first. `isFirstOutputDraw` is inout so the FIRST layer that actually draws
   // clears the output (establishing the opaque base) even if the declared base
@@ -301,8 +301,8 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func drawLayer(
     commandBuffer: MTLCommandBuffer,
     renderer: MetalRenderer,
-    layer: SceneLayer,
-    blend: MetalRenderer.SceneBlend,
+    layer: CompositeLayer,
+    blend: MetalRenderer.CompositeBlend,
     isFirstOutputDraw: inout Bool,
     outputTexture: MTLTexture,
     width: Int,
@@ -315,21 +315,21 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   ) {
     if layer.target == "subject" {
       // Subject layers need the mask; skip until it warms up (mirrors web's
-      // subjectReady guard / SceneFactory's maskTexId == -1 skip).
+      // subjectReady guard / CompositeFactory's maskTexId == -1 skip).
       guard let mask = mask else { return }
       if layer.shader == "direct" {
         // One-pass fast path: cam x mask.
         guard let fragment = ensureSubjectFragment(renderer: renderer),
               let pipeline = ensurePipeline(
-                fragment: fragment, fragmentLabel: "scene-subject", blend: blend, renderer: renderer
+                fragment: fragment, fragmentLabel: "composite-subject", blend: blend, renderer: renderer
               ) else { return }
         withOutputEncoder(
           commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
-          isFirstOutputDraw: &isFirstOutputDraw, label: "scene-subject-direct"
+          isFirstOutputDraw: &isFirstOutputDraw, label: "composite-subject-direct"
         ) { encoder in
           // iOS mask is aligned with the camera (the Segmenter's flip bracket),
           // so identity mask UV, unlike web's V-flip.
-          renderer.drawSceneSubjectLayer(
+          renderer.drawCompositeSubjectLayer(
             encoder: encoder, pipeline: pipeline, camera: camera, mask: mask,
             maskUvScale: SIMD2<Float>(1, 1), maskUvOffset: SIMD2<Float>(0, 0),
             maskLo: maskLo, maskHi: maskHi
@@ -344,13 +344,13 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       ) else { return }
       guard let fragment = ensureMaskedFragment(renderer: renderer),
             let pipeline = ensurePipeline(
-              fragment: fragment, fragmentLabel: "scene-masked", blend: blend, renderer: renderer
+              fragment: fragment, fragmentLabel: "composite-masked", blend: blend, renderer: renderer
             ) else { return }
       withOutputEncoder(
         commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
-        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-masked"
+        isFirstOutputDraw: &isFirstOutputDraw, label: "composite-masked"
       ) { encoder in
-        renderer.drawSceneMaskedLayer(
+        renderer.drawCompositeMaskedLayer(
           encoder: encoder, pipeline: pipeline, content: content.texture, mask: mask,
           contentUvScale: content.uvScale, contentUvOffset: content.uvOffset,
           maskUvScale: SIMD2<Float>(1, 1), maskUvOffset: SIMD2<Float>(0, 0),
@@ -364,20 +364,20 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     switch layer.shader {
     case "image":
       guard let id = layer.source else {
-        os_log("image layer has no source id; skipping", log: SceneProcessor.log, type: .info)
+        os_log("image layer has no source id; skipping", log: CompositeProcessor.log, type: .info)
         return
       }
       guard let plate = ensurePlateTexture(id: id, device: renderer.device),
             let fragment = ensureImageFragment(renderer: renderer),
             let pipeline = ensurePipeline(
-              fragment: fragment, fragmentLabel: "scene-image", blend: blend, renderer: renderer
+              fragment: fragment, fragmentLabel: "composite-image", blend: blend, renderer: renderer
             ) else { return }
       let cover = coverScale(outW: width, outH: height, imgAspect: plate.aspect)
       withOutputEncoder(
         commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
-        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-image"
+        isFirstOutputDraw: &isFirstOutputDraw, label: "composite-image"
       ) { encoder in
-        renderer.drawSceneImageLayer(
+        renderer.drawCompositeImageLayer(
           encoder: encoder, pipeline: pipeline, plate: plate.texture, coverScale: cover
         )
       }
@@ -385,13 +385,13 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       // Raw camera fullscreen.
       guard let fragment = ensureCameraFragment(renderer: renderer),
             let pipeline = ensurePipeline(
-              fragment: fragment, fragmentLabel: "scene-camera", blend: blend, renderer: renderer
+              fragment: fragment, fragmentLabel: "composite-camera", blend: blend, renderer: renderer
             ) else { return }
       withOutputEncoder(
         commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
-        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-camera"
+        isFirstOutputDraw: &isFirstOutputDraw, label: "composite-camera"
       ) { encoder in
-        renderer.drawSceneCameraLayer(encoder: encoder, pipeline: pipeline, camera: camera)
+        renderer.drawCompositeCameraLayer(encoder: encoder, pipeline: pipeline, camera: camera)
       }
     case "blur":
       // Two-pass gaussian into a scratch, then blit the scratch to the output.
@@ -401,13 +401,13 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       ) else { return }
       guard let fragment = ensureBlitFragment(renderer: renderer),
             let pipeline = ensurePipeline(
-              fragment: fragment, fragmentLabel: "scene-blit", blend: blend, renderer: renderer
+              fragment: fragment, fragmentLabel: "composite-blit", blend: blend, renderer: renderer
             ) else { return }
       withOutputEncoder(
         commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
-        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-blit"
+        isFirstOutputDraw: &isFirstOutputDraw, label: "composite-blit"
       ) { encoder in
-        renderer.drawSceneBlitLayer(
+        renderer.drawCompositeBlitLayer(
           encoder: encoder, pipeline: pipeline, content: content.texture,
           contentUvScale: content.uvScale, contentUvOffset: content.uvOffset
         )
@@ -422,16 +422,16 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       let uniforms = makeUniformBindings(indices: indices, layer: layer)
       withOutputEncoder(
         commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
-        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-\(layer.shader)"
+        isFirstOutputDraw: &isFirstOutputDraw, label: "composite-\(layer.shader)"
       ) { encoder in
-        renderer.drawSceneGenerativeLayer(
+        renderer.drawCompositeGenerativeLayer(
           encoder: encoder, pipeline: pipeline, builtinBindings: builtins, uniformBindings: uniforms
         )
       }
     }
   }
 
-  // Open a one-layer output scene encoder, run `draw`, end it. The FIRST actual
+  // Open a one-layer output composite encoder, run `draw`, end it. The FIRST actual
   // output draw clears the output to opaque black (establishing the base); every
   // later draw loads the running composite so the pipeline's blend accumulates.
   // `isFirstOutputDraw` flips false after the first real draw.
@@ -444,7 +444,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     _ draw: (MTLRenderCommandEncoder) -> Void
   ) {
     do {
-      let encoder = try renderer.beginSceneEncoder(
+      let encoder = try renderer.beginCompositeEncoder(
         commandBuffer: commandBuffer, target: outputTexture,
         clear: isFirstOutputDraw, label: label
       )
@@ -452,15 +452,15 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       encoder.endEncoding()
       isFirstOutputDraw = false
     } catch {
-      os_log("scene output encoder %{public}@ failed: %{public}@",
-             log: SceneProcessor.log, type: .error, label, error.localizedDescription)
+      os_log("composite output encoder %{public}@ failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, label, error.localizedDescription)
     }
   }
 
   // Render a layer's content into a .private scratch texture (its own pass, blend
   // off), returning the texture and the content-UV V-parity term the output draw
-  // must apply when it samples it. Mirrors renderContentToScratch in scene.ts /
-  // SceneFactory.
+  // must apply when it samples it. Mirrors renderContentToScratch in composite.ts /
+  // CompositeFactory.
   //
   // V-FLIP PARITY (RISK: reasoned, not device-verified): every Metal
   // render-to-texture pass flips vertically in buffer space relative to a
@@ -475,14 +475,14 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   //   - image / generative to subject: ONE pass into scratchA, ODD parity, so the
   //     masked-composite samples it V-flipped to undo the extra pass
   //     (scratchOddParity). This restores the same orientation the layer would
-  //     have had drawn directly (the scene-image -sy cover term included).
+  //     have had drawn directly (the composite-image -sy cover term included).
   // If a subject generative/image renders vertically inverted on device, flip the
   // scratchOddParity term to even (and vice-versa) — that single constant is the
   // calibration knob, exactly like BlurProcessor's bgUvScale.
   private func renderContentToScratch(
     commandBuffer: MTLCommandBuffer,
     renderer: MetalRenderer,
-    layer: SceneLayer,
+    layer: CompositeLayer,
     width: Int,
     height: Int,
     elapsed: Float,
@@ -490,10 +490,10 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   ) -> (texture: MTLTexture, uvScale: SIMD2<Float>, uvOffset: SIMD2<Float>)? {
     let scratch: (MTLTexture, MTLTexture)
     do {
-      scratch = try renderer.sceneScratch(width: width, height: height)
+      scratch = try renderer.compositeScratch(width: width, height: height)
     } catch {
-      os_log("scene scratch alloc failed: %{public}@",
-             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      os_log("composite scratch alloc failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, error.localizedDescription)
       return nil
     }
     let (scratchA, scratchB) = scratch
@@ -506,39 +506,39 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       let sigma = layer.uniforms["sigma"]?.first ?? 4
       do {
         // Horizontal pass: camera -> scratchA.
-        try renderer.encodeSceneBlurPass(
+        try renderer.encodeCompositeBlurPass(
           commandBuffer: commandBuffer, pipeline: pipeline, source: camera, target: scratchA,
-          dir: SIMD2<Float>(1 / Float(width), 0), sigma: sigma, label: "scene-blur-h"
+          dir: SIMD2<Float>(1 / Float(width), 0), sigma: sigma, label: "composite-blur-h"
         )
         // Vertical pass: scratchA -> scratchB.
-        try renderer.encodeSceneBlurPass(
+        try renderer.encodeCompositeBlurPass(
           commandBuffer: commandBuffer, pipeline: pipeline, source: scratchA, target: scratchB,
-          dir: SIMD2<Float>(0, 1 / Float(height)), sigma: sigma, label: "scene-blur-v"
+          dir: SIMD2<Float>(0, 1 / Float(height)), sigma: sigma, label: "composite-blur-v"
         )
       } catch {
-        os_log("scene blur pass failed: %{public}@",
-               log: SceneProcessor.log, type: .error, error.localizedDescription)
+        os_log("composite blur pass failed: %{public}@",
+               log: CompositeProcessor.log, type: .error, error.localizedDescription)
         return nil
       }
-      return (scratchB, SceneProcessor.scratchEvenParity.scale, SceneProcessor.scratchEvenParity.offset)
+      return (scratchB, CompositeProcessor.scratchEvenParity.scale, CompositeProcessor.scratchEvenParity.offset)
     }
 
     // image / generative: render once into scratchA (blend off, cleared).
     if layer.shader == "image" {
       guard let id = layer.source else {
-        os_log("image layer has no source id; skipping", log: SceneProcessor.log, type: .info)
+        os_log("image layer has no source id; skipping", log: CompositeProcessor.log, type: .info)
         return nil
       }
       guard let plate = ensurePlateTexture(id: id, device: renderer.device),
             let fragment = ensureImageFragment(renderer: renderer),
             let pipeline = ensurePipeline(
-              fragment: fragment, fragmentLabel: "scene-image",
+              fragment: fragment, fragmentLabel: "composite-image",
               blend: .opaqueBase, renderer: renderer
             ) else { return nil }
       let cover = coverScale(outW: width, outH: height, imgAspect: plate.aspect)
       do {
         try renderer.drawFullscreen(
-          commandBuffer: commandBuffer, pipeline: pipeline, target: scratchA, label: "scene-image-scratch"
+          commandBuffer: commandBuffer, pipeline: pipeline, target: scratchA, label: "composite-image-scratch"
         ) { encoder in
           var coverVar = cover
           encoder.setFragmentBytes(&coverVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
@@ -546,11 +546,11 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
           encoder.setFragmentSamplerState(renderer.linearClampSampler, index: 0)
         }
       } catch {
-        os_log("scene image scratch failed: %{public}@",
-               log: SceneProcessor.log, type: .error, error.localizedDescription)
+        os_log("composite image scratch failed: %{public}@",
+               log: CompositeProcessor.log, type: .error, error.localizedDescription)
         return nil
       }
-      return (scratchA, SceneProcessor.scratchOddParity.scale, SceneProcessor.scratchOddParity.offset)
+      return (scratchA, CompositeProcessor.scratchOddParity.scale, CompositeProcessor.scratchOddParity.offset)
     }
 
     // Generative.
@@ -563,14 +563,14 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     do {
       try renderer.encodeGenerative(
         commandBuffer: commandBuffer, pipeline: pipeline, target: scratchA,
-        builtinBindings: builtins, uniformBindings: uniforms, label: "scene-\(layer.shader)-scratch"
+        builtinBindings: builtins, uniformBindings: uniforms, label: "composite-\(layer.shader)-scratch"
       )
     } catch {
-      os_log("scene generative scratch failed: %{public}@",
-             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      os_log("composite generative scratch failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, error.localizedDescription)
       return nil
     }
-    return (scratchA, SceneProcessor.scratchOddParity.scale, SceneProcessor.scratchOddParity.offset)
+    return (scratchA, CompositeProcessor.scratchOddParity.scale, CompositeProcessor.scratchOddParity.offset)
   }
 
   // MARK: - Pipeline / fragment caches
@@ -578,20 +578,20 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func ensurePipeline(
     fragment: MTLFunction,
     fragmentLabel: String,
-    blend: MetalRenderer.SceneBlend,
+    blend: MetalRenderer.CompositeBlend,
     renderer: MetalRenderer
   ) -> MTLRenderPipelineState? {
     let key = "\(fragmentLabel)|\(blend)"
     if let cached = pipelineCache[key] { return cached }
     do {
-      let pipeline = try renderer.makeSceneLayerPipeline(
-        fragment: fragment, blend: blend, label: "scene-\(key)"
+      let pipeline = try renderer.makeCompositeLayerPipeline(
+        fragment: fragment, blend: blend, label: "composite-\(key)"
       )
       pipelineCache[key] = pipeline
       return pipeline
     } catch {
-      os_log("scene pipeline %{public}@ build failed: %{public}@",
-             log: SceneProcessor.log, type: .error, key, error.localizedDescription)
+      os_log("composite pipeline %{public}@ build failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, key, error.localizedDescription)
       return nil
     }
   }
@@ -601,15 +601,15 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     if imageFailed { return nil }
     do {
       let library = try ShaderLibrary(
-        device: renderer.device, bundle: Bundle(for: SceneProcessor.self), fileName: "scene-image"
+        device: renderer.device, bundle: Bundle(for: CompositeProcessor.self), fileName: "composite-image"
       )
       let fragment = try library.function()
       imageFragment = fragment
       return fragment
     } catch {
       imageFailed = true
-      os_log("scene-image fragment build failed: %{public}@",
-             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      os_log("composite-image fragment build failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, error.localizedDescription)
       return nil
     }
   }
@@ -619,15 +619,15 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     if subjectFailed { return nil }
     do {
       let library = try ShaderLibrary(
-        device: renderer.device, bundle: Bundle(for: SceneProcessor.self), fileName: "scene-subject"
+        device: renderer.device, bundle: Bundle(for: CompositeProcessor.self), fileName: "composite-subject"
       )
       let fragment = try library.function()
       subjectFragment = fragment
       return fragment
     } catch {
       subjectFailed = true
-      os_log("scene-subject fragment build failed: %{public}@",
-             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      os_log("composite-subject fragment build failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, error.localizedDescription)
       return nil
     }
   }
@@ -638,7 +638,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func ensureCameraFragment(renderer: MetalRenderer) -> MTLFunction? {
     if let fragment = cameraFragment { return fragment }
     if cameraFailed { return nil }
-    if let fragment = loadFixedFragment(fileName: "scene-camera", renderer: renderer) {
+    if let fragment = loadFixedFragment(fileName: "composite-camera", renderer: renderer) {
       cameraFragment = fragment
       return fragment
     }
@@ -649,7 +649,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func ensureBlitFragment(renderer: MetalRenderer) -> MTLFunction? {
     if let fragment = blitFragment { return fragment }
     if blitFailed { return nil }
-    if let fragment = loadFixedFragment(fileName: "scene-blit", renderer: renderer) {
+    if let fragment = loadFixedFragment(fileName: "composite-blit", renderer: renderer) {
       blitFragment = fragment
       return fragment
     }
@@ -660,7 +660,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func ensureMaskedFragment(renderer: MetalRenderer) -> MTLFunction? {
     if let fragment = maskedFragment { return fragment }
     if maskedFailed { return nil }
-    if let fragment = loadFixedFragment(fileName: "scene-masked", renderer: renderer) {
+    if let fragment = loadFixedFragment(fileName: "composite-masked", renderer: renderer) {
       maskedFragment = fragment
       return fragment
     }
@@ -671,7 +671,7 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func ensureBlurFragment(renderer: MetalRenderer) -> MTLFunction? {
     if let fragment = blurFragment { return fragment }
     if blurFailed { return nil }
-    if let fragment = loadFixedFragment(fileName: "scene-blur", renderer: renderer) {
+    if let fragment = loadFixedFragment(fileName: "composite-blur", renderer: renderer) {
       blurFragment = fragment
       return fragment
     }
@@ -681,19 +681,19 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
 
   // The blur pass runs into a scratch with blend OFF (a .dontCare pass via
   // drawFullscreen), so it needs a plain non-blended pipeline (makeGenerative-
-  // Pipeline), not one of the SceneBlend variants the output draws use. Built once.
+  // Pipeline), not one of the CompositeBlend variants the output draws use. Built once.
   private func ensureBlurPipeline(
     fragment: MTLFunction, renderer: MetalRenderer
   ) -> MTLRenderPipelineState? {
     if let pipeline = blurPipeline { return pipeline }
     do {
-      let pipeline = try renderer.makeGenerativePipeline(fragment: fragment, label: "scene-blur")
+      let pipeline = try renderer.makeGenerativePipeline(fragment: fragment, label: "composite-blur")
       blurPipeline = pipeline
       return pipeline
     } catch {
       blurFailed = true
-      os_log("scene-blur pipeline build failed: %{public}@",
-             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      os_log("composite-blur pipeline build failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, error.localizedDescription)
       return nil
     }
   }
@@ -704,12 +704,12 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func loadFixedFragment(fileName: String, renderer: MetalRenderer) -> MTLFunction? {
     do {
       let library = try ShaderLibrary(
-        device: renderer.device, bundle: Bundle(for: SceneProcessor.self), fileName: fileName
+        device: renderer.device, bundle: Bundle(for: CompositeProcessor.self), fileName: fileName
       )
       return try library.function()
     } catch {
       os_log("%{public}@ fragment build failed: %{public}@",
-             log: SceneProcessor.log, type: .error, fileName, error.localizedDescription)
+             log: CompositeProcessor.log, type: .error, fileName, error.localizedDescription)
       return nil
     }
   }
@@ -728,19 +728,19 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     if generativeFailed.contains(name) { return nil }
     do {
       let library = try ShaderLibrary(
-        device: renderer.device, bundle: Bundle(for: SceneProcessor.self), fileName: name
+        device: renderer.device, bundle: Bundle(for: CompositeProcessor.self), fileName: name
       )
       let fragment = try library.function()
       let indices = library.uniformBufferIndices()
       generativeFragments[name] = fragment
       generativeUniformIndices[name] = indices
-      os_log("scene generative layer %{public}@ compiled; uniform indices: %{public}@",
-             log: SceneProcessor.log, type: .info, name, String(describing: indices))
+      os_log("composite generative layer %{public}@ compiled; uniform indices: %{public}@",
+             log: CompositeProcessor.log, type: .info, name, String(describing: indices))
       return (fragment, indices)
     } catch {
       generativeFailed.insert(name)
-      os_log("scene generative layer %{public}@ build failed: %{public}@",
-             log: SceneProcessor.log, type: .error, name, error.localizedDescription)
+      os_log("composite generative layer %{public}@ build failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, name, error.localizedDescription)
       return nil
     }
   }
@@ -762,11 +762,11 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   // 16 bytes (a Metal `constant float3&` argument occupies 16 bytes); see the
   // detailed rationale on ShaderProcessor.makeUniformBindings.
   private func makeUniformBindings(
-    indices: [String: Int], layer: SceneLayer
+    indices: [String: Int], layer: CompositeLayer
   ) -> [(index: Int, value: [Float])] {
     var bindings = [(index: Int, value: [Float])]()
     for (name, values) in layer.uniforms {
-      if SceneProcessor.builtinNames.contains(name) { continue }
+      if CompositeProcessor.builtinNames.contains(name) { continue }
       guard let index = indices[name] else { continue }
       switch values.count {
       case 1, 2, 4:
@@ -774,8 +774,8 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       case 3:
         bindings.append((index: index, value: [values[0], values[1], values[2], 0]))
       default:
-        os_log("scene layer %{public}@ uniform %{public}@ has unsupported length %d; skipping",
-               log: SceneProcessor.log, type: .info, layer.shader, name, values.count)
+        os_log("composite layer %{public}@ uniform %{public}@ has unsupported length %d; skipping",
+               log: CompositeProcessor.log, type: .info, layer.shader, name, values.count)
       }
     }
     return bindings
@@ -783,17 +783,17 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
 
   // MARK: - Plate loading
 
-  /// Resolve a scene plate `<id>.webp`. The iOS prebuild copies scene plates into
-  /// the app target's resources under scene-plates/<id>.webp (see app.plugin.js's
-  /// copyIosScenePlates), so it lands in Bundle.main; fall back to the
-  /// Kaleidoscope resource bundle's scene-plates/ for a test/static layout.
-  /// Mirrors BackgroundImageProcessor.bundledURL but in the scene-plates subdir.
+  /// Resolve a composite plate `<id>.webp`. The iOS prebuild copies composite plates into
+  /// the app target's resources under images/<id>.webp (see app.plugin.js's
+  /// copyIosImages), so it lands in Bundle.main; fall back to the
+  /// Kaleidoscope resource bundle's images/ for a test/static layout.
+  /// Mirrors BackgroundImageProcessor.bundledURL but in the images subdir.
   static func plateURL(for id: String) -> URL? {
-    let containing = Bundle(for: SceneProcessor.self)
+    let containing = Bundle(for: CompositeProcessor.self)
     let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
-    return Bundle.main.url(forResource: id, withExtension: "webp", subdirectory: scenePlatesSubdir)
+    return Bundle.main.url(forResource: id, withExtension: "webp", subdirectory: imagesSubdir)
       ?? Bundle.main.url(forResource: id, withExtension: "webp")
-      ?? resourceBundle.url(forResource: id, withExtension: "webp", subdirectory: scenePlatesSubdir)
+      ?? resourceBundle.url(forResource: id, withExtension: "webp", subdirectory: imagesSubdir)
       ?? resourceBundle.url(forResource: id, withExtension: "webp")
   }
 
@@ -805,9 +805,9 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private func ensurePlateTexture(id: String, device: MTLDevice) -> PlateTexture? {
     if let plate = plateTextures[id] { return plate }
     if missingPlates.contains(id) { return nil }
-    guard let url = SceneProcessor.plateURL(for: id) else {
-      os_log("scene plate %{public}@.webp not found in app bundle or Kaleidoscope.bundle",
-             log: SceneProcessor.log, type: .error, id)
+    guard let url = CompositeProcessor.plateURL(for: id) else {
+      os_log("composite plate %{public}@.webp not found in app bundle or Kaleidoscope.bundle",
+             log: CompositeProcessor.log, type: .error, id)
       missingPlates.insert(id)
       return nil
     }
@@ -823,20 +823,20 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       let aspect = Float(texture.width) / Float(max(texture.height, 1))
       let plate = PlateTexture(texture: texture, aspect: aspect)
       plateTextures[id] = plate
-      os_log("scene plate %{public}@ loaded: %dx%d aspect=%.3f",
-             log: SceneProcessor.log, type: .info, id, texture.width, texture.height, aspect)
+      os_log("composite plate %{public}@ loaded: %dx%d aspect=%.3f",
+             log: CompositeProcessor.log, type: .info, id, texture.width, texture.height, aspect)
       return plate
     } catch {
       missingPlates.insert(id)
-      os_log("scene plate %{public}@ load failed: %{public}@",
-             log: SceneProcessor.log, type: .error, id, error.localizedDescription)
+      os_log("composite plate %{public}@ load failed: %{public}@",
+             log: CompositeProcessor.log, type: .error, id, error.localizedDescription)
       return nil
     }
   }
 
-  // Center-crop cover-fit UV scale (mirrors coverScale in scene.ts / SceneFactory),
+  // Center-crop cover-fit UV scale (mirrors coverScale in composite.ts / CompositeFactory),
   // with the V axis NEGATED to fold in the MTKTextureLoader V-flip parity. The
-  // scene-image fragment computes uv = (vUv - 0.5) * coverScale + 0.5; a negative
+  // composite-image fragment computes uv = (vUv - 0.5) * coverScale + 0.5; a negative
   // y reflects about the crop window's center, so the plate lands semantic-top at
   // vUv.y=1, matching the CoreImage-rendered camera "original" (which composites
   // correct on-device). This is the same texture-origin parity fix

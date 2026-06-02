@@ -1,10 +1,10 @@
 // God rays, pipeline form: a transparent ADDITIVE overlay layer. Ported from the
 // Shadertoy original by simiancraft. Outputs PREMULTIPLIED rays
 // (oColor = vec4(uLightColor * alpha, alpha)) so the layer compositor blends it
-// additively over whatever is beneath -- it does NOT sample the scene (no
+// additively over whatever is beneath; it does NOT sample the frame (no
 // iChannel0); the compositor supplies "beneath".
 //
-// Every knob is a uniform, so a scene preset commands the full look (tint, speed,
+// Every knob is a uniform, so a composite preset commands the full look (tint, speed,
 // count, intensity, ...). uTime/uResolution follow the project convention; UV is
 // vUv (bottom-left origin), so rays-from-top survives the port. No loops, so no
 // compile-time-constant constraints.

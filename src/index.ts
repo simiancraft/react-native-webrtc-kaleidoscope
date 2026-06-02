@@ -11,6 +11,7 @@ import { Platform } from 'react-native';
 import {
   createControls,
   type Reconcile,
+  type ResetLayerUniforms,
   type SetLayerUniforms,
   type SetMask,
 } from './kaleidoscope/controls';
@@ -33,7 +34,7 @@ interface KaleidoscopeNativeModule {
   // composite's ordered layer stack as a JSON string; native parses + composites
   // it. Blur sigma and generative uniforms now ride inside each layer's
   // `uniforms`, so there is no separate setBlurSigma/setShaderUniforms channel.
-  setSceneLayers?: (json: string) => void;
+  setCompositeLayers?: (json: string) => void;
 }
 
 // Lazy because the module is not available during pure-JS tests; the
@@ -45,7 +46,7 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 // The native tuning functions (setMaskHardness / setMaskThreshold) remain on the
 // native module and are called internally: the mask edge flows from the mask()
 // verb (see bindKaleidoscope). The composite layer stack flows through
-// setSceneLayers. The old global set* JS exports are gone; effects are driven by
+// setCompositeLayers. The old global set* JS exports are gone; effects are driven by
 // kaleidoscope / transform / mask, not loose setters.
 
 export type { BackgroundPresetName } from '../images';
@@ -130,7 +131,7 @@ interface WebRTCTrackExtensions {
 //
 // The art axis is now one registered "composite" compositor: blur, images, and
 // generative shaders are all layers inside it, delivered out-of-band via
-// setSceneLayers. The four geometric transform ops share one native processor
+// setCompositeLayers. The four geometric transform ops share one native processor
 // per platform (TransformFactory on Android, TransformProcessor on iOS); each is
 // a flat name. iOS registers the same set via ios/.../Registration.swift.
 const TRANSFORM_EFFECTS: readonly string[] = ['flip-x', 'flip-y', 'rotate-cw', 'rotate-ccw'];
@@ -145,12 +146,12 @@ const registeredForPlatform = (): readonly string[] =>
 
 const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlatform());
 
-// Serialize a composite's layer stack to the JSON shape the native SceneLayers
+// Serialize a composite's layer stack to the JSON shape the native CompositeLayers
 // channel parses: an array of { id, shader, target, blend?, source?, uniforms? }.
 // Every layer carries its `id`. An `image` layer's native `source` IS its `id`
 // (the bundled WebP basename the prebuild plugin copied under that name); all
 // other layers carry their uniforms.
-const serializeSceneLayers = (layers: ReadonlyArray<LayerSpec>): string => {
+const serializeCompositeLayers = (layers: ReadonlyArray<LayerSpec>): string => {
   const wire = layers.map((layer) => {
     const base: Record<string, unknown> = {
       id: layer.id,
@@ -160,7 +161,7 @@ const serializeSceneLayers = (layers: ReadonlyArray<LayerSpec>): string => {
     if (layer.blend != null) base.blend = layer.blend;
     if (layer.shader === 'image') {
       // The layer id is the plate id (the bundled WebP basename); the native
-      // compositor resolves assets/scene-plates/<id>.webp from it.
+      // compositor resolves assets/images/<id>.webp from it.
       base.source = layer.id;
     } else if ('uniforms' in layer) {
       base.uniforms = layer.uniforms;
@@ -172,7 +173,7 @@ const serializeSceneLayers = (layers: ReadonlyArray<LayerSpec>): string => {
 
 const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
   // The composite runs through the single registered "composite" compositor; its
-  // layer stack is delivered out-of-band via setSceneLayers (see applyVideoEffects).
+  // layer stack is delivered out-of-band via setCompositeLayers (see applyVideoEffects).
   if (spec.name === 'composite') {
     return 'composite';
   }
@@ -207,7 +208,7 @@ const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   // (and drops the "composite" name below if not registered).
   for (const spec of specs) {
     if (spec.name === 'composite') {
-      nativeModule().setSceneLayers?.(serializeSceneLayers((spec as CompositeSpec).layers));
+      nativeModule().setCompositeLayers?.(serializeCompositeLayers((spec as CompositeSpec).layers));
     }
   }
   // The composite name is book-driven: the prebuild copied the plates and native
@@ -283,5 +284,9 @@ export const bindKaleidoscope = <P extends PresetBook>(
   // until the compositor reads layer-id-keyed overrides. The verb still drives
   // preset switches through reconcile.
   const setLayerUniforms: SetLayerUniforms = () => {};
-  return createControls(track, options, reconcile, setMask, setLayerUniforms);
+  // Native re-sends the full layer stack (with baked uniforms) on every preset
+  // switch via setCompositeLayers, so there is no stale override to clear; no-op for
+  // parity with the inert setLayerUniforms above.
+  const resetLayerUniforms: ResetLayerUniforms = () => {};
+  return createControls(track, options, reconcile, setMask, setLayerUniforms, resetLayerUniforms);
 };

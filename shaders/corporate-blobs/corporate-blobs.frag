@@ -3,9 +3,9 @@
 // output; the blobs sit over whatever is beneath). Ported from a Shadertoy
 // prototype to this repo's GLSL ES 3.00 multi-runtime convention.
 //
-// Scene handoff: the prototype sampled iChannel0 and had a BACKGROUND_ON toggle
+// Compositor handoff: the prototype sampled iChannel0 and had a BACKGROUND_ON toggle
 // to composite over it. In this layer compositor a shader never samples the
-// scene -- the compositor supplies "beneath" -- so this is ported as the
+// frame; the compositor supplies "beneath", so this is ported as the
 // BACKGROUND_ON=0 (alpha-only) form: no iChannel0, blobs out with alpha.
 //
 // Alpha: PREMULTIPLIED. The front-to-back accumulation builds rgb already scaled

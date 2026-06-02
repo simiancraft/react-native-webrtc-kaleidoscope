@@ -22,7 +22,7 @@ export type TransformSpec = {
 /** RGB color, each channel in [0, 1]. */
 export type RGB = readonly [number, number, number];
 
-/** How a scene layer blends over the layers beneath it (painter's order). */
+/** How a composite layer blends over the layers beneath it (painter's order). */
 export type BlendMode = 'normal' | 'additive';
 
 /**
@@ -71,7 +71,7 @@ export type LayerShaderOptions = {
 export type LayerShaderName = keyof LayerShaderOptions;
 
 /**
- * One scene layer: a `shader` applied to a `target`, with an optional `blend`.
+ * One composite layer: a `shader` applied to a `target`, with an optional `blend`.
  * The `shader` is the discriminant and carries that shader's required fields
  * (a discriminated union over the closed `LayerShaderOptions`), so narrowing on
  * `layer.shader` gives `source` / `uniforms` / nothing as appropriate.

@@ -13,14 +13,14 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Scene compositor IMAGE layer. Cover-fit a still plate, output PREMULTIPLIED so
+// Composite compositor IMAGE layer. Cover-fit a still plate, output PREMULTIPLIED so
 // a straight-alpha image (transparent sky / cut-out opening) composites
-// correctly with the premultiplied "over" blend the SceneProcessor sets on the
+// correctly with the premultiplied "over" blend the CompositeProcessor sets on the
 // render pipeline. Mirrors LayerShaders.IMAGE_FRAG (Android) / BLIT_FRAG_SRC
 // (web). Hand-authored to match the spirv-cross idiom (struct main0_in/out,
 // main0 entry, `constant T& [[buffer(n)]]` uniforms, `[[texture(n)]]`/
 // `[[sampler(n)]]` samplers); ShaderLibrary loads it the same way as the
-// transpiled .metalsrc, and SceneProcessor binds uCoverScale at buffer(0),
+// transpiled .metalsrc, and CompositeProcessor binds uCoverScale at buffer(0),
 // uTex at texture(0), its sampler at sampler(0).
 fragment main0_out main0(main0_in in [[stage_in]], constant float2& uCoverScale [[buffer(0)]], texture2d<float> uTex [[texture(0)]], sampler uTexSmplr [[sampler(0)]])
 {

@@ -2,7 +2,7 @@
 // folded into the composite compositor (Phase C of the effect-unification plan).
 //
 // The standalone BackgroundImageProcessor / ShaderProcessor / BlurProcessor are
-// gone; their work now lives in SceneProcessor (the one "composite" compositor).
+// gone; their work now lives in CompositeProcessor (the one "composite" compositor).
 // Two small responsibilities those files used to host outlived them and live
 // here so nothing else has to reach into a deleted type:
 //
@@ -24,16 +24,16 @@ import Foundation
 final class BundleAnchor: NSObject {}
 
 enum BundledImage {
-  /// Resolve a bundled background `<id>.webp`, searching the app bundle first
-  /// (the prebuild plugin copies presets into the app target, so they land in
-  /// `Bundle.main`) or, as a fallback, the Kaleidoscope resource bundle and its
-  /// `backgrounds/` subdir (legacy/test layouts). Shared by the JS thumbnail
-  /// resolver (`resolveBackgroundUri` in KaleidoscopeModule).
+  /// Resolve a bundled image plate `<id>.webp`, searching the app bundle first
+  /// (the prebuild plugin copies every referenced plate into the app target, so
+  /// they land flattened in `Bundle.main`) or, as a fallback, the Kaleidoscope
+  /// resource bundle and its `images/` subdir. The compositor loads the
+  /// same plates; shared by the JS thumbnail resolver (`resolveBackgroundUri`).
   static func bundledURL(for id: String) -> URL? {
     let containing = Bundle(for: BundleAnchor.self)
     let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
     return Bundle.main.url(forResource: id, withExtension: "webp")
-      ?? resourceBundle.url(forResource: id, withExtension: "webp", subdirectory: "backgrounds")
+      ?? resourceBundle.url(forResource: id, withExtension: "webp", subdirectory: "images")
       ?? resourceBundle.url(forResource: id, withExtension: "webp")
   }
 }

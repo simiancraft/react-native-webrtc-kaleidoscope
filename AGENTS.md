@@ -1,6 +1,25 @@
 # react-native-webrtc-kaleidoscope — Agent Instructions
 
-A managed-Expo-friendly Expo Module that registers named video frame processors with `react-native-webrtc` and exposes a typed JS facade. Ships transform (flip-x/flip-y/rotate-cw/rotate-ccw), `blur`, and `background-image` effects; the background is source-agnostic and a procedural-shader background is the next effect.
+A managed-Expo-friendly Expo Module that registers a video frame processor with `react-native-webrtc` and exposes a typed JS facade. Every effect is one shape: a **composite** of layers (see Vocabulary). The geometric transforms (flip-x/flip-y/rotate-cw/rotate-ccw) are the only separately-registered ops; everything else; blur, bundled images, procedural shaders, the masked person; is a layer in a composite stack.
+
+## Vocabulary (canonical; the code speaks ONLY these words)
+
+This kit was unified so that every effect is one shape: a **composite**. The older "one effect at a time" framing (a separate `blur`, a `background-image`, a `scene`) is gone. When you touch any effect, shader, asset, or the native bridge, use exactly these nouns; the types, the asset dirs, the native classes, and the wire all agree on them, and a stray `scene` / `plate` / `background-image` is a bug to fix, not a synonym to keep.
+
+| Term | Meaning | Where it lives |
+|------|---------|----------------|
+| **composite** | The one registered native effect: a stack of layers rendered back-to-front into the output frame. Every preset is a composite; "one effect" is a composite with a single layer. | registered effect string `"composite"`; `CompositeFactory` / `CompositeProcessor` (native); `makeComposite` (web); `CompositeSpec` (types) |
+| **layer** | One entry in a composite's stack: `{ id, shader, target?, blend?, source?/uniforms? }`, rendered in array order. | `LayerSpec` (types); `CompositeLayer` (native) |
+| **id** | A layer's stable address within its composite. `kaleidoscope(presetId, patches)` addresses layers by `id` and merges partial uniforms over the baked values. | `LayerSpec.id`, `LayerPatch.id` |
+| **shader** | What a layer draws: a GLSL effect basename (`clouds`, `plasma`, `godrays`, `fireflies`, `blur`), or one of the two built-ins `image` (a bundled plate) and `direct` (the raw camera). | `LayerSpec.shader` |
+| **target** | Where a layer renders: `background` (fullscreen) or `subject` (mask-stenciled to the person). Defaults to `background`. | `LayerSpec.target` |
+| **blend** | How a layer composites over those below it: opaque base, `normal` (alpha-over), or `additive`. | `LayerSpec.blend` |
+| **image** | A bundled WebP plate an `image` layer resolves by id. Source folder `images/<name>/`; native bundle dir `assets/images/` (Android) and the app-bundle root (iOS). NOT "scene-plate", NOT "background". | `images/` (source); `assets/images/` (native); `shader: 'image'` |
+| **shaders/ · images/ · composites/** | The three root library noun-folders, one folder per item. `shaders/<name>/` is the canonical GLSL (single source, codegen'd to every platform); `images/<name>/` is the plates; `composites/<name>/` is the packaged composite defs + thumbnails. | repo root |
+
+The native channel that carries a composite's layer stack across the bridge is the Expo Function `setCompositeLayers` (same name on JS, Android, and iOS; a parity test enforces the match); the JS that serializes the stack is `serializeCompositeLayers`. The per-layer Metal sources are `composite-image`, `composite-subject`, `composite-blur`, etc.
+
+Words we deleted and must not reappear in code: `scene`, `scene-plate(s)`, `background-image` (as an effect name), `mirror` (the transform-op set replaced it). If one shows up, it is stale; rename it.
 
 ## Status
 

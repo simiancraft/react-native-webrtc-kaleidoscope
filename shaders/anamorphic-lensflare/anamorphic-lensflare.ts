@@ -2,7 +2,7 @@
 // descriptor. A cinematic camera-lens artifact, a transparent OVERLAY layer
 // (use blend 'additive'). All three palette colors are exposed so the flare can
 // be color-matched to whatever sits behind it (e.g. the nebula in the space
-// scene). Shader source is shaders/anamorphic-lensflare.frag.
+// composite). Shader source is shaders/anamorphic-lensflare.frag.
 
 import type { RGB } from '../../src/types';
 import type { UniformControl } from '../_shared/types';

@@ -13,7 +13,7 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Scene compositor SUBJECT layer: the masked camera person, output PREMULTIPLIED
+// Composite compositor SUBJECT layer: the masked camera person, output PREMULTIPLIED
 // (rgb already scaled by the mask alpha) so a "normal" over-blend composites the
 // person onto the stack. Mirrors LayerShaders.SUBJECT_FRAG (Android) /
 // SUBJECT_FRAG_SRC (web). On iOS the mask round-trips through the Segmenter's
@@ -22,7 +22,7 @@ struct main0_in
 // background-image / blur composites), unlike web's V-flip.
 //
 // Hand-authored to match the spirv-cross idiom; ShaderLibrary loads it like the
-// transpiled .metalsrc. SceneProcessor binds: buffer(0) uMaskUvScale, (1)
+// transpiled .metalsrc. CompositeProcessor binds: buffer(0) uMaskUvScale, (1)
 // uMaskUvOffset, (2) uMaskLo, (3) uMaskHi; texture(0) uCamera, (1) uMask;
 // sampler(0) uCamera's, sampler(1) uMask's.
 fragment main0_out main0(main0_in in [[stage_in]], constant float2& uMaskUvScale [[buffer(0)]], constant float2& uMaskUvOffset [[buffer(1)]], constant float& uMaskLo [[buffer(2)]], constant float& uMaskHi [[buffer(3)]], texture2d<float> uCamera [[texture(0)]], texture2d<float> uMask [[texture(1)]], sampler uCameraSmplr [[sampler(0)]], sampler uMaskSmplr [[sampler(1)]])

@@ -1,7 +1,7 @@
-// Web scene compositor: render a painter's stack of layers into one frame.
+// Web composite compositor: render a painter's stack of layers into one frame.
 //
 // This is the LAYERED path (distinct from the serial single-effect chain in
-// index.web.ts). A scene is one stage: layer 0 is the opaque base, later layers
+// index.web.ts). A composite is one stage: layer 0 is the opaque base, later layers
 // blend over it in array order. Each layer is `{ shader, target?, blend? }`:
 //   - shader 'image'  : a still texture (cover-fit), premultiplied.
 //   - shader 'direct' : passthrough of its channel. On 'subject' that is the
@@ -17,7 +17,7 @@
 // segmented person. Direct/subject takes a one-pass fast path (cam x mask); every
 // other subject layer renders to a scratch texture and a masked-composite pass
 // stencils it. The mask edge is the shared mask() tuning, so the demo sliders
-// drive scenes.
+// drive composites.
 
 import type { LayerSpec } from '../../types';
 import type { FrameTransform } from '../insertable-streams';
@@ -72,7 +72,7 @@ void main() {
 }
 `;
 
-// Separable gaussian, 9-tap (offsets -4..4), sigma-weighted. One pass per
+// Separable gaussian, 13-tap (offsets -6..6), sigma-weighted. One pass per
 // direction (uDir is the texel step on the active axis). Samples the camera or a
 // half-blurred scratch; output keeps the source alpha (camera is opaque).
 const BLUR_FRAG_SRC = `#version 300 es
@@ -84,15 +84,21 @@ in highp vec2 vUv;
 out vec4 oColor;
 void main() {
   float s2 = 2.0 * uSigma * uSigma;
-  float w[5];
+  float w[7];
   float sum = 0.0;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 7; i++) {
     w[i] = exp(-(float(i) * float(i)) / s2);
     sum += (i == 0) ? w[i] : 2.0 * w[i];
   }
+  // PROTOTYPE (web-only): tap spacing grows with sigma to push a little extra
+  // reach (and a touch of ghosting) at the top of the slider. No floor, so at
+  // low sigma spread is sub-texel and the taps overlap into a near-no-op; at the
+  // high end it widens the smear with a faint double-image. 0.25 keeps it subtle
+  // over the 0..10 sigma range (spread tops out at 2.5).
+  float spread = uSigma * 0.25;
   vec4 acc = texture(uTex, vUv) * (w[0] / sum);
-  for (int i = 1; i < 5; i++) {
-    vec2 off = uDir * float(i);
+  for (int i = 1; i < 7; i++) {
+    vec2 off = uDir * float(i) * spread;
     acc += texture(uTex, vUv + off) * (w[i] / sum);
     acc += texture(uTex, vUv - off) * (w[i] / sum);
   }
@@ -131,7 +137,7 @@ const compileShader = (gl: WebGL2RenderingContext, type: number, source: string)
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(shader) ?? '(no info log)';
     gl.deleteShader(shader);
-    throw new Error(`kaleidoscope: scene shader compile failed: ${log}\n---\n${source}`);
+    throw new Error(`kaleidoscope: composite shader compile failed: ${log}\n---\n${source}`);
   }
   return shader;
 };
@@ -153,7 +159,7 @@ const linkProgram = (
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
     const log = gl.getProgramInfoLog(prog) ?? '(no info log)';
     gl.deleteProgram(prog);
-    throw new Error(`kaleidoscope: scene program link failed: ${log}`);
+    throw new Error(`kaleidoscope: composite program link failed: ${log}`);
   }
   return prog;
 };
@@ -221,7 +227,7 @@ const loadImage = (source: string): Promise<LoadedImage> => {
   const promise = (async (): Promise<LoadedImage> => {
     const res = await fetch(source);
     if (!res.ok) {
-      throw new Error(`kaleidoscope: scene image fetch failed (${res.status}) for ${source}`);
+      throw new Error(`kaleidoscope: composite image fetch failed (${res.status}) for ${source}`);
     }
     const blob = await res.blob();
     const bitmap = await createImageBitmap(blob);
@@ -234,7 +240,7 @@ const loadImage = (source: string): Promise<LoadedImage> => {
     // no-op on ImageBitmap sources).
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('kaleidoscope: scene image 2D context unavailable');
+    if (!ctx) throw new Error('kaleidoscope: composite image 2D context unavailable');
     ctx.drawImage(bitmap, 0, 0);
     bitmap.close();
     return { canvas, width, height };
@@ -243,7 +249,7 @@ const loadImage = (source: string): Promise<LoadedImage> => {
   return promise;
 };
 
-// --- per-scene GL state (one scene active at a time) -----------------------
+// --- per-composite GL state (one composite active at a time) -----------------------
 
 type ShaderLayerGpu = {
   prog: WebGLProgram;
@@ -313,7 +319,7 @@ type GpuState = {
   // blur's horizontal pass); scratchB holds the blur's vertical pass.
   scratchA: Fbo | null;
   scratchB: Fbo | null;
-  // Identity of the layer set this state was built for. Switching scenes at the
+  // Identity of the layer set this state was built for. Switching composites at the
   // same resolution must rebuild (different shaders/targets, different programs).
   layersSig: string;
 };
@@ -353,7 +359,7 @@ const ensureInputCanvas = (width: number, height: number): OffscreenCanvasRender
   if (!inputCanvas2D || inputCanvas2D.width !== width || inputCanvas2D.height !== height) {
     inputCanvas2D = new OffscreenCanvas(width, height);
     inputCtx2D = inputCanvas2D.getContext('2d');
-    if (!inputCtx2D) throw new Error('kaleidoscope: scene input 2D context unavailable');
+    if (!inputCtx2D) throw new Error('kaleidoscope: composite input 2D context unavailable');
   }
   return inputCtx2D as OffscreenCanvasRenderingContext2D;
 };
@@ -371,7 +377,8 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
   canvas.width = width;
   canvas.height = height;
   const gl = canvas.getContext('webgl2');
-  if (!gl) throw new Error('kaleidoscope: WebGL2 not available; scenes require a WebGL2 browser');
+  if (!gl)
+    throw new Error('kaleidoscope: WebGL2 not available; composites require a WebGL2 browser');
 
   const needsCamera = layers.some((l) => isCameraSampler(l.shader));
   const needsMask = layers.some((l) => l.target === 'subject');
@@ -388,7 +395,7 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
     if (!(layer.shader in LAYER_SHADER_SOURCES) || shaderPrograms.has(layer.shader)) continue;
     if (!('uniforms' in layer)) continue;
     const src = LAYER_SHADER_SOURCES[layer.shader];
-    if (!src) throw new Error(`kaleidoscope: unknown scene layer shader '${layer.shader}'`);
+    if (!src) throw new Error(`kaleidoscope: unknown composite layer shader '${layer.shader}'`);
     const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, src);
     const uniforms = new Map<string, WebGLUniformLocation | null>();
     for (const name of Object.keys(layer.uniforms)) {
@@ -488,7 +495,7 @@ const coverScale = (outW: number, outH: number, imgW: number, imgH: number): [nu
 // Live tuning channel: per-layer-id uniform overrides the running compositor
 // merges over a layer's baked uniforms each frame, with no pipeline rebuild
 // (mirrors the mask() tuning). The kaleidoscope verb pushes here so a slider drag
-// updates the scene smoothly. Keyed by layer id (unique within a composite), so a
+// updates the composite smoothly. Keyed by layer id (unique within a composite), so a
 // patch addresses exactly one layer even when two layers share a shader.
 //
 // These are INTERNAL: the kaleidoscope verb absorbs them (controls.ts injects
@@ -497,7 +504,7 @@ const coverScale = (outW: number, outH: number, imgW: number, imgH: number): [nu
 type UniformMap = Readonly<Record<string, number | readonly number[]>>;
 const layerUniformOverrides: Record<string, UniformMap> = {};
 
-/** Override a layer's uniforms (by layer id) in the running scene; merges. */
+/** Override a layer's uniforms (by layer id) in the running composite; merges. */
 export const setLayerUniforms = (id: string, uniforms: UniformMap): void => {
   layerUniformOverrides[id] = { ...layerUniformOverrides[id], ...uniforms };
 };
@@ -507,13 +514,22 @@ const clearLayerUniforms = (id: string): void => {
   delete layerUniformOverrides[id];
 };
 
+/**
+ * Drop EVERY layer override. A preset switch calls this so a reused layer id
+ * (e.g. 'blur', shared by the low/medium/high blur presets) reverts to the new
+ * preset's baked uniforms instead of carrying a stale slider override across.
+ */
+export const resetLayerUniforms = (): void => {
+  for (const id of Object.keys(layerUniformOverrides)) delete layerUniformOverrides[id];
+};
+
 const mergedUniforms = (layer: Extract<LayerSpec, { uniforms: UniformMap }>): UniformMap => {
   const override = layerUniformOverrides[layer.id];
   return override ? { ...layer.uniforms, ...override } : layer.uniforms;
 };
 
-export const makeScene = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
-  // A preset switch builds a fresh scene; drop any live overrides whose layer id
+export const makeComposite = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
+  // A preset switch builds a fresh composite; drop any live overrides whose layer id
   // is not in this stack so a reused id (e.g. 'you') can't carry a stale override
   // from the previous preset into this one.
   const ids = new Set(layers.map((l) => l.id));
@@ -605,7 +621,9 @@ export const makeScene = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
       gl.disable(gl.BLEND);
       if (layer.shader === 'blur') {
         if (!s.blur || !s.camera || !s.scratchA || !s.scratchB) return null;
-        const sigmaVal = layer.uniforms.sigma;
+        // Read through mergedUniforms so a live slider edit (setLayerUniforms)
+        // reaches the blur pass, exactly like the generative layers below.
+        const sigmaVal = mergedUniforms(layer).sigma;
         const sigma = typeof sigmaVal === 'number' ? sigmaVal : 4;
         // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook.
         gl.useProgram(s.blur.prog);

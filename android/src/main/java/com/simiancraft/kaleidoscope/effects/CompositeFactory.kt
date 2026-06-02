@@ -1,16 +1,17 @@
-// Android scene compositor — GPU pipeline.
+// Android composite compositor; GPU pipeline.
 //
-// The multi-layer generalization of ShaderFactory: a scene is an ordered
-// painter's stack of layers (SceneLayers, delivered from JS via setSceneLayers),
-// composited into ONE output texture, layer 0 opaque, later layers blended over.
-// One factory class serves EVERY scene; the layer stack is data, swapped from JS
-// as the active scene changes, so adding a scene needs no Kotlin change.
+// The multi-layer generalization of ShaderFactory: a composite is an ordered
+// painter's stack of layers (CompositeLayers, delivered from JS via
+// setCompositeLayers), composited into ONE output texture, layer 0 opaque, later
+// layers blended over. One factory class serves EVERY composite; the layer stack
+// is data, swapped from JS as the active composite changes, so adding a composite
+// needs no Kotlin change.
 //
 // Per frame (builds on the single-effect factories):
 //   1. OES camera -> "camera 2D" FBO (display-upright, via Ingest), as elsewhere.
 //   2. If any layer targets the subject, produce the mask via Mask.produce.
 //   3. Bind the output FBO, clear to opaque black, then for each layer in order:
-//        - 'image'            : cover-fit the plate texture, premultiplied output.
+//        - 'image'            : cover-fit the image texture, premultiplied output.
 //        - 'direct'+background : the raw camera fullscreen, opaque.
 //        - 'direct'+subject   : the masked person, premultiplied (one-pass fast
 //                         path). Skipped until a mask has completed.
@@ -28,7 +29,7 @@
 // images, and generative shaders are all layers here, folding the former
 // BlurFactory / BackgroundImageFactory / ShaderFactory into the layer stack.
 //
-// All failure paths log under Kaleidoscope.Scene and fall through to null so
+// All failure paths log under Kaleidoscope.Composite and fall through to null so
 // upstream forwards the original frame instead of crashing.
 
 package com.simiancraft.kaleidoscope.effects
@@ -42,9 +43,9 @@ import android.opengl.GLUtils
 import android.util.Log
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessor
 import com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface
+import com.simiancraft.kaleidoscope.CompositeLayer
+import com.simiancraft.kaleidoscope.CompositeLayers
 import com.simiancraft.kaleidoscope.EffectTuning
-import com.simiancraft.kaleidoscope.SceneLayer
-import com.simiancraft.kaleidoscope.SceneLayers
 import com.simiancraft.kaleidoscope.gpu.Egl
 import com.simiancraft.kaleidoscope.gpu.Fbo
 import com.simiancraft.kaleidoscope.gpu.FramePipeline
@@ -60,17 +61,17 @@ import org.webrtc.VideoFrame
 import org.webrtc.YuvConverter
 
 /**
- * @param context held for Mask (segmentation) and to read bundled plate assets.
- *   The scene layer stack itself arrives from JS via SceneLayers, so this
- *   factory carries no per-scene state.
+ * @param context held for Mask (segmentation) and to read bundled image assets.
+ *   The composite layer stack itself arrives from JS via CompositeLayers, so this
+ *   factory carries no per-composite state.
  */
-class SceneFactory(
+class CompositeFactory(
   private val context: Context,
 ) : VideoFrameProcessorFactoryInterface {
-  override fun build(): VideoFrameProcessor = SceneProcessor(context)
+  override fun build(): VideoFrameProcessor = CompositeProcessor(context)
 }
 
-private class SceneProcessor(
+private class CompositeProcessor(
   private val context: Context,
 ) : VideoFrameProcessor {
   // process() is only ever invoked on the single SurfaceTextureHelper capture
@@ -87,18 +88,18 @@ private class SceneProcessor(
   private val shaderPrograms = HashMap<String, GlProgram>()
 
   private var cameraFbo: Fbo? = null
-  // Scratch render targets, mirroring scene.ts: scratchA holds a subject layer's
-  // rendered content (and the blur's horizontal pass); scratchB holds the blur's
-  // vertical pass. Allocated alongside the camera FBO, reused across frames.
+  // Scratch render targets, mirroring composite.ts: scratchA holds a subject
+  // layer's rendered content (and the blur's horizontal pass); scratchB holds the
+  // blur's vertical pass. Allocated alongside the camera FBO, reused across frames.
   private var scratchA: Fbo? = null
   private var scratchB: Fbo? = null
   private var cachedWidth = 0
   private var cachedHeight = 0
 
-  // Plate textures by id, loaded lazily on first use; cached for the session.
+  // Image textures by id, loaded lazily on first use; cached for the session.
   // Each entry carries the source aspect for cover-fit.
-  private val plateTextures = HashMap<String, PlateTexture>()
-  private val missingPlates = HashSet<String>() // ids whose asset load failed (don't retry per frame)
+  private val imageTextures = HashMap<String, ImageTexture>()
+  private val missingImages = HashSet<String>() // ids whose asset load failed (don't retry per frame)
 
   private val mask = Mask(context)
   private var yuvConverter: YuvConverter? = null
@@ -106,7 +107,7 @@ private class SceneProcessor(
 
   private var startNanos: Long = 0L
 
-  private class PlateTexture(val textureId: Int, val aspect: Float)
+  private class ImageTexture(val textureId: Int, val aspect: Float)
 
   override fun process(frame: VideoFrame, textureHelper: SurfaceTextureHelper?): VideoFrame? {
     return synchronized(lock) { processOuter(frame, textureHelper) }
@@ -148,16 +149,16 @@ private class SceneProcessor(
       return null
     }
 
-    val layers = SceneLayers.get()
+    val layers = CompositeLayers.get()
     if (layers.isEmpty()) {
-      // No scene spec delivered yet (or it was cleared). Forward the original.
+      // No composite spec delivered yet (or it was cleared). Forward the original.
       return null
     }
 
     val width = Ingest.displayWidth(bufW, bufH, frame.rotation)
     val height = Ingest.displayHeight(bufW, bufH, frame.rotation)
 
-    GlDebug.check("scene entry")
+    GlDebug.check("composite entry")
     val saved = Egl.save()
     var outputTextureId = 0
     var outputFboHandle = 0
@@ -180,7 +181,7 @@ private class SceneProcessor(
       GLES30.glDisable(GLES30.GL_DEPTH_TEST)
       GLES30.glDisable(GLES30.GL_BLEND)
       GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-      GlDebug.check("scene OES->2D")
+      GlDebug.check("composite OES->2D")
 
       // ===== Mask (only if a subject layer is present) =====
       val needsSubject = layers.any { it.target == "subject" }
@@ -188,7 +189,7 @@ private class SceneProcessor(
       if (needsSubject) {
         maskTexId = mask.produce(camFbo.texture, width, height)
         // maskTexId == -1 means no mask yet; the subject layer is skipped this
-        // frame (the rest of the scene still composites).
+        // frame (the rest of the composite still composites).
       }
 
       // ===== Composite all layers into a fresh output texture =====
@@ -222,7 +223,7 @@ private class SceneProcessor(
           outputFbo,
         )
       }
-      GlDebug.check("scene composite")
+      GlDebug.check("composite layers")
 
       // Detach + free the output FBO; the texture survives with the VideoFrame.
       GLES30.glFramebufferTexture2D(
@@ -237,7 +238,7 @@ private class SceneProcessor(
       outputFboHandle = 0
       // Leave blend disabled so we hand GL state back near the save() baseline.
       GLES30.glDisable(GLES30.GL_BLEND)
-      GlDebug.check("scene output cleanup")
+      GlDebug.check("composite output cleanup")
 
       val ready = pipeline.enqueue(
         outputTextureId,
@@ -294,7 +295,7 @@ private class SceneProcessor(
   }
 
   // Bind the output FBO and set the GL blend state for a layer's output draw,
-  // mirroring scene.ts setOutputBlend(). The base (layer 0) is opaque (blend off);
+  // mirroring composite.ts setOutputBlend(). The base (layer 0) is opaque (blend off);
   // 'normal' is premultiplied "over"; 'additive' is premultiplied add.
   private fun bindOutputBlend(outputFbo: Fbo, isBase: Boolean, blend: String?) {
     outputFbo.bind()
@@ -310,7 +311,7 @@ private class SceneProcessor(
     }
   }
 
-  // Composite one layer onto the output. Mirrors the per-layer body of scene.ts:
+  // Composite one layer onto the output. Mirrors the per-layer body of composite.ts:
   // a 'subject' layer is mask-stenciled (direct takes the one-pass cam x mask fast
   // path; any other shader renders to a scratch then a masked-composite multiplies
   // by the mask alpha), a 'background' layer draws fullscreen (image cover-fit,
@@ -318,7 +319,7 @@ private class SceneProcessor(
   // owns its FBO binds: subject/blur layers render content into a scratch first,
   // then bindOutputBlend() before the final output draw.
   private fun drawLayer(
-    layer: SceneLayer,
+    layer: CompositeLayer,
     isBase: Boolean,
     width: Int,
     height: Int,
@@ -374,9 +375,9 @@ private class SceneProcessor(
   // Render a layer's content into a scratch FBO (blend off, cleared), returning the
   // texture that holds it. Blur is special: it runs the separable passes (camera ->
   // scratchA -> scratchB) and returns scratchB. Mirrors renderContentToScratch in
-  // scene.ts. The caller re-binds the output FBO before the final composite.
+  // composite.ts. The caller re-binds the output FBO before the final composite.
   private fun renderContentToScratch(
-    layer: SceneLayer,
+    layer: CompositeLayer,
     width: Int,
     height: Int,
     elapsedSeconds: Float,
@@ -419,20 +420,20 @@ private class SceneProcessor(
     return a.texture
   }
 
-  // Cover-fit a plate into the bound FBO. Returns false if the plate or program is
-  // unavailable so the caller can skip the layer.
-  private fun drawImageLayer(layer: SceneLayer, width: Int, height: Int): Boolean {
+  // Cover-fit an image into the bound FBO. Returns false if the image or program
+  // is unavailable so the caller can skip the layer.
+  private fun drawImageLayer(layer: CompositeLayer, width: Int, height: Int): Boolean {
     val id = layer.source ?: run {
       Log.w(TAG, "image layer has no source id; skipping")
       return false
     }
-    val plate = ensurePlateTexture(id) ?: return false
+    val image = ensureImageTexture(id) ?: return false
     val prog = imageProgram ?: return false
     prog.use()
     GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, plate.textureId)
+    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, image.textureId)
     prog.setInt("uTex", 0)
-    val (sx, sy) = coverScale(width, height, plate.aspect)
+    val (sx, sy) = coverScale(width, height, image.aspect)
     prog.setVec2("uCoverScale", sx, sy)
     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     return true
@@ -449,7 +450,7 @@ private class SceneProcessor(
   }
 
   // Blit a finished scratch texture (premultiplied, cover scale 1,1) to the bound
-  // output FBO. Used for a blur/background layer, mirroring scene.ts's blit draw.
+  // output FBO. Used for a blur/background layer, mirroring composite.ts's blit draw.
   private fun drawBlit(texture: Int) {
     val prog = imageProgram ?: return
     prog.use()
@@ -481,7 +482,7 @@ private class SceneProcessor(
   }
 
   // Stencil a rendered scratch (premultiplied) to the subject by multiplying
-  // through the mask alpha. Mirrors the masked-composite pass in scene.ts; the
+  // through the mask alpha. Mirrors the masked-composite pass in composite.ts; the
   // output stays premultiplied so the caller's blend composites it correctly.
   private fun drawMaskedComposite(contentTexture: Int, maskTexId: Int) {
     val prog = maskedProgram ?: return
@@ -504,7 +505,7 @@ private class SceneProcessor(
   // Render a generative frag into the bound FBO. Returns false if its program is
   // unavailable (unknown shader) so the caller can skip the layer.
   private fun drawGenerativeLayer(
-    layer: SceneLayer,
+    layer: CompositeLayer,
     width: Int,
     height: Int,
     elapsedSeconds: Float,
@@ -529,7 +530,7 @@ private class SceneProcessor(
   }
 
   // Center-crop cover-fit UV scale: zoom in on the dimension that would otherwise
-  // letterbox. Mirrors coverScale() in scene.ts (output vs image aspect).
+  // letterbox. Mirrors coverScale() in composite.ts (output vs image aspect).
   private fun coverScale(outW: Int, outH: Int, imgAspect: Float): Pair<Float, Float> {
     val outAspect = outW.toFloat() / outH.toFloat()
     return if (outAspect > imgAspect) {
@@ -542,27 +543,27 @@ private class SceneProcessor(
   private fun ensureCorePrograms() {
     if (oesToTwoD == null) {
       oesToTwoD = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.OES_PASSTHROUGH_FRAG)
-      GlDebug.check("scene oesToTwoD compile/link")
+      GlDebug.check("composite oesToTwoD compile/link")
     }
     if (imageProgram == null) {
       imageProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.IMAGE_FRAG)
-      GlDebug.check("scene image program compile/link")
+      GlDebug.check("composite image program compile/link")
     }
     if (subjectProgram == null) {
       subjectProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.SUBJECT_FRAG)
-      GlDebug.check("scene subject program compile/link")
+      GlDebug.check("composite subject program compile/link")
     }
     if (cameraProgram == null) {
       cameraProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.CAMERA_FRAG)
-      GlDebug.check("scene camera program compile/link")
+      GlDebug.check("composite camera program compile/link")
     }
     if (blurProgram == null) {
       blurProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.BLUR_FRAG)
-      GlDebug.check("scene blur program compile/link")
+      GlDebug.check("composite blur program compile/link")
     }
     if (maskedProgram == null) {
       maskedProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.MASKED_FRAG)
-      GlDebug.check("scene masked program compile/link")
+      GlDebug.check("composite masked program compile/link")
     }
   }
 
@@ -574,7 +575,7 @@ private class SceneProcessor(
       return null
     }
     val prog = GlProgram(Shaders.PASSTHROUGH_VERT, src)
-    GlDebug.check("scene generative '$shaderName' compile/link")
+    GlDebug.check("composite generative '$shaderName' compile/link")
     shaderPrograms[shaderName] = prog
     return prog
   }
@@ -587,30 +588,30 @@ private class SceneProcessor(
     cameraFbo = Fbo(width, height)
     // Two scratch targets sized to the frame: the subject-stencil scratch and the
     // blur ping-pong (scratchA horizontal, scratchB vertical). Full-res to mirror
-    // scene.ts; the old BlurFactory downscale is dropped for parity.
+    // composite.ts; the old BlurFactory downscale is dropped for parity.
     scratchA = Fbo(width, height)
     scratchB = Fbo(width, height)
     cachedWidth = width
     cachedHeight = height
-    GlDebug.check("scene intermediates allocated")
+    GlDebug.check("composite intermediates allocated")
   }
 
-  // Load a scene plate WebP from assets/scene-plates/<id>.webp, pre-flipped (the
+  // Load a composite image WebP from assets/images/<id>.webp, pre-flipped (the
   // shared semantic-top-at-v=1 convention; mirrors BackgroundImageFactory). Cached
   // per id; a failed load is remembered so we don't re-read every frame.
-  private fun ensurePlateTexture(id: String): PlateTexture? {
-    plateTextures[id]?.let { return it }
-    if (missingPlates.contains(id)) return null
+  private fun ensureImageTexture(id: String): ImageTexture? {
+    imageTextures[id]?.let { return it }
+    if (missingImages.contains(id)) return null
     val bmp = try {
-      context.assets.open("$PLATES_DIR/$id.webp").use { BitmapFactory.decodeStream(it) }
+      context.assets.open("$IMAGES_DIR/$id.webp").use { BitmapFactory.decodeStream(it) }
     } catch (t: Throwable) {
-      Log.e(TAG, "failed to load scene plate $PLATES_DIR/$id.webp", t)
-      missingPlates.add(id)
+      Log.e(TAG, "failed to load composite image $IMAGES_DIR/$id.webp", t)
+      missingImages.add(id)
       return null
     }
     if (bmp == null) {
-      Log.e(TAG, "BitmapFactory returned null for $PLATES_DIR/$id.webp")
-      missingPlates.add(id)
+      Log.e(TAG, "BitmapFactory returned null for $IMAGES_DIR/$id.webp")
+      missingImages.add(id)
       return null
     }
     val flipMatrix = Matrix().apply { preScale(1f, -1f) }
@@ -625,12 +626,12 @@ private class SceneProcessor(
       GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
       GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
       GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, flipped, 0)
-      GlDebug.check("scene plate '$id' upload")
+      GlDebug.check("composite image '$id' upload")
       val aspect = bmp.width.toFloat() / bmp.height.toFloat()
-      Log.i(TAG, "scene plate '$id' loaded; size=${bmp.width}x${bmp.height} aspect=$aspect")
-      val plate = PlateTexture(texId, aspect)
-      plateTextures[id] = plate
-      return plate
+      Log.i(TAG, "composite image '$id' loaded; size=${bmp.width}x${bmp.height} aspect=$aspect")
+      val image = ImageTexture(texId, aspect)
+      imageTextures[id] = image
+      return image
     } finally {
       flipped.recycle()
       bmp.recycle()
@@ -638,8 +639,8 @@ private class SceneProcessor(
   }
 
   companion object {
-    private const val TAG = "Kaleidoscope.Scene"
+    private const val TAG = "Kaleidoscope.Composite"
     private const val GL_TEXTURE_EXTERNAL_OES = 0x8D65
-    private const val PLATES_DIR = "scene-plates"
+    private const val IMAGES_DIR = "images"
   }
 }

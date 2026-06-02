@@ -1,4 +1,4 @@
-// Layer-shader GLSL for the native scene compositor, embedded as Kotlin string
+// Layer-shader GLSL for the native composite compositor, embedded as Kotlin string
 // constants. These mirror the canonical `shaders/<name>.frag` and their verbatim
 // web copies in `src/web/effects/layer-shaders.ts`. The generic shader codegen
 // (`build:shaders`) only emits the GENERATIVE background channel today; layer
@@ -17,13 +17,13 @@
 package com.simiancraft.kaleidoscope.effects
 
 internal object LayerShaders {
-  // ---- compositor-local layer programs (image + subject), ported from scene.ts -
+  // ---- compositor-local layer programs (image + subject), ported from composite.ts -
 
   // Cover-fit a still texture, output PREMULTIPLIED so a straight-alpha image
   // (a transparent sky / cut-out opening) composites correctly with the "over"
   // blend: transparent regions show the stack beneath. uCoverScale zooms the UV
-  // about center to crop-fit (mirrors BLIT_FRAG_SRC in scene.ts). No V-flip in
-  // the shader: the plate bitmap is pre-flipped on upload (matches
+  // about center to crop-fit (mirrors BLIT_FRAG_SRC in composite.ts). No V-flip in
+  // the shader: the image bitmap is pre-flipped on upload (matches
   // BackgroundImageFactory), so the texture already lands semantic-top at v=1.
   const val IMAGE_FRAG = """#version 300 es
 precision highp float;
@@ -40,7 +40,7 @@ void main() {
 
   // The masked camera person, output PREMULTIPLIED (rgb already scaled by the
   // mask alpha) so a "normal" over-blend composites the person onto the stack.
-  // Mirrors SUBJECT_FRAG_SRC in scene.ts. uMaskUvScale/uMaskUvOffset carry the
+  // Mirrors SUBJECT_FRAG_SRC in composite.ts. uMaskUvScale/uMaskUvOffset carry the
   // mask orientation: on Android the mask round-trip (glReadPixels bottom-up +
   // Bitmap top-down + packMask flip-back) leaves the mask aligned with the
   // camera FBO, so these are identity (1,1)/(0,0) here, unlike web's (1,-1)/(0,1).
@@ -64,7 +64,7 @@ void main() {
 """
 
   // Raw camera fullscreen (direct/background), opaque. Mirrors CAMERA_FRAG_SRC in
-  // scene.ts; samples the display-upright camera 2D copy and emits straight RGB
+  // composite.ts; samples the display-upright camera 2D copy and emits straight RGB
   // with alpha 1, so a non-blended base draw fills the frame.
   const val CAMERA_FRAG = """#version 300 es
 precision highp float;
@@ -77,7 +77,7 @@ void main() {
 """
 
   // Camera-sampling separable gaussian, 9-tap (offsets -4..4), sigma-weighted.
-  // Hand-written to mirror BLUR_FRAG_SRC in scene.ts (NOT the codegen'd
+  // Hand-written to mirror BLUR_FRAG_SRC in composite.ts (NOT the codegen'd
   // Shaders.BLUR_FRAG, which is the downscaled bilinear kernel of the old
   // BlurFactory). One pass per direction (uDir is the texel step on the active
   // axis): horizontal camera -> scratch, then vertical scratch -> scratch. Output
@@ -110,7 +110,7 @@ void main() {
   // Masked-composite: stencil a rendered scratch layer (uTex, treated as
   // premultiplied) to the subject by multiplying through the mask alpha. Keeps the
   // result premultiplied so the caller's "over"/"additive" blend composites it
-  // correctly. Mirrors MASKED_FRAG_SRC in scene.ts; identity mask UV on Android
+  // correctly. Mirrors MASKED_FRAG_SRC in composite.ts; identity mask UV on Android
   // (the readback already aligns it), unlike web's (1,-1)/(0,1).
   const val MASKED_FRAG = """#version 300 es
 precision highp float;

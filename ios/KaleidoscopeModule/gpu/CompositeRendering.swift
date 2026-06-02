@@ -1,8 +1,8 @@
-// Layered-compositing additions to MetalRenderer for the scene compositor.
+// Layered-compositing additions to MetalRenderer for the composite compositor.
 //
 // The single-effect path (blur, background-image, plasma) renders ONE pass into
 // a BGRA target with blending OFF and a `.dontCare` load (every texel is
-// overwritten). A scene is different: an ordered painter's stack composited into
+// overwritten). A composite is different: an ordered painter's stack composited into
 // one output texture, layer 0 opaque and later layers blended over it. Android
 // does this by toggling GL fixed-function blend state per layer while drawing
 // into one FBO; on Metal the blend state is baked into the render-pipeline
@@ -17,7 +17,7 @@
 // Because the blend mode is fixed per pipeline state, each layer fragment
 // (image / subject / a generative shader) needs THREE pipeline variants: opaque
 // base, premultiplied-over, premultiplied-add. They are cached by
-// (fragment label, blend mode) so a scene that reuses a shader does not rebuild.
+// (fragment label, blend mode) so a composite that reuses a shader does not rebuild.
 //
 // The render target is the output CVPixelBuffer's BGRA Metal texture directly
 // (same as encodeComposite writes its result into the output texture); CV-backed
@@ -29,22 +29,22 @@ import Metal
 import simd
 
 extension MetalRenderer {
-  /// How a scene layer's pass blends into the output texture. The base layer is
+  /// How a composite layer's pass blends into the output texture. The base layer is
   /// opaque (blend off); later layers use premultiplied over or add. Mirrors
-  /// SceneFactory.applyBlend (Android) / the blendFunc switch in scene.ts (web).
-  enum SceneBlend {
+  /// CompositeFactory.applyBlend (Android) / the blendFunc switch in composite.ts (web).
+  enum CompositeBlend {
     case opaqueBase // layer 0: blending OFF, `.clear` load establishes the base
     case over       // premultiplied "over": ONE, ONE_MINUS_SRC_ALPHA
     case additive   // premultiplied add:    ONE, ONE
   }
 
-  /// Build a render-pipeline state for a scene-layer fragment at a given blend
+  /// Build a render-pipeline state for a composite-layer fragment at a given blend
   /// mode. The fragment writes PREMULTIPLIED RGBA; the blend factors below match
   /// the GL blendFunc the other two platforms set. Reuses the shared passthrough
   /// vertex (fullscreen quad from gl_VertexID). The caller caches the result.
-  func makeSceneLayerPipeline(
+  func makeCompositeLayerPipeline(
     fragment: MTLFunction,
-    blend: SceneBlend,
+    blend: CompositeBlend,
     label: String
   ) throws -> MTLRenderPipelineState {
     let desc = MTLRenderPipelineDescriptor()
@@ -55,7 +55,7 @@ extension MetalRenderer {
     // implicitly-unwrapped optional; binding it to a `let` collapses that to a
     // plain Optional, so force-unwrap here (index 0 is always present). Note this
     // differs from MTLRenderPassDescriptor.colorAttachments (used in
-    // beginSceneEncoder below), whose subscript is non-optional.
+    // beginCompositeEncoder below), whose subscript is non-optional.
     let attachment = desc.colorAttachments[0]!
     attachment.pixelFormat = .bgra8Unorm
     switch blend {
@@ -88,7 +88,7 @@ extension MetalRenderer {
     }
   }
 
-  /// Begin a scene render pass into `target`. The returned encoder is left OPEN:
+  /// Begin a composite render pass into `target`. The returned encoder is left OPEN:
   /// the caller draws ONE layer's output quad into it and MUST call endEncoding().
   ///
   /// `clear` controls the load action: the BASE layer opens with `.clear`
@@ -101,12 +101,12 @@ extension MetalRenderer {
   /// its content into a SEPARATE .private texture FIRST, which is its own render
   /// pass; two encoders cannot be open on one command buffer at once, and an open
   /// encoder cannot be interleaved with a different-target pass. Re-opening the
-  /// scene encoder with `.load` between scratch passes is the Metal-faithful
+  /// composite encoder with `.load` between scratch passes is the Metal-faithful
   /// analogue of the GL "bind output FBO, set blend, draw" the other two
   /// platforms repeat per layer (Android's bindOutputBlend). `.clear` to
-  /// (0,0,0,1) matches SceneFactory's opaque-black base clear so a non-covering
+  /// (0,0,0,1) matches CompositeFactory's opaque-black base clear so a non-covering
   /// base reads as defined black.
-  func beginSceneEncoder(
+  func beginCompositeEncoder(
     commandBuffer: MTLCommandBuffer,
     target: MTLTexture,
     clear: Bool,
@@ -124,11 +124,11 @@ extension MetalRenderer {
     return encoder
   }
 
-  /// Draw one image (plate) layer into the open scene encoder. Binds uCoverScale
+  /// Draw one image (plate) layer into the open composite encoder. Binds uCoverScale
   /// at buffer(0), the plate texture at texture(0), the shared sampler at
-  /// sampler(0) — matching scene-image.metalsrc. Sets the pipeline (which carries
+  /// sampler(0) — matching composite-image.metalsrc. Sets the pipeline (which carries
   /// the blend mode) and draws the fullscreen quad.
-  func drawSceneImageLayer(
+  func drawCompositeImageLayer(
     encoder: MTLRenderCommandEncoder,
     pipeline: MTLRenderPipelineState,
     plate: MTLTexture,
@@ -142,10 +142,10 @@ extension MetalRenderer {
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }
 
-  /// Draw the masked-subject layer into the open scene encoder. Binds, matching
-  /// scene-subject.metalsrc: buffer(0) uMaskUvScale, (1) uMaskUvOffset, (2)
+  /// Draw the masked-subject layer into the open composite encoder. Binds, matching
+  /// composite-subject.metalsrc: buffer(0) uMaskUvScale, (1) uMaskUvOffset, (2)
   /// uMaskLo, (3) uMaskHi; texture(0) uCamera, (1) uMask; sampler(0)/(1).
-  func drawSceneSubjectLayer(
+  func drawCompositeSubjectLayer(
     encoder: MTLRenderCommandEncoder,
     pipeline: MTLRenderPipelineState,
     camera: MTLTexture,
@@ -171,14 +171,14 @@ extension MetalRenderer {
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }
 
-  /// Draw one generative layer into the open scene encoder. The bindings are the
+  /// Draw one generative layer into the open composite encoder. The bindings are the
   /// host built-ins (uTime, uResolution) plus the layer's JS-set uniforms, each
   /// at the buffer index the shader's MSL decoration assigned it (resolved by the
   /// caller via ShaderLibrary.uniformBufferIndices). Name-agnostic, exactly like
   /// MetalRenderer.encodeGenerative; the only difference is it draws into the
-  /// shared scene encoder (one pass, blended) rather than its own `.dontCare`
+  /// shared composite encoder (one pass, blended) rather than its own `.dontCare`
   /// pass.
-  func drawSceneGenerativeLayer(
+  func drawCompositeGenerativeLayer(
     encoder: MTLRenderCommandEncoder,
     pipeline: MTLRenderPipelineState,
     builtinBindings: [(index: Int, value: [Float])],
@@ -198,12 +198,12 @@ extension MetalRenderer {
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }
 
-  /// Draw the raw camera fullscreen (direct/background) into the open scene
+  /// Draw the raw camera fullscreen (direct/background) into the open composite
   /// encoder. Binds the camera texture at texture(0), the shared sampler at
-  /// sampler(0) — matching scene-camera.metalsrc. No uniform buffers. Mirrors
-  /// SceneFactory.drawCameraLayer (Android) / the direct/background branch in
-  /// scene.ts.
-  func drawSceneCameraLayer(
+  /// sampler(0) — matching composite-camera.metalsrc. No uniform buffers. Mirrors
+  /// CompositeFactory.drawCameraLayer (Android) / the direct/background branch in
+  /// composite.ts.
+  func drawCompositeCameraLayer(
     encoder: MTLRenderCommandEncoder,
     pipeline: MTLRenderPipelineState,
     camera: MTLTexture
@@ -214,13 +214,13 @@ extension MetalRenderer {
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }
 
-  /// Blit a finished scratch texture (premultiplied) into the open scene encoder
+  /// Blit a finished scratch texture (premultiplied) into the open composite encoder
   /// with a content-UV transform that folds in the scratch's per-pass V parity.
   /// Used for a blur/background layer. Binds uContentUvScale at buffer(0),
   /// uContentUvOffset at buffer(1), the scratch at texture(0), the shared sampler
-  /// at sampler(0) — matching scene-blit.metalsrc. Mirrors SceneFactory.drawBlit
-  /// (Android) / the blur/background blit in scene.ts.
-  func drawSceneBlitLayer(
+  /// at sampler(0) — matching composite-blit.metalsrc. Mirrors CompositeFactory.drawBlit
+  /// (Android) / the blur/background blit in composite.ts.
+  func drawCompositeBlitLayer(
     encoder: MTLRenderCommandEncoder,
     pipeline: MTLRenderPipelineState,
     content: MTLTexture,
@@ -238,13 +238,13 @@ extension MetalRenderer {
   }
 
   /// Stencil a finished scratch texture (premultiplied) to the subject through
-  /// the mask alpha, into the open scene encoder. This is how ANY non-direct
+  /// the mask alpha, into the open composite encoder. This is how ANY non-direct
   /// layer (generative, image, blur) targets the subject. Binds, matching
-  /// scene-masked.metalsrc: buffer(0) uContentUvScale, (1) uContentUvOffset, (2)
+  /// composite-masked.metalsrc: buffer(0) uContentUvScale, (1) uContentUvOffset, (2)
   /// uMaskUvScale, (3) uMaskUvOffset, (4) uMaskLo, (5) uMaskHi; texture(0) content,
-  /// (1) mask; sampler(0)/(1). Mirrors SceneFactory.drawMaskedComposite (Android)
-  /// / the masked-composite pass in scene.ts.
-  func drawSceneMaskedLayer(
+  /// (1) mask; sampler(0)/(1). Mirrors CompositeFactory.drawMaskedComposite (Android)
+  /// / the masked-composite pass in composite.ts.
+  func drawCompositeMaskedLayer(
     encoder: MTLRenderCommandEncoder,
     pipeline: MTLRenderPipelineState,
     content: MTLTexture,
@@ -279,11 +279,11 @@ extension MetalRenderer {
   /// Encode one camera-sampling separable-gaussian blur pass (`source` ->
   /// `target`) along `axis`, into its OWN render pass (blend off, `.dontCare`
   /// load: every texel overwritten). The host runs this twice (horizontal then
-  /// vertical) into ping-pong scratch textures; see SceneProcessor.
-  /// scene-blur.metalsrc bindings: buffer(0) uDir, buffer(1) uSigma; texture(0)
+  /// vertical) into ping-pong scratch textures; see CompositeProcessor.
+  /// composite-blur.metalsrc bindings: buffer(0) uDir, buffer(1) uSigma; texture(0)
   /// uTex; sampler(0). Reuses drawFullscreen, so it shares the dontCare-load
   /// single-quad convention with the standalone blur/transform passes.
-  func encodeSceneBlurPass(
+  func encodeCompositeBlurPass(
     commandBuffer: MTLCommandBuffer,
     pipeline: MTLRenderPipelineState,
     source: MTLTexture,
@@ -307,23 +307,23 @@ extension MetalRenderer {
     }
   }
 
-  /// Two .private scene scratch render targets, BGRA at full output resolution,
+  /// Two .private composite scratch render targets, BGRA at full output resolution,
   /// allocated on first use or resolution change. scratchA holds a subject
   /// layer's rendered content (and the blur's horizontal pass); scratchB holds
-  /// the blur's vertical pass. Mirrors SceneFactory's scratchA/scratchB Fbos and
-  /// scene.ts's createFbo pair. Distinct from blurPingPong (the standalone blur
+  /// the blur's vertical pass. Mirrors CompositeFactory's scratchA/scratchB Fbos and
+  /// composite.ts's createFbo pair. Distinct from blurPingPong (the standalone blur
   /// effect's intermediates) so the two paths never alias.
-  func sceneScratch(width: Int, height: Int) throws -> (MTLTexture, MTLTexture) {
-    if let a = sceneScratchA, let b = sceneScratchB,
-       sceneScratchWidth == width, sceneScratchHeight == height {
+  func compositeScratch(width: Int, height: Int) throws -> (MTLTexture, MTLTexture) {
+    if let a = compositeScratchA, let b = compositeScratchB,
+       compositeScratchWidth == width, compositeScratchHeight == height {
       return (a, b)
     }
     let a = try makeGenerativeTarget(width: width, height: height)
     let b = try makeGenerativeTarget(width: width, height: height)
-    sceneScratchA = a
-    sceneScratchB = b
-    sceneScratchWidth = width
-    sceneScratchHeight = height
+    compositeScratchA = a
+    compositeScratchB = b
+    compositeScratchWidth = width
+    compositeScratchHeight = height
     return (a, b)
   }
 }

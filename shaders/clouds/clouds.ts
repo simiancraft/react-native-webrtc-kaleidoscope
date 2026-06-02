@@ -35,7 +35,7 @@ export type CloudsUniforms = {
 
 /**
  * The `clouds` shader's tunable uniforms. Drives the demo's generated control
- * panel. Defaults here are the "bright day" look; scenes override them (the
+ * panel. Defaults here are the "bright day" look; composites override them (the
  * wizard tower runs a sunset palette, the fairy cave a moonlit-night one).
  */
 export const CLOUDS_CONTROLS: readonly UniformControl[] = [

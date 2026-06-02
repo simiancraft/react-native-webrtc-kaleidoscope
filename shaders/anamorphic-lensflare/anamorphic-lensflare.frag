@@ -1,10 +1,10 @@
 // Animated cinematic anamorphic lens flare. A transparent OVERLAY layer (use
-// blend 'additive'); intended to sit in front of a scene as a camera-lens
-// artifact (the space scene runs it over the nebula + bridge plate).
+// blend 'additive'); intended to sit in front of the layers beneath as a camera-lens
+// artifact (the space composite runs it over the nebula + bridge image).
 //
 // Ported from a ShaderToy prototype (mainImage/iTime/iResolution) to this repo's
 // GLSL ES 3.00 multi-runtime convention. The #define knobs and the three palette
-// consts are now uniforms so scenes can place the flare and color-match it to
+// consts are now uniforms so composites can place the flare and color-match it to
 // whatever sits behind it.
 //
 // UV convention: matches passthrough.vert. vUv = (0, 0) at bottom-left, (1, 1)

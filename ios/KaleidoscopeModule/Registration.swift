@@ -12,14 +12,14 @@
 // The registry is now just TWO things (the effect-unification collapse, Phase C):
 //   - the four geometric transform ops (flip-x/flip-y/rotate-cw/rotate-ccw),
 //     sharing one TransformProcessor + transform.metalsrc, and
-//   - one "composite" compositor (SceneProcessor): EVERY art effect — images,
+//   - one "composite" compositor (CompositeProcessor): EVERY art effect — images,
 //     blur, generative shaders, masked subjects — is now a LAYER inside a
-//     composite, delivered out-of-band via setSceneLayers (SceneLayers) and
+//     composite, delivered out-of-band via setCompositeLayers (CompositeLayers) and
 //     composited per frame. The per-effect art processors (background-image-<id>,
 //     the bare generative names, blur) and their data-driven registration are
 //     gone; adding a preset is pure JS (a new Composite in the book), no Swift
 //     change and no native registration. Mirrors android/.../Registration.kt
-//     registering only the transforms + SceneFactory under "composite".
+//     registering only the transforms + CompositeFactory under "composite".
 //
 // ProcessorProvider and the VideoFrameProcessorDelegate protocol come from
 // react-native-webrtc's Obj-C sources, imported as a Clang module (the consumer
@@ -55,10 +55,10 @@ public enum Registration {
     ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
 
     // One composite compositor serves EVERY art effect; the active layer stack is
-    // data, delivered out-of-band via setSceneLayers (SceneLayers) and read per
+    // data, delivered out-of-band via setCompositeLayers (CompositeLayers) and read per
     // frame. A single registered instance, like the transform processors. Mirrors
-    // android/.../Registration.kt registering SceneFactory under "composite".
-    ProcessorProvider.addProcessor(SceneProcessor(), forName: "composite")
+    // android/.../Registration.kt registering CompositeFactory under "composite".
+    ProcessorProvider.addProcessor(CompositeProcessor(), forName: "composite")
 
     os_log("registered 4 transform op(s) + 1 composite compositor", log: log, type: .info)
   }

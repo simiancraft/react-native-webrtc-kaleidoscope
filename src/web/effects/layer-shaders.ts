@@ -1,4 +1,4 @@
-// Layer-shader fragment sources for the web scene compositor, keyed by shader
+// Layer-shader fragment sources for the web composite compositor, keyed by shader
 // name. TEMPORARY: these mirror the canonical `shaders/<name>.frag` verbatim.
 // The generic shader codegen (`build:shaders`) is currently blocked by the
 // Shadertoy-form prototypes, and layer shaders (additive/overlay/background that
@@ -1028,7 +1028,7 @@ void main() {
 }
 `;
 
-/** Layer shaders the web scene compositor can resolve by name. */
+/** Layer shaders the web composite compositor can resolve by name. */
 export const LAYER_SHADER_SOURCES: Readonly<Record<string, string>> = {
   godrays: GODRAYS_FRAG_SRC,
   clouds: CLOUDS_FRAG_SRC,

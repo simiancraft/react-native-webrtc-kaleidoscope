@@ -13,7 +13,7 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Scene compositor MASKED-COMPOSITE: stencil a rendered scratch layer (uTex,
+// Composite compositor MASKED-COMPOSITE: stencil a rendered scratch layer (uTex,
 // treated as PREMULTIPLIED) to the subject by multiplying through the mask alpha.
 // Keeps the result premultiplied so the caller's "over"/"additive" blend
 // composites it correctly. Mirrors LayerShaders.MASKED_FRAG (Android) /
@@ -30,7 +30,7 @@ struct main0_in
 // mask() smoothstep edges.
 //
 // Hand-authored to match the spirv-cross idiom; ShaderLibrary loads it like the
-// transpiled .metalsrc. SceneProcessor binds: buffer(0) uContentUvScale, (1)
+// transpiled .metalsrc. CompositeProcessor binds: buffer(0) uContentUvScale, (1)
 // uContentUvOffset, (2) uMaskUvScale, (3) uMaskUvOffset, (4) uMaskLo, (5) uMaskHi;
 // texture(0) uTex, (1) uMask; sampler(0) uTex's, sampler(1) uMask's.
 fragment main0_out main0(main0_in in [[stage_in]], constant float2& uContentUvScale [[buffer(0)]], constant float2& uContentUvOffset [[buffer(1)]], constant float2& uMaskUvScale [[buffer(2)]], constant float2& uMaskUvOffset [[buffer(3)]], constant float& uMaskLo [[buffer(4)]], constant float& uMaskHi [[buffer(5)]], texture2d<float> uTex [[texture(0)]], texture2d<float> uMask [[texture(1)]], sampler uTexSmplr [[sampler(0)]], sampler uMaskSmplr [[sampler(1)]])
