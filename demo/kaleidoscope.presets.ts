@@ -5,6 +5,14 @@
 // image/shader sources into the bundle. On web it is read at runtime by
 // kaleidoscope().
 //
+// The packaged "Worlds" and "Sky" composites are imported from the library
+// (`react-native-webrtc-kaleidoscope/composites/<name>`); the book lists them by
+// spreading them in. The simpler Backgrounds, Blur, and Plasma category entries
+// stay inline as the demo's curated examples and the consumer-authoring pattern:
+// each references a library image (`.../images/<name>`) or a library shader by
+// name. `wolf-cave` is a demo-OWNED image (not in the package), proving a
+// consumer can add their own background.
+//
 // Layer ids are unique WITHIN one composite. An `image` layer's id doubles as
 // its native plate id (the bundled WebP basename), so image layers keep their
 // plate-basename id; every other layer gets a simple unique-per-preset id.
@@ -14,277 +22,43 @@
 
 import { Asset } from 'expo-asset';
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
+// Packaged composites (the "Worlds" and "Sky" scenes), shipped by the library.
+import { clouds } from 'react-native-webrtc-kaleidoscope/composites/clouds';
+import { corporateBlobs } from 'react-native-webrtc-kaleidoscope/composites/corporate-blobs';
+import { fairyCave } from 'react-native-webrtc-kaleidoscope/composites/fairy-cave';
+import { nebula } from 'react-native-webrtc-kaleidoscope/composites/nebula';
+import { observationDeck } from 'react-native-webrtc-kaleidoscope/composites/observation-deck';
+import { simianlights } from 'react-native-webrtc-kaleidoscope/composites/simianlights';
+import { underwater } from 'react-native-webrtc-kaleidoscope/composites/underwater';
+import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
-import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
-import { debugResolutions } from 'react-native-webrtc-kaleidoscope/backgrounds/debug-resolutions';
-import { homeDark } from 'react-native-webrtc-kaleidoscope/backgrounds/home-dark';
-import { homeLight } from 'react-native-webrtc-kaleidoscope/backgrounds/home-light';
-import { lightOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/light-office';
-import { natureDark } from 'react-native-webrtc-kaleidoscope/backgrounds/nature-dark';
-import { natureLight } from 'react-native-webrtc-kaleidoscope/backgrounds/nature-light';
-import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-dark';
-import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/backgrounds/simiancraft-light';
-import { stylizedDark } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-dark';
-import { stylizedLight } from 'react-native-webrtc-kaleidoscope/backgrounds/stylized-light';
+import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office';
+import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug-resolutions';
+import { homeDark } from 'react-native-webrtc-kaleidoscope/images/home-dark';
+import { homeLight } from 'react-native-webrtc-kaleidoscope/images/home-light';
+import { lightOffice } from 'react-native-webrtc-kaleidoscope/images/light-office';
+import { natureDark } from 'react-native-webrtc-kaleidoscope/images/nature-dark';
+import { natureLight } from 'react-native-webrtc-kaleidoscope/images/nature-light';
+import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/images/simiancraft-dark';
+import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/images/simiancraft-light';
+import { stylizedDark } from 'react-native-webrtc-kaleidoscope/images/stylized-dark';
+import { stylizedLight } from 'react-native-webrtc-kaleidoscope/images/stylized-light';
 
 const wolfCave = Asset.fromModule(require('./assets/backgrounds/wolf-cave.webp')).uri;
-const wizardsTower = Asset.fromModule(require('./assets/backgrounds/wizards-tower.webp')).uri;
-const observationDeck = Asset.fromModule(require('./assets/backgrounds/observation-deck.webp')).uri;
-const fairyTreehouse = Asset.fromModule(require('./assets/backgrounds/fairy-treehouse.webp')).uri;
 
 export const presets = {
-  // --- Worlds: composed scenes (shown FIRST). An ordered painter's stack run as
-  // one effect by the layered compositor. ---
-
-  // Wizard tower: sunset clouds visible through the chamber's cut-out sky, the
-  // tower plate composited on top.
-  'wizard-tower': {
-    name: 'Wizard Tower',
-    category: 'Worlds',
-    layers: [
-      {
-        id: 'sky',
-        shader: 'clouds',
-        uniforms: {
-          uSkyLowColor: [0.99, 0.62, 0.03],
-          uSkyHighColor: [0.13, 0.3, 0.84],
-          uCloudLightColor: [0.98, 0.87, 0.53],
-          uCloudDarkColor: [0.98, 0.57, 0.16],
-          uExposure: 1.26,
-          uStepSize: 0.32,
-          uCloudSpeed: 0.92,
-          uCloudScale: 0.77,
-          uDensity: 0.185,
-          uCoverage: 0.55,
-          uSoftness: 0.23,
-        },
-      },
-      { id: 'wizards-tower', shader: 'image', source: wizardsTower },
-      // You, standing in the chamber.
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-
-  // Space observation deck: a simianlights field seen through the deck's
-  // panoramic window (a cut-out plate), you standing in the room, an anamorphic
-  // lens flare across the glass. Back-to-front: simianlights, deck plate, you,
-  // flare. The full "space scene".
-  'observation-deck': {
-    name: 'Observation Deck',
-    category: 'Worlds',
-    layers: [
-      {
-        id: 'field',
-        shader: 'simianlights',
-        uniforms: {
-          uColor: [0.27, 0.44, 0.17],
-          uBrightness: 1.7,
-          uSpeed: 2.66,
-          uTwinkleSpeed: 0.36,
-          uScale: 2.85,
-          uStarGlow: 1.56,
-        },
-      },
-      // The deck interior; the window is cut out so the field shows through.
-      { id: 'observation-deck', shader: 'image', source: observationDeck },
-      // You, standing at the window.
-      { id: 'you', shader: 'direct', target: 'subject' },
-      // Lens flare across the glass, on top of everything. Magenta/pink tint
-      // against the green field, ghosts cranked up. Additive.
-      {
-        id: 'flare',
-        shader: 'anamorphic-lensflare',
-        blend: 'additive',
-        uniforms: {
-          uFlareX: 0.33,
-          uFlareY: 0.64,
-          uIntensity: 0.44,
-          uStreakLength: 0.41,
-          uStreakWidth: 165,
-          uGhostStrength: 1.5,
-          uWarmColor: [0.88, 0.28, 0.52],
-          uBlueColor: [0.96, 0.37, 0.81],
-          uPinkColor: [0.91, 0.14, 0.63],
-        },
-      },
-    ],
-  },
-
-  // Fairy cave: a moonlit night sky through the round opening, the cave plate,
-  // and fireflies drifting on top.
-  'fairy-cave': {
-    name: 'Fairy Cave',
-    category: 'Worlds',
-    layers: [
-      {
-        id: 'sky',
-        shader: 'clouds',
-        uniforms: {
-          uSkyLowColor: [0.05, 0.01, 0.04],
-          uSkyHighColor: [0.02, 0.02, 0.04],
-          uCloudLightColor: [0.72, 0.39, 0.1],
-          uCloudDarkColor: [0.18, 0.14, 0.07],
-          uExposure: 0.93,
-          uStepSize: 0.38,
-          uCloudSpeed: 0.37,
-          uCloudScale: 1.26,
-          uDensity: 0.035,
-          uCoverage: 0.44,
-          uSoftness: 0.18,
-        },
-      },
-      { id: 'fairy-treehouse', shader: 'image', source: fairyTreehouse },
-      {
-        id: 'fireflies',
-        shader: 'fireflies',
-        blend: 'additive',
-        uniforms: { uGlowSize: 0.025, uDotSize: 0.004, uSpeed: 0.18, uTwinkle: 1.6 },
-      },
-      // You, in the cave (fireflies drifting behind you).
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-
-  // Underwater: the underwater plate with animated god rays additively on top,
-  // the ray tint color-matched to the scene's cool light.
-  underwater: {
-    name: 'Underwater',
-    category: 'Worlds',
-    layers: [
-      { id: 'stylized-dark', shader: 'image', source: stylizedDark },
-      {
-        id: 'rays',
-        shader: 'godrays',
-        blend: 'additive',
-        uniforms: {
-          uLightColor: [1, 1, 1],
-          uRayCount: 11,
-          uRaySpeed: 0.55,
-          uRayIntensity: 1.2,
-          uRaySoftness: 2.6,
-          uTopGlow: 0.5,
-          uFadeDistance: 0.75,
-          uWobbleAmount: 0.08,
-          uWobbleSpeed: 0.7,
-        },
-      },
-      // The masked camera person, on top (god rays behind them). 'direct' on the
-      // subject target = a passthrough of the segmented person.
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-
-  // Deep space: the procedural nebula as a full-frame backdrop, you composited
-  // over it.
-  nebula: {
-    name: 'Nebula',
-    category: 'Worlds',
-    layers: [
-      {
-        id: 'nebula',
-        shader: 'nebula',
-        uniforms: {
-          uColor: [0.53, 0.55, 0.84],
-          uBrightness: 0.87,
-          uSpeed: 0.22,
-          uTwinkleSpeed: 1.94,
-          uScale: 0.88,
-          uStarGlow: 0.38,
-        },
-      },
-      // You, drifting in the field.
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-
-  // Simianlights: the nebula's calmer sibling (sparser, larger glowing orbs) as
-  // a standalone space backdrop, you composited over it.
-  simianlights: {
-    name: 'Simianlights',
-    category: 'Worlds',
-    layers: [
-      {
-        id: 'field',
-        shader: 'simianlights',
-        uniforms: {
-          uColor: [0.8, 0.56, 0.42],
-          uBrightness: 0.42,
-          uSpeed: 3,
-          uTwinkleSpeed: 3,
-          uScale: 0.98,
-          uStarGlow: 0.87,
-        },
-      },
-      // You, drifting in the field.
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-
-  // Corporate blobs: a dark-office backdrop, you composited over it, and large
-  // decorative edge/vignette blobs framing the frame on top (normal blend; the
-  // center stays clear so you read through). Each blob's color is its own
-  // uniform, so the eight-color brand palette is fully tunable; uColor grades
-  // them all together.
-  'corporate-blobs': {
-    name: 'Corporate Blobs',
-    category: 'Worlds',
-    layers: [
-      { id: 'dark-office', shader: 'image', source: darkOffice },
-      // You, in the office (blobs frame you from the edges, on top).
-      { id: 'you', shader: 'direct', target: 'subject' },
-      {
-        id: 'blobs',
-        shader: 'corporate-blobs',
-        blend: 'normal',
-        uniforms: {
-          uColor: [1, 1, 1],
-          uBlobColor1: [0.376, 0.647, 0.98],
-          uBlobColor2: [0.063, 0.725, 0.506],
-          uBlobColor3: [0.984, 0.749, 0.141],
-          uBlobColor4: [0.976, 0.451, 0.086],
-          uBlobColor5: [0.133, 0.773, 0.369],
-          uBlobColor6: [0.851, 0.275, 0.937],
-          uBlobColor7: [0.341, 0.325, 0.306],
-          uBlobColor8: [0.008, 0.518, 0.78],
-          uGlobalAlpha: 0.58,
-          uScale: 2.55,
-          uEdgePull: 0.32,
-          uCenterClear: 0.42,
-          uMotionAmount: 1,
-          uMotionSpeed: 1,
-          uEdgeSoftness: 0.024,
-        },
-      },
-    ],
-  },
+  // --- Worlds: composed scenes (shown FIRST), imported from the library. ---
+  'wizard-tower': wizardTower,
+  'observation-deck': observationDeck,
+  'fairy-cave': fairyCave,
+  underwater,
+  nebula,
+  simianlights,
+  'corporate-blobs': corporateBlobs,
 
   // --- Sky: raymarched clouds with you composited over them. ---
-  clouds: {
-    name: 'Daytime',
-    category: 'Sky',
-    layers: [
-      {
-        id: 'sky',
-        shader: 'clouds',
-        uniforms: {
-          uSkyLowColor: [0.09, 0.63, 0.95],
-          uSkyHighColor: [0.04, 0.03, 0.86],
-          uCloudLightColor: [1.0, 0.91, 0.77],
-          uCloudDarkColor: [0.3, 0.3, 0.5],
-          uExposure: 1.18,
-          uStepSize: 0.16,
-          uCloudSpeed: 0.16,
-          uCloudScale: 1.08,
-          uDensity: 0.235,
-          uCoverage: 0.42,
-          uSoftness: 0.39,
-        },
-      },
-      // You, under the sky.
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
+  clouds,
 
   // --- Plasma: a generative plasma field with you composited over it. The old
   // single plasma shader composited the person over its output; the same shape

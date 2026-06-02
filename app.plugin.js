@@ -169,7 +169,7 @@ function patchPodfile(contents, pod) {
 // Static-analyzability is the consumer's contract (documented in the README):
 // each background-image entry is `'<id>': { shader: 'background-image',
 // options: { source: <importedIdentifier> } }` on one line, and the identifier
-// is a single named import from a `.../backgrounds/<name>` specifier. The mod
+// is a single named import from a `.../images/<name>` specifier. The mod
 // warns (never throws) on anything it cannot parse or resolve, matching the
 // plugin's non-fatal contract.
 //
@@ -197,7 +197,7 @@ function parseImports(source) {
 
 // Derive a scene plate id from its source specifier: the basename without
 // extension (e.g. './assets/backgrounds/wizards-tower.webp' -> 'wizards-tower',
-// 'react-native-webrtc-kaleidoscope/backgrounds/stylized-dark' -> 'stylized-dark').
+// 'react-native-webrtc-kaleidoscope/images/stylized-dark' -> 'stylized-dark').
 // This MUST match plateIdFromSource() in src/index.ts, which derives the same id
 // from the runtime asset URI so native resolves assets/scene-plates/<id>.webp.
 function plateIdFromSpecifier(specifier) {

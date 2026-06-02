@@ -1,0 +1,42 @@
+// Fairy cave: a moonlit night sky through the round opening, the cave plate, and
+// fireflies drifting on top, you in the cave.
+//
+// A packaged composite: within the library it imports its image layers
+// relatively; a consumer would import from
+// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+
+import { fairyTreehouse } from '../../images/fairy-treehouse/fairy-treehouse';
+import type { Composite } from '../../src/kaleidoscope/types';
+
+export const fairyCave = {
+  name: 'Fairy Cave',
+  category: 'Worlds',
+  layers: [
+    {
+      id: 'sky',
+      shader: 'clouds',
+      uniforms: {
+        uSkyLowColor: [0.05, 0.01, 0.04],
+        uSkyHighColor: [0.02, 0.02, 0.04],
+        uCloudLightColor: [0.72, 0.39, 0.1],
+        uCloudDarkColor: [0.18, 0.14, 0.07],
+        uExposure: 0.93,
+        uStepSize: 0.38,
+        uCloudSpeed: 0.37,
+        uCloudScale: 1.26,
+        uDensity: 0.035,
+        uCoverage: 0.44,
+        uSoftness: 0.18,
+      },
+    },
+    { id: 'fairy-treehouse', shader: 'image', source: fairyTreehouse },
+    {
+      id: 'fireflies',
+      shader: 'fireflies',
+      blend: 'additive',
+      uniforms: { uGlowSize: 0.025, uDotSize: 0.004, uSpeed: 0.18, uTwinkle: 1.6 },
+    },
+    // You, in the cave (fireflies drifting behind you).
+    { id: 'you', shader: 'direct', target: 'subject' },
+  ],
+} as const satisfies Composite;

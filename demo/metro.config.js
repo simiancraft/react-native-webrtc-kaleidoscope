@@ -27,6 +27,16 @@ config.resolver.nodeModulesPaths = [
 // React are different instances during Metro's dev server.
 config.resolver.disableHierarchicalLookup = false;
 
+// Resolve subpath imports through the library's package.json `exports` map.
+// The library ships three folder-per-item root folders (images/, composites/,
+// shaders/) whose `pkg/<folder>/<name>` paths would otherwise be classically
+// resolved as bare directories (no index), which on Metro's default exports-off
+// path shadows the `exports` map for the WHOLE package and breaks export-only
+// subpaths like `./nativewind`. Honoring exports resolves each subpath to its
+// declared target. Metro defaults this off in SDK 51; consumers of this library
+// enable it (documented in the README).
+config.resolver.unstable_enablePackageExports = true;
+
 // NativeWind: process global.css and enable className across the app.
 const nwConfig = withNativeWind(config, { input: './global.css' });
 

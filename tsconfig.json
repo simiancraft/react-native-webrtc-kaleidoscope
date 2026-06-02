@@ -24,6 +24,6 @@
     "allowSyntheticDefaultImports": true,
     "types": ["bun"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "shaders/**/*.ts", "images/**/*.ts", "composites/**/*.ts"],
   "exclude": ["node_modules", "dist", "plugin", "demo", "android", "ios"]
 }

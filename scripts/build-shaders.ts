@@ -29,12 +29,51 @@
 //   sudo apt install -y glslang-tools spirv-tools spirv-cross   # Debian/Ubuntu/WSL
 //   brew install glslang spirv-tools spirv-cross                # macOS
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, parse } from 'node:path';
 import { $ } from 'bun';
 
 const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// Canonical shader source tree: folder-per-shader (`shaders/<name>/<name>.frag`)
+// plus the cross-pipeline shared files in `shaders/_shared/`. The codegen lists
+// and the transpile loop key on the bare filename (e.g. `composite.frag`), so
+// the tree is flattened to a filename -> absolute-path map up front; basenames
+// are unique across the tree.
 const GLSL_DIR = join(REPO_ROOT, 'shaders');
+
+// Walk the shader tree and index every .frag/.vert by its basename. Throws if
+// two folders carry the same basename (the codegen lists address shaders by
+// basename, so a collision would make resolution ambiguous).
+function indexShaderSources(dir: string): Map<string, string> {
+  const byName = new Map<string, string>();
+  const walk = (current: string): void => {
+    for (const entry of readdirSync(current)) {
+      const full = join(current, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!entry.endsWith('.frag') && !entry.endsWith('.vert')) continue;
+      const existing = byName.get(entry);
+      if (existing) {
+        throw new Error(
+          `Duplicate shader basename '${entry}' at ${existing} and ${full}; basenames must be unique.`,
+        );
+      }
+      byName.set(entry, full);
+    }
+  };
+  walk(dir);
+  return byName;
+}
 const METAL_OUT_DIR = join(REPO_ROOT, 'ios/KaleidoscopeModule/shaders');
 const ANDROID_OUT = join(
   REPO_ROOT,
@@ -103,14 +142,13 @@ function constBase(filename: string): string {
   return `${name.toUpperCase()}_${stage}`;
 }
 
-async function transpileOne(filename: string): Promise<void> {
+async function transpileOne(filename: string, inputPath: string): Promise<void> {
   const { name, ext } = parse(filename);
   const stage = ext === '.frag' ? 'frag' : ext === '.vert' ? 'vert' : null;
   if (!stage) {
     console.warn(`  skip: ${filename} (unknown extension ${ext})`);
     return;
   }
-  const inputPath = join(GLSL_DIR, filename);
   const preprocessedPath = join(TMP_DIR, filename);
   const spvPath = join(TMP_DIR, `${name}.spv`);
   const optSpvPath = join(TMP_DIR, `${name}.opt.spv`);
@@ -215,7 +253,8 @@ async function main(): Promise<void> {
   rmSync(TMP_DIR, { recursive: true, force: true });
   mkdirSync(TMP_DIR, { recursive: true });
 
-  const files = readdirSync(GLSL_DIR).filter((f) => f.endsWith('.frag') || f.endsWith('.vert'));
+  const sourceIndex = indexShaderSources(GLSL_DIR);
+  const files = Array.from(sourceIndex.keys());
   if (files.length === 0) {
     console.error(`No .frag or .vert files found under ${GLSL_DIR}`);
     process.exit(2);
@@ -225,7 +264,7 @@ async function main(): Promise<void> {
   console.log(`Transpiling ${files.length} shader(s) GLSL -> SPIR-V -> MSL`);
   for (const file of files) {
     try {
-      await transpileOne(file);
+      await transpileOne(file, sourceIndex.get(file) as string);
     } catch (err) {
       console.error(`  fail: ${file}`);
       console.error(err);
@@ -236,9 +275,9 @@ async function main(): Promise<void> {
   // 2. Android + web: code-generate the shared set.
   const sources = new Map<string, string>();
   for (const file of ALL_CODEGEN) {
-    const path = join(GLSL_DIR, file);
-    if (!existsSync(path)) {
-      console.error(`codegen lists ${file} but ${path} does not exist`);
+    const path = sourceIndex.get(file);
+    if (!path) {
+      console.error(`codegen lists ${file} but it was not found under ${GLSL_DIR}`);
       process.exit(2);
     }
     sources.set(file, stripToVersion(readFileSync(path, 'utf8')));

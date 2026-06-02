@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/livekit.ts", "shaders/**/*.ts", "images/**/*.{ts,web.ts}", "composites/**/*.ts"],
   "ignore": ["demo/**", "src/web/shaders.generated.ts", "scripts/chroma-strip.ts"],
   "ignoreDependencies": ["@semantic-release/.*", "react-native-webrtc"],
   "ignoreBinaries": ["which", "glslangValidator", "spirv-val", "spirv-opt", "spirv-cross"]

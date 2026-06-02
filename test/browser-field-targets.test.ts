@@ -12,9 +12,10 @@ const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url),
   browser?: Record<string, string>;
 };
 
-// ./dist/ui/x.js -> src/ui/x ; ./dist/ui/x.web.js -> src/ui/x.web
+// ./dist/src/ui/x.js -> src/ui/x ; ./dist/src/ui/x.web.js -> src/ui/x.web
+// (tsconfig.build.json uses rootDir '.', so src/ emits to dist/src/.)
 const toSourceBase = (distPath: string): string =>
-  distPath.replace(/^\.\/dist\//, 'src/').replace(/\.js$/, '');
+  distPath.replace(/^\.\/dist\/src\//, 'src/').replace(/\.js$/, '');
 
 describe('browser-field remap targets', () => {
   test('every package.json browser key and value has a real source file', () => {

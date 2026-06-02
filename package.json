@@ -30,131 +30,203 @@
   "sideEffects": false,
   "main": "./src/index.ts",
   "react-native": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/src/index.d.ts",
   "browser": {
-    "./dist/ui/picker/resolve-background-uri.js": "./dist/ui/picker/resolve-background-uri.web.js"
+    "./dist/src/ui/picker/resolve-background-uri.js": "./dist/src/ui/picker/resolve-background-uri.web.js"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/src/index.d.ts",
       "react-native": "./src/index.ts",
-      "browser": "./dist/index.web.js",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "browser": "./dist/src/index.web.js",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
     },
     "./ui": {
-      "types": "./dist/ui/index.d.ts",
+      "types": "./dist/src/ui/index.d.ts",
       "react-native": "./src/ui/index.ts",
-      "browser": "./dist/ui/index.js",
-      "import": "./dist/ui/index.js",
-      "default": "./dist/ui/index.js"
+      "browser": "./dist/src/ui/index.js",
+      "import": "./dist/src/ui/index.js",
+      "default": "./dist/src/ui/index.js"
     },
     "./nativewind": {
-      "types": "./dist/nativewind.d.ts",
+      "types": "./dist/src/nativewind.d.ts",
       "react-native": "./src/nativewind.ts",
-      "import": "./dist/nativewind.js",
-      "default": "./dist/nativewind.js"
+      "import": "./dist/src/nativewind.js",
+      "default": "./dist/src/nativewind.js"
     },
     "./livekit": {
-      "types": "./dist/livekit.d.ts",
-      "browser": "./dist/livekit.js",
-      "import": "./dist/livekit.js",
-      "default": "./dist/livekit.js"
+      "types": "./dist/src/livekit.d.ts",
+      "browser": "./dist/src/livekit.js",
+      "import": "./dist/src/livekit.js",
+      "default": "./dist/src/livekit.js"
     },
-    "./backgrounds": {
-      "types": "./dist/backgrounds/index.d.ts",
-      "react-native": "./src/backgrounds/index.ts",
-      "import": "./dist/backgrounds/index.js",
-      "default": "./dist/backgrounds/index.js"
+    "./images": {
+      "types": "./dist/images/index.d.ts",
+      "react-native": "./images/index.ts",
+      "import": "./dist/images/index.js",
+      "default": "./dist/images/index.js"
     },
-    "./backgrounds/debug-resolutions": {
-      "types": "./dist/backgrounds/debug-resolutions.d.ts",
-      "react-native": "./src/backgrounds/debug-resolutions.ts",
-      "browser": "./dist/backgrounds/debug-resolutions.web.js",
-      "import": "./dist/backgrounds/debug-resolutions.js",
-      "default": "./dist/backgrounds/debug-resolutions.js"
+    "./images/debug-resolutions": {
+      "types": "./dist/images/debug-resolutions/debug-resolutions.d.ts",
+      "react-native": "./images/debug-resolutions/debug-resolutions.ts",
+      "browser": "./dist/images/debug-resolutions/debug-resolutions.web.js",
+      "import": "./dist/images/debug-resolutions/debug-resolutions.js",
+      "default": "./dist/images/debug-resolutions/debug-resolutions.js"
     },
-    "./backgrounds/dark-office": {
-      "types": "./dist/backgrounds/dark-office.d.ts",
-      "react-native": "./src/backgrounds/dark-office.ts",
-      "browser": "./dist/backgrounds/dark-office.web.js",
-      "import": "./dist/backgrounds/dark-office.js",
-      "default": "./dist/backgrounds/dark-office.js"
+    "./images/dark-office": {
+      "types": "./dist/images/dark-office/dark-office.d.ts",
+      "react-native": "./images/dark-office/dark-office.ts",
+      "browser": "./dist/images/dark-office/dark-office.web.js",
+      "import": "./dist/images/dark-office/dark-office.js",
+      "default": "./dist/images/dark-office/dark-office.js"
     },
-    "./backgrounds/light-office": {
-      "types": "./dist/backgrounds/light-office.d.ts",
-      "react-native": "./src/backgrounds/light-office.ts",
-      "browser": "./dist/backgrounds/light-office.web.js",
-      "import": "./dist/backgrounds/light-office.js",
-      "default": "./dist/backgrounds/light-office.js"
+    "./images/light-office": {
+      "types": "./dist/images/light-office/light-office.d.ts",
+      "react-native": "./images/light-office/light-office.ts",
+      "browser": "./dist/images/light-office/light-office.web.js",
+      "import": "./dist/images/light-office/light-office.js",
+      "default": "./dist/images/light-office/light-office.js"
     },
-    "./backgrounds/home-light": {
-      "types": "./dist/backgrounds/home-light.d.ts",
-      "react-native": "./src/backgrounds/home-light.ts",
-      "browser": "./dist/backgrounds/home-light.web.js",
-      "import": "./dist/backgrounds/home-light.js",
-      "default": "./dist/backgrounds/home-light.js"
+    "./images/home-light": {
+      "types": "./dist/images/home-light/home-light.d.ts",
+      "react-native": "./images/home-light/home-light.ts",
+      "browser": "./dist/images/home-light/home-light.web.js",
+      "import": "./dist/images/home-light/home-light.js",
+      "default": "./dist/images/home-light/home-light.js"
     },
-    "./backgrounds/home-dark": {
-      "types": "./dist/backgrounds/home-dark.d.ts",
-      "react-native": "./src/backgrounds/home-dark.ts",
-      "browser": "./dist/backgrounds/home-dark.web.js",
-      "import": "./dist/backgrounds/home-dark.js",
-      "default": "./dist/backgrounds/home-dark.js"
+    "./images/home-dark": {
+      "types": "./dist/images/home-dark/home-dark.d.ts",
+      "react-native": "./images/home-dark/home-dark.ts",
+      "browser": "./dist/images/home-dark/home-dark.web.js",
+      "import": "./dist/images/home-dark/home-dark.js",
+      "default": "./dist/images/home-dark/home-dark.js"
     },
-    "./backgrounds/nature-light": {
-      "types": "./dist/backgrounds/nature-light.d.ts",
-      "react-native": "./src/backgrounds/nature-light.ts",
-      "browser": "./dist/backgrounds/nature-light.web.js",
-      "import": "./dist/backgrounds/nature-light.js",
-      "default": "./dist/backgrounds/nature-light.js"
+    "./images/nature-light": {
+      "types": "./dist/images/nature-light/nature-light.d.ts",
+      "react-native": "./images/nature-light/nature-light.ts",
+      "browser": "./dist/images/nature-light/nature-light.web.js",
+      "import": "./dist/images/nature-light/nature-light.js",
+      "default": "./dist/images/nature-light/nature-light.js"
     },
-    "./backgrounds/nature-dark": {
-      "types": "./dist/backgrounds/nature-dark.d.ts",
-      "react-native": "./src/backgrounds/nature-dark.ts",
-      "browser": "./dist/backgrounds/nature-dark.web.js",
-      "import": "./dist/backgrounds/nature-dark.js",
-      "default": "./dist/backgrounds/nature-dark.js"
+    "./images/nature-dark": {
+      "types": "./dist/images/nature-dark/nature-dark.d.ts",
+      "react-native": "./images/nature-dark/nature-dark.ts",
+      "browser": "./dist/images/nature-dark/nature-dark.web.js",
+      "import": "./dist/images/nature-dark/nature-dark.js",
+      "default": "./dist/images/nature-dark/nature-dark.js"
     },
-    "./backgrounds/stylized-light": {
-      "types": "./dist/backgrounds/stylized-light.d.ts",
-      "react-native": "./src/backgrounds/stylized-light.ts",
-      "browser": "./dist/backgrounds/stylized-light.web.js",
-      "import": "./dist/backgrounds/stylized-light.js",
-      "default": "./dist/backgrounds/stylized-light.js"
+    "./images/stylized-light": {
+      "types": "./dist/images/stylized-light/stylized-light.d.ts",
+      "react-native": "./images/stylized-light/stylized-light.ts",
+      "browser": "./dist/images/stylized-light/stylized-light.web.js",
+      "import": "./dist/images/stylized-light/stylized-light.js",
+      "default": "./dist/images/stylized-light/stylized-light.js"
     },
-    "./backgrounds/stylized-dark": {
-      "types": "./dist/backgrounds/stylized-dark.d.ts",
-      "react-native": "./src/backgrounds/stylized-dark.ts",
-      "browser": "./dist/backgrounds/stylized-dark.web.js",
-      "import": "./dist/backgrounds/stylized-dark.js",
-      "default": "./dist/backgrounds/stylized-dark.js"
+    "./images/stylized-dark": {
+      "types": "./dist/images/stylized-dark/stylized-dark.d.ts",
+      "react-native": "./images/stylized-dark/stylized-dark.ts",
+      "browser": "./dist/images/stylized-dark/stylized-dark.web.js",
+      "import": "./dist/images/stylized-dark/stylized-dark.js",
+      "default": "./dist/images/stylized-dark/stylized-dark.js"
     },
-    "./backgrounds/simiancraft-light": {
-      "types": "./dist/backgrounds/simiancraft-light.d.ts",
-      "react-native": "./src/backgrounds/simiancraft-light.ts",
-      "browser": "./dist/backgrounds/simiancraft-light.web.js",
-      "import": "./dist/backgrounds/simiancraft-light.js",
-      "default": "./dist/backgrounds/simiancraft-light.js"
+    "./images/simiancraft-light": {
+      "types": "./dist/images/simiancraft-light/simiancraft-light.d.ts",
+      "react-native": "./images/simiancraft-light/simiancraft-light.ts",
+      "browser": "./dist/images/simiancraft-light/simiancraft-light.web.js",
+      "import": "./dist/images/simiancraft-light/simiancraft-light.js",
+      "default": "./dist/images/simiancraft-light/simiancraft-light.js"
     },
-    "./backgrounds/simiancraft-dark": {
-      "types": "./dist/backgrounds/simiancraft-dark.d.ts",
-      "react-native": "./src/backgrounds/simiancraft-dark.ts",
-      "browser": "./dist/backgrounds/simiancraft-dark.web.js",
-      "import": "./dist/backgrounds/simiancraft-dark.js",
-      "default": "./dist/backgrounds/simiancraft-dark.js"
+    "./images/simiancraft-dark": {
+      "types": "./dist/images/simiancraft-dark/simiancraft-dark.d.ts",
+      "react-native": "./images/simiancraft-dark/simiancraft-dark.ts",
+      "browser": "./dist/images/simiancraft-dark/simiancraft-dark.web.js",
+      "import": "./dist/images/simiancraft-dark/simiancraft-dark.js",
+      "default": "./dist/images/simiancraft-dark/simiancraft-dark.js"
     },
-    "./backgrounds/debug-resolutions.webp": "./src/backgrounds/debug-resolutions.webp",
-    "./backgrounds/dark-office.webp": "./src/backgrounds/dark-office.webp",
-    "./backgrounds/light-office.webp": "./src/backgrounds/light-office.webp",
-    "./backgrounds/home-light.webp": "./src/backgrounds/home-light.webp",
-    "./backgrounds/home-dark.webp": "./src/backgrounds/home-dark.webp",
-    "./backgrounds/nature-light.webp": "./src/backgrounds/nature-light.webp",
-    "./backgrounds/nature-dark.webp": "./src/backgrounds/nature-dark.webp",
-    "./backgrounds/stylized-light.webp": "./src/backgrounds/stylized-light.webp",
-    "./backgrounds/stylized-dark.webp": "./src/backgrounds/stylized-dark.webp",
-    "./backgrounds/simiancraft-light.webp": "./src/backgrounds/simiancraft-light.webp",
-    "./backgrounds/simiancraft-dark.webp": "./src/backgrounds/simiancraft-dark.webp",
+    "./images/wizards-tower": {
+      "types": "./dist/images/wizards-tower/wizards-tower.d.ts",
+      "react-native": "./images/wizards-tower/wizards-tower.ts",
+      "browser": "./dist/images/wizards-tower/wizards-tower.web.js",
+      "import": "./dist/images/wizards-tower/wizards-tower.js",
+      "default": "./dist/images/wizards-tower/wizards-tower.js"
+    },
+    "./images/observation-deck": {
+      "types": "./dist/images/observation-deck/observation-deck.d.ts",
+      "react-native": "./images/observation-deck/observation-deck.ts",
+      "browser": "./dist/images/observation-deck/observation-deck.web.js",
+      "import": "./dist/images/observation-deck/observation-deck.js",
+      "default": "./dist/images/observation-deck/observation-deck.js"
+    },
+    "./images/fairy-treehouse": {
+      "types": "./dist/images/fairy-treehouse/fairy-treehouse.d.ts",
+      "react-native": "./images/fairy-treehouse/fairy-treehouse.ts",
+      "browser": "./dist/images/fairy-treehouse/fairy-treehouse.web.js",
+      "import": "./dist/images/fairy-treehouse/fairy-treehouse.js",
+      "default": "./dist/images/fairy-treehouse/fairy-treehouse.js"
+    },
+    "./images/debug-resolutions.webp": "./images/debug-resolutions/debug-resolutions.webp",
+    "./images/dark-office.webp": "./images/dark-office/dark-office.webp",
+    "./images/light-office.webp": "./images/light-office/light-office.webp",
+    "./images/home-light.webp": "./images/home-light/home-light.webp",
+    "./images/home-dark.webp": "./images/home-dark/home-dark.webp",
+    "./images/nature-light.webp": "./images/nature-light/nature-light.webp",
+    "./images/nature-dark.webp": "./images/nature-dark/nature-dark.webp",
+    "./images/stylized-light.webp": "./images/stylized-light/stylized-light.webp",
+    "./images/stylized-dark.webp": "./images/stylized-dark/stylized-dark.webp",
+    "./images/simiancraft-light.webp": "./images/simiancraft-light/simiancraft-light.webp",
+    "./images/simiancraft-dark.webp": "./images/simiancraft-dark/simiancraft-dark.webp",
+    "./images/wizards-tower.webp": "./images/wizards-tower/wizards-tower.webp",
+    "./images/observation-deck.webp": "./images/observation-deck/observation-deck.webp",
+    "./images/fairy-treehouse.webp": "./images/fairy-treehouse/fairy-treehouse.webp",
+    "./composites/wizard-tower": {
+      "types": "./dist/composites/wizard-tower/wizard-tower.d.ts",
+      "react-native": "./composites/wizard-tower/wizard-tower.ts",
+      "import": "./dist/composites/wizard-tower/wizard-tower.js",
+      "default": "./dist/composites/wizard-tower/wizard-tower.js"
+    },
+    "./composites/observation-deck": {
+      "types": "./dist/composites/observation-deck/observation-deck.d.ts",
+      "react-native": "./composites/observation-deck/observation-deck.ts",
+      "import": "./dist/composites/observation-deck/observation-deck.js",
+      "default": "./dist/composites/observation-deck/observation-deck.js"
+    },
+    "./composites/fairy-cave": {
+      "types": "./dist/composites/fairy-cave/fairy-cave.d.ts",
+      "react-native": "./composites/fairy-cave/fairy-cave.ts",
+      "import": "./dist/composites/fairy-cave/fairy-cave.js",
+      "default": "./dist/composites/fairy-cave/fairy-cave.js"
+    },
+    "./composites/underwater": {
+      "types": "./dist/composites/underwater/underwater.d.ts",
+      "react-native": "./composites/underwater/underwater.ts",
+      "import": "./dist/composites/underwater/underwater.js",
+      "default": "./dist/composites/underwater/underwater.js"
+    },
+    "./composites/nebula": {
+      "types": "./dist/composites/nebula/nebula.d.ts",
+      "react-native": "./composites/nebula/nebula.ts",
+      "import": "./dist/composites/nebula/nebula.js",
+      "default": "./dist/composites/nebula/nebula.js"
+    },
+    "./composites/simianlights": {
+      "types": "./dist/composites/simianlights/simianlights.d.ts",
+      "react-native": "./composites/simianlights/simianlights.ts",
+      "import": "./dist/composites/simianlights/simianlights.js",
+      "default": "./dist/composites/simianlights/simianlights.js"
+    },
+    "./composites/clouds": {
+      "types": "./dist/composites/clouds/clouds.d.ts",
+      "react-native": "./composites/clouds/clouds.ts",
+      "import": "./dist/composites/clouds/clouds.js",
+      "default": "./dist/composites/clouds/clouds.js"
+    },
+    "./composites/corporate-blobs": {
+      "types": "./dist/composites/corporate-blobs/corporate-blobs.d.ts",
+      "react-native": "./composites/corporate-blobs/corporate-blobs.ts",
+      "import": "./dist/composites/corporate-blobs/corporate-blobs.js",
+      "default": "./dist/composites/corporate-blobs/corporate-blobs.js"
+    },
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
       "require": "./app.plugin.js",
@@ -165,6 +237,9 @@
   },
   "files": [
     "src",
+    "composites",
+    "images",
+    "shaders",
     "dist",
     "android/src",
     "android/build.gradle",
@@ -178,7 +253,7 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "bun run clean && tsgo -p tsconfig.build.json && mkdir -p dist/backgrounds && cp src/backgrounds/*.webp dist/backgrounds/",
+    "build": "bun run clean && tsgo -p tsconfig.build.json && bun run copy:assets",
     "typecheck": "tsgo --noEmit",
     "typecheck:test": "tsgo --noEmit --project tsconfig.test.json",
     "typecheck:demo": "cd demo && bunx tsc --noEmit",
@@ -201,7 +276,8 @@
     "demo:web": "bun run build && cd demo && bun run web",
     "build:web": "bun run build && cd demo && bunx expo export -p web",
     "prepack": "bun run build",
-    "prepublishOnly": "bun run build && bun run check:package"
+    "prepublishOnly": "bun run build && bun run check:package",
+    "copy:assets": "bun run scripts/copy-assets.ts"
   },
   "peerDependencies": {
     "expo": ">=51.0.0",

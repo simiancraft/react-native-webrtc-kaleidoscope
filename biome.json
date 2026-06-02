@@ -8,6 +8,9 @@
   "files": {
     "includes": [
       "src/**",
+      "shaders/**",
+      "images/**",
+      "composites/**",
       "test/**",
       "scripts/**",
       "demo/app/**",
