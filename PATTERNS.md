@@ -60,9 +60,8 @@ ios/KaleidoscopeModule/
 └── segmentation/                      person-segmentation helpers (MediaPipe Tasks ImageSegmenter on iOS)
     └── Segmenter.swift                  MediaPipe ImageSegmenter worker (selfie_segmenter.tflite); owns mask buffers via a pool
 
-plugin/
-└── src/
-    └── withKaleidoscope.ts            Expo config plugin (currently a passthrough)
+app.plugin.js                          Expo config plugin; standalone CommonJS (no build step, no plugin/ dir)
+app.plugin.d.ts                        its ConfigPlugin type
 ```
 
 ## Conventions

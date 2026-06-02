@@ -1,6 +1,6 @@
 // Layered-compositing additions to MetalRenderer for the composite compositor.
 //
-// The single-effect path (blur, background-image, plasma) renders ONE pass into
+// The single-effect path (blur, plasma, the transform ops) renders ONE pass into
 // a BGRA target with blending OFF and a `.dontCare` load (every texel is
 // overwritten). A composite is different: an ordered painter's stack composited into
 // one output texture, layer 0 opaque and later layers blended over it. Android
