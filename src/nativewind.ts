@@ -14,9 +14,7 @@
 import { cssInterop } from 'nativewind';
 import { KaleidoscopePicker } from './ui/picker';
 import { PickerLayout } from './ui/picker/layout';
-import { BackgroundGrid } from './ui/picker/presets/background-grid';
-import { PresetOption } from './ui/picker/presets/preset-option';
-import { PresetOptions } from './ui/picker/presets/preset-options';
+import { PresetGrid } from './ui/picker/presets/preset-grid';
 import { PresetTile } from './ui/picker/presets/preset-tile';
 
 /**
@@ -28,8 +26,6 @@ export function registerKaleidoscopeNativeWind(): void {
   const mapping = { className: 'style' } as const;
   cssInterop(KaleidoscopePicker, mapping);
   cssInterop(PickerLayout, mapping);
-  cssInterop(BackgroundGrid, mapping);
-  cssInterop(PresetOptions, mapping);
+  cssInterop(PresetGrid, mapping);
   cssInterop(PresetTile, mapping);
-  cssInterop(PresetOption, mapping);
 }

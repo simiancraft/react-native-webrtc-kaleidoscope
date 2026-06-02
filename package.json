@@ -165,6 +165,13 @@
       "import": "./dist/images/fairy-treehouse/fairy-treehouse.js",
       "default": "./dist/images/fairy-treehouse/fairy-treehouse.js"
     },
+    "./images/corporate-logo": {
+      "types": "./dist/images/corporate-logo/corporate-logo.d.ts",
+      "react-native": "./images/corporate-logo/corporate-logo.ts",
+      "browser": "./dist/images/corporate-logo/corporate-logo.web.js",
+      "import": "./dist/images/corporate-logo/corporate-logo.js",
+      "default": "./dist/images/corporate-logo/corporate-logo.js"
+    },
     "./images/debug-resolutions.webp": "./images/debug-resolutions/debug-resolutions.webp",
     "./images/dark-office.webp": "./images/dark-office/dark-office.webp",
     "./images/light-office.webp": "./images/light-office/light-office.webp",
@@ -179,6 +186,7 @@
     "./images/wizards-tower.webp": "./images/wizards-tower/wizards-tower.webp",
     "./images/observation-deck.webp": "./images/observation-deck/observation-deck.webp",
     "./images/fairy-treehouse.webp": "./images/fairy-treehouse/fairy-treehouse.webp",
+    "./images/corporate-logo.webp": "./images/corporate-logo/corporate-logo.webp",
     "./composites/wizard-tower": {
       "types": "./dist/composites/wizard-tower/wizard-tower.d.ts",
       "react-native": "./composites/wizard-tower/wizard-tower.ts",

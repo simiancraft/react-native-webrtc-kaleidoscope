@@ -1,9 +1,12 @@
-// Family renderer: the bundled-image family as a thumbnail grid. Same
-// dispatch-once shape as PresetOptions; the tile renderer is the `renderTile`
-// slot or the default.
+// Family renderer: one family's presets as a uniform tile grid. Every family
+// renders through this — the per-preset tile decides wallpaper-vs-recessed by
+// whether it has a resolved thumbnail, so a family with no thumbnails just
+// renders recessed buttons of the same footprint. The tile renderer is the
+// `renderTile` slot or the default.
 //
 // The thumbnail URI comes from the platform-split `resolveBackgroundUri`: the
-// source URL on web, the in-bundle file:// URI on native.
+// source URL on web, the in-bundle file:// URI on native; undefined for a preset
+// with no thumbnail (the tile then renders its recessed variant).
 
 import { Fragment, useMemo } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
@@ -11,7 +14,7 @@ import type { PresetView, RenderTile } from '../picker.types';
 import { resolveBackgroundUri } from '../resolve-background-uri';
 import { PresetTile } from './preset-tile';
 
-interface BackgroundGridProps {
+interface PresetGridProps {
   readonly presets: ReadonlyArray<PresetView>;
   readonly value: string | null;
   readonly onSelect: (id: string | null) => void;
@@ -33,7 +36,7 @@ const defaultRenderTile: RenderTile = (preset, state) => (
   />
 );
 
-export function BackgroundGrid(props: BackgroundGridProps) {
+export function PresetGrid(props: PresetGridProps) {
   const { presets, value, onSelect, disabled = false, renderTile, style } = props;
   const renderItem = renderTile ?? defaultRenderTile;
   // Resolve thumbnail URIs once per preset set (not per render/selection); the
@@ -43,11 +46,7 @@ export function BackgroundGrid(props: BackgroundGridProps) {
     [presets],
   );
   return (
-    <View
-      accessibilityRole="radiogroup"
-      accessibilityLabel="Backgrounds"
-      style={[styles.grid, style]}
-    >
+    <View accessibilityRole="radiogroup" accessibilityLabel="Presets" style={[styles.grid, style]}>
       {presets.map((preset) => {
         const selected = value === preset.id;
         return (

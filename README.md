@@ -200,9 +200,9 @@ function BackgroundControls({ kaleidoscope }) {
 }
 ```
 
-`KaleidoscopePicker` is a tabbed composite (one tab per category; the picker groups your book by each composite's `category`, e.g. Worlds, Sky, Plasma, Blur, Backgrounds). The same pieces are exported as standalone primitives (`BackgroundGrid`, `PresetOptions`, `PresetTile`, `PresetOption`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
+`KaleidoscopePicker` is a tabbed composite (one tab per category; the picker groups your book by each composite's `category`, e.g. Worlds, Sky, Plasma, Blur, Backgrounds). Every preset renders as a uniform tile: a wallpaper when the composite has a `thumbnail`, a recessed button of the same footprint when it does not, so a thumbnail-less preset never breaks the grid. The same pieces are exported as standalone primitives (`PresetGrid`, `PresetTile`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
 
-**Styling, three tiers.** Sensible defaults out of the box; override with an RN `style` prop, a `className` prop, or a `renderTile` / `renderOption` render-prop slot for full control.
+**Styling, three tiers.** Sensible defaults out of the box; override with an RN `style` prop, a `className` prop, or a `renderTile` render-prop slot for full control.
 
 **NativeWind-ready.** The components accept `className`. To turn it on, import the opt-in registration once in your NativeWind interop setup (`nativewind` is an optional peer dependency; the core `./ui` import never pulls it in):
 
@@ -217,11 +217,13 @@ Packaged composites: multi-layer scenes (a generative shader or a cut-out plate,
 
 | Wizard Tower | Observation Deck | Fairy Cave |
 |---|---|---|
-| <img src="images/wizards-tower/wizards-tower.thumb.webp" width="220" alt="wizard-tower" /> | <img src="images/observation-deck/observation-deck.thumb.webp" width="220" alt="observation-deck" /> | <img src="images/fairy-treehouse/fairy-treehouse.thumb.webp" width="220" alt="fairy-cave" /> |
+| <img src="composites/wizard-tower/wizard-tower.thumb.webp" width="220" alt="wizard-tower" /> | <img src="composites/observation-deck/observation-deck.thumb.webp" width="220" alt="observation-deck" /> | <img src="composites/fairy-cave/fairy-cave.thumb.webp" width="220" alt="fairy-cave" /> |
 | Underwater | Nebula | Simianlights |
-| <img src="images/underwater/underwater.thumb.webp" width="220" alt="underwater" /> | <img src="images/nebula/nebula.thumb.webp" width="220" alt="nebula" /> | <img src="images/simianlights/simianlights.thumb.webp" width="220" alt="simianlights" /> |
+| <img src="composites/underwater/underwater.thumb.webp" width="220" alt="underwater" /> | <img src="composites/nebula/nebula.thumb.webp" width="220" alt="nebula" /> | <img src="composites/simianlights/simianlights.thumb.webp" width="220" alt="simianlights" /> |
+| Corporate Blobs | | |
+| <img src="composites/corporate-blobs/corporate-blobs.thumb.webp" width="220" alt="corporate-blobs" /> | | |
 
-The `corporate-blobs` (Worlds) and `clouds` (Sky) composites also ship; their preview tiles are pending.
+The `clouds` (Sky) composite also ships; its preview tile is pending.
 
 ## Background presets
 

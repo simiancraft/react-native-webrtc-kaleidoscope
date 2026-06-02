@@ -1,29 +1,37 @@
 #!/usr/bin/env bun
-// Copy the raw image assets into the published dist, preserving the per-item
-// folder layout the exports map (`./images/<name>.webp`) points at. The library
-// build (tsconfig.build.json, rootDir '.') emits the .js/.d.ts for each image's
-// loader pair under dist/images/<name>/; the .webp itself is not a TS input, so
-// it is copied here, mirroring how the old build copied src/backgrounds/*.webp
-// into dist/backgrounds/.
+// Copy the raw .webp assets into the published dist, preserving the per-item
+// folder layout the exports map points at. The library build
+// (tsconfig.build.json, rootDir '.') emits the .js/.d.ts for each item under
+// dist/<tree>/<name>/; the .webp itself is not a TS input, so it is copied here.
+//   - images/<name>/*.webp     -> dist/images/<name>/      (plate + its thumb)
+//   - composites/<name>/*.webp -> dist/composites/<name>/  (the scene thumbnail
+//     a composite's def imports, e.g. fairy-cave.thumb.webp)
 
-import { cpSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-const IMAGES_DIR = join(REPO_ROOT, 'images');
-const DIST_IMAGES_DIR = join(REPO_ROOT, 'dist', 'images');
 
-let copied = 0;
-for (const name of readdirSync(IMAGES_DIR)) {
-  const itemDir = join(IMAGES_DIR, name);
-  if (!statSync(itemDir).isDirectory()) continue;
-  for (const file of readdirSync(itemDir)) {
-    if (!file.endsWith('.webp')) continue;
-    const destDir = join(DIST_IMAGES_DIR, name);
-    mkdirSync(destDir, { recursive: true });
-    cpSync(join(itemDir, file), join(destDir, file));
-    copied += 1;
+function copyTree(tree: string): number {
+  const srcDir = join(REPO_ROOT, tree);
+  const distDir = join(REPO_ROOT, 'dist', tree);
+  if (!existsSync(srcDir)) return 0;
+  let copied = 0;
+  for (const name of readdirSync(srcDir)) {
+    const itemDir = join(srcDir, name);
+    if (!statSync(itemDir).isDirectory()) continue;
+    for (const file of readdirSync(itemDir)) {
+      if (!file.endsWith('.webp')) continue;
+      const destDir = join(distDir, name);
+      mkdirSync(destDir, { recursive: true });
+      cpSync(join(itemDir, file), join(destDir, file));
+      copied += 1;
+    }
   }
+  return copied;
 }
 
-console.log(`copy:assets  copied ${copied} image asset(s) into dist/images/`);
+for (const tree of ['images', 'composites']) {
+  const copied = copyTree(tree);
+  console.log(`copy:assets  copied ${copied} webp asset(s) into dist/${tree}/`);
+}

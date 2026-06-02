@@ -4,11 +4,14 @@
 //
 // A packaged composite consumers can list by importing this module.
 
+import { Asset } from 'expo-asset';
 import type { Composite } from '../../src/kaleidoscope/types';
+import simianlightsThumb from './simianlights.thumb.webp';
 
 export const simianlights = {
   name: 'Simianlights',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(simianlightsThumb).uri,
   layers: [
     {
       id: 'field',

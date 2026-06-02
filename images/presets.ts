@@ -31,6 +31,7 @@ export const BACKGROUND_PRESETS = [
   'stylized-dark',
   'simiancraft-light',
   'simiancraft-dark',
+  'corporate-logo',
 ] as const;
 
 export type BackgroundPresetName = (typeof BACKGROUND_PRESETS)[number];

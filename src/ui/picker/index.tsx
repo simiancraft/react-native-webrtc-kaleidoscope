@@ -1,20 +1,14 @@
 // The drop-in composite picker (#28): tabs over the consumer's preset families,
-// each tab rendering a family-appropriate control. Controlled selection; emit
-// the chosen id, the host applies it. `usePicker` is the orchestration (group
-// the book by family, own the active tab) and is exported for BYO layouts.
+// each tab rendering the same uniform tile grid. Controlled selection; emit the
+// chosen id, the host applies it. `usePicker` is the orchestration (group the
+// book by family, own the active tab) and is exported for BYO layouts.
 
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { PresetBook } from '../../kaleidoscope/types';
 import { PickerLayout } from './layout';
-import type { Family, PickerProps, PresetView, RenderOption, RenderTile } from './picker.types';
-import { BackgroundGrid } from './presets/background-grid';
-import { PresetOptions } from './presets/preset-options';
-
-// The category rendered as image tiles. Centralized so the renderer routing in
-// FamilyBody has one source of truth; every other category renders as buttons.
-// (A3 generalizes this to "render tiles when a thumbnail is present".)
-const TILE_FAMILY = 'Backgrounds' as const;
+import type { Family, PickerProps, PresetView } from './picker.types';
+import { PresetGrid } from './presets/preset-grid';
 
 /** The grouping usePicker returns; named so BYO-layout consumers can type it. */
 export interface PickerModel {
@@ -49,7 +43,6 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
     onSelect,
     disabled = false,
     renderTile,
-    renderOption,
     labelFor,
     tabLabelFor,
     style,
@@ -76,14 +69,12 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
         />
       ))}
       bodyZone={
-        <FamilyBody
-          family={activeTab}
-          views={views}
+        <PresetGrid
+          presets={views}
           value={value}
           onSelect={handleSelect}
           disabled={disabled}
           renderTile={renderTile}
-          renderOption={renderOption}
         />
       }
     />
@@ -127,43 +118,6 @@ export function usePicker<P extends PresetBook>(
   const [activeTab, setActiveTab] = useState<Family | undefined>(undefined);
   const active = activeTab && families.includes(activeTab) ? activeTab : families[0];
   return { families, viewsByFamily, activeTab: active, setActiveTab };
-}
-
-interface FamilyBodyProps {
-  readonly family: Family;
-  readonly views: ReadonlyArray<PresetView>;
-  readonly value: string | null;
-  readonly onSelect: (id: string | null) => void;
-  readonly disabled: boolean;
-  readonly renderTile?: RenderTile;
-  readonly renderOption?: RenderOption;
-}
-
-function FamilyBody(props: FamilyBodyProps) {
-  const { family, views, value, onSelect, disabled, renderTile, renderOption } = props;
-  // Family -> control dispatch. Only TILE_FAMILY renders as a thumbnail grid;
-  // every other family is option buttons. A third control shape would turn this
-  // into a lookup table keyed on family — premature for the current set.
-  if (family === TILE_FAMILY) {
-    return (
-      <BackgroundGrid
-        presets={views}
-        value={value}
-        onSelect={onSelect}
-        disabled={disabled}
-        renderTile={renderTile}
-      />
-    );
-  }
-  return (
-    <PresetOptions
-      presets={views}
-      value={value}
-      onSelect={onSelect}
-      disabled={disabled}
-      renderOption={renderOption}
-    />
-  );
 }
 
 interface TabProps {

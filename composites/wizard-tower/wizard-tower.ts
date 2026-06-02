@@ -7,12 +7,15 @@
 // Within the library it imports its image layers relatively; a consumer would
 // import from `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
+import { Asset } from 'expo-asset';
 import { wizardsTower } from '../../images/wizards-tower/wizards-tower';
 import type { Composite } from '../../src/kaleidoscope/types';
+import wizardTowerThumb from './wizard-tower.thumb.webp';
 
 export const wizardTower = {
   name: 'Wizard Tower',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(wizardTowerThumb).uri,
   layers: [
     {
       id: 'sky',

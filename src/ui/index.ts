@@ -5,7 +5,7 @@
 // `className` via the `./nativewind` interop -> render-prop slot). The core
 // imports no `nativewind`; only the `./nativewind` subpath does.
 //
-// Primitives (composable, headless); the family renderers and composite follow.
+// Primitives (composable, headless); the preset grid and composite follow.
 
 export { KaleidoscopePicker, type PickerModel, usePicker } from './picker';
 export { PickerLayout } from './picker/layout';
@@ -16,10 +16,7 @@ export type {
   PickerStyleProps,
   PresetItemState,
   PresetView,
-  RenderOption,
   RenderTile,
 } from './picker/picker.types';
-export { BackgroundGrid } from './picker/presets/background-grid';
-export { PresetOption } from './picker/presets/preset-option';
-export { PresetOptions } from './picker/presets/preset-options';
+export { PresetGrid } from './picker/presets/preset-grid';
 export { PresetTile } from './picker/presets/preset-tile';

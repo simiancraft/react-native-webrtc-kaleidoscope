@@ -5,12 +5,15 @@
 // relatively; a consumer would import from
 // `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
+import { Asset } from 'expo-asset';
 import { fairyTreehouse } from '../../images/fairy-treehouse/fairy-treehouse';
 import type { Composite } from '../../src/kaleidoscope/types';
+import fairyCaveThumb from './fairy-cave.thumb.webp';
 
 export const fairyCave = {
   name: 'Fairy Cave',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(fairyCaveThumb).uri,
   layers: [
     {
       id: 'sky',

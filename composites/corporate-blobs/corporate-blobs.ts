@@ -1,4 +1,4 @@
-// Corporate blobs: a dark-office backdrop, you composited over it, and large
+// Corporate blobs: a corporate-logo backdrop, you composited over it, and large
 // decorative edge/vignette blobs framing the frame on top (normal blend; the
 // center stays clear so you read through). Each blob's color is its own uniform,
 // so the eight-color brand palette is fully tunable; uColor grades them all
@@ -8,22 +8,25 @@
 // relatively; a consumer would import from
 // `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
-import { darkOffice } from '../../images/dark-office/dark-office';
+import { Asset } from 'expo-asset';
+import { corporateLogo } from '../../images/corporate-logo/corporate-logo';
 import type { Composite } from '../../src/kaleidoscope/types';
+import corporateBlobsThumb from './corporate-blobs.thumb.webp';
 
 export const corporateBlobs = {
   name: 'Corporate Blobs',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(corporateBlobsThumb).uri,
   layers: [
-    { id: 'dark-office', shader: 'image', source: darkOffice },
-    // You, in the office (blobs frame you from the edges, on top).
+    { id: 'corporate-logo', shader: 'image', source: corporateLogo },
+    // You, in front of the logo (blobs frame you from the edges, on top).
     { id: 'you', shader: 'direct', target: 'subject' },
     {
       id: 'blobs',
       shader: 'corporate-blobs',
       blend: 'normal',
       uniforms: {
-        uColor: [1, 1, 1],
+        uColor: [0.96, 0.71, 1],
         uBlobColor1: [0.376, 0.647, 0.98],
         uBlobColor2: [0.063, 0.725, 0.506],
         uBlobColor3: [0.984, 0.749, 0.141],
@@ -32,16 +35,16 @@ export const corporateBlobs = {
         uBlobColor6: [0.851, 0.275, 0.937],
         uBlobColor7: [0.341, 0.325, 0.306],
         uBlobColor8: [0.008, 0.518, 0.78],
-        uGlobalAlpha: 0.42,
-        uScale: 4.15,
+        uGlobalAlpha: 0.75,
+        uScale: 2.26,
         uMinRing: 0.78,
         uMaxRing: 1.38,
-        uEdgePull: 0.22,
-        uCenterClear: 0.52,
+        uEdgePull: 0.4,
+        uCenterClear: 0.86,
         uCenterPush: 0.42,
         uMotionAmount: 1,
-        uMotionSpeed: 1,
-        uEdgeSoftness: 0.024,
+        uMotionSpeed: 2.61,
+        uEdgeSoftness: 0.006,
       },
     },
   ],

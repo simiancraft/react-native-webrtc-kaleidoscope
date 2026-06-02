@@ -7,12 +7,15 @@
 // relatively; a consumer would import from
 // `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
+import { Asset } from 'expo-asset';
 import { observationDeck as observationDeckPlate } from '../../images/observation-deck/observation-deck';
 import type { Composite } from '../../src/kaleidoscope/types';
+import observationDeckThumb from './observation-deck.thumb.webp';
 
 export const observationDeck = {
   name: 'Observation Deck',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(observationDeckThumb).uri,
   layers: [
     {
       id: 'field',

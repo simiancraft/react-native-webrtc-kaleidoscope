@@ -43,10 +43,7 @@ export interface PresetItemState {
   readonly onPress: () => void;
 }
 
-/** Render-prop for one option button (non-image families). */
-export type RenderOption = (preset: PresetView, state: PresetItemState) => ReactNode;
-
-/** Render-prop for one background tile; `uri` is the resolved thumbnail source. */
+/** Render-prop for one preset tile; `uri` is the resolved thumbnail source (undefined renders the recessed variant). */
 export type RenderTile = (
   preset: PresetView,
   state: PresetItemState & { readonly uri: string | undefined },
@@ -73,10 +70,8 @@ export interface PickerStyleProps {
   readonly disabled?: boolean | undefined;
   /** Container class; resolved by NativeWind via the `./nativewind` interop. */
   readonly className?: string | undefined;
-  /** Override the background tile rendering. */
+  /** Override the per-preset tile rendering (BYO tile). */
   readonly renderTile?: RenderTile | undefined;
-  /** Override the option-button rendering. */
-  readonly renderOption?: RenderOption | undefined;
 }
 
 /** Props for the drop-in composite picker (the tabbed kitchen sink). */

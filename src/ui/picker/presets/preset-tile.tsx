@@ -1,13 +1,21 @@
-// Leaf: one background thumbnail tile. The image fills a fixed-height tile with
-// the label overlaid; an optional corner badge marks a consumer-supplied preset.
+// Leaf: one preset tile. The single item shape for every family — it prints the
+// label and, if the preset has a resolved thumbnail, paints it as a wallpaper
+// behind the label; with no thumbnail it is a recessed pressable button of the
+// SAME footprint, so a thumbnail-less preset never breaks the grid's flow. The
+// variant is chosen per preset by `uri` presence, not by family. Hover/press
+// "light up" via an overlay sheet (web hover is inert on native, where
+// `hovered` is simply undefined).
 //
-// Fixed `height` (not `aspectRatio` derived from a percentage width) is the
-// collapse fix: RN/Yoga does not derive cross-axis height from a percentage
-// `flexBasis` + `aspectRatio` the way the browser does, so the demo's tiles
-// rendered as thin strips. An explicit height renders reliably on every target.
+// The tile is a fixed 16:9 box (`aspectRatio`), matching the 1280x720 plates and
+// 320x180 thumbnails, so cover-fit shows the whole plate and every tile is the
+// same shape regardless of how wide a column resolves to. Width comes from the
+// flex row (`flexBasis`/`maxWidth`); `aspectRatio` derives the height from it.
+// (Historical note: an earlier attempt rendered thin strips when Yoga failed to
+// derive height from a percentage `flexBasis` + `aspectRatio`; if that recurs on
+// a target, restore an explicit `height` floor here.)
 //
-// Styling is headless, same contract as PresetOption: defaults + `style` (wins)
-// + `className` (consumed by the `./nativewind` interop, inert without it).
+// Styling is headless: defaults + `style` (wins) + `className` (consumed by the
+// `./nativewind` interop, inert without it).
 
 import {
   Image,
@@ -21,7 +29,7 @@ import {
 
 interface PresetTileProps {
   readonly label: string;
-  /** Resolved thumbnail URI (web URL or native file:// URI); undefined renders just the label. */
+  /** Resolved thumbnail URI (web URL or native file:// URI); undefined renders the recessed button. */
   readonly uri: string | undefined;
   readonly selected: boolean;
   readonly disabled?: boolean | undefined;
@@ -36,34 +44,47 @@ interface PresetTileProps {
 
 export function PresetTile(props: PresetTileProps) {
   const { label, uri, selected, disabled = false, onPress, badge, style } = props;
+  const hasWallpaper = !!uri;
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected, disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={[styles.tile, selected && styles.tileSelected, disabled && styles.tileDisabled, style]}
+      style={[
+        styles.tile,
+        hasWallpaper ? styles.wallpaper : styles.recessed,
+        selected && styles.selected,
+        disabled && styles.disabled,
+        style,
+      ]}
     >
-      {uri ? <Image source={{ uri }} style={styles.thumb} resizeMode="cover" /> : null}
-      {badge ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badge}</Text>
-        </View>
-      ) : null}
-      <View style={styles.labelWrap}>
-        <Text numberOfLines={2} style={styles.label}>
-          {label}
-        </Text>
-      </View>
+      {({ pressed, hovered = false }: { pressed: boolean; hovered?: boolean }) => (
+        <>
+          {hasWallpaper ? <Image source={{ uri }} style={styles.thumb} resizeMode="cover" /> : null}
+          {hasWallpaper ? <View style={styles.scrim} /> : null}
+          {badge ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          ) : null}
+          <View style={styles.labelWrap}>
+            <Text numberOfLines={2} style={styles.label}>
+              {label}
+            </Text>
+          </View>
+          {hovered || pressed ? (
+            <View pointerEvents="none" style={[styles.glow, pressed && styles.glowPressed]} />
+          ) : null}
+        </>
+      )}
     </Pressable>
   );
 }
 
-const TILE_HEIGHT = 72;
-
 const styles = StyleSheet.create({
   tile: {
-    height: TILE_HEIGHT,
+    aspectRatio: 16 / 9,
     minWidth: 96,
     flexGrow: 1,
     flexBasis: '30%',
@@ -72,11 +93,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
-    backgroundColor: '#1a1a1a',
   },
-  tileSelected: { borderColor: '#4a8f3f' },
-  tileDisabled: { opacity: 0.5 },
+  // Wallpaper variant: the thumbnail fills the tile, label over a legibility scrim.
+  wallpaper: { backgroundColor: '#1a1a1a' },
+  // Recessed variant (no thumbnail): a pressable inset area, same footprint.
+  recessed: { backgroundColor: '#242424', borderColor: '#333' },
+  selected: { borderColor: '#4a8f3f' },
+  disabled: { opacity: 0.5 },
   thumb: { ...StyleSheet.absoluteFillObject },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
   badge: {
     position: 'absolute',
     top: 4,
@@ -91,7 +116,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   label: {
     color: '#fff',
@@ -100,4 +124,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 6,
   },
+  // Hover/press "lights up": a translucent sheet over the whole tile.
+  glow: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+  glowPressed: { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
 });

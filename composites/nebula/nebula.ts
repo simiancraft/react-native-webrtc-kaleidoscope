@@ -3,11 +3,14 @@
 //
 // A packaged composite consumers can list by importing this module.
 
+import { Asset } from 'expo-asset';
 import type { Composite } from '../../src/kaleidoscope/types';
+import nebulaThumb from './nebula.thumb.webp';
 
 export const nebula = {
   name: 'Nebula',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(nebulaThumb).uri,
   layers: [
     {
       id: 'nebula',

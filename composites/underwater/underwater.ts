@@ -5,12 +5,15 @@
 // relatively; a consumer would import from
 // `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
+import { Asset } from 'expo-asset';
 import { stylizedDark } from '../../images/stylized-dark/stylized-dark';
 import type { Composite } from '../../src/kaleidoscope/types';
+import underwaterThumb from './underwater.thumb.webp';
 
 export const underwater = {
   name: 'Underwater',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(underwaterThumb).uri,
   layers: [
     { id: 'stylized-dark', shader: 'image', source: stylizedDark },
     {
