@@ -13,28 +13,24 @@ public class KaleidoscopeModule: Module {
       Registration.registerAll()
     }
 
-    // The three Float setters and the Int/Bool setters below accept Optional
-    // and guard-unwrap. ExpoModulesCore 1.12.26 on iOS delivers JS-side
-    // primitive arguments to the Function block as Optional even when the JS
-    // call passes a real value (Android's expo-modules-core delivers raw); a
-    // non-optional Swift signature throws CastingException<Float> at the
-    // JavaScriptUtils.swift:40 unwrap. Same Function shape on Android
-    // (`Float` non-nullable) works, so the asymmetry is on the iOS bridge.
-    // A nil value silently no-ops the setter, matching Android's tolerance
-    // for null in the same call path.
-    Function("setBlurSigma") { (value: Float?) in
-      guard let value = value else { return }
-      EffectTuning.blurSigma = value
+    // The three numeric setters declare Double, not Float, even though the
+    // EffectTuning fields are Float. JS Number is natively a 64-bit double;
+    // ExpoModulesCore 1.12.26 on iOS bridges it cleanly to Swift Double but
+    // hits an Optional-wrap bug on Float (CastingException<Float> at
+    // DynamicRawType.swift:27 with 'Cannot cast Optional(0.6) to Float'),
+    // because the JSI bridge produces an Optional<Float> that the
+    // DynamicOptionalType wrapper does not unwrap before delegating to the
+    // wrapped raw type. The same Function shape on Android works with Float.
+    Function("setBlurSigma") { (value: Double) in
+      EffectTuning.blurSigma = Float(value)
     }
 
-    Function("setMaskHardness") { (value: Float?) in
-      guard let value = value else { return }
-      EffectTuning.maskHardness = value
+    Function("setMaskHardness") { (value: Double) in
+      EffectTuning.maskHardness = Float(value)
     }
 
-    Function("setMaskThreshold") { (value: Float?) in
-      guard let value = value else { return }
-      EffectTuning.maskThreshold = value
+    Function("setMaskThreshold") { (value: Double) in
+      EffectTuning.maskThreshold = Float(value)
     }
 
     // Composite layer-stack channel. Mirrors android/.../KaleidoscopeModule.kt's
@@ -55,18 +51,17 @@ public class KaleidoscopeModule: Module {
     }
 
     // Segmentation perf control. A JS device-tier sets this to trade mask
-    // resolution for cost on lower-end devices (e.g. A11/iPhone X).
-    // Optional-typed param for the same iOS bridge-wrap reason as the Float
-    // setters above.
-    Function("setSegmentationTargetShortSide") { (value: Int?) in
-      guard let value = value else { return }
-      EffectTuning.targetShortSide = value
+    // resolution for cost on lower-end devices (e.g. A11/iPhone X). Double
+    // and floor to Int for the same bridge-wrap reason as the Float setters
+    // above; JS Number is a double, and the Double path through ExpoModules
+    // does not hit the Optional<Float>-double-wrap bug.
+    Function("setSegmentationTargetShortSide") { (value: Double) in
+      EffectTuning.targetShortSide = Int(value)
     }
 
     // Native perf instrument toggle; logs GPU/segmentation/ingest timings under
     // the os_log "Perf" category. Off by default.
-    Function("setDebugTiming") { (value: Bool?) in
-      guard let value = value else { return }
+    Function("setDebugTiming") { (value: Bool) in
       EffectTuning.debugTiming = value
     }
 
