@@ -22,9 +22,16 @@
 import type { LayerSpec } from '../../types';
 import type { FrameTransform } from '../insertable-streams';
 import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
-import { COMPOSITE_CAMERA_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
+import { COMPOSITE_BLUR_FRAG_SRC, COMPOSITE_CAMERA_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 import { LAYER_SHADER_SOURCES } from './layer-shaders';
+
+// The remaining compositor primitives (blit/image, subject, masked-composite) are
+// intentionally hand-authored inline here and mirrored in LayerShaders.kt (Android)
+// and composite-*.metalsrc (iOS), rather than single-sourced through build:shaders
+// like camera and blur. They are small, stable, and carry bespoke host buffer
+// bindings, so the migration cost (and the iOS rebind it forces) is not worth it.
+// Keep the three platform copies in sync by hand.
 
 // Cover-fit blit: sample a texture (premultiplied) with a center-crop UV scale.
 // Used for image layers and to draw a finished scratch (cover scale 1,1) to output.
@@ -64,44 +71,9 @@ void main() {
 }
 `;
 
-// Camera-sampling separable gaussian, 13-tap (base offsets -6..6, scaled by a
-// sigma-coupled spread), sigma-weighted. One pass per direction (uDir is the
-// texel step on the active axis); samples the camera or a half-blurred scratch;
-// output keeps the source alpha (camera is opaque). Hand-maintained in lockstep
-// with LayerShaders.BLUR_FRAG (Android) and composite-blur.metalsrc (iOS); the
-// three are the same kernel and must stay identical.
-const BLUR_FRAG_SRC = `#version 300 es
-precision highp float;
-uniform sampler2D uTex;
-uniform vec2 uDir;
-uniform float uSigma;
-in highp vec2 vUv;
-out vec4 oColor;
-void main() {
-  float s2 = 2.0 * uSigma * uSigma;
-  float w[7];
-  float sum = 0.0;
-  for (int i = 0; i < 7; i++) {
-    w[i] = exp(-(float(i) * float(i)) / s2);
-    sum += (i == 0) ? w[i] : 2.0 * w[i];
-  }
-  // Tap spacing scales with sigma (spread): the high end of the slider gains a
-  // little extra reach plus a faint ghost/double-image instead of flatlining once
-  // the 13-tap kernel saturates (~sigma 7). Intentional coupling; one knob drives
-  // both blur softness and tap spacing, so this layer is a small multi-fx unit,
-  // not a pure gaussian. Keep the spread term; do not split it back out. No floor,
-  // so at low sigma the spread is sub-texel (taps overlap, near no-op); 0.25 keeps
-  // it subtle over the 0..10 sigma slider (spread tops out at 2.5).
-  float spread = uSigma * 0.25;
-  vec4 acc = texture(uTex, vUv) * (w[0] / sum);
-  for (int i = 1; i < 7; i++) {
-    vec2 off = uDir * float(i) * spread;
-    acc += texture(uTex, vUv + off) * (w[i] / sum);
-    acc += texture(uTex, vUv - off) * (w[i] / sum);
-  }
-  oColor = acc;
-}
-`;
+// Camera-sampling blur layer: single-sourced via the pipeline as
+// COMPOSITE_BLUR_FRAG_SRC (canonical shaders/blur/composite-blur.frag); the
+// 13-tap + sigma-coupled spread kernel lives there.
 
 // Masked-composite: stencil a rendered layer (in uTex, treated as premultiplied)
 // to the subject by multiplying through the mask alpha. Keeps the result
@@ -430,7 +402,7 @@ const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerS
 
   let blur: BlurGpu | null = null;
   if (hasBlur) {
-    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, BLUR_FRAG_SRC);
+    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_BLUR_FRAG_SRC);
     blur = {
       prog,
       uTex: gl.getUniformLocation(prog, 'uTex'),

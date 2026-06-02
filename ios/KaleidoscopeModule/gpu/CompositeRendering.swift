@@ -300,8 +300,10 @@ extension MetalRenderer {
     ) { encoder in
       var dirVar = dir
       var sigmaVar = sigma
-      encoder.setFragmentBytes(&dirVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
-      encoder.setFragmentBytes(&sigmaVar, length: MemoryLayout<Float>.stride, index: 1)
+      // Buffer indices match the transpiled composite-blur.metalsrc, which
+      // spirv-cross auto-maps as uSigma -> buffer(0), uDir -> buffer(1).
+      encoder.setFragmentBytes(&sigmaVar, length: MemoryLayout<Float>.stride, index: 0)
+      encoder.setFragmentBytes(&dirVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
       encoder.setFragmentTexture(source, index: 0)
       encoder.setFragmentSamplerState(linearClampSampler, index: 0)
     }

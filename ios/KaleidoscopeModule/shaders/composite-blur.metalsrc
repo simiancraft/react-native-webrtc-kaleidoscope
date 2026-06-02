@@ -1,7 +1,48 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+    
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+    
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+    
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+    
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
 
 struct main0_out
 {
@@ -13,51 +54,40 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Composite compositor BLUR layer: a CAMERA-SAMPLING separable gaussian, 13-tap
-// (base offsets -6..6, scaled by a sigma-coupled spread), sigma-weighted, ONE
-// pass per direction (uDir is the texel step on the active axis). Mirrors
-// LayerShaders.BLUR_FRAG (Android) / BLUR_FRAG_SRC (web) verbatim, NOT the
-// codegen'd blur.metalsrc (which is the downscaled linear-sampled kernel of the
-// standalone blur effect, bound from a host-computed weights/offsets buffer).
-// Here the weights are derived in-shader from uSigma so the host only supplies
-// sigma + the axis step, and the tap spacing scales with sigma (spread) for a
-// little extra reach plus a faint double-image at the high end; this is an
-// intentional blur+spacing coupling (a small multi-fx unit), keep the spread
-// term. Output keeps the source alpha (the camera "original" is opaque, alpha 1).
-//
-// The host runs this twice per blur layer into ping-pong scratch textures
-// (horizontal camera -> scratchA, then vertical scratchA -> scratchB), each its
-// own .private render-target pass, then blits scratchB into the output. See
-// CompositeProcessor.renderContentToScratch for the two-pass drive and the V-parity
-// accounting (scratchB is an EVEN number of render passes from the camera, so it
-// blits with no V flip).
-//
-// Hand-authored to match the spirv-cross idiom; ShaderLibrary loads it like the
-// transpiled .metalsrc. CompositeProcessor binds: buffer(0) uDir, buffer(1) uSigma;
-// texture(0) uTex; sampler(0) uTex's. The fixed `for` bound (7) avoids a
-// dynamic-length loop, matching the GLSL `w[7]` unroll the other platforms use.
-fragment main0_out main0(main0_in in [[stage_in]], constant float2& uDir [[buffer(0)]], constant float& uSigma [[buffer(1)]], texture2d<float> uTex [[texture(0)]], sampler uTexSmplr [[sampler(0)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant float& uSigma [[buffer(0)]], constant float2& uDir [[buffer(1)]], texture2d<float> uTex [[texture(0)]], sampler uTexSmplr [[sampler(0)]])
 {
     main0_out out = {};
-    float s2 = 2.0 * uSigma * uSigma;
-    float w[7];
-    float sum = 0.0;
-    for (int i = 0; i < 7; i++)
+    float _15 = (2.0 * uSigma) * uSigma;
+    float _138;
+    _138 = 0.0;
+    float _62;
+    spvUnsafeArray<float, 7> w;
+    for (int _137 = 0; _137 < 7; _138 = _62, _137++)
     {
-        w[i] = exp(-(float(i) * float(i)) / s2);
-        sum += (i == 0) ? w[i] : (2.0 * w[i]);
+        float _38 = float(_137);
+        w[_137] = exp((-(_38 * _38)) / _15);
+        float _142;
+        if (_137 == 0)
+        {
+            _142 = w[_137];
+        }
+        else
+        {
+            _142 = 2.0 * w[_137];
+        }
+        _62 = _138 + _142;
     }
-    // Tap spacing scales with sigma (spread): reach + a faint double-image at the
-    // high end instead of flatlining once the kernel saturates. Intentional
-    // blur+spacing coupling; keep the spread term. Matches web/Android.
-    float spread = uSigma * 0.25;
-    float4 acc = uTex.sample(uTexSmplr, in.vUv) * (w[0] / sum);
-    for (int i = 1; i < 7; i++)
+    float _69 = uSigma * 0.25;
+    float4 _140;
+    _140 = uTex.sample(uTexSmplr, in.vUv) * (w[0] / _138);
+    for (int _139 = 1; _139 < 7; )
     {
-        float2 off = uDir * float(i) * spread;
-        acc += uTex.sample(uTexSmplr, in.vUv + off) * (w[i] / sum);
-        acc += uTex.sample(uTexSmplr, in.vUv - off) * (w[i] / sum);
+        float2 _105 = (uDir * float(_139)) * _69;
+        _140 = (_140 + (uTex.sample(uTexSmplr, (in.vUv + _105)) * (w[_139] / _138))) + (uTex.sample(uTexSmplr, (in.vUv - _105)) * (w[_139] / _138));
+        _139++;
+        continue;
     }
-    out.oColor = acc;
+    out.oColor = _140;
     return out;
 }
+

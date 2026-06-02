@@ -1,6 +1,6 @@
 anamorphic-lensflare.frag
-blur.frag
 clouds.frag
+composite-blur.frag
 composite-camera.frag
 composite.frag
 corporate-blobs.frag

@@ -7,8 +7,14 @@
 // src/web/effects/composite.ts). The shared sources the runtime imports from here:
 //   - PASSTHROUGH_VERT_SRC: full-screen quad via gl_VertexID (no VAO/VBO);
 //     caller does gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4).
-//   - COMPOSITE_CAMERA_FRAG_SRC: the camera/direct layer, migrated to the
-//     single-source pipeline (canonical shaders/_shared/composite-camera.frag).
-// The compositor still carries its blur, masked-composite, and per-layer
-// generative programs inline; those are the next migration candidates.
-export { COMPOSITE_CAMERA_FRAG_SRC, PASSTHROUGH_VERT_SRC } from './shaders.generated';
+//   - COMPOSITE_CAMERA_FRAG_SRC: the camera/direct layer (canonical
+//     shaders/_shared/composite-camera.frag).
+//   - COMPOSITE_BLUR_FRAG_SRC: the camera-sampling blur layer (canonical
+//     shaders/blur/composite-blur.frag).
+// The compositor still carries its blit, image, subject, and masked-composite
+// programs inline (intentionally hand-authored; small, stable, bespoke bindings).
+export {
+  COMPOSITE_BLUR_FRAG_SRC,
+  COMPOSITE_CAMERA_FRAG_SRC,
+  PASSTHROUGH_VERT_SRC,
+} from './shaders.generated';

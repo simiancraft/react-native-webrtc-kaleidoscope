@@ -91,16 +91,33 @@ const ANDROID_CODEGEN = [
   'passthrough.vert',
   'composite.frag',
   'composite-camera.frag',
-  'blur.frag',
+  'composite-blur.frag',
   'transform.frag',
+  // Generative backgrounds (single-sourced; iOS already transpiles these).
   'plasma.frag',
+  'clouds.frag',
+  'nebula.frag',
+  'godrays.frag',
+  'fireflies.frag',
+  'simianlights.frag',
+  'anamorphic-lensflare.frag',
 ] as const;
 const WEB_CODEGEN = [
   'passthrough.vert',
   'composite.frag',
   'composite-camera.frag',
-  'blur.frag',
+  'composite-blur.frag',
+  // Generative backgrounds. light-beams-and-motes and corporate-blobs are
+  // web-only (no Android registration), so they are not in ANDROID_CODEGEN.
   'plasma.frag',
+  'clouds.frag',
+  'nebula.frag',
+  'godrays.frag',
+  'fireflies.frag',
+  'simianlights.frag',
+  'anamorphic-lensflare.frag',
+  'light-beams-and-motes.frag',
+  'corporate-blobs.frag',
 ] as const;
 const ALL_CODEGEN = Array.from(new Set<string>([...ANDROID_CODEGEN, ...WEB_CODEGEN]));
 

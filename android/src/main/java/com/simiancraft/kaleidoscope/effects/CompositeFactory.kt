@@ -558,7 +558,7 @@ private class CompositeProcessor(
       GlDebug.check("composite camera program compile/link")
     }
     if (blurProgram == null) {
-      blurProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.BLUR_FRAG)
+      blurProgram = GlProgram(Shaders.PASSTHROUGH_VERT, Shaders.COMPOSITE_BLUR_FRAG)
       GlDebug.check("composite blur program compile/link")
     }
     if (maskedProgram == null) {
@@ -597,7 +597,7 @@ private class CompositeProcessor(
   }
 
   // Load a composite image WebP from assets/images/<id>.webp, pre-flipped (the
-  // shared semantic-top-at-v=1 convention; mirrors BackgroundImageFactory). Cached
+  // shared semantic-top-at-v=1 convention). Cached
   // per id; a failed load is remembered so we don't re-read every frame.
   private fun ensureImageTexture(id: String): ImageTexture? {
     imageTextures[id]?.let { return it }
