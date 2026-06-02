@@ -102,22 +102,25 @@ downscaled `<name>.thumb.webp` next to the plate.
 
 Target:
 
-- **Resolution:** 320px on the long edge, preserving the plate's aspect, so a 16:9
-  plate is **320x180** (exactly quarter-resolution). Crisp to ~160px at 2x DPR; a
-  picker tile never needs more.
+- **Resolution:** **320x180** (16:9), center-cropped to fill. Uniform across every
+  thumbnail so picker tiles are one shape regardless of the source's aspect (the
+  plates themselves vary: 16:9 backgrounds, 3:2 composites). Crisp to ~160px at 2x
+  DPR; a picker tile never needs more.
 - **Format:** lossy WebP at ~q80 (a tile tolerates more compression than a
-  full-frame background), `method=6`. No crop: a pure downscale so the thumbnail
-  matches the plate's framing.
+  full-frame background), `method=6`.
+- **Crop:** center-cropped cover-fit (`-extent`), not a letterboxed fit, so the
+  tile is filled. A non-16:9 source loses a little off the long edge.
 - **Naming:** `<name>.thumb.webp`, in the same `images/<name>/` folder as the plate.
 
-Recipe (from the plate webp; fits the 320 box, preserves aspect):
+Recipe (cover-fit to 320x180, center-cropped):
 
 ```sh
-convert <name>.webp -resize 320x320 -quality 80 -define webp:method=6 <name>.thumb.webp
+convert <source> -resize "320x180^" -gravity center -extent 320x180 \
+  -quality 80 -define webp:method=6 <name>.thumb.webp
 ```
 
-A screenshot you are turning into a thumbnail (a captured "world" or sky) takes the
-same recipe; feed the source image in place of `<name>.webp`.
+A screenshot you are turning into a thumbnail (a captured "world" or "sky") takes
+the same recipe; feed the source image in place of `<source>`.
 
 ## Adding a plate
 

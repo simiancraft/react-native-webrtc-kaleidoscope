@@ -211,6 +211,18 @@ import { registerKaleidoscopeNativeWind } from 'react-native-webrtc-kaleidoscope
 registerKaleidoscopeNativeWind();
 ```
 
+## Worlds
+
+Packaged composites: multi-layer scenes (a generative shader or a cut-out plate, the masked person on top), imported and spread into your book (e.g. `import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower'`). They carry their own `category: 'Worlds'`, so the picker groups them on one tab.
+
+| Wizard Tower | Observation Deck | Fairy Cave |
+|---|---|---|
+| <img src="images/wizards-tower/wizards-tower.thumb.webp" width="220" alt="wizard-tower" /> | <img src="images/observation-deck/observation-deck.thumb.webp" width="220" alt="observation-deck" /> | <img src="images/fairy-treehouse/fairy-treehouse.thumb.webp" width="220" alt="fairy-cave" /> |
+| Underwater | Nebula | Simianlights |
+| <img src="images/underwater/underwater.thumb.webp" width="220" alt="underwater" /> | <img src="images/nebula/nebula.thumb.webp" width="220" alt="nebula" /> | <img src="images/simianlights/simianlights.thumb.webp" width="220" alt="simianlights" /> |
+
+The `corporate-blobs` (Worlds) and `clouds` (Sky) composites also ship; their preview tiles are pending.
+
 ## Background presets
 
 Ten backgrounds ship as `image` layers, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
