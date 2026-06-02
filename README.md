@@ -37,7 +37,7 @@
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
 | Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MediaPipe Selfie Segmentation (Tasks) |
 | iOS (≥ 15) | ✓ | ✓ | ✓ | Metal + MediaPipe Selfie Segmentation (Tasks), verified on device. Older A11 devices (iPhone X) run at a lower frame rate |
-| Safari / Firefox | — | — | — | No Insertable Streams; `applyVideoEffects` throws a clear capability error |
+| Safari / Firefox | — | — | — | No Insertable Streams; the effects throw a clear capability error |
 
 ### Coming soon
 
@@ -104,18 +104,37 @@ bunx expo prebuild
 
 ## Use
 
-First declare a **preset book** in your project: a flat catalog of `{ name, shader, options }`, the only things you can command. Everything is a shader: blur, background images, and procedural shaders all take the same shape. Declare it `as const satisfies PresetBook` for per-preset option typing.
+First declare a **preset book** in your project: a flat catalog of **composites**, the only things you can command. A composite is `{ name, category, thumbnail?, layers }`; everything is a layer stack, painted back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's fields: `image` takes a `source`; `direct` is a passthrough of its channel (`target: 'subject'` is the masked person, `target: 'background'` the raw camera); `blur` and the generative shaders (`plasma`, `clouds`, …) take `uniforms`. `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer typing.
 
 ```ts
 // kaleidoscope.presets.ts
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
-import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office';
+import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office';
+// Packaged composites ship ready to use; import and spread them in.
+import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower';
 
 export const presets = {
-  'dark-office': { shader: 'background-image', options: { source: darkOffice } },
-  'blur-soft':   { shader: 'blur',   options: { sigma: 2 } },
-  'blur-heavy':  { shader: 'blur',   options: { sigma: 7 } },
-  'lava':        { shader: 'plasma', options: { colorA: [0.9, 0.3, 0.1], colorB: [0.8, 0.1, 0.5], speed: 0.3 } },
+  // Replace your background with an image, you composited over it.
+  'dark-office': {
+    name: 'Dark Office',
+    category: 'Backgrounds',
+    thumbnail: darkOffice,
+    layers: [
+      { id: 'bg', shader: 'image', source: darkOffice },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  // Blur the background, stay sharp.
+  'blur-heavy': {
+    name: 'Heavy',
+    category: 'Blur',
+    layers: [
+      { id: 'bg', shader: 'blur', target: 'background', uniforms: { sigma: 7 } },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  // A packaged multi-layer scene (clouds + a cut-out plate + you).
+  'wizard-tower': wizardTower,
 } as const satisfies PresetBook;
 ```
 
@@ -138,9 +157,11 @@ const { kaleidoscope, transform, mask } = bindKaleidoscope(track, {
   },
 });
 
-// kaleidoscope, the art axis (one of blur / background-image / plasma):
-kaleidoscope('lava');                        // a preset id (autocompletes from your book)
-kaleidoscope('blur-heavy', { sigma: 5 });    // override the preset's options (typed to its shader)
+// kaleidoscope, the art axis. Pass a preset id (autocompletes from your book):
+kaleidoscope('wizard-tower');
+// Override a layer's uniforms live, addressed by layer id, while the patched
+// preset is active (merged, no pipeline rebuild). `shader` types the uniforms:
+kaleidoscope('blur-heavy', [{ id: 'bg', shader: 'blur', uniforms: { sigma: 5 } }]);
 kaleidoscope(null);                          // clear the art
 
 // transform, absolute geometry. Every call is the full state from identity;
@@ -152,7 +173,7 @@ transform();                                 // reset to identity
 mask({ hardness: 0.5, threshold: 0.5 });
 ```
 
-That is the whole runtime surface: `kaleidoscope`, `transform`, `mask`. (`applyVideoEffects(track, effects[])` remains exported as the lower-level primitive beneath them.)
+That is the whole runtime surface: `kaleidoscope`, `transform`, `mask`.
 
 Numeric shader uniforms are normalized 0..1 by convention where practical; JSDoc documents each option's expected range as an IntelliSense hint (ranges are not enforced at runtime; validate in your own layer if you forward them to end users).
 
@@ -192,31 +213,31 @@ registerKaleidoscopeNativeWind();
 
 ## Background presets
 
-Ten backgrounds ship for the `background-image` effect, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
+Ten backgrounds ship as `image` layers, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
 
 | Theme | Light | Dark |
 |---|---|---|
-| Office | <img src="src/backgrounds/light-office.webp" width="220" alt="light-office" /> | <img src="src/backgrounds/dark-office.webp" width="220" alt="dark-office" /> |
-| Home | <img src="src/backgrounds/home-light.webp" width="220" alt="home-light" /> | <img src="src/backgrounds/home-dark.webp" width="220" alt="home-dark" /> |
-| Nature | <img src="src/backgrounds/nature-light.webp" width="220" alt="nature-light" /> | <img src="src/backgrounds/nature-dark.webp" width="220" alt="nature-dark" /> |
-| Stylized | <img src="src/backgrounds/stylized-light.webp" width="220" alt="stylized-light" /> | <img src="src/backgrounds/stylized-dark.webp" width="220" alt="stylized-dark" /> |
-| Simiancraft | <img src="src/backgrounds/simiancraft-light.webp" width="220" alt="simiancraft-light" /> | <img src="src/backgrounds/simiancraft-dark.webp" width="220" alt="simiancraft-dark" /> |
+| Office | <img src="images/light-office/light-office.webp" width="220" alt="light-office" /> | <img src="images/dark-office/dark-office.webp" width="220" alt="dark-office" /> |
+| Home | <img src="images/home-light/home-light.webp" width="220" alt="home-light" /> | <img src="images/home-dark/home-dark.webp" width="220" alt="home-dark" /> |
+| Nature | <img src="images/nature-light/nature-light.webp" width="220" alt="nature-light" /> | <img src="images/nature-dark/nature-dark.webp" width="220" alt="nature-dark" /> |
+| Stylized | <img src="images/stylized-light/stylized-light.webp" width="220" alt="stylized-light" /> | <img src="images/stylized-dark/stylized-dark.webp" width="220" alt="stylized-dark" /> |
+| Simiancraft | <img src="images/simiancraft-light/simiancraft-light.webp" width="220" alt="simiancraft-light" /> | <img src="images/simiancraft-dark/simiancraft-dark.webp" width="220" alt="simiancraft-dark" /> |
 
 Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:
 
-<img src="src/backgrounds/debug-resolutions.webp" width="220" alt="debug-resolutions" />
+<img src="images/debug-resolutions/debug-resolutions.webp" width="220" alt="debug-resolutions" />
 
-See [`src/backgrounds/README.md`](./src/backgrounds/README.md) for sizing and how to add a preset.
+See [`images/README.md`](./images/README.md) for sizing and how to add a preset.
 
 ## Web and native differences
 
 The API surface is the same across platforms, but the runtimes differ in ways worth knowing before you wire effects in:
 
 - **Output track.** On web each `kaleidoscope`/`transform` command rebuilds the Insertable-Streams pipeline and yields a NEW `MediaStreamTrack`, surfaced via `onTrack`; on native the bound track is mutated in place. `mask` updates the segmentation edge the running composite reads each frame, with no rebuild on either platform.
-- **Background source.** `background-image.source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
-- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/backgrounds/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`src/backgrounds/README.md`](./src/backgrounds/README.md).
-- **Segmentation model on web.** The web blur and background-image effects load MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
-- **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers (Chrome, Edge); Safari and Firefox lack the API, so `applyVideoEffects` throws a clear capability error and the demo falls back to the unprocessed track.
+- **Image source.** An `image` layer's `source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
+- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`images/README.md`](./images/README.md).
+- **Segmentation model on web.** The web compositor loads MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
+- **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers (Chrome, Edge); Safari and Firefox lack the API, so the effects throw a clear capability error and the demo falls back to the unprocessed track.
 
 ## What this isn't
 
@@ -227,14 +248,20 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 ## Architecture
 
-The codebase lives across four surfaces:
+The canonical assets live in three root, folder-per-item directories, out of the TypeScript build path; the build and the prebuild copy read from them:
 
-- `src/`: JS facade and shared types. `bindKaleidoscope` (the `kaleidoscope` / `transform` / `mask` verbs) over the `applyVideoEffects(track, effects)` primitive; the preset-book types live in `src/kaleidoscope/`.
-- `src/web/`: WebGL2 pipeline. MediaPipe segmentation + GLSL composite. The canonical GLSL in `shaders/` is code-generated into `src/web/shaders.generated.ts` (`src/web/shaders.ts` re-exports it); run `bun run build:shaders` after editing a shader.
-- `android/`: OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation (async, worker-thread, last-known-mask cache) + GLSL composite. Shaders inline in `gpu/Shaders.kt` as `const val` strings.
-- `ios/`: Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model the Android target bundles). The canonical GLSL in `shaders/` transpiles to Metal Shading Language via `scripts/build-shaders.ts`. Implemented and verified on device.
+- `shaders/<name>/`: each shader's `.frag` (and `.vert`) plus its typed `.ts` (uniforms + control descriptor). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these.
+- `images/<name>/`: each bundled background's `.ts` / `.web.ts` loader pair and its `.webp`, behind a `./images/<name>` subpath export.
+- `composites/<name>/`: each packaged composite (a `Composite` definition), behind a `./composites/<name>` subpath export.
 
-The composite shader (`shaders/composite.frag`) is the same GLSL source for every effect category (blur, background-image, future procedural backgrounds). Per-effect difference is upstream of the composite: how the `uBackground` texture gets produced.
+The code lives across the platform surfaces:
+
+- `src/`: JS facade and shared types. `bindKaleidoscope` returns the `kaleidoscope` / `transform` / `mask` verbs; the preset-book types live in `src/kaleidoscope/`.
+- `src/web/`: WebGL2 pipeline. MediaPipe segmentation + the layered compositor (`src/web/effects/scene.ts`).
+- `android/`: OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation + the layered compositor (`effects/SceneFactory.kt`); codegen lands in `gpu/ShadersGenerated.kt`, the hand-written layer GLSL in `effects/LayerShaders.kt`.
+- `ios/`: Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model Android bundles); the canonical GLSL transpiles to Metal via `scripts/build-shaders.ts`.
+
+Every effect is a LAYER in one compositor: an `image` plate, a `direct` passthrough (the masked person, or the raw camera), a camera-sampling `blur`, or a generative shader, composited back to front with per-layer blend. There is one registered native effect, `composite`; its layer stack is delivered out of band and reconciled each command.
 
 See [`PATTERNS.md`](./PATTERNS.md) for the file-layout conventions, texture-orientation contract, and recipe for adding new effects, shaders, presets, or tunable parameters.
 
