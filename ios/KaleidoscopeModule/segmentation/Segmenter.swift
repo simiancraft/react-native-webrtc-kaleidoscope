@@ -1,4 +1,4 @@
-// Person-segmentation pipeline shared by the blur and background-image
+// Person-segmentation pipeline shared by the blur and image-layer
 // effects. Mirrors android/.../segmentation/Mask.kt: MediaPipe Tasks
 // ImageSegmenter (VIDEO running mode, confidence masks, selfie_segmenter.tflite),
 // replacing the earlier Apple Vision VNGeneratePersonSegmentationRequest. The

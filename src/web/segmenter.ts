@@ -1,5 +1,5 @@
 // MediaPipe Selfie Segmentation loader. Single shared instance across every
-// web effect that needs a person mask (blur, background-image, future
+// web effect that needs a person mask (blur, a subject-masked layer, future
 // procedural backgrounds). The script is loaded once from a CDN; the
 // segmenter instance is cached for the lifetime of the page.
 //

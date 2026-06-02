@@ -11,7 +11,7 @@
 // composited pre-rotated). That per-effect cascade is what this module removes.
 //
 // `composedTexMatrix` folds the display rotation INTO the texture matrix, so the
-// single OES->2D pass that BlurFactory, BackgroundImageFactory, and
+// single OES->2D pass that the composite factory and
 // TransformFactory each run now lands a DISPLAY-UPRIGHT frame in the FBO. The
 // FBO is sized with `displayWidth` / `displayHeight` (buffer dims swapped on a
 // 90/270 frame), so the upright image fills it without clamping.

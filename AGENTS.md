@@ -4,7 +4,7 @@ A managed-Expo-friendly Expo Module that registers a video frame processor with 
 
 ## Vocabulary (canonical; the code speaks ONLY these words)
 
-This kit was unified so that every effect is one shape: a **composite**. The older "one effect at a time" framing (a separate `blur`, a `background-image`, a `scene`) is gone. When you touch any effect, shader, asset, or the native bridge, use exactly these nouns; the types, the asset dirs, the native classes, and the wire all agree on them, and a stray `scene` / `plate` / `background-image` is a bug to fix, not a synonym to keep.
+This kit was unified so that every effect is one shape: a **composite**. The older "one effect at a time" framing (a separate `blur`, a `background-image`, a `scene`) is gone. When you touch any effect, shader, asset, or the native bridge, use exactly these nouns; the types, the asset dirs, the native classes, and the wire all agree on them, and a stray `scene` / `scene-plate` / `background-image` is a bug to fix, not a synonym to keep.
 
 | Term | Meaning | Where it lives |
 |------|---------|----------------|

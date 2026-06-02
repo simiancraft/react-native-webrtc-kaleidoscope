@@ -12,7 +12,7 @@
 //
 // Per frame:
 //   1. Render the input texture into a cached DISPLAY-UPRIGHT "original 2D" FBO,
-//      exactly like BlurFactory / BackgroundImageFactory. The input is either:
+//      exactly like the composite factory. The input is either:
 //        - an OES camera texture (first in the chain): OES->2D passthrough with
 //          Ingest folding the display rotation into the texture matrix, so the
 //          FBO is sized in display dims and already upright; or
