@@ -277,7 +277,8 @@
     "build:web": "bun run build && cd demo && bunx expo export -p web",
     "prepack": "bun run build",
     "prepublishOnly": "bun run build && bun run check:package",
-    "copy:assets": "bun run scripts/copy-assets.ts"
+    "copy:assets": "bun run scripts/copy-assets.ts",
+    "verify:web": "(cd demo && bunx expo export -p web) && bun run scripts/verify-web-presets.ts"
   },
   "peerDependencies": {
     "expo": ">=51.0.0",
@@ -320,6 +321,7 @@
     "knip": "^6.5.0",
     "livekit-client": "^2.0.0",
     "nativewind": "4.1.x",
+    "playwright": "^1.60.0",
     "publint": "^0.3.18",
     "react": "18.2.0",
     "react-native": "0.74.5",
