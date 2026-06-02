@@ -20,7 +20,7 @@
 // the display rotation into the OES->2D pass so its FBO is display-upright.
 //
 // After ingest the "original" texture is canonical: every downstream pass
-// (transform mat2, background cover-fit + composite, blur, the Vision mask
+// (transform mat2, background cover-fit + composite, blur, the segmentation mask
 // downscale) reads an already-upright frame and applies NO further orientation
 // correction.
 //

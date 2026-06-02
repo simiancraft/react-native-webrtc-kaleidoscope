@@ -6,7 +6,7 @@ react-native-webrtc-kaleidoscope ships under the MIT license (see [LICENSE](./LI
 
 - **react-native-webrtc** — MIT license. <https://github.com/react-native-webrtc/react-native-webrtc>. The `track._setVideoEffects(...)` JS surface, the Android `ProcessorProvider` registry, and the iOS `RTCVideoFrameProcessor` protocol all originate upstream. This package is a consumer of, not a fork of, that codebase.
 
-## Segmentation backends (used by the `blur` and `background-image` effects)
+## Segmentation backends (used by the segmentation mask that drives the `blur` and image layers)
 
 All three platforms run Google's MediaPipe selfie segmentation. The native targets use the MediaPipe Tasks Image Segmenter with a model bundled in this package; the web target uses the legacy MediaPipe Selfie Segmentation Solution loaded at runtime from a CDN.
 

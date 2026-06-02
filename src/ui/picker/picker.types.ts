@@ -2,7 +2,7 @@
 //
 // These types are the seam between the composite picker, its family renderers,
 // and the per-item leaves. The composite reads the consumer's preset book,
-// flattens each preset to a `PresetView`, groups by `family` (the shader), and
+// flattens each preset to a `PresetView`, groups by `family` (the book entry's category), and
 // dispatches to a family-appropriate control. Selection is controlled: the
 // component emits the chosen preset id; the host applies it via `kaleidoscope`.
 //

@@ -234,7 +234,7 @@ enum TextureBridge {
     if debugTiming, let start = start {
       // render(_:to:bounds:colorSpace:) submits and (for this overload) waits on
       // the calling (capture) thread, so this wall-time is a fair proxy for the
-      // per-frame ingest cost. Reported alongside the GPU and Vision timings to
+      // per-frame ingest cost. Reported alongside the GPU and segmentation timings to
       // locate the bottleneck on the next EAS build.
       let ms = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
       os_log("ingest NV12->BGRA: %.2f ms", log: TextureBridge.perfLog, type: .info, ms)
