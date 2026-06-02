@@ -32,9 +32,9 @@ class SceneLayersTest {
     SceneLayers.set(
       """
       [
-        {"shader":"clouds","target":"background","uniforms":{"uExposure":1.26,"uSkyLowColor":[0.99,0.62,0.03],"uCloudSpeed":0.92}},
-        {"shader":"image","target":"background","source":"wizards-tower"},
-        {"shader":"direct","target":"subject"}
+        {"id":"sky","shader":"clouds","target":"background","uniforms":{"uExposure":1.26,"uSkyLowColor":[0.99,0.62,0.03],"uCloudSpeed":0.92}},
+        {"id":"tower","shader":"image","target":"background","source":"wizards-tower"},
+        {"id":"you","shader":"direct","target":"subject"}
       ]
       """.trimIndent(),
     )
@@ -42,6 +42,7 @@ class SceneLayersTest {
     assertEquals(3, layers.size)
 
     val clouds = layers[0]
+    assertEquals("sky", clouds.id)
     assertEquals("clouds", clouds.shader)
     assertEquals("background", clouds.target)
     assertNull(clouds.blend)
@@ -50,11 +51,13 @@ class SceneLayersTest {
     assertArrayEquals(floatArrayOf(0.99f, 0.62f, 0.03f), clouds.uniforms["uSkyLowColor"], EPS)
 
     val plate = layers[1]
+    assertEquals("tower", plate.id)
     assertEquals("image", plate.shader)
     assertEquals("wizards-tower", plate.source)
     assertTrue(plate.uniforms.isEmpty())
 
     val you = layers[2]
+    assertEquals("you", you.id)
     assertEquals("direct", you.shader)
     assertEquals("subject", you.target)
     assertNull(you.source)
@@ -67,16 +70,31 @@ class SceneLayersTest {
     SceneLayers.set(
       """
       [
-        {"shader":"image","target":"background","source":"stylized-dark"},
-        {"shader":"godrays","target":"background","blend":"additive","uniforms":{"uRayCount":11}}
+        {"id":"plate","shader":"image","target":"background","source":"stylized-dark"},
+        {"id":"rays","shader":"godrays","target":"background","blend":"additive","uniforms":{"uRayCount":11}}
       ]
       """.trimIndent(),
     )
     val layers = SceneLayers.get()
     assertEquals(2, layers.size)
+    assertEquals("plate", layers[0].id)
     assertNull(layers[0].blend)
+    assertEquals("rays", layers[1].id)
     assertEquals("additive", layers[1].blend)
     assertArrayEquals(floatArrayOf(11f), layers[1].uniforms["uRayCount"], EPS)
+  }
+
+  // `id` is always on the wire now; a payload missing it falls back to the array
+  // index so the address stays stable and unique-per-stack rather than colliding.
+  @Test
+  fun fallsBackToIndexWhenIdMissing() {
+    SceneLayers.set(
+      """[{"shader":"clouds","uniforms":{}},{"shader":"direct","target":"subject"}]""",
+    )
+    val layers = SceneLayers.get()
+    assertEquals(2, layers.size)
+    assertEquals("0", layers[0].id)
+    assertEquals("1", layers[1].id)
   }
 
   // target defaults to "background" when the wire omits it.

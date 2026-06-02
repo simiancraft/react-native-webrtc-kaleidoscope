@@ -63,6 +63,74 @@ void main() {
 }
 """
 
+  // Raw camera fullscreen (direct/background), opaque. Mirrors CAMERA_FRAG_SRC in
+  // scene.ts; samples the display-upright camera 2D copy and emits straight RGB
+  // with alpha 1, so a non-blended base draw fills the frame.
+  const val CAMERA_FRAG = """#version 300 es
+precision highp float;
+uniform sampler2D uCamera;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  oColor = vec4(texture(uCamera, vUv).rgb, 1.0);
+}
+"""
+
+  // Camera-sampling separable gaussian, 9-tap (offsets -4..4), sigma-weighted.
+  // Hand-written to mirror BLUR_FRAG_SRC in scene.ts (NOT the codegen'd
+  // Shaders.BLUR_FRAG, which is the downscaled bilinear kernel of the old
+  // BlurFactory). One pass per direction (uDir is the texel step on the active
+  // axis): horizontal camera -> scratch, then vertical scratch -> scratch. Output
+  // keeps the source alpha (the camera FBO is opaque).
+  const val BLUR_FRAG = """#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uDir;
+uniform float uSigma;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  float s2 = 2.0 * uSigma * uSigma;
+  float w[5];
+  float sum = 0.0;
+  for (int i = 0; i < 5; i++) {
+    w[i] = exp(-(float(i) * float(i)) / s2);
+    sum += (i == 0) ? w[i] : 2.0 * w[i];
+  }
+  vec4 acc = texture(uTex, vUv) * (w[0] / sum);
+  for (int i = 1; i < 5; i++) {
+    vec2 off = uDir * float(i);
+    acc += texture(uTex, vUv + off) * (w[i] / sum);
+    acc += texture(uTex, vUv - off) * (w[i] / sum);
+  }
+  oColor = acc;
+}
+"""
+
+  // Masked-composite: stencil a rendered scratch layer (uTex, treated as
+  // premultiplied) to the subject by multiplying through the mask alpha. Keeps the
+  // result premultiplied so the caller's "over"/"additive" blend composites it
+  // correctly. Mirrors MASKED_FRAG_SRC in scene.ts; identity mask UV on Android
+  // (the readback already aligns it), unlike web's (1,-1)/(0,1).
+  const val MASKED_FRAG = """#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform sampler2D uMask;
+uniform vec2 uMaskUvScale;
+uniform vec2 uMaskUvOffset;
+uniform float uMaskLo;
+uniform float uMaskHi;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec4 c = texture(uTex, vUv);
+  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
+  float safeHi = max(uMaskHi, uMaskLo + 0.001);
+  float a = clamp(smoothstep(uMaskLo, safeHi, raw), 0.0, 1.0);
+  oColor = c * a;
+}
+"""
+
   // ---- generative layer fragments (mirror layer-shaders.ts) ------------------
 
   const val GODRAYS_FRAG = """#version 300 es

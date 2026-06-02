@@ -10,19 +10,23 @@
 //   1. OES camera -> "camera 2D" FBO (display-upright, via Ingest), as elsewhere.
 //   2. If any layer targets the subject, produce the mask via Mask.produce.
 //   3. Bind the output FBO, clear to opaque black, then for each layer in order:
-//        - 'image'      : cover-fit the plate texture, premultiplied output.
-//        - 'direct' + subject : the masked person, premultiplied (mirrors the web
-//                         SUBJECT_FRAG). Skipped until a mask has completed.
-//        - generative   : render its frag with uTime/uResolution + uniforms.
-//      The base layer draws opaque (blend off); later layers use premultiplied
-//      "over" (normal) or additive, per the layer's blend.
+//        - 'image'            : cover-fit the plate texture, premultiplied output.
+//        - 'direct'+background : the raw camera fullscreen, opaque.
+//        - 'direct'+subject   : the masked person, premultiplied (one-pass fast
+//                         path). Skipped until a mask has completed.
+//        - 'blur'             : a camera-sampling separable gaussian (its `sigma`
+//                         uniform), two passes through the scratch ping-pong.
+//        - generative         : render its frag with uTime/uResolution + uniforms.
+//      Any subject-targeted layer that is not 'direct' renders to a scratch FBO,
+//      then a masked-composite pass multiplies it by the mask alpha. The base
+//      layer draws opaque (blend off); later layers use premultiplied "over"
+//      (normal) or additive, per the layer's blend.
 //   4. Detach + free the output FBO; fence the texture through FramePipeline and
 //      hand the previous GPU-complete frame downstream.
 //
-// Layer kinds the native path supports today: image, direct(subject), and the
-// six generative layer shaders + plasma (LayerShaders.GENERATIVE). A generative
-// layer on the subject target is skipped (mirrors the web "for now"), as is a
-// 'direct' background layer (a no-op there).
+// This is the one art compositor (registered "composite"); blur, background
+// images, and generative shaders are all layers here, folding the former
+// BlurFactory / BackgroundImageFactory / ShaderFactory into the layer stack.
 //
 // All failure paths log under Kaleidoscope.Scene and fall through to null so
 // upstream forwards the original frame instead of crashing.
@@ -76,10 +80,18 @@ private class SceneProcessor(
   private var oesToTwoD: GlProgram? = null
   private var imageProgram: GlProgram? = null
   private var subjectProgram: GlProgram? = null
+  private var cameraProgram: GlProgram? = null // direct/background: raw camera fullscreen
+  private var blurProgram: GlProgram? = null // camera-sampling separable gaussian
+  private var maskedProgram: GlProgram? = null // stencil a scratch layer to the subject
   // Generative layer programs, compiled lazily and cached by shader name.
   private val shaderPrograms = HashMap<String, GlProgram>()
 
   private var cameraFbo: Fbo? = null
+  // Scratch render targets, mirroring scene.ts: scratchA holds a subject layer's
+  // rendered content (and the blur's horizontal pass); scratchB holds the blur's
+  // vertical pass. Allocated alongside the camera FBO, reused across frames.
+  private var scratchA: Fbo? = null
+  private var scratchB: Fbo? = null
   private var cachedWidth = 0
   private var cachedHeight = 0
 
@@ -199,8 +211,16 @@ private class SceneProcessor(
 
       for (i in layers.indices) {
         val layer = layers[i]
-        applyBlend(isBase = i == 0, blend = layer.blend)
-        drawLayer(layer, width, height, elapsedSeconds, camFbo.texture, maskTexId)
+        drawLayer(
+          layer,
+          isBase = i == 0,
+          width,
+          height,
+          elapsedSeconds,
+          camFbo.texture,
+          maskTexId,
+          outputFbo,
+        )
       }
       GlDebug.check("scene composite")
 
@@ -273,64 +293,170 @@ private class SceneProcessor(
     }
   }
 
-  // Set the GL blend state for a layer. The base (layer 0) is opaque (blend off);
+  // Bind the output FBO and set the GL blend state for a layer's output draw,
+  // mirroring scene.ts setOutputBlend(). The base (layer 0) is opaque (blend off);
   // 'normal' is premultiplied "over"; 'additive' is premultiplied add.
-  private fun applyBlend(isBase: Boolean, blend: String?) {
-    if (isBase || blend == null || blend == "normal") {
-      if (isBase) {
-        GLES30.glDisable(GLES30.GL_BLEND)
-      } else {
-        GLES30.glEnable(GLES30.GL_BLEND)
-        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
-      }
-    } else {
-      // additive
+  private fun bindOutputBlend(outputFbo: Fbo, isBase: Boolean, blend: String?) {
+    outputFbo.bind()
+    GLES30.glDisable(GLES30.GL_DEPTH_TEST)
+    if (isBase) {
+      GLES30.glDisable(GLES30.GL_BLEND)
+    } else if (blend == "additive") {
       GLES30.glEnable(GLES30.GL_BLEND)
-      GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE)
+      GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE) // premultiplied additive
+    } else {
+      GLES30.glEnable(GLES30.GL_BLEND)
+      GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA) // premultiplied "over"
     }
   }
 
-  // Draw one layer into the currently-bound (output) FBO at the current blend.
+  // Composite one layer onto the output. Mirrors the per-layer body of scene.ts:
+  // a 'subject' layer is mask-stenciled (direct takes the one-pass cam x mask fast
+  // path; any other shader renders to a scratch then a masked-composite multiplies
+  // by the mask alpha), a 'background' layer draws fullscreen (image cover-fit,
+  // direct raw camera, blur the two-pass gaussian, generative its frag). The layer
+  // owns its FBO binds: subject/blur layers render content into a scratch first,
+  // then bindOutputBlend() before the final output draw.
   private fun drawLayer(
     layer: SceneLayer,
+    isBase: Boolean,
     width: Int,
     height: Int,
     elapsedSeconds: Float,
     cameraTexture: Int,
     maskTexId: Int,
+    outputFbo: Fbo,
   ) {
+    val target = layer.target
+
+    if (target == "subject") {
+      // Subject layers need the mask; skip until it warms up (mirrors web's
+      // subjectReady guard).
+      if (maskTexId == -1) return
+      if (layer.shader == "direct") {
+        // One-pass fast path: cam x mask.
+        bindOutputBlend(outputFbo, isBase, layer.blend)
+        drawSubjectLayer(cameraTexture, maskTexId)
+        return
+      }
+      // Render the layer's content to a scratch, then stencil it through the mask.
+      val contentTex = renderContentToScratch(layer, width, height, elapsedSeconds, cameraTexture)
+        ?: return
+      bindOutputBlend(outputFbo, isBase, layer.blend)
+      drawMaskedComposite(contentTex, maskTexId)
+      return
+    }
+
+    // Background layers draw fullscreen.
     when (layer.shader) {
-      "image" -> drawImageLayer(layer, width, height)
+      "image" -> {
+        bindOutputBlend(outputFbo, isBase, layer.blend)
+        drawImageLayer(layer, width, height)
+      }
       "direct" -> {
-        // Passthrough. On the subject that is the masked person; on the
-        // background it is a no-op (nothing to pass through but the stack).
-        if (layer.target == "subject" && maskTexId != -1) {
-          drawSubjectLayer(cameraTexture, maskTexId)
-        }
+        // Raw camera fullscreen.
+        bindOutputBlend(outputFbo, isBase, layer.blend)
+        drawCameraLayer(cameraTexture)
+      }
+      "blur" -> {
+        val contentTex = renderContentToScratch(layer, width, height, elapsedSeconds, cameraTexture)
+          ?: return
+        bindOutputBlend(outputFbo, isBase, layer.blend)
+        drawBlit(contentTex)
       }
       else -> {
-        // A generative layer. Stenciling one to the subject is a later step;
-        // for now generative layers run on the background only.
-        if (layer.target != "subject") {
-          drawGenerativeLayer(layer, width, height, elapsedSeconds)
-        }
+        bindOutputBlend(outputFbo, isBase, layer.blend)
+        drawGenerativeLayer(layer, width, height, elapsedSeconds)
       }
     }
   }
 
-  private fun drawImageLayer(layer: SceneLayer, width: Int, height: Int) {
+  // Render a layer's content into a scratch FBO (blend off, cleared), returning the
+  // texture that holds it. Blur is special: it runs the separable passes (camera ->
+  // scratchA -> scratchB) and returns scratchB. Mirrors renderContentToScratch in
+  // scene.ts. The caller re-binds the output FBO before the final composite.
+  private fun renderContentToScratch(
+    layer: SceneLayer,
+    width: Int,
+    height: Int,
+    elapsedSeconds: Float,
+    cameraTexture: Int,
+  ): Int? {
+    GLES30.glDisable(GLES30.GL_BLEND)
+    if (layer.shader == "blur") {
+      val a = scratchA ?: return null
+      val b = scratchB ?: return null
+      val prog = blurProgram ?: return null
+      val sigma = layer.uniforms["sigma"]?.firstOrNull() ?: 4f
+      prog.use()
+      GLES30.glUniform1f(prog.uniformLocation("uSigma"), sigma)
+      // Horizontal pass: camera -> scratchA.
+      a.bind()
+      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, cameraTexture)
+      prog.setInt("uTex", 0)
+      prog.setVec2("uDir", 1f / width, 0f)
+      GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+      // Vertical pass: scratchA -> scratchB.
+      b.bind()
+      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, a.texture)
+      prog.setInt("uTex", 0)
+      prog.setVec2("uDir", 0f, 1f / height)
+      GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+      return b.texture
+    }
+    val a = scratchA ?: return null
+    a.bind()
+    GLES30.glClearColor(0f, 0f, 0f, 0f)
+    GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+    if (layer.shader == "image") {
+      if (!drawImageLayer(layer, width, height)) return null
+      return a.texture
+    }
+    // Generative.
+    if (!drawGenerativeLayer(layer, width, height, elapsedSeconds)) return null
+    return a.texture
+  }
+
+  // Cover-fit a plate into the bound FBO. Returns false if the plate or program is
+  // unavailable so the caller can skip the layer.
+  private fun drawImageLayer(layer: SceneLayer, width: Int, height: Int): Boolean {
     val id = layer.source ?: run {
       Log.w(TAG, "image layer has no source id; skipping")
-      return
+      return false
     }
-    val plate = ensurePlateTexture(id) ?: return
-    val prog = imageProgram ?: return
+    val plate = ensurePlateTexture(id) ?: return false
+    val prog = imageProgram ?: return false
     prog.use()
     GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, plate.textureId)
     prog.setInt("uTex", 0)
     val (sx, sy) = coverScale(width, height, plate.aspect)
     prog.setVec2("uCoverScale", sx, sy)
+    GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    return true
+  }
+
+  // Raw camera fullscreen (direct/background), opaque.
+  private fun drawCameraLayer(cameraTexture: Int) {
+    val prog = cameraProgram ?: return
+    prog.use()
+    GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, cameraTexture)
+    prog.setInt("uCamera", 0)
+    GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+  }
+
+  // Blit a finished scratch texture (premultiplied, cover scale 1,1) to the bound
+  // output FBO. Used for a blur/background layer, mirroring scene.ts's blit draw.
+  private fun drawBlit(texture: Int) {
+    val prog = imageProgram ?: return
+    prog.use()
+    GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+    prog.setInt("uTex", 0)
+    prog.setVec2("uCoverScale", 1f, 1f)
     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
   }
 
@@ -354,13 +480,36 @@ private class SceneProcessor(
     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
   }
 
+  // Stencil a rendered scratch (premultiplied) to the subject by multiplying
+  // through the mask alpha. Mirrors the masked-composite pass in scene.ts; the
+  // output stays premultiplied so the caller's blend composites it correctly.
+  private fun drawMaskedComposite(contentTexture: Int, maskTexId: Int) {
+    val prog = maskedProgram ?: return
+    prog.use()
+    GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, contentTexture)
+    prog.setInt("uTex", 0)
+    GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTexId)
+    prog.setInt("uMask", 1)
+    prog.setVec2("uMaskUvScale", 1f, 1f)
+    prog.setVec2("uMaskUvOffset", 0f, 0f)
+    val (maskLo, maskHi) =
+      MaskTuning.smoothstepRange(EffectTuning.maskHardness, EffectTuning.maskThreshold)
+    GLES30.glUniform1f(prog.uniformLocation("uMaskLo"), maskLo)
+    GLES30.glUniform1f(prog.uniformLocation("uMaskHi"), maskHi)
+    GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+  }
+
+  // Render a generative frag into the bound FBO. Returns false if its program is
+  // unavailable (unknown shader) so the caller can skip the layer.
   private fun drawGenerativeLayer(
     layer: SceneLayer,
     width: Int,
     height: Int,
     elapsedSeconds: Float,
-  ) {
-    val prog = ensureGenerativeProgram(layer.shader) ?: return
+  ): Boolean {
+    val prog = ensureGenerativeProgram(layer.shader) ?: return false
     prog.use()
     GLES30.glUniform1f(prog.uniformLocation("uTime"), elapsedSeconds)
     GLES30.glUniform2f(prog.uniformLocation("uResolution"), width.toFloat(), height.toFloat())
@@ -376,6 +525,7 @@ private class SceneProcessor(
       }
     }
     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    return true
   }
 
   // Center-crop cover-fit UV scale: zoom in on the dimension that would otherwise
@@ -402,6 +552,18 @@ private class SceneProcessor(
       subjectProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.SUBJECT_FRAG)
       GlDebug.check("scene subject program compile/link")
     }
+    if (cameraProgram == null) {
+      cameraProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.CAMERA_FRAG)
+      GlDebug.check("scene camera program compile/link")
+    }
+    if (blurProgram == null) {
+      blurProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.BLUR_FRAG)
+      GlDebug.check("scene blur program compile/link")
+    }
+    if (maskedProgram == null) {
+      maskedProgram = GlProgram(Shaders.PASSTHROUGH_VERT, LayerShaders.MASKED_FRAG)
+      GlDebug.check("scene masked program compile/link")
+    }
   }
 
   private fun ensureGenerativeProgram(shaderName: String): GlProgram? {
@@ -420,7 +582,14 @@ private class SceneProcessor(
   private fun ensureIntermediates(width: Int, height: Int) {
     if (cachedWidth == width && cachedHeight == height && cameraFbo != null) return
     cameraFbo?.delete()
+    scratchA?.delete()
+    scratchB?.delete()
     cameraFbo = Fbo(width, height)
+    // Two scratch targets sized to the frame: the subject-stencil scratch and the
+    // blur ping-pong (scratchA horizontal, scratchB vertical). Full-res to mirror
+    // scene.ts; the old BlurFactory downscale is dropped for parity.
+    scratchA = Fbo(width, height)
+    scratchB = Fbo(width, height)
     cachedWidth = width
     cachedHeight = height
     GlDebug.check("scene intermediates allocated")

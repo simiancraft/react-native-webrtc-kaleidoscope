@@ -23,6 +23,7 @@ import org.json.JSONObject
 
 /** One parsed scene layer. The `shader` discriminant decides which fields matter. */
 internal data class SceneLayer(
+  val id: String, // unique within a composite; the live-tuning / patch address
   val shader: String,
   val target: String, // "background" | "subject"
   val blend: String?, // "normal" | "additive" | null (base = opaque)
@@ -70,11 +71,15 @@ internal object SceneLayers {
         Log.w(TAG, "layer $i has no shader; skipping")
         continue
       }
+      // `id` is always present on the wire now (serializeSceneLayers emits it);
+      // fall back to the array index so a malformed payload missing it still
+      // yields a stable, unique-per-stack address rather than a collision.
+      val id = if (obj.has("id") && !obj.isNull("id")) obj.getString("id") else i.toString()
       val target = obj.optString("target", "background")
       val blend = if (obj.has("blend") && !obj.isNull("blend")) obj.getString("blend") else null
       val source = if (obj.has("source") && !obj.isNull("source")) obj.getString("source") else null
       val uniforms = parseUniforms(obj.optJSONObject("uniforms"))
-      out.add(SceneLayer(shader, target, blend, source, uniforms))
+      out.add(SceneLayer(id, shader, target, blend, source, uniforms))
     }
     return out
   }
