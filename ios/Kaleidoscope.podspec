@@ -59,12 +59,16 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
 
   # Person segmentation via MediaPipe Tasks ImageSegmenter, replacing Apple
-  # Vision. Pinned to the 0.10 line to track Android's
+  # Vision. Pinned to EXACTLY 0.10.14 to match Android's
   # com.google.mediapipe:tasks-vision:0.10.14 (same model family, same
   # confidence-mask API shape) so all three platforms run identical
-  # segmentation. The selfie_segmenter.tflite model ships in the
-  # Kaleidoscope.bundle resource_bundles glob below (resources/**/*).
-  s.dependency 'MediaPipeTasksVision', '~> 0.10'
+  # segmentation. The exact pin (not `~> 0.10`) is deliberate: the pessimistic
+  # range floats to the newest 0.10.x, and MediaPipeTasksVision 0.10.33+ ships
+  # an XCFramework structure with known CocoaPods linking problems; 0.10.14 is
+  # the known-good version the RN ecosystem standardizes on. The
+  # selfie_segmenter.tflite model ships in the Kaleidoscope.bundle
+  # resource_bundles glob below (resources/**/*).
+  s.dependency 'MediaPipeTasksVision', '0.10.14'
 
   # Fork-resolving dependency on react-native-webrtc. The Kaleidoscope target
   # needs FRAMEWORK_SEARCH_PATHS pointing at WebRTC.framework so the Swift
