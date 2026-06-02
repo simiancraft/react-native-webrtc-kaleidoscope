@@ -159,19 +159,20 @@ function patchPodfile(contents, pod) {
 
 // --- Prebuild asset copy (the precompiler) -------------------------------
 //
-// Read the consumer's preset book and copy ONLY the referenced background
-// images into the native bundle, so an app ships only what it curates. The
+// Read the consumer's preset book and copy ONLY the referenced image-layer
+// plates into the native bundle, so an app ships only what it curates. The
 // book is parsed as text (no execution): the runtime source values are
-// per-platform (a URL on web, a preset name on native), so they are not static
-// specifiers; instead we read the book's imports and its background-image
-// entries to learn which library asset each preset references.
+// per-platform (a URL on web, a plate id on native), so they are not static
+// specifiers; instead we read the book's imports and its `image` layers to
+// learn which asset each composite references.
 //
 // Static-analyzability is the consumer's contract (documented in the README):
-// each background-image entry is `'<id>': { shader: 'background-image',
-// options: { source: <importedIdentifier> } }` on one line, and the identifier
-// is a single named import from a `.../images/<name>` specifier. The mod
-// warns (never throws) on anything it cannot parse or resolve, matching the
-// plugin's non-fatal contract.
+// each `image` layer is `{ id: '<id>', shader: 'image', source: <ref> }`, where
+// <ref> is a `require('./x.webp')` literal, a single named import from a
+// `.../images/<name>` specifier, or a `const X = ...require('./x.webp')...`
+// binding (e.g. `Asset.fromModule(require('./x.webp')).uri`). The mod warns
+// (never throws) on anything it cannot parse or resolve, matching the plugin's
+// non-fatal contract.
 //
 // iOS copy (Xcode resource membership) rides with the mobile pass; this mod
 // handles Android, which merges app assets into the build directly.
@@ -187,6 +188,15 @@ function parseImports(source) {
     /import\s*\{\s*([A-Za-z0-9_$]+)(?:\s+as\s+([A-Za-z0-9_$]+))?\s*\}\s*from\s*['"]([^'"]+)['"]/g;
   for (const m of source.matchAll(re)) {
     imports[m[2] || m[1]] = m[3];
+  }
+  // Also resolve `const X = ...require('spec')...` bindings so a layer `source`
+  // can reference a consumer's own asset wrapped the idiomatic Expo way
+  // (`const wolfCave = Asset.fromModule(require('./x.webp')).uri`). Imports win
+  // on a name clash; the require specifier is what resolveAssetPath copies.
+  const requireBindingRe =
+    /(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*[^;\n]*\brequire\(\s*['"]([^'"]+)['"]\s*\)/g;
+  for (const m of source.matchAll(requireBindingRe)) {
+    if (!(m[1] in imports)) imports[m[1]] = m[2];
   }
   return imports;
 }
