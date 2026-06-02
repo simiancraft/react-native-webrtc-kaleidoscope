@@ -1,18 +1,16 @@
-// Deep space: the procedural nebula as a full-frame backdrop, you composited
-// over it. Fully procedural; no image layer.
-//
-// A packaged composite consumers can list by importing this module.
-//
-// Native variant. The thumbnail is set in nebula.web.ts via expo-asset; on
-// native, Asset.fromModule(...).uri cannot run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws). Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+// Web variant. Resolves the thumbnail URI via expo-asset at module-load time;
+// safe on web (react-native-web has no Image.resolveAssetSource and `.uri` is
+// set synchronously by fromModule). Native is nebula.ts (no thumbnail).
+// Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
+import { Asset } from 'expo-asset';
 import type { Composite } from '../../src/kaleidoscope/types';
+import nebulaThumb from './nebula.thumb.webp';
 
 export const nebula = {
   name: 'Nebula',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(nebulaThumb).uri,
   layers: [
     {
       id: 'nebula',
