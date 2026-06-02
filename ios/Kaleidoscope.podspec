@@ -34,10 +34,11 @@ Pod::Spec.new do |s|
   #       so each `main0` stays in its own namespace.
   s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift}'
 
-  # Bundled background-image presets (mirrors android/src/main/assets/
-  # backgrounds/) plus the transpiled Metal shader SOURCE. Both are loaded at
-  # runtime from the Kaleidoscope.bundle:
-  #   - BackgroundImageProcessor resolves "dark-office" -> dark-office.webp.
+  # Bundled image plates (mirrors android/src/main/assets/images/) plus the
+  # transpiled Metal shader SOURCE. Both are loaded at runtime from the
+  # Kaleidoscope.bundle:
+  #   - BundledImage resolves "dark-office" -> dark-office.webp (shared by
+  #     resolveBackgroundUri and the composite's image layers).
   #   - ShaderLibrary reads passthrough/blur/composite.metalsrc as TEXT and
   #     compiles each into its own MTLLibrary via makeLibrary(source:). The
   #     `.metalsrc` extension (not `.metal`) is required so Xcode's
