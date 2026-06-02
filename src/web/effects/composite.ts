@@ -22,7 +22,11 @@
 import type { LayerSpec } from '../../types';
 import type { FrameTransform } from '../insertable-streams';
 import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
-import { COMPOSITE_BLUR_FRAG_SRC, COMPOSITE_CAMERA_FRAG_SRC, PASSTHROUGH_VERT_SRC } from '../shaders';
+import {
+  COMPOSITE_BLUR_FRAG_SRC,
+  COMPOSITE_CAMERA_FRAG_SRC,
+  PASSTHROUGH_VERT_SRC,
+} from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 import { LAYER_SHADER_SOURCES } from './layer-shaders';
 
