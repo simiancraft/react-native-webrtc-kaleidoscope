@@ -4,6 +4,7 @@
 
 import Slider from '@react-native-community/slider';
 import { StyleSheet, Text, View } from 'react-native';
+import { ClientOnly } from './client-only';
 
 type Props = {
   hardness: number;
@@ -21,20 +22,25 @@ function Row({ label, value, disabled, onChange }: RowProps) {
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.value}>{value.toFixed(2)}</Text>
       </View>
-      <Slider
-        style={styles.slider}
-        // Floor at 0.01: at exactly 0 the mask smoothstep range collapses
-        // (lo === hi) and the edge breaks. 0.01 keeps it well-defined.
-        minimumValue={0.01}
-        maximumValue={1}
-        step={0.01}
-        value={value}
-        disabled={disabled}
-        onValueChange={onChange}
-        minimumTrackTintColor="#8888ff"
-        maximumTrackTintColor="#444"
-        thumbTintColor="#eeeeff"
-      />
+      {/* Slider's web shim calls useLayoutEffect; keep it out of the static
+          server render to avoid the SSR warning. Placeholder holds the row
+          height so hydration doesn't shift layout. */}
+      <ClientOnly fallback={<View style={styles.slider} />}>
+        <Slider
+          style={styles.slider}
+          // Floor at 0.01: at exactly 0 the mask smoothstep range collapses
+          // (lo === hi) and the edge breaks. 0.01 keeps it well-defined.
+          minimumValue={0.01}
+          maximumValue={1}
+          step={0.01}
+          value={value}
+          disabled={disabled}
+          onValueChange={onChange}
+          minimumTrackTintColor="#8888ff"
+          maximumTrackTintColor="#444"
+          thumbTintColor="#eeeeff"
+        />
+      </ClientOnly>
     </View>
   );
 }
