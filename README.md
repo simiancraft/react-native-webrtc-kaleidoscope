@@ -104,7 +104,7 @@ bunx expo prebuild
 
 ## Use
 
-First declare a **preset book** in your project: a flat catalog of **composites**, the only things you can command. A composite is `{ name, category, thumbnail?, layers }`; everything is a layer stack, painted back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's fields: `image` takes a `source`; `direct` is a passthrough of its channel (`target: 'subject'` is the masked person, `target: 'background'` the raw camera); `blur` and the generative shaders (`plasma`, `clouds`, …) take `uniforms`. `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer typing.
+First declare a **preset book** in your project: a flat catalog of **composites**, the only things you can command. A composite is `{ name, category, thumbnail?, layers }`; everything is a layer stack, painted back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's fields: `image` takes a `source`; `direct` samples the ingest-normalized (upright, non-mirrored) camera frame for its target (`target: 'subject'` is the masked person, `target: 'background'` the full frame); `blur` and the generative shaders (`plasma`, `clouds`, …) take `uniforms`. `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer typing.
 
 ```ts
 // kaleidoscope.presets.ts
@@ -200,7 +200,7 @@ function BackgroundControls({ kaleidoscope }) {
 }
 ```
 
-`KaleidoscopePicker` is a tabbed composite (one tab per shader family). The same pieces are exported as standalone primitives (`BackgroundGrid`, `PresetOptions`, `PresetTile`, `PresetOption`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
+`KaleidoscopePicker` is a tabbed composite (one tab per category; the picker groups your book by each composite's `category`, e.g. Worlds, Sky, Plasma, Blur, Backgrounds). The same pieces are exported as standalone primitives (`BackgroundGrid`, `PresetOptions`, `PresetTile`, `PresetOption`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
 
 **Styling, three tiers.** Sensible defaults out of the box; override with an RN `style` prop, a `className` prop, or a `renderTile` / `renderOption` render-prop slot for full control.
 

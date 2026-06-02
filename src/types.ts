@@ -34,7 +34,7 @@ export type LayerTarget = 'background' | 'subject';
 
 /**
  * The closed catalog of layer shaders and the fields each one requires. Keeping
- * it closed (mirrors `ShaderOptionsMap` for presets) is what lets the `shader`
+ * it closed (mirrors `ShaderUniformsMap` for presets) is what lets the `shader`
  * discriminant narrow cleanly on a `LayerSpec`:
  *   - `'image'`  replaces the target with a still image (needs `source`).
  *   - `'direct'` passes the target through unchanged (a matrix passthrough): on

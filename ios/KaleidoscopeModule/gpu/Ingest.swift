@@ -37,7 +37,7 @@
 //       original directly in its single pass, so a single-pass effect's
 //       foreground lands correct with no V term; blur's background travels
 //       through extra ping-pong passes (odd parity) and so still needs its own
-//       V term in BlurProcessor. The ingest is a CoreImage render, not a Metal
+//       V term in the blur layer pass. The ingest is a CoreImage render, not a Metal
 //       pass, so it does NOT participate in (2): it must not add a V-flip to
 //       "fix" a downstream pass-parity issue. If a screenshot is upside-down,
 //       decide which concern it is before touching anything.

@@ -61,7 +61,7 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
   }
 
   // Two-name bridge for VideoFrameProcessorDelegate; see MirrorProcessor's
-  // (removed) note and BlurProcessor. The Obj-C selector stays
+  // (removed) note and CompositeProcessor. The Obj-C selector stays
   // `capturer:didCaptureVideoFrame:` while Swift's importer requires the
   // `capturer(_:didCapture:)` label; the @objc(...) pins the emitted selector
   // back so runtime dispatch from VideoEffectProcessor finds this method.
@@ -147,7 +147,7 @@ public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
     )
 
     // R3 frame-pipelining: commit asynchronously and return the PREVIOUS
-    // frame's completed output (one frame of latency); see BlurProcessor and
+    // frame's completed output (one frame of latency); see CompositeProcessor and
     // MetalRenderer.commitPipelined. The held buffer matches the current dims
     // except for a single frame across a device-orientation change (display
     // dims swap on 90<->0), which WebRTC tolerates as a normal per-frame dim

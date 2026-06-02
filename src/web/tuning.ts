@@ -1,9 +1,11 @@
 // Mutable runtime state for the web GLSL effects. Mirrors
 // android/.../EffectTuning.kt and ios/.../EffectTuning.swift.
 //
-// `src/index.web.ts` exports setBlurSigma / setMaskHardness that write
-// here; per-frame transforms in `src/web/effects/*.ts` read here when
-// uploading uniforms. JS calls take effect on the next frame.
+// There are no global set* exports anymore; the mask edge (hardness/threshold)
+// is written here through the setMask closure that `bindKaleidoscope`
+// (src/index.web.ts) wires up, and the composite compositor in
+// `src/web/effects/*.ts` reads it when uploading uniforms. Writes take effect on
+// the next frame.
 
 const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.max(value, lo), hi);
 
