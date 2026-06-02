@@ -13,15 +13,27 @@ public class KaleidoscopeModule: Module {
       Registration.registerAll()
     }
 
-    Function("setBlurSigma") { (value: Float) in
+    // The three Float setters and the Int/Bool setters below accept Optional
+    // and guard-unwrap. ExpoModulesCore 1.12.26 on iOS delivers JS-side
+    // primitive arguments to the Function block as Optional even when the JS
+    // call passes a real value (Android's expo-modules-core delivers raw); a
+    // non-optional Swift signature throws CastingException<Float> at the
+    // JavaScriptUtils.swift:40 unwrap. Same Function shape on Android
+    // (`Float` non-nullable) works, so the asymmetry is on the iOS bridge.
+    // A nil value silently no-ops the setter, matching Android's tolerance
+    // for null in the same call path.
+    Function("setBlurSigma") { (value: Float?) in
+      guard let value = value else { return }
       EffectTuning.blurSigma = value
     }
 
-    Function("setMaskHardness") { (value: Float) in
+    Function("setMaskHardness") { (value: Float?) in
+      guard let value = value else { return }
       EffectTuning.maskHardness = value
     }
 
-    Function("setMaskThreshold") { (value: Float) in
+    Function("setMaskThreshold") { (value: Float?) in
+      guard let value = value else { return }
       EffectTuning.maskThreshold = value
     }
 
@@ -44,13 +56,17 @@ public class KaleidoscopeModule: Module {
 
     // Segmentation perf control. A JS device-tier sets this to trade mask
     // resolution for cost on lower-end devices (e.g. A11/iPhone X).
-    Function("setSegmentationTargetShortSide") { (value: Int) in
+    // Optional-typed param for the same iOS bridge-wrap reason as the Float
+    // setters above.
+    Function("setSegmentationTargetShortSide") { (value: Int?) in
+      guard let value = value else { return }
       EffectTuning.targetShortSide = value
     }
 
     // Native perf instrument toggle; logs GPU/segmentation/ingest timings under
     // the os_log "Perf" category. Off by default.
-    Function("setDebugTiming") { (value: Bool) in
+    Function("setDebugTiming") { (value: Bool?) in
+      guard let value = value else { return }
       EffectTuning.debugTiming = value
     }
 
