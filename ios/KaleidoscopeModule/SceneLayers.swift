@@ -4,8 +4,8 @@
 // The Expo Module's setSceneLayers(json) JS function writes here; SceneProcessor
 // reads the current layer stack each frame and composites it. This mirrors
 // ShaderUniforms' "deliver spec without re-registering" pattern, but carries the
-// whole ordered layer stack (the scene is one registered effect name, "scene",
-// whose contents JS swaps as the active scene changes).
+// whole ordered layer stack (the compositor is one registered effect name,
+// "composite", whose contents JS swaps as the active composite changes).
 //
 // The wire shape is a JSON array of layer objects (see parse()). JS sends it as a
 // String across the Expo bridge; we parse it once at set() time into immutable
@@ -24,6 +24,7 @@ import os.log
 /// A value type, so a `SceneLayers.get()` snapshot the capture thread reads is an
 /// immutable copy that a concurrent set() cannot mutate underneath it.
 struct SceneLayer {
+  let id: String // unique within a composite; the live-tuning / patch address
   let shader: String
   let target: String // "background" | "subject"
   let blend: String? // "normal" | "additive" | nil (base = opaque)
@@ -89,11 +90,16 @@ enum SceneLayers {
         os_log("layer %d has no shader; skipping", log: log, type: .info, index)
         continue
       }
+      // `id` is always present on the wire now (serializeSceneLayers emits it);
+      // fall back to the array index so a malformed payload missing it still
+      // yields a stable, unique-per-stack address rather than a collision.
+      // Mirrors SceneLayers.kt's id fallback.
+      let id = (obj["id"] as? String) ?? String(index)
       let target = (obj["target"] as? String) ?? "background"
       let blend = obj["blend"] as? String
       let source = obj["source"] as? String
       let uniforms = parseUniforms(obj["uniforms"])
-      out.append(SceneLayer(shader: shader, target: target, blend: blend,
+      out.append(SceneLayer(id: id, shader: shader, target: target, blend: blend,
                             source: source, uniforms: uniforms))
     }
     return out

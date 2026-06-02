@@ -88,22 +88,33 @@ extension MetalRenderer {
     }
   }
 
-  /// Begin a scene render pass into `target`, clearing it to opaque black. The
-  /// returned encoder is left OPEN: the caller draws every layer into it (each
-  /// layer is a fullscreen quad with its own pipeline state and fragment
-  /// bindings) and MUST call endEncoding(). A single pass for the whole stack is
-  /// correct because Metal applies the pipeline's fixed-function blend against
-  /// the attachment's running contents within one encoder, exactly like the GL
-  /// FBO accumulation Android does. `.clear` to (0,0,0,1) matches SceneFactory's
-  /// opaque-black clear so a non-covering base reads as defined black.
+  /// Begin a scene render pass into `target`. The returned encoder is left OPEN:
+  /// the caller draws ONE layer's output quad into it and MUST call endEncoding().
+  ///
+  /// `clear` controls the load action: the BASE layer opens with `.clear`
+  /// (opaque black, alpha 1) to establish the opaque base; every later output
+  /// draw opens with `.load`, preserving the running composite so the pipeline's
+  /// fixed-function blend blends the new quad against the accumulated contents.
+  ///
+  /// WHY one encoder PER output draw (not one for the whole stack as before): a
+  /// scratch-backed layer (blur, or any layer targeting the subject) must render
+  /// its content into a SEPARATE .private texture FIRST, which is its own render
+  /// pass; two encoders cannot be open on one command buffer at once, and an open
+  /// encoder cannot be interleaved with a different-target pass. Re-opening the
+  /// scene encoder with `.load` between scratch passes is the Metal-faithful
+  /// analogue of the GL "bind output FBO, set blend, draw" the other two
+  /// platforms repeat per layer (Android's bindOutputBlend). `.clear` to
+  /// (0,0,0,1) matches SceneFactory's opaque-black base clear so a non-covering
+  /// base reads as defined black.
   func beginSceneEncoder(
     commandBuffer: MTLCommandBuffer,
     target: MTLTexture,
+    clear: Bool,
     label: String
   ) throws -> MTLRenderCommandEncoder {
     let passDesc = MTLRenderPassDescriptor()
     passDesc.colorAttachments[0].texture = target
-    passDesc.colorAttachments[0].loadAction = .clear
+    passDesc.colorAttachments[0].loadAction = clear ? .clear : .load
     passDesc.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
     passDesc.colorAttachments[0].storeAction = .store
     guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDesc) else {
@@ -185,5 +196,134 @@ extension MetalRenderer {
       }
     }
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+  }
+
+  /// Draw the raw camera fullscreen (direct/background) into the open scene
+  /// encoder. Binds the camera texture at texture(0), the shared sampler at
+  /// sampler(0) — matching scene-camera.metalsrc. No uniform buffers. Mirrors
+  /// SceneFactory.drawCameraLayer (Android) / the direct/background branch in
+  /// scene.ts.
+  func drawSceneCameraLayer(
+    encoder: MTLRenderCommandEncoder,
+    pipeline: MTLRenderPipelineState,
+    camera: MTLTexture
+  ) {
+    encoder.setRenderPipelineState(pipeline)
+    encoder.setFragmentTexture(camera, index: 0)
+    encoder.setFragmentSamplerState(linearClampSampler, index: 0)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+  }
+
+  /// Blit a finished scratch texture (premultiplied) into the open scene encoder
+  /// with a content-UV transform that folds in the scratch's per-pass V parity.
+  /// Used for a blur/background layer. Binds uContentUvScale at buffer(0),
+  /// uContentUvOffset at buffer(1), the scratch at texture(0), the shared sampler
+  /// at sampler(0) — matching scene-blit.metalsrc. Mirrors SceneFactory.drawBlit
+  /// (Android) / the blur/background blit in scene.ts.
+  func drawSceneBlitLayer(
+    encoder: MTLRenderCommandEncoder,
+    pipeline: MTLRenderPipelineState,
+    content: MTLTexture,
+    contentUvScale: SIMD2<Float>,
+    contentUvOffset: SIMD2<Float>
+  ) {
+    encoder.setRenderPipelineState(pipeline)
+    var contentUvScaleVar = contentUvScale
+    var contentUvOffsetVar = contentUvOffset
+    encoder.setFragmentBytes(&contentUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+    encoder.setFragmentBytes(&contentUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
+    encoder.setFragmentTexture(content, index: 0)
+    encoder.setFragmentSamplerState(linearClampSampler, index: 0)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+  }
+
+  /// Stencil a finished scratch texture (premultiplied) to the subject through
+  /// the mask alpha, into the open scene encoder. This is how ANY non-direct
+  /// layer (generative, image, blur) targets the subject. Binds, matching
+  /// scene-masked.metalsrc: buffer(0) uContentUvScale, (1) uContentUvOffset, (2)
+  /// uMaskUvScale, (3) uMaskUvOffset, (4) uMaskLo, (5) uMaskHi; texture(0) content,
+  /// (1) mask; sampler(0)/(1). Mirrors SceneFactory.drawMaskedComposite (Android)
+  /// / the masked-composite pass in scene.ts.
+  func drawSceneMaskedLayer(
+    encoder: MTLRenderCommandEncoder,
+    pipeline: MTLRenderPipelineState,
+    content: MTLTexture,
+    mask: MTLTexture,
+    contentUvScale: SIMD2<Float>,
+    contentUvOffset: SIMD2<Float>,
+    maskUvScale: SIMD2<Float>,
+    maskUvOffset: SIMD2<Float>,
+    maskLo: Float,
+    maskHi: Float
+  ) {
+    encoder.setRenderPipelineState(pipeline)
+    var contentUvScaleVar = contentUvScale
+    var contentUvOffsetVar = contentUvOffset
+    var maskUvScaleVar = maskUvScale
+    var maskUvOffsetVar = maskUvOffset
+    var maskLoVar = maskLo
+    var maskHiVar = maskHi
+    encoder.setFragmentBytes(&contentUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+    encoder.setFragmentBytes(&contentUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
+    encoder.setFragmentBytes(&maskUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 2)
+    encoder.setFragmentBytes(&maskUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 3)
+    encoder.setFragmentBytes(&maskLoVar, length: MemoryLayout<Float>.stride, index: 4)
+    encoder.setFragmentBytes(&maskHiVar, length: MemoryLayout<Float>.stride, index: 5)
+    encoder.setFragmentTexture(content, index: 0)
+    encoder.setFragmentTexture(mask, index: 1)
+    encoder.setFragmentSamplerState(linearClampSampler, index: 0)
+    encoder.setFragmentSamplerState(linearClampSampler, index: 1)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+  }
+
+  /// Encode one camera-sampling separable-gaussian blur pass (`source` ->
+  /// `target`) along `axis`, into its OWN render pass (blend off, `.dontCare`
+  /// load: every texel overwritten). The host runs this twice (horizontal then
+  /// vertical) into ping-pong scratch textures; see SceneProcessor.
+  /// scene-blur.metalsrc bindings: buffer(0) uDir, buffer(1) uSigma; texture(0)
+  /// uTex; sampler(0). Reuses drawFullscreen, so it shares the dontCare-load
+  /// single-quad convention with the standalone blur/transform passes.
+  func encodeSceneBlurPass(
+    commandBuffer: MTLCommandBuffer,
+    pipeline: MTLRenderPipelineState,
+    source: MTLTexture,
+    target: MTLTexture,
+    dir: SIMD2<Float>,
+    sigma: Float,
+    label: String
+  ) throws {
+    try drawFullscreen(
+      commandBuffer: commandBuffer,
+      pipeline: pipeline,
+      target: target,
+      label: label
+    ) { encoder in
+      var dirVar = dir
+      var sigmaVar = sigma
+      encoder.setFragmentBytes(&dirVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+      encoder.setFragmentBytes(&sigmaVar, length: MemoryLayout<Float>.stride, index: 1)
+      encoder.setFragmentTexture(source, index: 0)
+      encoder.setFragmentSamplerState(linearClampSampler, index: 0)
+    }
+  }
+
+  /// Two .private scene scratch render targets, BGRA at full output resolution,
+  /// allocated on first use or resolution change. scratchA holds a subject
+  /// layer's rendered content (and the blur's horizontal pass); scratchB holds
+  /// the blur's vertical pass. Mirrors SceneFactory's scratchA/scratchB Fbos and
+  /// scene.ts's createFbo pair. Distinct from blurPingPong (the standalone blur
+  /// effect's intermediates) so the two paths never alias.
+  func sceneScratch(width: Int, height: Int) throws -> (MTLTexture, MTLTexture) {
+    if let a = sceneScratchA, let b = sceneScratchB,
+       sceneScratchWidth == width, sceneScratchHeight == height {
+      return (a, b)
+    }
+    let a = try makeGenerativeTarget(width: width, height: height)
+    let b = try makeGenerativeTarget(width: width, height: height)
+    sceneScratchA = a
+    sceneScratchB = b
+    sceneScratchWidth = width
+    sceneScratchHeight = height
+    return (a, b)
   }
 }

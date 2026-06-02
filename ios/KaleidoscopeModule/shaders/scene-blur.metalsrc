@@ -1,0 +1,56 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+// Scene compositor BLUR layer: a CAMERA-SAMPLING separable gaussian, 9-tap
+// (offsets -4..4), sigma-weighted, ONE pass per direction (uDir is the texel
+// step on the active axis). Mirrors LayerShaders.BLUR_FRAG (Android) /
+// BLUR_FRAG_SRC (web) verbatim, NOT the codegen'd blur.metalsrc (which is the
+// downscaled linear-sampled kernel of the standalone blur effect, bound from a
+// host-computed weights/offsets buffer). Here the weights are derived in-shader
+// from uSigma so the host only supplies sigma + the axis step. Output keeps the
+// source alpha (the camera "original" is opaque, alpha 1).
+//
+// The host runs this twice per blur layer into ping-pong scratch textures
+// (horizontal camera -> scratchA, then vertical scratchA -> scratchB), each its
+// own .private render-target pass, then blits scratchB into the output. See
+// SceneProcessor.renderContentToScratch for the two-pass drive and the V-parity
+// accounting (scratchB is an EVEN number of render passes from the camera, so it
+// blits with no V flip).
+//
+// Hand-authored to match the spirv-cross idiom; ShaderLibrary loads it like the
+// transpiled .metalsrc. SceneProcessor binds: buffer(0) uDir, buffer(1) uSigma;
+// texture(0) uTex; sampler(0) uTex's. The fixed `for` bound (5) avoids a
+// dynamic-length loop, matching the GLSL `w[5]` unroll the other platforms use.
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uDir [[buffer(0)]], constant float& uSigma [[buffer(1)]], texture2d<float> uTex [[texture(0)]], sampler uTexSmplr [[sampler(0)]])
+{
+    main0_out out = {};
+    float s2 = 2.0 * uSigma * uSigma;
+    float w[5];
+    float sum = 0.0;
+    for (int i = 0; i < 5; i++)
+    {
+        w[i] = exp(-(float(i) * float(i)) / s2);
+        sum += (i == 0) ? w[i] : (2.0 * w[i]);
+    }
+    float4 acc = uTex.sample(uTexSmplr, in.vUv) * (w[0] / sum);
+    for (int i = 1; i < 5; i++)
+    {
+        float2 off = uDir * float(i);
+        acc += uTex.sample(uTexSmplr, in.vUv + off) * (w[i] / sum);
+        acc += uTex.sample(uTexSmplr, in.vUv - off) * (w[i] / sum);
+    }
+    out.oColor = acc;
+    return out;
+}

@@ -35,10 +35,10 @@ public class KaleidoscopeModule: Module {
       ShaderUniforms.set(name: name, uniforms: uniforms)
     }
 
-    // Scene layer-stack channel. Mirrors android/.../KaleidoscopeModule.kt's
-    // setSceneLayers: JS sends the active scene's ordered layer stack as a JSON
-    // string; SceneLayers parses it into the snapshot the registered "scene"
-    // SceneProcessor composites each frame.
+    // Composite layer-stack channel. Mirrors android/.../KaleidoscopeModule.kt's
+    // setSceneLayers: JS sends the active composite's ordered layer stack as a
+    // JSON string; SceneLayers parses it into the snapshot the registered
+    // "composite" SceneProcessor composites each frame.
     Function("setSceneLayers") { (json: String) in
       SceneLayers.set(json)
     }
@@ -49,7 +49,7 @@ public class KaleidoscopeModule: Module {
     // the source. Uses the same bundle lookup as the background-image effect, so
     // the thumbnail and the rendered background resolve to the same file.
     Function("resolveBackgroundUri") { (id: String) -> String? in
-      BackgroundImageProcessor.bundledURL(for: id)?.absoluteString
+      BundledImage.bundledURL(for: id)?.absoluteString
     }
 
     // Segmentation perf control. A JS device-tier sets this to trade mask

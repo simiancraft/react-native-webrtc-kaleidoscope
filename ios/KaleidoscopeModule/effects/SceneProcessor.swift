@@ -16,17 +16,24 @@
 //      completed (mirroring SceneFactory drawing the rest of the stack and
 //      skipping the subject on maskTexId == -1). Kick a new segmentation when
 //      idle.
-//   3. Composite every layer into the output buffer's BGRA texture in ONE Metal
-//      render pass: layer 0 clears to opaque black and draws with blending off;
-//      later layers draw with premultiplied over (normal) or add (additive). Per
-//      layer kind:
-//        - 'image'  : cover-fit the plate (scene-image.metalsrc), premultiplied.
-//        - 'direct' + subject : the masked person (scene-subject.metalsrc),
-//                     premultiplied. Skipped if no mask (handled at step 2).
-//        - generative : render its frag (the layer .metalsrc, reusing the generic
+//   3. Composite every layer into the output buffer's BGRA texture. Each layer's
+//      OUTPUT draw is its own scene encoder (the first actual draw clears to
+//      opaque black, establishing the base; later draws `.load` and blend with
+//      premultiplied over (normal) or add (additive)). A scratch-backed layer
+//      renders its content into a .private scratch texture in a SEPARATE pass
+//      first. Per layer kind (mirrors the generalized scene.ts / SceneFactory):
+//        - 'image'/background  : cover-fit the plate (scene-image.metalsrc).
+//        - 'direct'/background : raw camera fullscreen (scene-camera.metalsrc).
+//        - 'blur'/background   : two-pass camera-sampling gaussian
+//                     (scene-blur.metalsrc) into scratchA->scratchB, then blit
+//                     (scene-blit.metalsrc).
+//        - generative/background : render its frag (the layer .metalsrc, generic
 //                     uniform-by-name binding) with uTime/uResolution + uniforms.
-//      A generative layer on the subject target is skipped (mirrors the web/
-//      Android "for now"); a 'direct' background layer is a no-op.
+//        - 'direct'/subject    : the masked person (scene-subject.metalsrc).
+//        - ANY other layer / subject : render the layer to a scratch, then a
+//                     masked-composite (scene-masked.metalsrc) multiplies it by
+//                     the mask alpha. So generative/blur/image can target subject.
+//      Subject layers are skipped until a mask has completed (step 2).
 //   4. Hand off via R3 frame-pipelining (commitPipelined), returning the PREVIOUS
 //      completed frame, exactly like the other processors.
 //
@@ -57,13 +64,24 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
   private var rendererFailed = false
   private let segmenter = Segmenter()
 
-  // Fixed (non-generative) layer fragments, compiled once. The image + subject
-  // fragments live in their own .metalsrc; each needs the three blend variants
-  // (opaque base, over, additive), cached by blend mode.
+  // Fixed (non-generative) layer fragments, compiled once. Each lives in its own
+  // .metalsrc; the output-drawing ones (image, subject, camera, blit, masked) need
+  // the three blend variants (opaque base, over, additive), cached by blend mode.
+  // The blur fragment runs into a scratch with blend OFF (its own .dontCare pass),
+  // so it needs a plain generative-style pipeline, not a blend variant.
   private var imageFragment: MTLFunction?
   private var subjectFragment: MTLFunction?
+  private var cameraFragment: MTLFunction?
+  private var blitFragment: MTLFunction?
+  private var maskedFragment: MTLFunction?
+  private var blurFragment: MTLFunction?
+  private var blurPipeline: MTLRenderPipelineState?
   private var imageFailed = false
   private var subjectFailed = false
+  private var cameraFailed = false
+  private var blitFailed = false
+  private var maskedFailed = false
+  private var blurFailed = false
 
   // Pipeline-state cache keyed by "<fragment label>|<blend>". Image, subject, and
   // each generative shader get one pipeline per blend mode used. Built lazily.
@@ -195,19 +213,36 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     let commandBuffer = try renderer.makeCommandBuffer()
     commandBuffer.label = "Kaleidoscope.Scene"
 
-    let encoder = try renderer.beginSceneEncoder(
-      commandBuffer: commandBuffer, target: outputTexture, label: "scene-composite"
-    )
+    // Composite the stack into the output texture. Unlike a single open encoder
+    // for the whole stack, each layer's OUTPUT draw gets its own scene encoder:
+    // the base opens `.clear` (opaque black), later layers open `.load`
+    // (preserve the running composite). A scratch-backed layer (blur, or any
+    // non-direct subject layer) renders its content into a .private scratch in a
+    // SEPARATE pass first, then the output encoder samples it. Two encoders
+    // cannot be open at once on one command buffer, so the per-layer-encoder
+    // shape is what lets the scratch passes interleave. Mirrors the GL "bind
+    // output FBO, set blend, draw" the other platforms repeat per layer.
+    var isFirstOutputDraw = true
     for (index, layer) in layers.enumerated() {
       let blend = blendFor(isBase: index == 0, blend: layer.blend)
       drawLayer(
-        encoder: encoder, renderer: renderer, layer: layer, blend: blend,
-        width: width, height: height, elapsed: elapsed,
+        commandBuffer: commandBuffer, renderer: renderer, layer: layer, blend: blend,
+        isFirstOutputDraw: &isFirstOutputDraw,
+        outputTexture: outputTexture, width: width, height: height, elapsed: elapsed,
         camera: originalTexture, mask: maskTexture,
         maskLo: maskLo, maskHi: maskHi
       )
     }
-    encoder.endEncoding()
+    // If NO layer produced an output draw (e.g. a single subject layer with no
+    // mask yet), the output texture was never cleared. Clear it to opaque black
+    // so the frame is defined rather than reading the pooled buffer's stale
+    // contents. A cheap clear-only pass.
+    if isFirstOutputDraw {
+      let clearEncoder = try renderer.beginSceneEncoder(
+        commandBuffer: commandBuffer, target: outputTexture, clear: true, label: "scene-clear"
+      )
+      clearEncoder.endEncoding()
+    }
 
     // Step 4: R3 frame-pipelining. keepAlive holds the per-frame inputs the
     // in-flight GPU command buffer still reads after process() returns: the
@@ -241,15 +276,35 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     return .over
   }
 
-  // Draw one layer into the open scene encoder at the given blend. Any failure to
-  // build a pipeline / load a plate / compile a generative shader skips THIS
-  // layer (logged once) rather than aborting the frame, so a partial scene still
-  // composites — mirroring SceneFactory's per-layer skips.
+  // The per-pass V parity a scratch carries (see the V-FLIP reasoning at the top
+  // of renderContentToScratch). A single-pass scratch (image / generative) is
+  // V-flipped relative to a direct draw; a two-pass blur scratch is not.
+  private static let scratchOddParity =
+    (scale: SIMD2<Float>(1, -1), offset: SIMD2<Float>(0, 1))
+  private static let scratchEvenParity =
+    (scale: SIMD2<Float>(1, 1), offset: SIMD2<Float>(0, 0))
+
+  // Composite one layer onto the output. Mirrors the per-layer body of scene.ts /
+  // SceneFactory.drawLayer: a 'subject' layer is mask-stenciled (direct takes the
+  // one-pass cam x mask fast path; any other shader renders to a scratch then a
+  // masked-composite multiplies by the mask alpha), a 'background' layer draws
+  // fullscreen (image cover-fit, direct raw camera, blur the two-pass gaussian,
+  // generative its frag). Any failure to build a pipeline / load a plate / compile
+  // a shader skips THIS layer (logged once) rather than aborting the frame, so a
+  // partial scene still composites — mirroring SceneFactory's per-layer skips.
+  //
+  // Each output draw opens its OWN scene encoder (clear on the first actual draw,
+  // load after); scratch-backed layers render their content in a separate pass
+  // first. `isFirstOutputDraw` is inout so the FIRST layer that actually draws
+  // clears the output (establishing the opaque base) even if the declared base
+  // layer was skipped (e.g. a subject layer with no mask yet).
   private func drawLayer(
-    encoder: MTLRenderCommandEncoder,
+    commandBuffer: MTLCommandBuffer,
     renderer: MetalRenderer,
     layer: SceneLayer,
     blend: MetalRenderer.SceneBlend,
+    isFirstOutputDraw: inout Bool,
+    outputTexture: MTLTexture,
     width: Int,
     height: Int,
     elapsed: Float,
@@ -258,95 +313,264 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
     maskLo: Float,
     maskHi: Float
   ) {
+    if layer.target == "subject" {
+      // Subject layers need the mask; skip until it warms up (mirrors web's
+      // subjectReady guard / SceneFactory's maskTexId == -1 skip).
+      guard let mask = mask else { return }
+      if layer.shader == "direct" {
+        // One-pass fast path: cam x mask.
+        guard let fragment = ensureSubjectFragment(renderer: renderer),
+              let pipeline = ensurePipeline(
+                fragment: fragment, fragmentLabel: "scene-subject", blend: blend, renderer: renderer
+              ) else { return }
+        withOutputEncoder(
+          commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
+          isFirstOutputDraw: &isFirstOutputDraw, label: "scene-subject-direct"
+        ) { encoder in
+          // iOS mask is aligned with the camera (the Segmenter's flip bracket),
+          // so identity mask UV, unlike web's V-flip.
+          renderer.drawSceneSubjectLayer(
+            encoder: encoder, pipeline: pipeline, camera: camera, mask: mask,
+            maskUvScale: SIMD2<Float>(1, 1), maskUvOffset: SIMD2<Float>(0, 0),
+            maskLo: maskLo, maskHi: maskHi
+          )
+        }
+        return
+      }
+      // Render the layer's content to a scratch, then stencil it through the mask.
+      guard let content = renderContentToScratch(
+        commandBuffer: commandBuffer, renderer: renderer, layer: layer,
+        width: width, height: height, elapsed: elapsed, camera: camera
+      ) else { return }
+      guard let fragment = ensureMaskedFragment(renderer: renderer),
+            let pipeline = ensurePipeline(
+              fragment: fragment, fragmentLabel: "scene-masked", blend: blend, renderer: renderer
+            ) else { return }
+      withOutputEncoder(
+        commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
+        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-masked"
+      ) { encoder in
+        renderer.drawSceneMaskedLayer(
+          encoder: encoder, pipeline: pipeline, content: content.texture, mask: mask,
+          contentUvScale: content.uvScale, contentUvOffset: content.uvOffset,
+          maskUvScale: SIMD2<Float>(1, 1), maskUvOffset: SIMD2<Float>(0, 0),
+          maskLo: maskLo, maskHi: maskHi
+        )
+      }
+      return
+    }
+
+    // Background layers draw fullscreen.
     switch layer.shader {
     case "image":
-      drawImageLayer(encoder: encoder, renderer: renderer, layer: layer,
-                     blend: blend, width: width, height: height)
+      guard let id = layer.source else {
+        os_log("image layer has no source id; skipping", log: SceneProcessor.log, type: .info)
+        return
+      }
+      guard let plate = ensurePlateTexture(id: id, device: renderer.device),
+            let fragment = ensureImageFragment(renderer: renderer),
+            let pipeline = ensurePipeline(
+              fragment: fragment, fragmentLabel: "scene-image", blend: blend, renderer: renderer
+            ) else { return }
+      let cover = coverScale(outW: width, outH: height, imgAspect: plate.aspect)
+      withOutputEncoder(
+        commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
+        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-image"
+      ) { encoder in
+        renderer.drawSceneImageLayer(
+          encoder: encoder, pipeline: pipeline, plate: plate.texture, coverScale: cover
+        )
+      }
     case "direct":
-      // Passthrough. On the subject that is the masked person; on the background
-      // it is a no-op (nothing to pass through but the stack). Skipped if the
-      // mask is unavailable (step 2 already forwarded the original in that case,
-      // so `mask` is non-nil here whenever a subject layer exists).
-      if layer.target == "subject", let mask = mask {
-        drawSubjectLayer(encoder: encoder, renderer: renderer, blend: blend,
-                         camera: camera, mask: mask, maskLo: maskLo, maskHi: maskHi)
+      // Raw camera fullscreen.
+      guard let fragment = ensureCameraFragment(renderer: renderer),
+            let pipeline = ensurePipeline(
+              fragment: fragment, fragmentLabel: "scene-camera", blend: blend, renderer: renderer
+            ) else { return }
+      withOutputEncoder(
+        commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
+        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-camera"
+      ) { encoder in
+        renderer.drawSceneCameraLayer(encoder: encoder, pipeline: pipeline, camera: camera)
+      }
+    case "blur":
+      // Two-pass gaussian into a scratch, then blit the scratch to the output.
+      guard let content = renderContentToScratch(
+        commandBuffer: commandBuffer, renderer: renderer, layer: layer,
+        width: width, height: height, elapsed: elapsed, camera: camera
+      ) else { return }
+      guard let fragment = ensureBlitFragment(renderer: renderer),
+            let pipeline = ensurePipeline(
+              fragment: fragment, fragmentLabel: "scene-blit", blend: blend, renderer: renderer
+            ) else { return }
+      withOutputEncoder(
+        commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
+        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-blit"
+      ) { encoder in
+        renderer.drawSceneBlitLayer(
+          encoder: encoder, pipeline: pipeline, content: content.texture,
+          contentUvScale: content.uvScale, contentUvOffset: content.uvOffset
+        )
       }
     default:
-      // A generative layer. Stenciling one to the subject is a later step; for
-      // now generative layers run on the background only (mirrors web/Android).
-      if layer.target != "subject" {
-        drawGenerativeLayer(encoder: encoder, renderer: renderer, layer: layer,
-                            blend: blend, width: width, height: height, elapsed: elapsed)
+      // Generative background.
+      guard let (fragment, indices) = ensureGenerative(name: layer.shader, renderer: renderer),
+            let pipeline = ensurePipeline(
+              fragment: fragment, fragmentLabel: layer.shader, blend: blend, renderer: renderer
+            ) else { return }
+      let builtins = makeBuiltinBindings(indices: indices, elapsed: elapsed, width: width, height: height)
+      let uniforms = makeUniformBindings(indices: indices, layer: layer)
+      withOutputEncoder(
+        commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
+        isFirstOutputDraw: &isFirstOutputDraw, label: "scene-\(layer.shader)"
+      ) { encoder in
+        renderer.drawSceneGenerativeLayer(
+          encoder: encoder, pipeline: pipeline, builtinBindings: builtins, uniformBindings: uniforms
+        )
       }
     }
   }
 
-  private func drawImageLayer(
-    encoder: MTLRenderCommandEncoder,
+  // Open a one-layer output scene encoder, run `draw`, end it. The FIRST actual
+  // output draw clears the output to opaque black (establishing the base); every
+  // later draw loads the running composite so the pipeline's blend accumulates.
+  // `isFirstOutputDraw` flips false after the first real draw.
+  private func withOutputEncoder(
+    commandBuffer: MTLCommandBuffer,
     renderer: MetalRenderer,
-    layer: SceneLayer,
-    blend: MetalRenderer.SceneBlend,
-    width: Int,
-    height: Int
+    outputTexture: MTLTexture,
+    isFirstOutputDraw: inout Bool,
+    label: String,
+    _ draw: (MTLRenderCommandEncoder) -> Void
   ) {
-    guard let id = layer.source else {
-      os_log("image layer has no source id; skipping", log: SceneProcessor.log, type: .info)
-      return
+    do {
+      let encoder = try renderer.beginSceneEncoder(
+        commandBuffer: commandBuffer, target: outputTexture,
+        clear: isFirstOutputDraw, label: label
+      )
+      draw(encoder)
+      encoder.endEncoding()
+      isFirstOutputDraw = false
+    } catch {
+      os_log("scene output encoder %{public}@ failed: %{public}@",
+             log: SceneProcessor.log, type: .error, label, error.localizedDescription)
     }
-    guard let plate = ensurePlateTexture(id: id, device: renderer.device) else { return }
-    guard let fragment = ensureImageFragment(renderer: renderer) else { return }
-    guard let pipeline = ensurePipeline(
-      fragment: fragment, fragmentLabel: "scene-image", blend: blend, renderer: renderer
-    ) else { return }
-    let coverScale = coverScale(outW: width, outH: height, imgAspect: plate.aspect)
-    renderer.drawSceneImageLayer(
-      encoder: encoder, pipeline: pipeline, plate: plate.texture, coverScale: coverScale
-    )
   }
 
-  private func drawSubjectLayer(
-    encoder: MTLRenderCommandEncoder,
-    renderer: MetalRenderer,
-    blend: MetalRenderer.SceneBlend,
-    camera: MTLTexture,
-    mask: MTLTexture,
-    maskLo: Float,
-    maskHi: Float
-  ) {
-    guard let fragment = ensureSubjectFragment(renderer: renderer) else { return }
-    guard let pipeline = ensurePipeline(
-      fragment: fragment, fragmentLabel: "scene-subject", blend: blend, renderer: renderer
-    ) else { return }
-    // iOS mask is aligned with the camera FBO (the Segmenter's flip bracket), so
-    // identity mask UV, matching the background-image / blur composites — unlike
-    // web's V-flip.
-    renderer.drawSceneSubjectLayer(
-      encoder: encoder, pipeline: pipeline, camera: camera, mask: mask,
-      maskUvScale: SIMD2<Float>(1, 1), maskUvOffset: SIMD2<Float>(0, 0),
-      maskLo: maskLo, maskHi: maskHi
-    )
-  }
-
-  private func drawGenerativeLayer(
-    encoder: MTLRenderCommandEncoder,
+  // Render a layer's content into a .private scratch texture (its own pass, blend
+  // off), returning the texture and the content-UV V-parity term the output draw
+  // must apply when it samples it. Mirrors renderContentToScratch in scene.ts /
+  // SceneFactory.
+  //
+  // V-FLIP PARITY (RISK: reasoned, not device-verified): every Metal
+  // render-to-texture pass flips vertically in buffer space relative to a
+  // directly-sampled texture, because the transpiled passthrough vertex does not
+  // negate gl_Position.y (see MetalRenderer header; the BlurProcessor composite
+  // relies on the same property for its odd-pass blurred background). A layer
+  // drawn DIRECTLY into the output (image/camera/generative background) is one
+  // pass and lands correct. Routing a layer through a scratch adds passes:
+  //   - blur: camera -> scratchA (1) -> scratchB (2). TWO passes, EVEN parity, so
+  //     scratchB matches the camera orientation; the blit samples it with no V
+  //     flip (scratchEvenParity).
+  //   - image / generative to subject: ONE pass into scratchA, ODD parity, so the
+  //     masked-composite samples it V-flipped to undo the extra pass
+  //     (scratchOddParity). This restores the same orientation the layer would
+  //     have had drawn directly (the scene-image -sy cover term included).
+  // If a subject generative/image renders vertically inverted on device, flip the
+  // scratchOddParity term to even (and vice-versa) — that single constant is the
+  // calibration knob, exactly like BlurProcessor's bgUvScale.
+  private func renderContentToScratch(
+    commandBuffer: MTLCommandBuffer,
     renderer: MetalRenderer,
     layer: SceneLayer,
-    blend: MetalRenderer.SceneBlend,
     width: Int,
     height: Int,
-    elapsed: Float
-  ) {
-    guard let (fragment, indices) = ensureGenerative(name: layer.shader, renderer: renderer) else {
-      return
+    elapsed: Float,
+    camera: MTLTexture
+  ) -> (texture: MTLTexture, uvScale: SIMD2<Float>, uvOffset: SIMD2<Float>)? {
+    let scratch: (MTLTexture, MTLTexture)
+    do {
+      scratch = try renderer.sceneScratch(width: width, height: height)
+    } catch {
+      os_log("scene scratch alloc failed: %{public}@",
+             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      return nil
     }
-    guard let pipeline = ensurePipeline(
-      fragment: fragment, fragmentLabel: layer.shader, blend: blend, renderer: renderer
-    ) else { return }
+    let (scratchA, scratchB) = scratch
+
+    if layer.shader == "blur" {
+      guard let fragment = ensureBlurFragment(renderer: renderer),
+            let pipeline = ensureBlurPipeline(fragment: fragment, renderer: renderer) else {
+        return nil
+      }
+      let sigma = layer.uniforms["sigma"]?.first ?? 4
+      do {
+        // Horizontal pass: camera -> scratchA.
+        try renderer.encodeSceneBlurPass(
+          commandBuffer: commandBuffer, pipeline: pipeline, source: camera, target: scratchA,
+          dir: SIMD2<Float>(1 / Float(width), 0), sigma: sigma, label: "scene-blur-h"
+        )
+        // Vertical pass: scratchA -> scratchB.
+        try renderer.encodeSceneBlurPass(
+          commandBuffer: commandBuffer, pipeline: pipeline, source: scratchA, target: scratchB,
+          dir: SIMD2<Float>(0, 1 / Float(height)), sigma: sigma, label: "scene-blur-v"
+        )
+      } catch {
+        os_log("scene blur pass failed: %{public}@",
+               log: SceneProcessor.log, type: .error, error.localizedDescription)
+        return nil
+      }
+      return (scratchB, SceneProcessor.scratchEvenParity.scale, SceneProcessor.scratchEvenParity.offset)
+    }
+
+    // image / generative: render once into scratchA (blend off, cleared).
+    if layer.shader == "image" {
+      guard let id = layer.source else {
+        os_log("image layer has no source id; skipping", log: SceneProcessor.log, type: .info)
+        return nil
+      }
+      guard let plate = ensurePlateTexture(id: id, device: renderer.device),
+            let fragment = ensureImageFragment(renderer: renderer),
+            let pipeline = ensurePipeline(
+              fragment: fragment, fragmentLabel: "scene-image",
+              blend: .opaqueBase, renderer: renderer
+            ) else { return nil }
+      let cover = coverScale(outW: width, outH: height, imgAspect: plate.aspect)
+      do {
+        try renderer.drawFullscreen(
+          commandBuffer: commandBuffer, pipeline: pipeline, target: scratchA, label: "scene-image-scratch"
+        ) { encoder in
+          var coverVar = cover
+          encoder.setFragmentBytes(&coverVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+          encoder.setFragmentTexture(plate.texture, index: 0)
+          encoder.setFragmentSamplerState(renderer.linearClampSampler, index: 0)
+        }
+      } catch {
+        os_log("scene image scratch failed: %{public}@",
+               log: SceneProcessor.log, type: .error, error.localizedDescription)
+        return nil
+      }
+      return (scratchA, SceneProcessor.scratchOddParity.scale, SceneProcessor.scratchOddParity.offset)
+    }
+
+    // Generative.
+    guard let (fragment, indices) = ensureGenerative(name: layer.shader, renderer: renderer),
+          let pipeline = ensurePipeline(
+            fragment: fragment, fragmentLabel: layer.shader, blend: .opaqueBase, renderer: renderer
+          ) else { return nil }
     let builtins = makeBuiltinBindings(indices: indices, elapsed: elapsed, width: width, height: height)
     let uniforms = makeUniformBindings(indices: indices, layer: layer)
-    renderer.drawSceneGenerativeLayer(
-      encoder: encoder, pipeline: pipeline, builtinBindings: builtins, uniformBindings: uniforms
-    )
+    do {
+      try renderer.encodeGenerative(
+        commandBuffer: commandBuffer, pipeline: pipeline, target: scratchA,
+        builtinBindings: builtins, uniformBindings: uniforms, label: "scene-\(layer.shader)-scratch"
+      )
+    } catch {
+      os_log("scene generative scratch failed: %{public}@",
+             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      return nil
+    }
+    return (scratchA, SceneProcessor.scratchOddParity.scale, SceneProcessor.scratchOddParity.offset)
   }
 
   // MARK: - Pipeline / fragment caches
@@ -404,6 +628,88 @@ public final class SceneProcessor: NSObject, VideoFrameProcessorDelegate {
       subjectFailed = true
       os_log("scene-subject fragment build failed: %{public}@",
              log: SceneProcessor.log, type: .error, error.localizedDescription)
+      return nil
+    }
+  }
+
+  // Raw-camera (direct/background), blit (blur/background), and masked-composite
+  // (any subject layer) fragments, each compiled once from its hand-authored
+  // .metalsrc, cached on success/failure exactly like the image/subject fragments.
+  private func ensureCameraFragment(renderer: MetalRenderer) -> MTLFunction? {
+    if let fragment = cameraFragment { return fragment }
+    if cameraFailed { return nil }
+    if let fragment = loadFixedFragment(fileName: "scene-camera", renderer: renderer) {
+      cameraFragment = fragment
+      return fragment
+    }
+    cameraFailed = true
+    return nil
+  }
+
+  private func ensureBlitFragment(renderer: MetalRenderer) -> MTLFunction? {
+    if let fragment = blitFragment { return fragment }
+    if blitFailed { return nil }
+    if let fragment = loadFixedFragment(fileName: "scene-blit", renderer: renderer) {
+      blitFragment = fragment
+      return fragment
+    }
+    blitFailed = true
+    return nil
+  }
+
+  private func ensureMaskedFragment(renderer: MetalRenderer) -> MTLFunction? {
+    if let fragment = maskedFragment { return fragment }
+    if maskedFailed { return nil }
+    if let fragment = loadFixedFragment(fileName: "scene-masked", renderer: renderer) {
+      maskedFragment = fragment
+      return fragment
+    }
+    maskedFailed = true
+    return nil
+  }
+
+  private func ensureBlurFragment(renderer: MetalRenderer) -> MTLFunction? {
+    if let fragment = blurFragment { return fragment }
+    if blurFailed { return nil }
+    if let fragment = loadFixedFragment(fileName: "scene-blur", renderer: renderer) {
+      blurFragment = fragment
+      return fragment
+    }
+    blurFailed = true
+    return nil
+  }
+
+  // The blur pass runs into a scratch with blend OFF (a .dontCare pass via
+  // drawFullscreen), so it needs a plain non-blended pipeline (makeGenerative-
+  // Pipeline), not one of the SceneBlend variants the output draws use. Built once.
+  private func ensureBlurPipeline(
+    fragment: MTLFunction, renderer: MetalRenderer
+  ) -> MTLRenderPipelineState? {
+    if let pipeline = blurPipeline { return pipeline }
+    do {
+      let pipeline = try renderer.makeGenerativePipeline(fragment: fragment, label: "scene-blur")
+      blurPipeline = pipeline
+      return pipeline
+    } catch {
+      blurFailed = true
+      os_log("scene-blur pipeline build failed: %{public}@",
+             log: SceneProcessor.log, type: .error, error.localizedDescription)
+      return nil
+    }
+  }
+
+  // Compile a hand-authored fixed-binding fragment (`<fileName>.metalsrc`) into its
+  // own MTLLibrary and return its `main0`. Logs and returns nil on failure; the
+  // caller remembers the failure so it doesn't recompile per frame.
+  private func loadFixedFragment(fileName: String, renderer: MetalRenderer) -> MTLFunction? {
+    do {
+      let library = try ShaderLibrary(
+        device: renderer.device, bundle: Bundle(for: SceneProcessor.self), fileName: fileName
+      )
+      return try library.function()
+    } catch {
+      os_log("%{public}@ fragment build failed: %{public}@",
+             log: SceneProcessor.log, type: .error, fileName, error.localizedDescription)
       return nil
     }
   }

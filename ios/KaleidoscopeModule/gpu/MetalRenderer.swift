@@ -111,6 +111,20 @@ final class MetalRenderer {
   private var blurTexWidth = 0
   private var blurTexHeight = 0
 
+  // Scene compositor scratch render targets (BGRA, full output resolution).
+  // scratchA holds a subject layer's rendered content and the blur's horizontal
+  // pass; scratchB holds the blur's vertical pass. Recreated on resolution
+  // change; allocated only when the scene compositor's scratch path runs. Used
+  // via the SceneCompositing extension's sceneScratch(width:height:); kept
+  // distinct from the standalone blur ping-pong above so the two paths never
+  // alias. `internal` (not private) so the extension in SceneCompositing.swift
+  // can reach them; a Swift extension cannot add stored properties, so they live
+  // on the class here.
+  var sceneScratchA: MTLTexture?
+  var sceneScratchB: MTLTexture?
+  var sceneScratchWidth = 0
+  var sceneScratchHeight = 0
+
   // "original" RGB ingest buffers come from a POOL, not a single reused buffer.
   // CoreImage renders each frame's NV12 input into a freshly dequeued buffer
   // (TextureBridge.ingest) and the GPU passes sample a per-frame texture view of

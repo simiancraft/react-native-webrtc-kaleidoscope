@@ -25,9 +25,9 @@ final class SceneLayersTests: XCTestCase {
     SceneLayers.set(
       """
       [
-        {"shader":"clouds","target":"background","uniforms":{"uExposure":1.26,"uSkyLowColor":[0.99,0.62,0.03],"uCloudSpeed":0.92}},
-        {"shader":"image","target":"background","source":"wizards-tower"},
-        {"shader":"direct","target":"subject"}
+        {"id":"sky","shader":"clouds","target":"background","uniforms":{"uExposure":1.26,"uSkyLowColor":[0.99,0.62,0.03],"uCloudSpeed":0.92}},
+        {"id":"tower","shader":"image","target":"background","source":"wizards-tower"},
+        {"id":"you","shader":"direct","target":"subject"}
       ]
       """
     )
@@ -35,6 +35,7 @@ final class SceneLayersTests: XCTestCase {
     XCTAssertEqual(layers.count, 3)
 
     let clouds = layers[0]
+    XCTAssertEqual(clouds.id, "sky")
     XCTAssertEqual(clouds.shader, "clouds")
     XCTAssertEqual(clouds.target, "background")
     XCTAssertNil(clouds.blend)
@@ -43,11 +44,13 @@ final class SceneLayersTests: XCTestCase {
     assertFloats(clouds.uniforms["uSkyLowColor"], [0.99, 0.62, 0.03])
 
     let plate = layers[1]
+    XCTAssertEqual(plate.id, "tower")
     XCTAssertEqual(plate.shader, "image")
     XCTAssertEqual(plate.source, "wizards-tower")
     XCTAssertTrue(plate.uniforms.isEmpty)
 
     let you = layers[2]
+    XCTAssertEqual(you.id, "you")
     XCTAssertEqual(you.shader, "direct")
     XCTAssertEqual(you.target, "subject")
     XCTAssertNil(you.source)
@@ -59,16 +62,29 @@ final class SceneLayersTests: XCTestCase {
     SceneLayers.set(
       """
       [
-        {"shader":"image","target":"background","source":"stylized-dark"},
-        {"shader":"godrays","target":"background","blend":"additive","uniforms":{"uRayCount":11}}
+        {"id":"plate","shader":"image","target":"background","source":"stylized-dark"},
+        {"id":"rays","shader":"godrays","target":"background","blend":"additive","uniforms":{"uRayCount":11}}
       ]
       """
     )
     let layers = SceneLayers.get()
     XCTAssertEqual(layers.count, 2)
+    XCTAssertEqual(layers[0].id, "plate")
     XCTAssertNil(layers[0].blend)
+    XCTAssertEqual(layers[1].id, "rays")
     XCTAssertEqual(layers[1].blend, "additive")
     assertFloats(layers[1].uniforms["uRayCount"], [11])
+  }
+
+  // `id` is always on the wire now; a payload missing it falls back to the array
+  // index so the address stays stable and unique-per-stack rather than colliding.
+  // Mirrors SceneLayersTest.fallsBackToIndexWhenIdMissing.
+  func testFallsBackToIndexWhenIdMissing() {
+    SceneLayers.set(#"[{"shader":"clouds","uniforms":{}},{"shader":"direct","target":"subject"}]"#)
+    let layers = SceneLayers.get()
+    XCTAssertEqual(layers.count, 2)
+    XCTAssertEqual(layers[0].id, "0")
+    XCTAssertEqual(layers[1].id, "1")
   }
 
   // target defaults to "background" when the wire omits it.
