@@ -43,6 +43,13 @@ export type SetLayerUniforms = (
   uniforms: Readonly<Record<string, number | readonly number[]>>,
 ) => void;
 
+/**
+ * Drop every live per-layer override (platform tuning channel). A preset switch
+ * calls this so a reused layer id reverts to the new preset's baked uniforms
+ * rather than inheriting a stale override from the prior preset.
+ */
+export type ResetLayerUniforms = () => void;
+
 // Decompose an absolute transform into the discrete ops the pipeline already
 // runs (reused on web and native). Flips first, then rotation; rotation snaps to
 // the nearest 90°. 180° is two CW steps; 270° is one CCW step.
@@ -64,6 +71,7 @@ export const createControls = <P extends PresetBook>(
   reconcile: Reconcile,
   setMask: SetMask,
   setLayerUniforms: SetLayerUniforms,
+  resetLayerUniforms: ResetLayerUniforms,
 ): KaleidoscopeControls<P> => {
   let art: EffectSpec | null = null;
   let transformOps: EffectSpec[] = [];
@@ -91,9 +99,14 @@ export const createControls = <P extends PresetBook>(
         }
         return;
       }
-      // Switch the preset (or clear): rebuild.
+      // Switch the preset (or clear): rebuild. Drop every live override first so
+      // a reused layer id (e.g. 'blur', shared by the low/medium/high blur
+      // presets) takes the new preset's baked uniforms instead of carrying a
+      // stale slider override across. A transform rebuild does NOT pass through
+      // here, so slider tweaks survive flips/rotations of the active preset.
       activeId = cmd;
       art = cmd == null ? null : compositeToEffectSpec(presets[cmd] as Composite);
+      resetLayerUniforms();
       apply();
     },
     transform: (t) => {
