@@ -4,7 +4,7 @@
 **Scope:** cross-stack
 **Date:** 2026-06-01
 **Last reviewed:** 2026-06-01
-**Progress:** A1 ✅ (web compositor generalized), A2 ✅ (contract flip); A3/A4 next, then web test, then Phase R reorg, then native.
+**Progress:** A1 ✅ (web compositor generalized), A2 ✅ (contract flip), Phase R ✅ (three-folder reorg, landed early as one commit; build rewired to dist/src, composites extracted); A3/A4 next, then web test, then native.
 **Context:** The library carries two effect shapes (a single-shader path and a multi-layer scene path) plus a per-effect native factory per preset; all of it is on one unreleased branch with no consumers, so it can be collapsed to one shape now instead of carried forever.
 
 ## Goal
