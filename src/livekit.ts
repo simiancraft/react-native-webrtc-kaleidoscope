@@ -8,7 +8,9 @@
 // instead. This adapter is that bridge:
 //
 //   import { KaleidoscopeProcessor } from 'react-native-webrtc-kaleidoscope/livekit';
-//   await localVideoTrack.setProcessor(new KaleidoscopeProcessor(['blur']));
+//   await localVideoTrack.setProcessor(
+//     new KaleidoscopeProcessor([{ name: 'composite', layers: [{ id: 'you', shader: 'direct', target: 'subject' }] }]),
+//   );
 //
 // `livekit-client` is an OPTIONAL peer dependency: the import below is type-only
 // (erased at build), so the published JS has no runtime dependency on LiveKit
@@ -27,8 +29,8 @@ import type { EffectInput } from './types';
 /**
  * A LiveKit `TrackProcessor` that applies Kaleidoscope video effects to a local
  * camera track. Construct it with the same effect inputs `applyVideoEffects`
- * accepts (bare names like `'blur'` or full `EffectSpec` objects), then pass it
- * to `localTrack.setProcessor(processor)`.
+ * accepts (bare transform names like `'flip-x'`, or full `EffectSpec` composite
+ * objects), then pass it to `localTrack.setProcessor(processor)`.
  *
  * `restart` (camera flip / source change) and `destroy` (unpublish) tear down
  * the prior Insertable-Streams pipeline, so repeated flips do not leak
