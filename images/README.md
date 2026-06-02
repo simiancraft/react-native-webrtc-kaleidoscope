@@ -1,30 +1,51 @@
-# Background presets
+# Image presets
 
-Bundled example backgrounds for the `background-image` effect. Import a single
-preset and pass it as the effect's `source`:
+Bundled background plates for `image` layers. An `image` layer is one entry in a
+composite's layer stack: `{ id, shader: 'image', source }`, where `source` is the
+plate. Import a preset and use it as that `source` (and, usually, as the
+composite's `thumbnail`):
 
 ```ts
-import { applyVideoEffects } from 'react-native-webrtc-kaleidoscope';
+import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
 import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office';
 
-applyVideoEffects(track, [{ name: 'background-image', source: darkOffice }]);
+export const presets = {
+  'dark-office': {
+    name: 'Dark Office',
+    category: 'Backgrounds',
+    thumbnail: darkOffice,
+    layers: [
+      { id: 'dark-office', shader: 'image', source: darkOffice },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+} as const satisfies PresetBook;
 ```
 
-The bundled presets (the catalog lives in `presets.ts`) are `debug-resolutions`
-(a viewport/resolution calibration grid for verifying cover-fit), `dark-office`,
-and `light-office`.
+The bundled plates (the catalog lives in `presets.ts` as `BACKGROUND_PRESETS`)
+are `debug-resolutions` (a viewport/resolution calibration grid for verifying
+cover-fit) plus ten themed backgrounds: `dark-office`, `light-office`,
+`home-light`, `home-dark`, `nature-light`, `nature-dark`, `stylized-light`,
+`stylized-dark`, `simiancraft-light`, and `simiancraft-dark`. The packaged
+composites under `composites/` bundle a few more plates of their own
+(`wizards-tower`, `observation-deck`, `fairy-treehouse`).
 
 `darkOffice` resolves per platform via a build-time file split (`dark-office.ts`
 for native, `dark-office.web.ts` for web, with the shared contract in
 `preset-source.types.ts`); the bundler picks the variant, there is no runtime
 `Platform.OS` branch:
 
-- **Web:** the bundled WebP's URL, which the effect fetches and uploads as a texture.
-- **Native (iOS/Android):** the preset name (`'dark-office'`); the native module
-  loads its own bundled copy from native resources. The native variant imports
-  no WebP and no expo-asset, so native bundles neither.
+- **Web:** the bundled WebP's URL, which the compositor fetches and uploads as a
+  texture for the `image` layer.
+- **Native (iOS/Android):** the plate id (`'dark-office'`); the native module
+  loads its own bundled copy by that id. The native variant imports no WebP and
+  no expo-asset, so native bundles neither at the source level. At `expo prebuild`
+  the config plugin reads your preset book, finds the `image` layers it actually
+  references, and copies just those WebPs into the native bundle under
+  `assets/images/<id>.webp`.
 
-The barrel exports the preset catalog, not the sources:
+An `image` layer's `id` doubles as the native plate id, so it must match the
+plate's WebP basename. The barrel exports the catalog, not the sources:
 
 ```ts
 import { BACKGROUND_PRESETS, type BackgroundPresetName } from 'react-native-webrtc-kaleidoscope/images';
@@ -39,9 +60,14 @@ For a non-Expo web bundler, import the asset URL directly:
 import darkOfficeUrl from 'react-native-webrtc-kaleidoscope/images/dark-office.webp';
 ```
 
-## Optimal background: size, shape, format
+You are not limited to the bundled plates. On web an `image` layer's `source` can
+be any image URL or data URI; on native, supply your own WebP and let the prebuild
+copy it (the demo's `wolf-cave` preset does exactly this with a `require()`'d
+asset the plugin resolves statically).
 
-A background is composited behind the segmented subject and sampled with bilinear
+## Optimal plate: size, shape, format
+
+A plate is composited behind the segmented subject and sampled with bilinear
 filtering and no mipmaps, so resolution beyond the output video size is discarded;
 it costs decode time, memory, and upload bandwidth without improving the picture.
 Smaller, well-sized assets shorten load and switch latency; they do not change
@@ -57,27 +83,27 @@ Target:
 - **Format:** lossy WebP, no alpha (a full-frame background needs none). WebP is
   supported across the targets this library runs on.
 - **Quality:** ~q88. High enough to avoid banding on smooth walls and gradients,
-  while still landing well under ~100 KB for typical scenes. Lossless is the
+  while still landing well under ~100 KB for typical plates. Lossless is the
   wrong tool here: on photographic content it lands near the original PNG size.
 
-The shipped office presets were produced from 1536x1024 source art with ImageMagick:
+The shipped office plates were produced from 1536x1024 source art with ImageMagick:
 
 ```sh
 convert in.png -resize "1280x720^" -gravity center -extent 1280x720 \
   -quality 88 -define webp:method=6 dark-office.webp
 ```
 
-## Adding a preset
+## Adding a plate
 
 1. Append the name to `BACKGROUND_PRESETS` in `presets.ts`.
-2. Drop the optimized `<name>.webp` here (recipe above).
+2. Create `images/<name>/` and drop the optimized `<name>.webp` in it (recipe above).
 3. Add the loader pair mirroring `dark-office`: `<name>.ts` (native, returns the
-   name) and `<name>.web.ts` (web, returns the WebP URL), both annotated with
+   plate id) and `<name>.web.ts` (web, returns the WebP URL), both annotated with
    `PresetSource` from `preset-source.types.ts`.
 4. Add the `./images/<name>` export (with `react-native`, `browser`,
    `import`, `default` conditions) and `./images/<name>.webp` to the
    package `exports`.
-5. For native support, add `<name>.png` under `android/src/main/assets/backgrounds/`
-   and `ios/KaleidoscopeModule/resources/backgrounds/`, and register the factory
-   on each native side (`Registration.kt`, `Registration.swift`). The
-   `test/registry-parity.test.ts` guard fails if a preset is missing on either side.
+
+No native registration is needed. The one registered native effect is
+`composite`; plates are data, not factories. The prebuild copies only the plates
+your book references, and the native side resolves them by id at runtime.

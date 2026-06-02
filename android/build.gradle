@@ -32,7 +32,7 @@ android {
     jvmTarget = '17'
   }
 
-  // JVM unit tests (testDebugUnitTest) for pure-logic units like the scene
+  // JVM unit tests (testDebugUnitTest) for pure-logic units like the composite
   // layer-stack parser. returnDefaultValues makes android.util.Log a no-op stub
   // instead of throwing; the real org.json on the test classpath (below) shadows
   // the stubbed android.jar one so JSON parsing actually runs.
@@ -68,7 +68,7 @@ dependencies {
   implementation 'com.google.mediapipe:tasks-vision:0.10.14'
 
   // Unit tests (JVM, testDebugUnitTest). The real org.json shadows the stubbed
-  // android.jar copy so SceneLayers' JSONArray/JSONObject parsing runs for real.
+  // android.jar copy so CompositeLayers' JSONArray/JSONObject parsing runs for real.
   testImplementation 'junit:junit:4.13.2'
   testImplementation 'org.json:json:20231013'
 }

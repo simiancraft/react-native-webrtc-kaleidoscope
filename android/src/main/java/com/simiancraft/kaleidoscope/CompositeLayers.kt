@@ -2,9 +2,9 @@
 //
 // The Expo Module's setCompositeLayers(json) JS function writes here; the
 // CompositeFactory reads the current layer stack each frame and composites it.
-// This mirrors ShaderUniforms' "deliver spec without re-registering" pattern, but
-// carries the whole ordered layer stack (the composite is one registered effect
-// name, "composite", whose contents JS swaps as the active composite changes).
+// This delivers the spec without re-registering: it carries the whole ordered
+// layer stack (the composite is one registered effect name, "composite", whose
+// contents JS swaps as the active composite changes).
 //
 // The wire shape is a JSON array of layer objects (see parse()). JS sends it as a
 // String across the Expo bridge; we parse it once at set() time into immutable

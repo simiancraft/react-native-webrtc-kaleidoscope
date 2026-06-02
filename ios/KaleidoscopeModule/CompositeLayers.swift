@@ -2,8 +2,8 @@
 // android/.../CompositeLayers.kt.
 //
 // The Expo Module's setCompositeLayers(json) JS function writes here; CompositeProcessor
-// reads the current layer stack each frame and composites it. This mirrors
-// ShaderUniforms' "deliver spec without re-registering" pattern, but carries the
+// reads the current layer stack each frame and composites it. This delivers the
+// spec without re-registering, and carries the
 // whole ordered layer stack (the compositor is one registered effect name,
 // "composite", whose contents JS swaps as the active composite changes).
 //
@@ -12,7 +12,7 @@
 // value-type models the capture thread can read under a cheap lock. set() runs
 // on the JS/Expo thread; get() on the capture thread. An os_unfair_lock around
 // the snapshot reference is the memory barrier (the Swift analogue of Android's
-// @Volatile + immutable List), matching ShaderUniforms / EffectTuning on iOS.
+// @Volatile + immutable List), matching EffectTuning on iOS.
 //
 // A malformed layer is skipped with a log rather than crashing the render thread;
 // an unparseable whole payload leaves the previous composite in place.

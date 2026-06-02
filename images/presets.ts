@@ -1,23 +1,23 @@
-// Background-image preset catalog. Single source of truth for the bundled
-// presets the library ships. Consumed by:
-//   - src/types.ts (BackgroundImageSpec.source narrows to BackgroundPresetName
-//     for autocomplete; a free-form string is also accepted on web for
-//     consumer-provided URLs),
-//   - src/index.ts (native allowlist derivation; the flat-string upstream
-//     registry encodes each preset as `background-image-${name}`),
-//   - the Android side mirrors this list at android/.../Registration.kt
-//     and android/src/main/assets/backgrounds/<name>.webp.
-//   - the iOS side mirrors it at ios/.../Registration.swift and
-//     ios/KaleidoscopeModule/resources/backgrounds/<name>.webp.
-//   - the demo at demo/app/index.tsx maps each preset name to a bundled
-//     WebP via Asset.fromModule for the web target.
+// Bundled image-plate catalog. Single source of truth for the WebP plates the
+// library ships under images/<name>/. Each name is the plate id an `image` layer
+// uses as its `source` on native (the bundled WebP basename); on web the same
+// name resolves to the WebP URL. Consumed by:
+//   - src/index.ts and src/index.web.ts, which re-export the BackgroundPresetName
+//     type so a consumer's image-layer `source` autocompletes to a bundled plate
+//     (a free-form string is also accepted on web for consumer-provided URLs),
+//   - the per-plate loader pairs (images/<name>/<name>.ts and .web.ts), which
+//     annotate their export against PresetSource.
 //
-// To add a new preset: append the name here, drop the matching
-// <name>.webp into android/src/main/assets/backgrounds/ and
-// ios/KaleidoscopeModule/resources/backgrounds/, add the require()'d
-// asset to the demo's preset map, and register the factory at both
-// Registration.kt and Registration.swift. The web side picks it up
-// automatically via the literal-union type and the derived native allowlist.
+// The native side does NOT mirror this list at registration time: there is one
+// registered effect, `composite`, and plates are data. At `expo prebuild` the
+// config plugin reads the consumer's preset book, finds the image layers it
+// references, and copies just those WebPs into the native bundle under
+// assets/images/<id>.webp.
+//
+// To add a plate: append the name here, create images/<name>/ with the optimized
+// <name>.webp plus the <name>.ts / <name>.web.ts loader pair, and add the
+// ./images/<name> and ./images/<name>.webp package exports. No native change is
+// needed; see images/README.md.
 
 export const BACKGROUND_PRESETS = [
   'debug-resolutions',

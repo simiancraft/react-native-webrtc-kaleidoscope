@@ -24,7 +24,7 @@ internal object EffectTuning {
     }
 
   /**
-   * Mask smoothstep hardness for blur and background-image composites,
+   * Mask smoothstep hardness for blur and the masked composite,
    * in [0, 1]; 0 = soft halo, 1 = near-step. Default reproduces the
    * historical smoothstep(0.34, 0.66) edge.
    */
@@ -35,7 +35,7 @@ internal object EffectTuning {
     }
 
   /**
-   * Mask smoothstep center for blur and background-image composites,
+   * Mask smoothstep center for blur and the masked composite,
    * in [0, 1]; the threshold at which a pixel's raw confidence flips from
    * "background" to "person". Default 0.7 (dialed in post-optimization).
    * Higher values reject

@@ -22,11 +22,11 @@
 
 ## Status
 
-**Active development; not yet production-ready.** Published to npm (the badge above shows the current version; the number reflects release automation, not a maturity claim). The npm presentation, marketing, and release-quality polish will come in a later pass; right now the README's job is to tell the truth about what works.
+**Active development; not yet production-ready.** Published to npm (the badge shows the current version, which tracks release automation rather than maturity). Presentation and install-doc polish come later; for now the README documents what works.
 
 ### What works today
 
-- **`kaleidoscope`**: the art axis. Blur, background image (ten bundled backgrounds plus a calibration grid, or your own assets), or a procedural shader (plasma), commanded by preset name.
+- **`kaleidoscope`**: the art axis. Blur, a bundled background image (ten themed backgrounds plus a calibration grid, or your own assets), or a procedural shader, commanded by preset name. The generative shaders that ship are `plasma`, `clouds`, `godrays`, `fireflies`, `nebula`, `simianlights`, `anamorphic-lensflare`, `light-beams-and-motes`, and `corporate-blobs`.
 - **`transform`**: absolute flips and rotation (snapped to 90°), reapplied as full state each call.
 - **`mask`**: the segmentation edge (hardness, threshold) shared by every art effect.
 - **Tree-shaking**: declare a preset book; only the assets you reference ship in your native bundle (web tree-shakes by import).
@@ -41,7 +41,7 @@
 
 ### Coming soon
 
-- **Animated image-plate backgrounds**: a bundled still that moves (beyond the procedural `plasma` shader, which already renders behind the person today). Same composite path; the new piece is a per-effect background producer for animated plates.
+- **Animated image-plate backgrounds**: a bundled still that moves (beyond the procedural shaders, which already render behind the person today). Same composite path; the new piece is a per-effect background producer for animated plates.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
 ## Install
@@ -133,7 +133,7 @@ export const presets = {
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
-  // A packaged multi-layer scene (clouds + a cut-out plate + you).
+  // A packaged multi-layer composite (clouds + a cut-out plate + you).
   'wizard-tower': wizardTower,
 } as const satisfies PresetBook;
 ```
@@ -236,7 +236,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 - **Output track.** On web each `kaleidoscope`/`transform` command rebuilds the Insertable-Streams pipeline and yields a NEW `MediaStreamTrack`, surfaced via `onTrack`; on native the bound track is mutated in place. `mask` updates the segmentation edge the running composite reads each frame, with no rebuild on either platform.
 - **Image source.** An `image` layer's `source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
 - **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`images/README.md`](./images/README.md).
-- **Segmentation model on web.** The web compositor loads MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. Mirror needs no model.
+- **Segmentation model on web.** The web compositor loads MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. The `transform` ops need no model.
 - **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers (Chrome, Edge); Safari and Firefox lack the API, so the effects throw a clear capability error and the demo falls back to the unprocessed track.
 
 ## What this isn't
@@ -250,15 +250,15 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 The canonical assets live in three root, folder-per-item directories, out of the TypeScript build path; the build and the prebuild copy read from them:
 
-- `shaders/<name>/`: each shader's `.frag` (and `.vert`) plus its typed `.ts` (uniforms + control descriptor). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these.
+- `shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `shaders/_shared/` also holds the cross-cutting frags (`composite.frag`, `composite-camera.frag`, `transform.frag`). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these.
 - `images/<name>/`: each bundled background's `.ts` / `.web.ts` loader pair and its `.webp`, behind a `./images/<name>` subpath export.
 - `composites/<name>/`: each packaged composite (a `Composite` definition), behind a `./composites/<name>` subpath export.
 
 The code lives across the platform surfaces:
 
 - `src/`: JS facade and shared types. `bindKaleidoscope` returns the `kaleidoscope` / `transform` / `mask` verbs; the preset-book types live in `src/kaleidoscope/`.
-- `src/web/`: WebGL2 pipeline. MediaPipe segmentation + the layered compositor (`src/web/effects/scene.ts`).
-- `android/`: OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation + the layered compositor (`effects/SceneFactory.kt`); codegen lands in `gpu/ShadersGenerated.kt`, the hand-written layer GLSL in `effects/LayerShaders.kt`.
+- `src/web/`: WebGL2 pipeline. MediaPipe segmentation + the layered compositor (`src/web/effects/composite.ts`).
+- `android/`: OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation + the layered compositor (`effects/CompositeFactory.kt`); codegen lands in `gpu/ShadersGenerated.kt`, the hand-written layer GLSL in `effects/LayerShaders.kt`.
 - `ios/`: Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model Android bundles); the canonical GLSL transpiles to Metal via `scripts/build-shaders.ts`.
 
 Every effect is a LAYER in one compositor: an `image` plate, a `direct` passthrough (the masked person, or the raw camera), a camera-sampling `blur`, or a generative shader, composited back to front with per-layer blend. There is one registered native effect, `composite`; its layer stack is delivered out of band and reconciled each command.

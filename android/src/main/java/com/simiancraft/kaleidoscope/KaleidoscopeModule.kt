@@ -18,7 +18,7 @@ class KaleidoscopeModule : Module() {
   // Application context captured at OnCreate. resolveBackgroundUri uses this
   // instead of the lazy appContext.reactContext (which can be transiently null
   // at call time) so the thumbnail existence check is as robust as the
-  // background-image factories, which hold their own captured context.
+  // composite factory, which holds its own captured context.
   private var assetContext: android.content.Context? = null
 
   override fun definition() = ModuleDefinition {
@@ -43,24 +43,13 @@ class KaleidoscopeModule : Module() {
       EffectTuning.maskThreshold = value
     }
 
-    // Generic shader uniform channel (#32). JS sends a flat record of
-    // name -> (number | number[]); ShaderUniforms normalizes each value to a
-    // FloatArray and the generic ShaderFactory binds them by name each frame.
-    // The map arrives as Map<String, Any?> across the Expo bridge (numbers as
-    // Double, arrays as List<Double>); a nullable value type matches
-    // ShaderUniforms.set and lets a null/omitted uniform degrade to a logged
-    // skip rather than a bridge-level reject of the whole call.
-    Function("setShaderUniforms") { name: String, uniforms: Map<String, Any?> ->
-      ShaderUniforms.set(name, uniforms)
-    }
-
     // Composite layer-stack channel. JS serializes the active composite's ordered
     // layer stack (shader, target, blend, image source id, uniforms) to a JSON
     // string; CompositeLayers parses it once and the single registered "composite"
     // processor composites whatever stack is current. Delivering it as a
-    // side-channel (like setShaderUniforms) keeps the upstream registry's
-    // flat-string contract intact: "composite" is one registered name whose
-    // contents JS swaps.
+    // side-channel keeps the upstream registry's flat-string contract intact:
+    // "composite" is one registered name whose contents JS swaps; the per-layer
+    // uniforms ride inside that same payload.
     Function("setCompositeLayers") { json: String ->
       CompositeLayers.set(json)
     }
@@ -84,8 +73,8 @@ class KaleidoscopeModule : Module() {
       // fine, so guard against both:
       //  - method: assets.open(), NOT assets.list(). AssetManager.list() returns
       //    empty on real-device AAPT2 release packaging even when the asset is
-      //    present; open() works (the background-image effect uses open() and
-      //    loads on device).
+      //    present; open() works (the image layer / composite path uses open()
+      //    and loads on device).
       //  - context: the captured applicationContext, NOT the lazy
       //    appContext.reactContext, which can be transiently null at call time.
       val ctx = assetContext ?: appContext.reactContext?.applicationContext

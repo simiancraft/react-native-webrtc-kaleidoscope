@@ -416,7 +416,7 @@ final class Segmenter {
     // Resolve selfie_segmenter.tflite from the same Kaleidoscope.bundle the
     // background presets and shaders load from, using the project's shared
     // resolver (autolinked nested bundle, else the static-link fallback). This
-    // mirrors BackgroundImageProcessor's resource lookup exactly.
+    // mirrors the bundled-image resource lookup exactly.
     let containing = Bundle(for: Segmenter.self)
     let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
     guard let modelURL = resourceBundle.url(

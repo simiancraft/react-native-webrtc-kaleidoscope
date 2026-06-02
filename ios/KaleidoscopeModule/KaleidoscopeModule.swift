@@ -25,16 +25,6 @@ public class KaleidoscopeModule: Module {
       EffectTuning.maskThreshold = value
     }
 
-    // Generic shader uniform channel (#32). JS sends a flat record of
-    // name -> (number | number[]); ShaderUniforms normalizes each value to a
-    // [Float] and the generic ShaderProcessor binds them by name each frame. The
-    // record arrives as [String: Any] across the Expo bridge (numbers as Double/
-    // NSNumber, arrays as [Any] of NSNumber); ShaderUniforms.set handles the
-    // coercion. Mirrors android/.../KaleidoscopeModule.kt's setShaderUniforms.
-    Function("setShaderUniforms") { (name: String, uniforms: [String: Any]) in
-      ShaderUniforms.set(name: name, uniforms: uniforms)
-    }
-
     // Composite layer-stack channel. Mirrors android/.../KaleidoscopeModule.kt's
     // setCompositeLayers: JS sends the active composite's ordered layer stack as a
     // JSON string; CompositeLayers parses it into the snapshot the registered
@@ -46,7 +36,7 @@ public class KaleidoscopeModule: Module {
     // Resolve a displayable file:// URI for a bundled background by its book id,
     // for the picker's native thumbnails (react-native-webrtc-kaleidoscope/ui).
     // Returns nil when the asset isn't bundled, so the JS resolver falls back to
-    // the source. Uses the same bundle lookup as the background-image effect, so
+    // the source. Uses the same bundle lookup as an image layer, so
     // the thumbnail and the rendered background resolve to the same file.
     Function("resolveBackgroundUri") { (id: String) -> String? in
       BundledImage.bundledURL(for: id)?.absoluteString

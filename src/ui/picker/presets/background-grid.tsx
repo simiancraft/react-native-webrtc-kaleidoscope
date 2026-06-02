@@ -1,4 +1,4 @@
-// Family renderer: the background-image family as a thumbnail grid. Same
+// Family renderer: the bundled-image family as a thumbnail grid. Same
 // dispatch-once shape as PresetOptions; the tile renderer is the `renderTile`
 // slot or the default.
 //
