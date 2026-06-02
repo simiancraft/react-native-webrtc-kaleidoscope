@@ -185,12 +185,16 @@ const PRESET_BOOK_FILENAME = 'kaleidoscope.presets.ts';
 // proven pattern). Read via open()/Bundle, never list().
 const BACKGROUNDS_MANIFEST = 'kaleidoscope-backgrounds.json';
 
-// identifier -> import specifier, for single named imports.
+// local binding -> import specifier, for single named imports. Handles both
+// `{ X }` and `{ X as Y }`; the LOCAL name (Y when aliased, else X) is what a
+// layer's `source` expression references, so a packaged composite that imports
+// `{ observationDeck as observationDeckPlate }` is resolved correctly.
 function parseImports(source) {
   const imports = {};
-  const re = /import\s*\{\s*([A-Za-z0-9_$]+)\s*\}\s*from\s*['"]([^'"]+)['"]/g;
+  const re =
+    /import\s*\{\s*([A-Za-z0-9_$]+)(?:\s+as\s+([A-Za-z0-9_$]+))?\s*\}\s*from\s*['"]([^'"]+)['"]/g;
   for (const m of source.matchAll(re)) {
-    imports[m[1]] = m[2];
+    imports[m[2] || m[1]] = m[3];
   }
   return imports;
 }
@@ -205,34 +209,83 @@ function plateIdFromSpecifier(specifier) {
   return segment.replace(/\.[^.]+$/, '');
 }
 
-// Scene `image` layers: parse every `{ shader: 'image', source: <expr> }` inside a
-// scene's layer array (across all scenes in the book) and resolve each source to a
-// plate id + asset specifier, the same two ways as background refs (a require()
-// literal or a bare imported identifier). Scene plates are a DISTINCT asset family
-// from background-image presets (they are cut-out foregrounds owned by scenes), so
-// they bundle under scene-plates/<id>.webp rather than backgrounds/.
+// Scene `image` layers: extract every image layer's native plate id + asset
+// specifier from a source file (the preset book, OR an imported composite). The
+// plate id is the layer's `id` (the basename JS sends as the native `source`, so
+// native resolves assets/scene-plates/<id>.webp); the specifier resolves to the
+// .webp (a require() literal or a bare imported identifier). Every image layer
+// is one asset family now (there is no separate background-image shape).
 function parseSceneImageRefs(source) {
   const imports = parseImports(source);
   const refs = [];
   const seen = new Set();
-  // `shader: 'image', source: <expr>` up to the source's closing brace. Source
-  // expressions contain no `}` (a require(...) call or a bare identifier).
-  const re = /shader\s*:\s*['"]image['"]\s*,\s*source\s*:\s*([^}]+?)\s*\}/g;
-  for (const m of source.matchAll(re)) {
-    const expr = m[1];
+  // Each image-layer object: a flat brace group containing `shader: 'image'`.
+  // Layer objects do not nest braces, so `[^{}]` is a safe body matcher.
+  const layerRe = /\{([^{}]*shader\s*:\s*['"]image['"][^{}]*)\}/g;
+  for (const m of source.matchAll(layerRe)) {
+    const body = m[1];
+    const sourceM = body.match(/source\s*:\s*(require\(\s*['"][^'"]+['"]\s*\)|[A-Za-z0-9_$]+)/);
+    if (!sourceM) continue;
+    const expr = sourceM[1];
     const requireLiteral = expr.match(/require\(\s*['"]([^'"]+)['"]\s*\)/);
-    let specifier = null;
-    if (requireLiteral) {
-      specifier = requireLiteral[1];
-    } else {
-      const ident = expr.trim().match(/^([A-Za-z0-9_$]+)$/);
-      if (ident && imports[ident[1]]) specifier = imports[ident[1]];
-    }
+    const specifier = requireLiteral ? requireLiteral[1] : imports[expr] || null;
     if (!specifier) continue;
-    const id = plateIdFromSpecifier(specifier);
+    // The layer's `id` is what native resolves the plate by; fall back to the
+    // asset basename (the id == basename convention) when a layer omits it.
+    const idM = body.match(/\bid\s*:\s*['"]([\w-]+)['"]/);
+    const id = idM ? idM[1] : plateIdFromSpecifier(specifier);
     if (seen.has(id)) continue;
     seen.add(id);
     refs.push({ id, specifier });
+  }
+  return refs;
+}
+
+// Resolve an imported-composite specifier (`<pkg>/composites/<name>`) to its
+// source `.ts` on disk. The plates a packaged composite needs live one
+// indirection past the book: the book imports the composite, the composite
+// imports its images. Returns null for a non-composite specifier or an
+// unresolvable package.
+function resolveCompositeSource(specifier, projectRoot) {
+  if (!/(^|\/)composites\/[\w-]+$/.test(specifier)) return null;
+  const name = specifier.substring(specifier.lastIndexOf('/') + 1);
+  try {
+    const pkgJson = require.resolve('react-native-webrtc-kaleidoscope/package.json', {
+      paths: [projectRoot],
+    });
+    const ts = path.join(path.dirname(pkgJson), 'composites', name, `${name}.ts`);
+    return fs.existsSync(ts) ? ts : null;
+  } catch {
+    return null;
+  }
+}
+
+// Every scene plate the book needs: the image layers declared inline in the book
+// PLUS the image layers inside every packaged composite the book imports. One
+// source of truth for both the Android and iOS plate copy, so neither platform
+// can drift from the book the way it did when only inline layers were scanned.
+function collectScenePlateRefs(bookSource, projectRoot) {
+  const refs = [];
+  const seen = new Set();
+  // Resolve each layer's asset at collection time, where the source FILE's dir is
+  // known: a relative specifier (a composite's `../../images/<name>`) resolves
+  // against that dir; a package specifier resolves via the library export.
+  const addFrom = (src, baseDir) => {
+    for (const { id, specifier } of parseSceneImageRefs(src)) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      refs.push({ id, specifier, srcPath: resolveAssetPath(specifier, baseDir, projectRoot) });
+    }
+  };
+  addFrom(bookSource, projectRoot);
+  for (const specifier of Object.values(parseImports(bookSource))) {
+    const compositePath = resolveCompositeSource(specifier, projectRoot);
+    if (!compositePath) continue;
+    try {
+      addFrom(fs.readFileSync(compositePath, 'utf8'), path.dirname(compositePath));
+    } catch {
+      // Non-fatal: a composite we cannot read just contributes no plates.
+    }
   }
   return refs;
 }
@@ -266,11 +319,19 @@ function parseBackgroundRefs(source) {
 // Resolve a preset's source specifier to an absolute WebP path. Library presets
 // expose the raw asset at the `<specifier>.webp` subpath export; a consumer's
 // own asset is a relative path resolved against the project root.
-function resolveAssetPath(specifier, projectRoot) {
+function resolveAssetPath(specifier, baseDir, projectRoot) {
+  // A relative/absolute specifier resolves against the file it appears in
+  // (baseDir): the book's own dir for an inline layer, the composite's dir for an
+  // imported composite's layer. The import omits the extension, so try the
+  // `.webp` sibling first, then the literal path (a consumer's `require('./x.webp')`).
   if (specifier.startsWith('.') || path.isAbsolute(specifier)) {
-    const abs = path.resolve(projectRoot, specifier);
-    return fs.existsSync(abs) ? abs : null;
+    const abs = path.resolve(baseDir, specifier);
+    for (const candidate of [`${abs}.webp`, abs]) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    return null;
   }
+  // A bare package specifier resolves via the library's `<specifier>.webp` subpath.
   try {
     return require.resolve(`${specifier}.webp`, { paths: [projectRoot] });
   } catch {
@@ -345,13 +406,12 @@ function copyAndroidScenePlates(projectRoot, platformProjectRoot) {
     // The background copy already warned about a missing book; stay quiet here.
     return;
   }
-  const refs = parseSceneImageRefs(source);
+  const refs = collectScenePlateRefs(source, projectRoot);
   if (refs.length === 0) return;
   const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'scene-plates');
   fs.mkdirSync(destDir, { recursive: true });
   const copiedIds = [];
-  for (const { id, specifier } of refs) {
-    const srcPath = resolveAssetPath(specifier, projectRoot);
+  for (const { id, specifier, srcPath } of refs) {
     if (!srcPath) {
       console.warn(
         `[react-native-webrtc-kaleidoscope] Could not resolve scene plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
@@ -524,7 +584,7 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
     // copyIosBackgrounds already warned about a missing book; stay quiet here.
     return;
   }
-  const refs = parseSceneImageRefs(source);
+  const refs = collectScenePlateRefs(source, projectRoot);
   if (refs.length === 0) return;
 
   let IOSConfig;
@@ -562,8 +622,7 @@ function copyIosScenePlates(projectRoot, platformProjectRoot) {
   fs.mkdirSync(destDir, { recursive: true });
 
   const copiedIds = [];
-  for (const { id, specifier } of refs) {
-    const srcPath = resolveAssetPath(specifier, projectRoot);
+  for (const { id, specifier, srcPath } of refs) {
     if (!srcPath) {
       console.warn(
         `[react-native-webrtc-kaleidoscope] Could not resolve iOS scene plate source for '${id}' (${specifier}); skipping. Asset references must be statically resolvable.`,
