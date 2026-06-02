@@ -93,14 +93,42 @@ convert in.png -resize "1280x720^" -gravity center -extent 1280x720 \
   -quality 88 -define webp:method=6 dark-office.webp
 ```
 
+## Thumbnails
+
+The preset book references a small thumbnail per composite (the picker tile), not
+the full plate. Shipping the 1280x720 plate as its own `thumbnail` wastes decode
+time and memory on a tile that renders ~160px wide. Each plate folder carries a
+downscaled `<name>.thumb.webp` next to the plate.
+
+Target:
+
+- **Resolution:** 320px on the long edge, preserving the plate's aspect, so a 16:9
+  plate is **320x180** (exactly quarter-resolution). Crisp to ~160px at 2x DPR; a
+  picker tile never needs more.
+- **Format:** lossy WebP at ~q80 (a tile tolerates more compression than a
+  full-frame background), `method=6`. No crop: a pure downscale so the thumbnail
+  matches the plate's framing.
+- **Naming:** `<name>.thumb.webp`, in the same `images/<name>/` folder as the plate.
+
+Recipe (from the plate webp; fits the 320 box, preserves aspect):
+
+```sh
+convert <name>.webp -resize 320x320 -quality 80 -define webp:method=6 <name>.thumb.webp
+```
+
+A screenshot you are turning into a thumbnail (a captured "world" or sky) takes the
+same recipe; feed the source image in place of `<name>.webp`.
+
 ## Adding a plate
 
 1. Append the name to `BACKGROUND_PRESETS` in `presets.ts`.
 2. Create `images/<name>/` and drop the optimized `<name>.webp` in it (recipe above).
-3. Add the loader pair mirroring `dark-office`: `<name>.ts` (native, returns the
+3. Make its `<name>.thumb.webp` (Thumbnails recipe above) and reference it as the
+   composite's `thumbnail` instead of the full plate.
+4. Add the loader pair mirroring `dark-office`: `<name>.ts` (native, returns the
    plate id) and `<name>.web.ts` (web, returns the WebP URL), both annotated with
    `PresetSource` from `preset-source.types.ts`.
-4. Add the `./images/<name>` export (with `react-native`, `browser`,
+5. Add the `./images/<name>` export (with `react-native`, `browser`,
    `import`, `default` conditions) and `./images/<name>.webp` to the
    package `exports`.
 
