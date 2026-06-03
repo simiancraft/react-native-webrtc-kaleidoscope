@@ -21,6 +21,13 @@ import type { PresetBook } from '../../kaleidoscope/types';
 export type Family = string;
 
 /**
+ * A composite's category; the second grouping axis under a family (the
+ * left-hand menu). This is the book entry's `taxonomy[1]` (e.g. 'Wizard Tower'
+ * under 'Worlds', 'Office' under 'Backgrounds'). Absent for a depth-1 preset.
+ */
+export type Category = string;
+
+/**
  * A preset flattened for display. `id` is the book key the picker emits and the
  * effect dispatches by; `source` is a thumbnail source (the composite's
  * `thumbnail`) when present, feeding the thumbnail tile/resolver.
@@ -29,6 +36,8 @@ export interface PresetView {
   readonly id: string;
   readonly label: string;
   readonly family: Family;
+  /** The preset's category (`taxonomy[1]`); undefined for a depth-1 preset. */
+  readonly category?: Category | undefined;
   /**
    * Thumbnail source (web URL or native preset name as `string`, or a Metro
    * asset module id as `number`); present when the book entry has one.
@@ -90,4 +99,6 @@ export interface PickerProps<P extends PresetBook = PresetBook>
   readonly labelFor?: ((id: keyof P & string) => string) | undefined;
   /** Label a family tab; defaults to a title-cased family name. */
   readonly tabLabelFor?: ((family: Family) => string) | undefined;
+  /** Label a category menu item; defaults to the raw category string. */
+  readonly categoryLabelFor?: ((category: Category) => string) | undefined;
 }

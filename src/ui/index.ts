@@ -10,6 +10,7 @@
 export { KaleidoscopePicker, type PickerModel, usePicker } from './picker';
 export { PickerLayout } from './picker/layout';
 export type {
+  Category,
   Family,
   PickerProps,
   PickerSelection,

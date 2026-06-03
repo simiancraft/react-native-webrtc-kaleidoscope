@@ -1,25 +1,39 @@
 // The drop-in composite picker (#28): tabs over the consumer's preset families,
-// each tab rendering the same uniform tile grid. Controlled selection; emit the
-// chosen id, the host applies it. `usePicker` is the orchestration (group the
-// book by family, own the active tab) and is exported for BYO layouts.
+// a left-hand category menu under the tabs, and a uniform tile grid filtered by
+// the active family and category. Controlled selection; emit the chosen id, the
+// host applies it. `usePicker` is the orchestration (group the book by
+// family/category, own the active tab and category) and is exported for BYO
+// layouts.
 
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { PresetBook } from '../../kaleidoscope/types';
 import { PickerLayout } from './layout';
-import type { Family, PickerProps, PresetView } from './picker.types';
+import type { Category, Family, PickerProps, PresetView } from './picker.types';
 import { PresetGrid } from './presets/preset-grid';
 
 /** The grouping usePicker returns; named so BYO-layout consumers can type it. */
 export interface PickerModel {
   /** Distinct families present in the book, in first-appearance order. */
   readonly families: ReadonlyArray<Family>;
-  /** Flattened presets per family. */
-  readonly viewsByFamily: ReadonlyMap<Family, ReadonlyArray<PresetView>>;
   /** The reconciled active family (survives a changed book; falls back to the first). */
   readonly activeTab: Family | undefined;
   /** Set the active family tab. */
   readonly setActiveTab: (family: Family) => void;
+  /**
+   * Categories (taxonomy[1]) within the active family, first-appearance order.
+   * Empty when the family is flat (every preset is depth-1).
+   */
+  readonly categories: ReadonlyArray<Category>;
+  /** The reconciled active category, or undefined when the family is flat. */
+  readonly activeCategory: Category | undefined;
+  /** Set the active category. */
+  readonly setActiveCategory: (category: Category) => void;
+  /**
+   * Presets to display: the active family narrowed to the active category, or
+   * every preset in the family when it is flat.
+   */
+  readonly views: ReadonlyArray<PresetView>;
 }
 
 /**
@@ -45,12 +59,20 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
     renderTile,
     labelFor,
     tabLabelFor,
+    categoryLabelFor,
     style,
   } = props;
-  const { families, viewsByFamily, activeTab, setActiveTab } = usePicker(presets, labelFor);
+  const {
+    families,
+    activeTab,
+    setActiveTab,
+    categories,
+    activeCategory,
+    setActiveCategory,
+    views,
+  } = usePicker(presets, labelFor);
 
   if (!activeTab) return null;
-  const views = viewsByFamily.get(activeTab) ?? [];
   // The renderers speak string ids (PresetView.id); the public onSelect is
   // narrowed to keyof P. Adapt once here so consumers need no cast (every id
   // came from Object.keys(presets), so it is a real key).
@@ -68,6 +90,19 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
           onPress={() => setActiveTab(family)}
         />
       ))}
+      sidebarZone={
+        categories.length > 0
+          ? categories.map((category) => (
+              <CategoryItem
+                key={category}
+                label={categoryLabelFor?.(category) ?? category}
+                active={category === activeCategory}
+                disabled={disabled}
+                onPress={() => setActiveCategory(category)}
+              />
+            ))
+          : undefined
+      }
       bodyZone={
         <PresetGrid
           presets={views}
@@ -82,30 +117,35 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
 }
 
 /**
- * Group a preset book into families and own the active tab. Off the React
- * Compiler in this package, so the grouping is memoized by hand on
- * `[presets, labelFor]`; a consumer passing an inline `labelFor` busts it (pass
- * a stable reference to keep it). The active tab is reconciled every render:
- * it survives as long as its family is still in the book, else it falls back to
- * the first family — so swapping `presets` can't strand a dead tab.
+ * Group a preset book by family and category, and own the active tab and
+ * category. Off the React Compiler in this package, so the grouping is memoized
+ * by hand on `[presets, labelFor]`; a consumer passing an inline `labelFor`
+ * busts it (pass a stable reference to keep it). The active tab and category are
+ * reconciled every render: each survives as long as it is still in the book,
+ * else it falls back to the first; so swapping `presets`, or switching to a
+ * family that lacks the prior category, can't strand a dead selection.
  */
 export function usePicker<P extends PresetBook>(
   presets: P,
   labelFor?: (id: keyof P & string) => string,
 ): PickerModel {
-  const { families, viewsByFamily } = useMemo(() => {
+  const { families, viewsByFamily, categoriesByFamily, viewsByFamilyCategory } = useMemo(() => {
     const fams: Family[] = [];
     const byFamily = new Map<Family, PresetView[]>();
+    const catsByFamily = new Map<Family, Category[]>();
+    const byFamilyCategory = new Map<Family, Map<Category, PresetView[]>>();
     for (const id of Object.keys(presets)) {
       const preset = presets[id];
       if (!preset) continue;
-      // Group tabs by the taxonomy root; the subgroup (taxonomy[1], when present)
-      // is not yet a browser level (the nested layout is a follow-up).
+      // taxonomy[0] is the family (tab); taxonomy[1], when present, is the
+      // category (left-hand menu). A depth-1 preset has no category.
       const family = preset.taxonomy[0];
+      const category = preset.taxonomy[1];
       const view: PresetView = {
         id,
         label: labelFor?.(id as keyof P & string) ?? preset.name,
         family,
+        category,
         source:
           typeof preset.thumbnail === 'string' || typeof preset.thumbnail === 'number'
             ? preset.thumbnail
@@ -114,15 +154,49 @@ export function usePicker<P extends PresetBook>(
       if (!byFamily.has(family)) {
         fams.push(family);
         byFamily.set(family, []);
+        catsByFamily.set(family, []);
+        byFamilyCategory.set(family, new Map());
       }
       byFamily.get(family)?.push(view);
+      if (category !== undefined) {
+        const cats = catsByFamily.get(family);
+        const catViews = byFamilyCategory.get(family);
+        if (cats && catViews && !catViews.has(category)) {
+          cats.push(category);
+          catViews.set(category, []);
+        }
+        catViews?.get(category)?.push(view);
+      }
     }
-    return { families: fams, viewsByFamily: byFamily };
+    return {
+      families: fams,
+      viewsByFamily: byFamily,
+      categoriesByFamily: catsByFamily,
+      viewsByFamilyCategory: byFamilyCategory,
+    };
   }, [presets, labelFor]);
 
   const [activeTab, setActiveTab] = useState<Family | undefined>(undefined);
-  const active = activeTab && families.includes(activeTab) ? activeTab : families[0];
-  return { families, viewsByFamily, activeTab: active, setActiveTab };
+  const family = activeTab && families.includes(activeTab) ? activeTab : families[0];
+  const categories = (family && categoriesByFamily.get(family)) || [];
+
+  const [activeCategory, setActiveCategory] = useState<Category | undefined>(undefined);
+  const category =
+    activeCategory && categories.includes(activeCategory) ? activeCategory : categories[0];
+
+  const views = category
+    ? (family && viewsByFamilyCategory.get(family)?.get(category)) || []
+    : (family && viewsByFamily.get(family)) || [];
+
+  return {
+    families,
+    activeTab: family,
+    setActiveTab,
+    categories,
+    activeCategory: category,
+    setActiveCategory,
+    views,
+  };
 }
 
 interface TabProps {
@@ -146,6 +220,31 @@ function Tab({ label, active, disabled, onPress }: TabProps) {
   );
 }
 
+interface CategoryItemProps {
+  readonly label: string;
+  readonly active: boolean;
+  readonly disabled: boolean;
+  readonly onPress: () => void;
+}
+
+function CategoryItem({ label, active, disabled, onPress }: CategoryItemProps) {
+  return (
+    <Pressable
+      accessibilityRole="menuitem"
+      accessibilityState={{ selected: active, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        styles.category,
+        active && styles.categoryActive,
+        disabled && styles.categoryDisabled,
+      ]}
+    >
+      <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function titleCase(s: string): string {
   return s
     .split('-')
@@ -159,4 +258,14 @@ const styles = StyleSheet.create({
   tabDisabled: { opacity: 0.5 },
   tabLabel: { color: '#999', fontSize: 12, fontWeight: '600' },
   tabLabelActive: { color: '#fff' },
+  category: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  categoryActive: { backgroundColor: '#2c2c2c' },
+  categoryDisabled: { opacity: 0.5 },
+  categoryLabel: { color: '#9a9a9a', fontSize: 12, fontWeight: '500' },
+  categoryLabelActive: { color: '#fff' },
 });
