@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { PresetBook } from '../../kaleidoscope/types';
+import { categoryTestId, familyTestId } from '../../test-id';
 import { PickerLayout } from './layout';
 import type { Category, Family, PickerProps, PresetView } from './picker.types';
 import { PresetGrid } from './presets/preset-grid';
@@ -88,6 +89,7 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
           active={family === activeTab}
           disabled={disabled}
           onPress={() => setActiveTab(family)}
+          testID={familyTestId(family)}
         />
       ))}
       sidebarZone={
@@ -99,6 +101,7 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
                 active={category === activeCategory}
                 disabled={disabled}
                 onPress={() => setActiveCategory(category)}
+                testID={categoryTestId(activeTab, category)}
               />
             ))
           : undefined
@@ -204,13 +207,15 @@ interface TabProps {
   readonly active: boolean;
   readonly disabled: boolean;
   readonly onPress: () => void;
+  readonly testID: string;
 }
 
-function Tab({ label, active, disabled, onPress }: TabProps) {
+function Tab({ label, active, disabled, onPress, testID }: TabProps) {
   return (
     <Pressable
       accessibilityRole="tab"
       accessibilityState={{ selected: active, disabled }}
+      testID={testID}
       disabled={disabled}
       onPress={onPress}
       style={[styles.tab, active && styles.tabActive, disabled && styles.tabDisabled]}
@@ -225,13 +230,15 @@ interface CategoryItemProps {
   readonly active: boolean;
   readonly disabled: boolean;
   readonly onPress: () => void;
+  readonly testID: string;
 }
 
-function CategoryItem({ label, active, disabled, onPress }: CategoryItemProps) {
+function CategoryItem({ label, active, disabled, onPress, testID }: CategoryItemProps) {
   return (
     <Pressable
       accessibilityRole="menuitem"
       accessibilityState={{ selected: active, disabled }}
+      testID={testID}
       disabled={disabled}
       onPress={onPress}
       style={[
