@@ -44,19 +44,29 @@ export type PresetBook = Readonly<Record<string, Composite>>;
 export type Preset = { readonly id: string } & Composite;
 
 /**
- * A live per-layer uniform override. Addresses a layer by `id` and carries
- * `shader` only to drive uniform-type narrowing (IntelliSense): a
- * `{ shader: 'plasma' }` patch types `uniforms` as `Partial<PlasmaUniforms>`.
- * The runtime resolves by `id` and MERGES the partial uniforms over the layer's
- * baked values; the `shader` field is asserted, not used to look up the layer.
+ * A live per-layer uniform override for ONE layer, derived from the layer's own
+ * type: `id` is the layer's id, `uniforms` is `Partial` of the shader's uniform
+ * type (re-indexed from `ShaderUniformsMap` by the layer's literal `shader`).
+ * Non-tunable layers (`image`, `direct`) distribute to `never`, so they cannot be
+ * patched. The runtime resolves by `id`; the shader is never sent on the wire.
  */
-export type LayerPatch = {
-  readonly [S in PatchableShaderName]: {
-    readonly id: string;
-    readonly shader: S;
-    readonly uniforms: Partial<ShaderUniformsMap[S]>;
-  };
-}[PatchableShaderName];
+export type PatchFor<L> = L extends {
+  readonly id: infer I extends string;
+  readonly shader: infer S extends PatchableShaderName;
+}
+  ? { readonly id: I; readonly uniforms: Partial<ShaderUniformsMap[S]> }
+  : never;
+
+/**
+ * The patches `kaleidoscope` accepts for preset `K` in book `P`: per-layer
+ * overrides, each addressed by one of that preset's tunable layer ids and typed
+ * by that layer's shader. At a literal `cmd` call site this narrows to the
+ * preset's ids/uniforms; with a variable `cmd` it widens to the book-wide union
+ * and is runtime-checked by id.
+ */
+export type PatchesFor<P extends PresetBook, K extends keyof P> = ReadonlyArray<
+  PatchFor<P[K]['layers'][number]>
+>;
 
 /**
  * Absolute, stateless geometric transform. Every call is the full desired state
@@ -96,9 +106,9 @@ export type KaleidoscopeBindOptions<P extends PresetBook> = {
  * given, the patches merge through the live no-rebuild uniform channel (keyed by
  * layer id) instead of rebuilding, so a slider drag stays smooth.
  */
-type KaleidoscopeCommand<P extends PresetBook> = (
-  cmd: keyof P | null,
-  patches?: ReadonlyArray<LayerPatch>,
+type KaleidoscopeCommand<P extends PresetBook> = <K extends keyof P>(
+  cmd: K | null,
+  patches?: PatchesFor<P, K>,
 ) => void;
 
 /**

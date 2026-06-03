@@ -49,8 +49,8 @@ export { SIMIANLIGHTS_CONTROLS } from '../../shaders/simianlights/simianlights';
 
 /**
  * The uniform-bearing layer shaders → their typed uniforms. `image` and `direct`
- * carry no uniforms, so they are absent. This is the map a `LayerPatch` narrows
- * over: `{ shader: 'plasma', uniforms }` types `uniforms` as `Partial<PlasmaUniforms>`,
+ * carry no uniforms, so they are absent. This is the map `PatchFor` re-indexes by
+ * a layer's literal `shader` to type its `uniforms` as `Partial<PlasmaUniforms>`,
  * giving authors IntelliSense on a `kaleidoscope(id, patches)` call.
  */
 export type ShaderUniformsMap = {

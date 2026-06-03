@@ -16,7 +16,7 @@ import {
   bindKaleidoscope,
   type KaleidoscopeControls,
   LAYER_CONTROLS,
-  type LayerPatch,
+  type PatchesFor,
 } from 'react-native-webrtc-kaleidoscope';
 import {
   KaleidoscopePicker,
@@ -186,9 +186,12 @@ export default function DemoScreen() {
     setLayerOverrides(tunableLayersOf(art));
   }, [art]);
 
-  // A slider drag emits a LayerPatch addressed by layer id; routing it through
+  // A slider drag emits a patch addressed by layer id; routing it through
   // kaleidoscope(activeId, [patch]) merges it live (no rebuild) when the patched
-  // preset is the active one.
+  // preset is the active one. This hand-rolled editor builds patches dynamically
+  // (variable preset id, string layer id), which is the union tier of the patch
+  // type, so it casts to satisfy kaleidoscope's per-call narrowing; the packaged
+  // KaleidoscopeTuner replaces this path.
   const onLayerChange = (id: string, name: string, value: number | readonly number[]) => {
     setLayerOverrides((prev) => {
       const cur = prev ?? {};
@@ -196,12 +199,10 @@ export default function DemoScreen() {
       if (!layer) return prev;
       const next = { ...cur, [id]: { ...layer, uniforms: { ...layer.uniforms, [name]: value } } };
       if (art && controls) {
-        const patch = {
-          id,
-          shader: layer.shader,
-          uniforms: { [name]: value },
-        } as LayerPatch;
-        controls.kaleidoscope(art, [patch]);
+        controls.kaleidoscope(art, [{ id, uniforms: { [name]: value } }] as PatchesFor<
+          typeof presets,
+          PresetId
+        >);
       }
       return next;
     });

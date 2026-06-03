@@ -77,7 +77,7 @@ export type LayerShaderName = keyof LayerShaderOptions;
  * `layer.shader` gives `source` / `uniforms` / nothing as appropriate.
  *
  * `id` is required and unique WITHIN one composite. It is the address a
- * `LayerPatch` resolves against (the live uniform channel keys overrides by it),
+ * `PatchFor` resolves against (the live uniform channel keys overrides by it),
  * and for an `image` layer it doubles as the native plate id (the bundled WebP
  * basename), since the native facade sends `layer.id` as the plate `source`.
  */

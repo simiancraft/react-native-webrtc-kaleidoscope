@@ -19,7 +19,6 @@ import type {
   Composite,
   KaleidoscopeBindOptions,
   KaleidoscopeControls,
-  LayerPatch,
   PresetBook,
   TransformInput,
 } from './types';
@@ -89,7 +88,13 @@ export const createControls = <P extends PresetBook>(
   };
 
   return {
-    kaleidoscope: (cmd: keyof P | null, patches?: ReadonlyArray<LayerPatch>) => {
+    kaleidoscope: (
+      cmd: keyof P | null,
+      patches?: ReadonlyArray<{
+        readonly id: string;
+        readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+      }>,
+    ) => {
       // Patch the currently-active preset: route through the live no-rebuild
       // channel, keyed by layer id. The `shader` field on a patch is only for
       // narrowing; the channel resolves by `id`.
