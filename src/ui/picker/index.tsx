@@ -104,7 +104,10 @@ export function usePicker<P extends PresetBook>(
         id,
         label: labelFor?.(id as keyof P & string) ?? preset.name,
         family,
-        source: typeof preset.thumbnail === 'string' ? preset.thumbnail : undefined,
+        source:
+          typeof preset.thumbnail === 'string' || typeof preset.thumbnail === 'number'
+            ? preset.thumbnail
+            : undefined,
       };
       if (!byFamily.has(family)) {
         fams.push(family);

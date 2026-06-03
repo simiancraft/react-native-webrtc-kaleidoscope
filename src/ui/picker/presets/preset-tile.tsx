@@ -29,8 +29,12 @@ import {
 
 interface PresetTileProps {
   readonly label: string;
-  /** Resolved thumbnail URI (web URL or native file:// URI); undefined renders the recessed button. */
-  readonly uri: string | undefined;
+  /**
+   * Resolved thumbnail source. A `string` is a URL (web) or file:// URI (native
+   * preset-name lookup); a `number` is a Metro asset module id consumed directly
+   * by `<Image source={number}>`. Undefined renders the recessed button.
+   */
+  readonly uri: string | number | undefined;
   readonly selected: boolean;
   readonly disabled?: boolean | undefined;
   readonly onPress: () => void;
@@ -61,7 +65,13 @@ export function PresetTile(props: PresetTileProps) {
     >
       {({ pressed, hovered = false }: { pressed: boolean; hovered?: boolean }) => (
         <>
-          {hasWallpaper ? <Image source={{ uri }} style={styles.thumb} resizeMode="cover" /> : null}
+          {hasWallpaper ? (
+            <Image
+              source={typeof uri === 'number' ? uri : { uri }}
+              style={styles.thumb}
+              resizeMode="cover"
+            />
+          ) : null}
           {hasWallpaper ? <View style={styles.scrim} /> : null}
           {badge ? (
             <View style={styles.badge}>
@@ -86,6 +96,23 @@ const styles = StyleSheet.create({
   tile: {
     aspectRatio: 16 / 9,
     minWidth: 96,
+    // GENERAL React Native gotcha worth naming, because it bites LLM-generated
+    // layouts in particular: Yoga (RN's flex engine) will silently collapse a
+    // view to zero height when the layout describes height purely by derivation
+    // (a percentage `flexBasis` plus an `aspectRatio`, or content that has not
+    // measured yet) without an explicit floor. It smashes shut like an
+    // unbroken IE6 `<div>`. If a row of tiles ever renders as thin strips, the
+    // first thing to check is whether each tile has a `height` or `minHeight`
+    // anywhere in its chain.
+    //
+    // THIS SITE: declared `flexBasis: '30%'` + `aspectRatio: 16/9` and no
+    // height floor; each tile resolved to 118 x 4 px on iOS (Maestro hierarchy
+    // bounds), turning every wallpaper tile into a thin gray strip. The
+    // recessed variant survived only because its visible 2px border made the
+    // 4px collapse read as a deliberate divider. 54 = 96 * 9 / 16 (the
+    // minWidth's aspect-derived height), so a tile whose width grows past the
+    // floor still tracks the 16:9 ratio via `aspectRatio`.
+    minHeight: 54,
     flexGrow: 1,
     flexBasis: '30%',
     maxWidth: '32%',

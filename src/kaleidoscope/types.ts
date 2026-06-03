@@ -27,8 +27,16 @@ export type Composite = {
   readonly name: string;
   /** Grouping axis for the picker (e.g. 'Worlds', 'Backgrounds', 'Blur'). */
   readonly category: string;
-  /** Optional thumbnail source (an image source); shown in the picker rail. */
-  readonly thumbnail?: string;
+  /**
+   * Optional thumbnail source for the picker rail.
+   * - `string`: a resolved URL (web) or native preset name routed through
+   *   `resolveBackgroundUri`.
+   * - `number`: a Metro asset module id (the result of `require('./foo.webp')`),
+   *   consumed directly by `<Image source={number}>` without a URI hop. The
+   *   library's packaged composites use this on native (their `.web.ts` siblings
+   *   use the string form via `Asset.fromModule(...).uri`).
+   */
+  readonly thumbnail?: string | number;
   /** The painter's stack, back to front. Each layer's `id` is unique here. */
   readonly layers: ReadonlyArray<LayerSpec>;
 };
