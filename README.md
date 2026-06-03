@@ -104,7 +104,7 @@ bunx expo prebuild
 
 ## Use
 
-First declare a **preset book** in your project: a flat catalog of **composites**, the only things you can command. A composite is `{ name, category, thumbnail?, layers }`; everything is a layer stack, painted back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's fields: `image` takes a `source`; `direct` samples the ingest-normalized (upright, non-mirrored) camera frame for its target (`target: 'subject'` is the masked person, `target: 'background'` the full frame); `blur` and the generative shaders (`plasma`, `clouds`, …) take `uniforms`. `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer typing.
+First declare a **preset book** in your project: a flat catalog of **composites**, the only things you can command. A composite is `{ name, taxonomy, thumbnail?, layers }`, where `taxonomy` is the picker's grouping path, root first (`[group]` or `[group, category]`, e.g. `['Backgrounds', 'Office']`); everything is a layer stack, painted back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's fields: `image` takes a `source`; `direct` samples the ingest-normalized (upright, non-mirrored) camera frame for its target (`target: 'subject'` is the masked person, `target: 'background'` the full frame); `blur` and the generative shaders (`plasma`, `clouds`, …) take `uniforms`. `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer typing.
 
 ```ts
 // kaleidoscope.presets.ts
@@ -200,7 +200,7 @@ function BackgroundControls({ kaleidoscope }) {
 }
 ```
 
-`KaleidoscopePicker` is a tabbed composite (one tab per category; the picker groups your book by each composite's `category`, e.g. Worlds, Sky, Plasma, Blur, Backgrounds). Every preset renders as a uniform tile: a wallpaper when the composite has a `thumbnail`, a recessed button of the same footprint when it does not, so a thumbnail-less preset never breaks the grid. The same pieces are exported as standalone primitives (`PresetGrid`, `PresetTile`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
+`KaleidoscopePicker` is a two-level browser driven by each composite's `taxonomy`: a tab row across the top, one tab per **group** (`taxonomy[0]`, e.g. Effects, Worlds, Backgrounds, Shaders), and a left-hand menu of **categories** (`taxonomy[1]`) under the active group; the tile grid is filtered by both. A flat (depth-1) group shows no category menu. Every preset renders as a uniform tile: a wallpaper when the composite has a `thumbnail`, a recessed button of the same footprint when it does not, so a thumbnail-less preset never breaks the grid. The same pieces are exported as standalone primitives (`PresetGrid`, `PresetTile`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
 
 **Styling, three tiers.** Sensible defaults out of the box; override with an RN `style` prop, a `className` prop, or a `renderTile` render-prop slot for full control.
 
@@ -239,7 +239,7 @@ Live per-layer tuning runs on web today; on native the editor renders but the li
 
 ## Worlds
 
-Packaged composites: multi-layer scenes (a generative shader or a cut-out plate, the masked person on top), imported and spread into your book (e.g. `import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower'`). They carry their own `category: 'Worlds'`, so the picker groups them on one tab.
+Packaged composites: multi-layer scenes (a generative shader or a cut-out plate, the masked person on top), imported and spread into your book (e.g. `import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower'`). They carry their own `taxonomy: ['Worlds', <scene>]`, so the picker groups them under the Worlds tab.
 
 | Wizard Tower | Observation Deck | Fairy Cave |
 |---|---|---|

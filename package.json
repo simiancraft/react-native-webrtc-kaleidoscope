@@ -1,7 +1,7 @@
 {
   "name": "react-native-webrtc-kaleidoscope",
   "version": "2.0.0",
-  "description": "Live video effects (mirror, blur, background replacement) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Working on web, Android, and iOS. Active development.",
+  "description": "Live video effects (blur, background replacement, generative backgrounds, flip/rotate) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Working on web, Android, and iOS. Active development.",
   "keywords": [
     "react-native",
     "react-native-webrtc",
@@ -13,7 +13,7 @@
     "video-frame-processor",
     "blur",
     "background-blur",
-    "mirror",
+    "background-replacement",
     "kaleidoscope"
   ],
   "author": "the-simian <info@simiancraft.com>",
