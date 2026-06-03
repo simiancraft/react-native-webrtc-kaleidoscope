@@ -6,6 +6,7 @@
 // grows commit by commit; the theme surface lands first so later primitives can
 // register against a real exported entry.
 
+export { ControlSection, type ControlSectionProps } from './control-section';
 export { ControlForm, type ControlFormProps, type FieldValue } from './form/control-form';
 export { makeControls } from './form/make-controls';
 export { type Field, useField } from './form/use-field';
