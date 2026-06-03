@@ -57,6 +57,7 @@ export function ControlSection({ title, children, style }: ControlSectionProps) 
         </Text>
         {canCopy && form ? (
           <Button
+            testID={`${form.path}.copy`}
             onPress={() =>
               writeClipboard(`${title}: ${JSON.stringify(roundForCopy(form.values), null, 2)}`)
             }

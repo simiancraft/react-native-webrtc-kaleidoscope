@@ -37,6 +37,7 @@ export function Slider({ uniform, min, max, step = 0.01, label, style }: SliderP
       </View>
       <RNSlider
         style={styles.slider}
+        testID={field.testID}
         accessibilityLabel={name}
         minimumValue={min}
         maximumValue={max}

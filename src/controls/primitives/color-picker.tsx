@@ -12,6 +12,7 @@ import { Readout } from './readout';
 import { SLIDER_TINTS, safeSliderValue } from './slider-value';
 
 const CH = ['R', 'G', 'B'] as const;
+const CH_KEY = ['r', 'g', 'b'] as const;
 
 export type ColorPickerProps = {
   /** The uniform key this picker drives (an RGB triple). */
@@ -38,7 +39,7 @@ export function ColorPicker({ uniform, label, style }: ColorPickerProps) {
     field.onChange(next);
   };
   return (
-    <View style={[styles.row, themeStyle as StyleProp<ViewStyle>, style]}>
+    <View testID={field.testID} style={[styles.row, themeStyle as StyleProp<ViewStyle>, style]}>
       <View style={styles.labelWrap}>
         <View style={[styles.swatch, { backgroundColor: swatch }]} />
         <Label>{name}</Label>
@@ -48,6 +49,7 @@ export function ColorPicker({ uniform, label, style }: ColorPickerProps) {
           <Readout>{CH[i]}</Readout>
           <RNSlider
             style={styles.chanSlider}
+            testID={`${field.testID}.${CH_KEY[i]}`}
             accessibilityLabel={`${name} ${CH[i]}`}
             minimumValue={0}
             maximumValue={1}

@@ -14,15 +14,18 @@ export type ButtonProps = {
   /** NativeWind class; resolved via the `./nativewind` interop. */
   readonly className?: string;
   readonly style?: StyleProp<ViewStyle>;
+  /** Deterministic `accessibilityIdentifier` for the pressable. */
+  readonly testID?: string;
 };
 
-export function Button({ children, onPress, disabled = false, style }: ButtonProps) {
+export function Button({ children, onPress, disabled = false, style, testID }: ButtonProps) {
   const { style: themeStyle } = useThemeSlot('button');
   const { style: disabledStyle } = useThemeSlot('disabled');
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled }}
+      testID={testID}
       onPress={onPress}
       disabled={disabled}
       style={[
