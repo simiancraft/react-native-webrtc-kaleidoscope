@@ -29,6 +29,10 @@ import { corporateBlobs } from 'react-native-webrtc-kaleidoscope/composites/corp
 import { CorporateBlobsControls } from 'react-native-webrtc-kaleidoscope/composites/corporate-blobs/controls';
 import { fairyCave } from 'react-native-webrtc-kaleidoscope/composites/fairy-cave';
 import { FairyCaveControls } from 'react-native-webrtc-kaleidoscope/composites/fairy-cave/controls';
+import { fairyGrotto } from 'react-native-webrtc-kaleidoscope/composites/fairy-grotto';
+import { FairyGrottoControls } from 'react-native-webrtc-kaleidoscope/composites/fairy-grotto/controls';
+import { fairyHollow } from 'react-native-webrtc-kaleidoscope/composites/fairy-hollow';
+import { FairyHollowControls } from 'react-native-webrtc-kaleidoscope/composites/fairy-hollow/controls';
 import { nebula } from 'react-native-webrtc-kaleidoscope/composites/nebula';
 import { NebulaControls } from 'react-native-webrtc-kaleidoscope/composites/nebula/controls';
 import { observationDeck } from 'react-native-webrtc-kaleidoscope/composites/observation-deck';
@@ -39,6 +43,8 @@ import { underwater } from 'react-native-webrtc-kaleidoscope/composites/underwat
 import { UnderwaterControls } from 'react-native-webrtc-kaleidoscope/composites/underwater/controls';
 import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower';
 import { WizardTowerControls } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower/controls';
+import { wizardTowerNight } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower-night';
+import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower-night/controls';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
 import { BlurControls, PlasmaControls } from './src/demo-controls';
@@ -90,8 +96,11 @@ export const presets = {
   // --- Worlds: composed scenes, imported from the library. Each carries its own
   // depth-2 taxonomy (group 'Worlds', category per scene). ---
   'wizard-tower': { ...wizardTower, controls: WizardTowerControls },
+  'wizard-tower-night': { ...wizardTowerNight, controls: WizardTowerNightControls },
   'observation-deck': { ...observationDeck, controls: ObservationDeckControls },
   'fairy-cave': { ...fairyCave, controls: FairyCaveControls },
+  'fairy-grotto': { ...fairyGrotto, controls: FairyGrottoControls },
+  'fairy-hollow': { ...fairyHollow, controls: FairyHollowControls },
   underwater: { ...underwater, controls: UnderwaterControls },
   'corporate-blobs': { ...corporateBlobs, controls: CorporateBlobsControls },
 
