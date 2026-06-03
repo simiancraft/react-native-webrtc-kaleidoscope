@@ -178,3 +178,78 @@ describe('Android prebuild image-plate copy', () => {
     expect(fs.existsSync(imagesDir(plat.dir))).toBe(false);
   });
 });
+
+// Plates a packaged composite needs live one indirection past the book: the book
+// imports the composite, the composite imports its images. Resolving that needs
+// the library package on disk (require.resolve from the project root), so these
+// tests install a hermetic fake `react-native-webrtc-kaleidoscope` package into
+// the fixture project's node_modules. That exercises resolveCompositeSource,
+// the composite branch of collectImageRefs, the composite-thumb collector, and
+// the Android thumbnail copy.
+const installFakeLibrary = (root: string) => {
+  const pkg = path.join(root, 'node_modules', 'react-native-webrtc-kaleidoscope');
+  const sceneDir = path.join(pkg, 'composites', 'my-scene');
+  const imgDir = path.join(pkg, 'images', 'world');
+  fs.mkdirSync(sceneDir, { recursive: true });
+  fs.mkdirSync(imgDir, { recursive: true });
+  // No `exports` field, so require.resolve of any subpath resolves classically.
+  fs.writeFileSync(
+    path.join(pkg, 'package.json'),
+    JSON.stringify({ name: 'react-native-webrtc-kaleidoscope', version: '0.0.0' }),
+  );
+  // The composite's image layer uses a composite-relative require; resolveAssetPath
+  // resolves it against the composite's own dir.
+  fs.writeFileSync(
+    path.join(sceneDir, 'my-scene.ts'),
+    `export const myScene = {
+      name: 'My Scene', taxonomy: ['Worlds'], layers: [
+        { id: 'bg', shader: 'image', source: require('../../images/world/backdrop.webp') },
+      ],
+    };`,
+  );
+  fs.writeFileSync(path.join(sceneDir, 'my-scene.thumb.webp'), 'webp:thumb');
+  fs.writeFileSync(path.join(imgDir, 'backdrop.webp'), 'webp:backdrop');
+};
+
+const COMPOSITE_BOOK = `
+import { myScene } from 'react-native-webrtc-kaleidoscope/composites/my-scene';
+export const presets = { scene: myScene };
+`;
+
+describe('Android prebuild copy of packaged-composite assets', () => {
+  let proj: ReturnType<typeof makeTmp>;
+  let plat: ReturnType<typeof makeTmp>;
+  let warn: ReturnType<typeof spyOn>;
+  let log: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    proj = makeTmp();
+    plat = makeTmp();
+    warn = spyOn(console, 'warn').mockImplementation(() => {});
+    log = spyOn(console, 'log').mockImplementation(() => {});
+    fs.writeFileSync(path.join(proj.dir, 'kaleidoscope.presets.ts'), COMPOSITE_BOOK);
+    installFakeLibrary(proj.dir);
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+    log.mockRestore();
+    proj.cleanup();
+    plat.cleanup();
+  });
+
+  test("copies an imported composite's image-layer plate (resolved one indirection past the book)", async () => {
+    await runAndroidMod(proj.dir, plat.dir);
+    expect(fs.existsSync(path.join(imagesDir(plat.dir), 'bg.webp'))).toBe(true);
+    expect(fs.readFileSync(path.join(imagesDir(plat.dir), 'bg.webp'), 'utf8')).toBe(
+      'webp:backdrop',
+    );
+  });
+
+  test("copies the composite's picker thumbnail under the -thumb id", async () => {
+    await runAndroidMod(proj.dir, plat.dir);
+    const thumb = path.join(imagesDir(plat.dir), 'my-scene-thumb.webp');
+    expect(fs.existsSync(thumb)).toBe(true);
+    expect(fs.readFileSync(thumb, 'utf8')).toBe('webp:thumb');
+  });
+});
