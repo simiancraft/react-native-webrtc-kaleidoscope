@@ -30,7 +30,7 @@
 - **`transform`**: absolute flips and rotation (snapped to 90°), reapplied as full state each call.
 - **`mask`**: the segmentation edge (hardness, threshold) shared by every art effect.
 - **Tree-shaking**: declare a preset book; only the assets you reference ship in your native bundle (web tree-shakes by import).
-- **Drop-in UI (optional)**: a preset-driven `KaleidoscopePicker` and headless primitives under `react-native-webrtc-kaleidoscope/ui`, NativeWind-ready via an opt-in interop. See [Drop-in UI](#drop-in-ui-optional).
+- **Drop-in UI (optional)**: a preset-driven `KaleidoscopePicker` (the menu) under `react-native-webrtc-kaleidoscope/ui`, plus a headless live-editor kit (`KaleidoscopeTuner`, mask and transform controls, a theme provider) under `react-native-webrtc-kaleidoscope/controls`. Controlled and NativeWind-ready. See [Drop-in UI](#drop-in-ui-optional).
 
 | Platform | Transform | Blur | Background replacement | Notes |
 |---|---|---|---|---|
@@ -211,6 +211,32 @@ import { registerKaleidoscopeNativeWind } from 'react-native-webrtc-kaleidoscope
 registerKaleidoscopeNativeWind();
 ```
 
+### Live controls (the editor)
+
+For a tuning or admin panel, `react-native-webrtc-kaleidoscope/controls` ships a headless editor that reads the active preset and renders a control per tunable uniform, plus the mask and transform panels:
+
+```tsx
+import {
+  KaleidoscopeThemeProvider,
+  KaleidoscopeTuner,
+  KaleidoscopeMaskControls,
+  KaleidoscopeTransformControls,
+} from 'react-native-webrtc-kaleidoscope/controls';
+
+// `controls` is the object from bindKaleidoscope(track, { presets }).
+<KaleidoscopeThemeProvider>
+  <KaleidoscopeTuner presets={presets} value={art} onPatch={(p) => controls.kaleidoscope(art, [p])} />
+  <KaleidoscopeMaskControls hardness={h} threshold={t} onChange={setMask} />
+  <KaleidoscopeTransformControls flip={flip} rotate={rotate} onChange={setTransform} />
+</KaleidoscopeThemeProvider>
+```
+
+Each preset supplies its editor as a `controls` component on the book entry. The packaged composites export theirs at `react-native-webrtc-kaleidoscope/composites/<name>/controls`; for your own presets, compose `UniformControls` over a shader's control descriptor (or `makeControls` for a custom widget). See [shaders/README.md](./shaders/README.md).
+
+Like the picker, the editor is controlled and presentational: it emits patches and you apply them. `KaleidoscopeThemeProvider` themes every control at once (a slot bank; `style` works everywhere, `className` via the same opt-in NativeWind interop). The sliders need `@react-native-community/slider` (an optional peer; a native module, so installing it needs a dev-client rebuild).
+
+Live per-layer tuning runs on web today; on native the editor renders but the live per-layer uniform channel is in progress. Mask and transform are live on every platform.
+
 ## Worlds
 
 Packaged composites: multi-layer scenes (a generative shader or a cut-out plate, the masked person on top), imported and spread into your book (e.g. `import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower'`). They carry their own `category: 'Worlds'`, so the picker groups them on one tab.
@@ -264,7 +290,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 The canonical assets live in three root, folder-per-item directories, out of the TypeScript build path; the build and the prebuild copy read from them:
 
-- `shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `shaders/_shared/` also holds the cross-cutting frags (`composite.frag`, `composite-camera.frag`, `transform.frag`). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these.
+- `shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `shaders/_shared/` also holds the cross-cutting frags (`composite.frag`, `composite-camera.frag`, `transform.frag`). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these. See [shaders/README.md](./shaders/README.md) to add or extend a shader.
 - `images/<name>/`: each bundled background's `.ts` / `.web.ts` loader pair and its `.webp`, behind a `./images/<name>` subpath export.
 - `composites/<name>/`: each packaged composite (a `Composite` definition), behind a `./composites/<name>` subpath export.
 
@@ -284,6 +310,7 @@ See [`PATTERNS.md`](./PATTERNS.md) for the file-layout conventions, texture-orie
 - [CONTRIBUTING.md](./CONTRIBUTING.md): setup, scripts, commit conventions.
 - [AGENTS.md](./AGENTS.md): agent and contributor orientation.
 - [PATTERNS.md](./PATTERNS.md): codebase conventions and how-to-extend.
+- [shaders/README.md](./shaders/README.md): adding and extending shaders.
 - [SECURITY.md](./SECURITY.md): security policy and reporting.
 - [NOTICE.md](./NOTICE.md): third-party attributions.
 - Sibling projects: [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge); same OSS-hygiene template.
