@@ -15,3 +15,8 @@ export * from './primitives';
 export { KaleidoscopeThemeProvider, useKaleidoscopeTheme, useThemeSlot } from './theme/provider';
 export type { KaleidoscopeThemeSlots, SlotStyle, ThemeSlot } from './theme/slots';
 export { KaleidoscopeTuner, type KaleidoscopeTunerProps } from './tuner';
+export {
+  type ControlOverride,
+  UniformControls,
+  type UniformControlsProps,
+} from './uniform-controls';
