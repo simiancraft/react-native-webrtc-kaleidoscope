@@ -331,6 +331,49 @@ To add a new parameter:
   uploading its uniforms.
 - Add a slider row in `demo/src/effect-tuning-panel.tsx`.
 
+### Where a consumable control goes (the `./controls` kit)
+
+The tuning editor is a composition kit on the opt-in `./controls` subpath. The
+shape, in one breath: a per-layer `ControlForm` micro-provider holds that layer's
+view model in a `useReducer`, fields self-wire to it via `useField`, and the form
+emits a debounced, trailing-flushed `onPatch({ id, uniforms })` the host routes
+into `kaleidoscope(activeId, [patch])`. The Tuner is a dumb, controlled renderer;
+it never calls `kaleidoscope` itself.
+
+- **The shared view model is the shader's uniform type.** `ShaderUniformsMap[shader]`
+  (e.g. `CloudsUniforms`) is the one contract: the preset bakes values into it, a
+  control emits `Partial` of it. A layer's baked `uniforms` is typed against it
+  (`LayerShaderOptions[S].uniforms = Partial<ShaderUniformsMap[S]>`), and the
+  `kaleidoscope` patch (`PatchFor`) re-indexes the same map by the layer's literal
+  `shader`.
+- **Built-in path: data-driven.** `<UniformControls controls={CLOUDS_CONTROLS} />`
+  renders a shader's `*_CONTROLS` descriptor as fields. No per-shader file. Hide
+  knobs by filtering the array; narrow a range with the `overrides` prop.
+- **Typed path: `makeControls<U>()`.** For a custom widget, `const { Slider } =
+  makeControls<CloudsUniforms>()` constrains the field's `uniform` to `U`'s keys of
+  the matching value type (numeric for `Slider`, `RGB` for `ColorPicker`); a typo
+  is a compile error.
+- **Form ownership.** A composite's `<Composite>Controls` (a sibling
+  `composites/<name>/<name>.controls.tsx`, exported as `./composites/<name>/controls`)
+  mounts one `ControlForm` per tunable layer, each wrapped in a `ControlSection`
+  (title + slot + a web-only copy button). Reset is by **remount** (the Tuner keys
+  the controls component by preset id), never an effect. The composite *data*
+  module (`<name>.ts`) stays runtime-React-free; the `.controls.tsx` is reached
+  only through the `./controls` subpaths, so importing composite data never pulls
+  the React kit.
+- **Theming.** One `KaleidoscopeThemeProvider` holds a flat slot bank (a
+  `<slot>ClassName` + `<slot>Style` pair per primitive and per state). Primitives
+  read their slot and merge it after defaults; the `style` path is universal, the
+  `className` path rides the `./nativewind` cssInterop registration (only the field
+  primitives are registered; the parity test scopes "styleable" to them). Pass a
+  memoized provider value (this package is off the React Compiler).
+- **Copy is web-only.** The `ControlSection` copy button renders only when
+  `Platform.OS === 'web'` and writes via `navigator.clipboard`; the package depends
+  on no clipboard module.
+- **Import direction (one-way).** `./controls` must never import from `./ui`. The
+  only allowed cross-edge is `./ui` importing the theme context from
+  `./controls/theme` (a leaf module that imports nothing from its siblings).
+
 ## Out-of-scope organization
 
 These were considered and rejected for the current scale; revisit when
