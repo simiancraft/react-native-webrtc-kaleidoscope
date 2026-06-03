@@ -253,3 +253,121 @@ describe('Android prebuild copy of packaged-composite assets', () => {
     expect(fs.readFileSync(thumb, 'utf8')).toBe('webp:thumb');
   });
 });
+
+// The iOS copy registers each plate in the app target's pbxproj via
+// @expo/config-plugins' IOSConfig.XcodeUtils, which the plugin loads with a
+// dynamic require.resolve from the project root. Installing a STUB config-plugins
+// into the fixture's node_modules lets these tests drive copyIosImages /
+// copyIosThumbnails end to end (copy + resource registration) without standing
+// up a real Xcode project: the stub's getPbxproj returns a fake project whose
+// writeSync serializes the registered filepaths, so the written project.pbxproj
+// is a readable record of what got added to the build phase.
+const installFakeConfigPlugins = (root: string) => {
+  const mod = path.join(root, 'node_modules', '@expo', 'config-plugins');
+  fs.mkdirSync(mod, { recursive: true });
+  fs.writeFileSync(
+    path.join(mod, 'package.json'),
+    JSON.stringify({ name: '@expo/config-plugins', version: '0.0.0', main: 'index.js' }),
+  );
+  fs.writeFileSync(
+    path.join(mod, 'index.js'),
+    // Module-level accumulator mimics the real getPbxproj, which RE-READS the
+    // pbxproj each call so a second registration pass (thumbnails) sees the
+    // first's (images) additions instead of clobbering them.
+    `let added = [];
+    module.exports = {
+      IOSConfig: {
+        XcodeUtils: {
+          getPbxproj() {
+            return { writeSync() { return 'PBX\\n' + added.join('\\n'); } };
+          },
+          addResourceFileToGroup({ filepath }) {
+            added.push(filepath);
+          },
+        },
+      },
+    };`,
+  );
+};
+
+// Drive config.mods.ios.dangerous with a real projectRoot + platformProjectRoot.
+const runIosMod = async (projectRoot: string, platformProjectRoot: string) => {
+  const config = withKaleidoscope({ name: 'demo', slug: 'demo' } as PluginConfig);
+  const dangerous = (config as { mods?: { ios?: { dangerous?: DangerousMod } } }).mods?.ios
+    ?.dangerous as DangerousMod;
+  expect(typeof dangerous).toBe('function');
+  return dangerous({ modResults: {}, modRequest: { projectRoot, platformProjectRoot } });
+};
+
+describe('iOS prebuild asset copy + pbxproj registration', () => {
+  let proj: ReturnType<typeof makeTmp>;
+  let warn: ReturnType<typeof spyOn>;
+  let log: ReturnType<typeof spyOn>;
+  // platformProjectRoot is the iOS dir under the project root, with a .xcodeproj
+  // beside the target group dir; the mod reads/writes the pbxproj here.
+  let iosRoot: string;
+
+  const pbxprojContent = () =>
+    fs.readFileSync(path.join(iosRoot, 'Demo.xcodeproj', 'project.pbxproj'), 'utf8');
+
+  beforeEach(() => {
+    proj = makeTmp();
+    warn = spyOn(console, 'warn').mockImplementation(() => {});
+    log = spyOn(console, 'log').mockImplementation(() => {});
+    iosRoot = path.join(proj.dir, 'ios');
+    fs.mkdirSync(path.join(iosRoot, 'Demo.xcodeproj'), { recursive: true });
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+    log.mockRestore();
+    proj.cleanup();
+  });
+
+  test('copies resolvable plates into the app target and registers them in the pbxproj', async () => {
+    writeProject(proj.dir);
+    installFakeConfigPlugins(proj.dir);
+    await runIosMod(proj.dir, iosRoot);
+
+    const target = path.join(iosRoot, 'Demo');
+    expect(fs.existsSync(path.join(target, 'sky.webp'))).toBe(true);
+    expect(fs.existsSync(path.join(target, 'cave.webp'))).toBe(true);
+    expect(fs.existsSync(path.join(target, 'nebula.webp'))).toBe(true);
+    // Unresolvable plates are skipped, not copied.
+    expect(fs.existsSync(path.join(target, 'ghost.webp'))).toBe(false);
+    // Each copied plate is registered in the target's Copy Bundle Resources phase.
+    const pbx = pbxprojContent();
+    expect(pbx).toContain('Demo/sky.webp');
+    expect(pbx).toContain('Demo/nebula.webp');
+  });
+
+  test("copies and registers a packaged composite's plate and thumbnail", async () => {
+    fs.writeFileSync(path.join(proj.dir, 'kaleidoscope.presets.ts'), COMPOSITE_BOOK);
+    installFakeLibrary(proj.dir);
+    installFakeConfigPlugins(proj.dir);
+    await runIosMod(proj.dir, iosRoot);
+
+    const target = path.join(iosRoot, 'Demo');
+    expect(fs.existsSync(path.join(target, 'bg.webp'))).toBe(true);
+    expect(fs.existsSync(path.join(target, 'my-scene-thumb.webp'))).toBe(true);
+    const pbx = pbxprojContent();
+    expect(pbx).toContain('Demo/bg.webp');
+    expect(pbx).toContain('Demo/my-scene-thumb.webp');
+  });
+
+  test('without @expo/config-plugins resolvable, warns and registers nothing (CI prebuild case)', async () => {
+    writeProject(proj.dir); // no installFakeConfigPlugins
+    await runIosMod(proj.dir, iosRoot);
+    // The pbxproj is never written because the registration toolkit is absent.
+    expect(fs.existsSync(path.join(iosRoot, 'Demo.xcodeproj', 'project.pbxproj'))).toBe(false);
+    expect(warn.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('no .xcodeproj under the iOS root yet: skips registration without throwing', async () => {
+    writeProject(proj.dir);
+    installFakeConfigPlugins(proj.dir);
+    fs.rmSync(path.join(iosRoot, 'Demo.xcodeproj'), { recursive: true, force: true });
+    await runIosMod(proj.dir, iosRoot);
+    expect(fs.existsSync(path.join(iosRoot, 'Demo'))).toBe(false);
+  });
+});
