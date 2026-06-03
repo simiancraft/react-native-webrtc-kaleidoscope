@@ -52,7 +52,9 @@ export function ControlSection({ title, children, style }: ControlSectionProps) 
   return (
     <View style={[styles.section, themeStyle as StyleProp<ViewStyle>, style]}>
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          {title}
+        </Text>
         {canCopy && form ? (
           <Button
             onPress={() =>

@@ -9,7 +9,7 @@ import { useField } from '../form/use-field';
 import { useThemeSlot } from '../theme/provider';
 import { Label } from './label';
 import { Readout } from './readout';
-import { safeSliderValue } from './slider-value';
+import { SLIDER_TINTS, safeSliderValue } from './slider-value';
 
 export type SliderProps = {
   /** The uniform key this slider drives (a scalar). */
@@ -44,9 +44,7 @@ export function Slider({ uniform, min, max, step = 0.01, label, style }: SliderP
         value={safeSliderValue(value)}
         disabled={field.disabled}
         onValueChange={(v) => field.onChange(v)}
-        minimumTrackTintColor="#8888ff"
-        maximumTrackTintColor="#444"
-        thumbTintColor="#eeeeff"
+        {...SLIDER_TINTS}
       />
     </View>
   );

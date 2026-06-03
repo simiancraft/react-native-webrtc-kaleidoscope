@@ -6,3 +6,10 @@ const SLIDER_EPSILON = 1e-4;
 
 export const safeSliderValue = (v: number): number =>
   Number.isFinite(v) && v !== 0 ? v : SLIDER_EPSILON;
+
+/** Shared track/thumb tints so every slider in the kit reads the same. */
+export const SLIDER_TINTS = {
+  minimumTrackTintColor: '#8888ff',
+  maximumTrackTintColor: '#444',
+  thumbTintColor: '#eeeeff',
+} as const;

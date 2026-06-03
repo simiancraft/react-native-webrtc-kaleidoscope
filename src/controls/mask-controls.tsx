@@ -9,6 +9,7 @@ import type { MaskInput } from '../kaleidoscope/types';
 import { ControlSection } from './control-section';
 import { Label } from './primitives/label';
 import { Readout } from './primitives/readout';
+import { SLIDER_TINTS } from './primitives/slider-value';
 
 export type KaleidoscopeMaskControlsProps = {
   readonly hardness: number;
@@ -46,9 +47,7 @@ function MaskRow({
         value={value}
         disabled={disabled}
         onValueChange={onChange}
-        minimumTrackTintColor="#8888ff"
-        maximumTrackTintColor="#444"
-        thumbTintColor="#eeeeff"
+        {...SLIDER_TINTS}
       />
     </View>
   );

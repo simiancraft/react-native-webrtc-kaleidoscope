@@ -9,7 +9,7 @@ import { useField } from '../form/use-field';
 import { useThemeSlot } from '../theme/provider';
 import { Label } from './label';
 import { Readout } from './readout';
-import { safeSliderValue } from './slider-value';
+import { SLIDER_TINTS, safeSliderValue } from './slider-value';
 
 const CH = ['R', 'G', 'B'] as const;
 
@@ -55,9 +55,7 @@ export function ColorPicker({ uniform, label, style }: ColorPickerProps) {
             value={safeSliderValue(v)}
             disabled={field.disabled}
             onValueChange={(nv) => setChannel(i, nv)}
-            minimumTrackTintColor="#8888ff"
-            maximumTrackTintColor="#444"
-            thumbTintColor="#eeeeff"
+            {...SLIDER_TINTS}
           />
         </View>
       ))}

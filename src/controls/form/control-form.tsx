@@ -60,6 +60,11 @@ export function ControlForm({
   const onPatchRef = useRef(onPatch);
   onPatchRef.current = onPatch;
 
+  // The latest not-yet-emitted edit, held so it can be flushed on unmount (a
+  // preset switch remounts this form mid-debounce; the trailing value must not be
+  // lost). Cleared when it fires.
+  const pending = useRef<(() => void) | null>(null);
+
   // Skip the emit for the initial seed; only edits should patch.
   const seeded = useRef(false);
   useEffect(() => {
@@ -67,14 +72,22 @@ export function ControlForm({
       seeded.current = true;
       return;
     }
-    const fire = () => onPatchRef.current({ id, uniforms: { ...values } });
+    const fire = () => {
+      pending.current = null;
+      onPatchRef.current({ id, uniforms: { ...values } });
+    };
     if (debounceMs <= 0) {
       fire();
       return;
     }
+    pending.current = fire;
     const t = setTimeout(fire, debounceMs);
     return () => clearTimeout(t);
   }, [values, id, debounceMs]);
+
+  // Flush a pending debounced edit on unmount so the trailing value survives a
+  // remount/preset switch.
+  useEffect(() => () => pending.current?.(), []);
 
   const ctx: ControlFormContextValue = {
     values,

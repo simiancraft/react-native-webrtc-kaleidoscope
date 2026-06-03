@@ -70,11 +70,12 @@ export type ShaderUniformsMap = {
 export type PatchableShaderName = keyof ShaderUniformsMap;
 
 /**
- * Tunable layer shaders → their control descriptors. The demo renders one control
- * panel per tunable layer in the active composite by looking each layer's shader name
- * up here. `image`/`direct` have no tunable uniforms, so they're absent.
+ * Tunable layer shaders → their control descriptors, aggregated. A public
+ * convenience map keyed by shader name; the controls kit's `UniformControls`
+ * takes a single shader's `*_CONTROLS` directly, so nothing internal reads this
+ * aggregate. `image`/`direct` carry no uniforms, so they are absent.
  */
-export const LAYER_CONTROLS: Readonly<Record<string, readonly UniformControl[]>> = {
+export const LAYER_CONTROLS: Readonly<Record<PatchableShaderName, readonly UniformControl[]>> = {
   blur: BLUR_CONTROLS,
   clouds: CLOUDS_CONTROLS,
   godrays: GODRAYS_CONTROLS,
