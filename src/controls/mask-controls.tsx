@@ -6,6 +6,7 @@
 import RNSlider from '@react-native-community/slider';
 import { StyleSheet, View } from 'react-native';
 import type { MaskInput } from '../kaleidoscope/types';
+import { MASK_TESTID_PREFIX } from '../test-id';
 import { ControlSection } from './control-section';
 import { Label } from './primitives/label';
 import { Readout } from './primitives/readout';
@@ -16,6 +17,8 @@ export type KaleidoscopeMaskControlsProps = {
   readonly threshold: number;
   readonly onChange: (mask: MaskInput) => void;
   readonly disabled?: boolean;
+  /** Root for this instance's test ids; override when a screen mounts two. */
+  readonly testIDPrefix?: string;
 };
 
 function MaskRow({
@@ -23,11 +26,13 @@ function MaskRow({
   value,
   disabled,
   onChange,
+  testID,
 }: {
   readonly label: string;
   readonly value: number;
   readonly disabled: boolean;
   readonly onChange: (v: number) => void;
+  readonly testID: string;
 }) {
   return (
     <View style={styles.row}>
@@ -37,6 +42,7 @@ function MaskRow({
       </View>
       <RNSlider
         style={styles.slider}
+        testID={testID}
         accessibilityLabel={label}
         // Floor at 0.01: at exactly 0 the mask smoothstep range collapses
         // (lo === hi) and the edge breaks. 0.01 keeps it well-defined. This is a
@@ -58,6 +64,7 @@ export function KaleidoscopeMaskControls({
   threshold,
   onChange,
   disabled = false,
+  testIDPrefix = MASK_TESTID_PREFIX,
 }: KaleidoscopeMaskControlsProps) {
   return (
     <ControlSection title="mask">
@@ -66,12 +73,14 @@ export function KaleidoscopeMaskControls({
         value={hardness}
         disabled={disabled}
         onChange={(v) => onChange({ hardness: v, threshold })}
+        testID={`${testIDPrefix}.hardness`}
       />
       <MaskRow
         label="threshold"
         value={threshold}
         disabled={disabled}
         onChange={(v) => onChange({ hardness, threshold: v })}
+        testID={`${testIDPrefix}.threshold`}
       />
     </ControlSection>
   );
