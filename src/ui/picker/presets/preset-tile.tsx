@@ -96,6 +96,14 @@ const styles = StyleSheet.create({
   tile: {
     aspectRatio: 16 / 9,
     minWidth: 96,
+    // Yoga floor for percentage flexBasis + aspectRatio collapse: without this,
+    // each tile resolves to 118 x 4 px on iOS (verified via Maestro hierarchy
+    // bounds), turning every wallpaper tile into a thin gray strip; the
+    // recessed variant survived only because its visible border made the 4px
+    // height look like a deliberate divider. 54 = 96 * 9 / 16, the minWidth's
+    // aspect-derived height, so a tile whose width grows past the floor still
+    // tracks the 16:9 ratio.
+    minHeight: 54,
     flexGrow: 1,
     flexBasis: '30%',
     maxWidth: '32%',
