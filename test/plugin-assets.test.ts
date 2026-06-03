@@ -371,3 +371,104 @@ describe('iOS prebuild asset copy + pbxproj registration', () => {
     expect(fs.existsSync(path.join(iosRoot, 'Demo'))).toBe(false);
   });
 });
+
+// A stub @expo/config-plugins whose getPbxproj THROWS, to drive the
+// pbxproj-read failure branch (warn, never throw).
+const installThrowingConfigPlugins = (root: string) => {
+  const mod = path.join(root, 'node_modules', '@expo', 'config-plugins');
+  fs.mkdirSync(mod, { recursive: true });
+  fs.writeFileSync(
+    path.join(mod, 'package.json'),
+    JSON.stringify({ name: '@expo/config-plugins', version: '0.0.0', main: 'index.js' }),
+  );
+  fs.writeFileSync(
+    path.join(mod, 'index.js'),
+    `module.exports = {
+      IOSConfig: {
+        XcodeUtils: {
+          getPbxproj() { throw new Error('no pbxproj'); },
+          addResourceFileToGroup() {},
+        },
+      },
+    };`,
+  );
+};
+
+// An image book whose every plate is unresolvable (no assets on disk).
+const UNRESOLVABLE_BOOK = `
+export const presets = {
+  a: { name: 'A', taxonomy: ['x'], layers: [
+    { id: 'gone', shader: 'image', source: require('./assets/gone.webp') },
+  ] },
+};
+`;
+
+// The plugin's contract is non-fatal: every I/O or resolution failure warns and
+// the build proceeds. These tests drive the catch/early-return branches.
+describe('config plugin non-fatal error branches', () => {
+  let proj: ReturnType<typeof makeTmp>;
+  let warn: ReturnType<typeof spyOn>;
+  let log: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    proj = makeTmp();
+    warn = spyOn(console, 'warn').mockImplementation(() => {});
+    log = spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+    log.mockRestore();
+    proj.cleanup();
+  });
+
+  test('an imported composite that does not resolve contributes no plates', async () => {
+    // COMPOSITE_BOOK with no fake library installed: require.resolve throws,
+    // resolveCompositeSource swallows it and returns null.
+    fs.writeFileSync(path.join(proj.dir, 'kaleidoscope.presets.ts'), COMPOSITE_BOOK);
+    const plat = makeTmp();
+    await runAndroidMod(proj.dir, plat.dir);
+    expect(fs.existsSync(imagesDir(plat.dir))).toBe(false);
+    plat.cleanup();
+  });
+
+  test('Android copy failure (platformProjectRoot is a file) warns, does not throw', async () => {
+    writeProject(proj.dir);
+    const platFile = path.join(proj.dir, 'not-a-dir');
+    fs.writeFileSync(platFile, 'x'); // mkdirSync(destDir) under a file throws
+    await runAndroidMod(proj.dir, platFile);
+    expect(warn.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('iOS with all plates unresolvable registers nothing', async () => {
+    fs.writeFileSync(path.join(proj.dir, 'kaleidoscope.presets.ts'), UNRESOLVABLE_BOOK);
+    installFakeConfigPlugins(proj.dir);
+    const iosRoot = path.join(proj.dir, 'ios');
+    fs.mkdirSync(path.join(iosRoot, 'Demo.xcodeproj'), { recursive: true });
+    await runIosMod(proj.dir, iosRoot);
+    expect(fs.existsSync(path.join(iosRoot, 'Demo.xcodeproj', 'project.pbxproj'))).toBe(false);
+  });
+
+  test('iOS pbxproj read failure warns, does not throw', async () => {
+    writeProject(proj.dir);
+    installThrowingConfigPlugins(proj.dir);
+    const iosRoot = path.join(proj.dir, 'ios');
+    fs.mkdirSync(path.join(iosRoot, 'Demo.xcodeproj'), { recursive: true });
+    await runIosMod(proj.dir, iosRoot);
+    // Plates are copied, but registration bails on the pbxproj read error.
+    expect(fs.existsSync(path.join(iosRoot, 'Demo', 'sky.webp'))).toBe(true);
+    expect(fs.existsSync(path.join(iosRoot, 'Demo.xcodeproj', 'project.pbxproj'))).toBe(false);
+    expect(warn.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('a non-readable Podfile.properties.json (a directory) skips the bump, does not clobber', async () => {
+    const iosRoot = path.join(proj.dir, 'ios');
+    fs.mkdirSync(iosRoot, { recursive: true });
+    // A directory where the JSON file should be: readFileSync throws EISDIR
+    // (not ENOENT), so the mod warns and bails rather than overwriting.
+    const propsPath = path.join(iosRoot, 'Podfile.properties.json');
+    fs.mkdirSync(propsPath);
+    await runIosMod(proj.dir, iosRoot);
+    expect(fs.statSync(propsPath).isDirectory()).toBe(true); // untouched
+  });
+});
