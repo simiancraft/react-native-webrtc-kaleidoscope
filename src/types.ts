@@ -6,6 +6,10 @@
  * shaders are all layers inside a composite.
  */
 
+// Type-only (erased at runtime); ties a generative layer's baked `uniforms` to
+// its shader's uniform type so bakes are checked against the single source.
+import type { ShaderUniformsMap } from './shaders';
+
 /**
  * Geometric reorientation of the frame: an axis flip or a 90-degree rotation.
  * The operation IS the effect name (parameterless), which keeps it compatible
@@ -47,23 +51,21 @@ export type LayerShaderOptions = {
   readonly image: { readonly source: string };
   readonly direct: Record<never, never>;
   /** Camera-sampling separable gaussian; `sigma` is its softness. */
-  readonly blur: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
-  readonly godrays: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
-  readonly clouds: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
-  readonly fireflies: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
-  readonly plasma: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
-  readonly nebula: { readonly uniforms: Readonly<Record<string, number | readonly number[]>> };
-  readonly simianlights: {
-    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
-  };
+  readonly blur: { readonly uniforms: Partial<ShaderUniformsMap['blur']> };
+  readonly godrays: { readonly uniforms: Partial<ShaderUniformsMap['godrays']> };
+  readonly clouds: { readonly uniforms: Partial<ShaderUniformsMap['clouds']> };
+  readonly fireflies: { readonly uniforms: Partial<ShaderUniformsMap['fireflies']> };
+  readonly plasma: { readonly uniforms: Partial<ShaderUniformsMap['plasma']> };
+  readonly nebula: { readonly uniforms: Partial<ShaderUniformsMap['nebula']> };
+  readonly simianlights: { readonly uniforms: Partial<ShaderUniformsMap['simianlights']> };
   readonly 'anamorphic-lensflare': {
-    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+    readonly uniforms: Partial<ShaderUniformsMap['anamorphic-lensflare']>;
   };
   readonly 'light-beams-and-motes': {
-    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+    readonly uniforms: Partial<ShaderUniformsMap['light-beams-and-motes']>;
   };
   readonly 'corporate-blobs': {
-    readonly uniforms: Readonly<Record<string, number | readonly number[]>>;
+    readonly uniforms: Partial<ShaderUniformsMap['corporate-blobs']>;
   };
 };
 
