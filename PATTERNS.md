@@ -379,6 +379,45 @@ it never calls `kaleidoscope` itself.
   only allowed cross-edge is `./ui` importing the theme context from
   `./controls/theme` (a leaf module that imports nothing from its siblings).
 
+### Test ids and accessibility (the `kld.*` grammar)
+
+Every interactive control and picker leaf carries a deterministic, semantic
+`accessibilityIdentifier` so a Maestro flow can address it by a stable id
+(`tapOn: { id: "kld.transform.rotate-90" }`) instead of brittle visible text. The
+builders are one pure module, `src/test-id.ts`; nothing hand-authors an id string.
+
+- **Field ids are generated, not written.** The preset id flows from the Tuner
+  through `ControlScopeContext`; `ControlForm` composes `kld.<preset>.<layer>` into
+  its context `path`; `useField` appends the uniform. A new shader dropped into
+  `shaders/<name>/` inherits field ids for free; the per-composite `.controls.tsx`
+  files never mention a test id.
+- **The grammar (dot-delimited, rooted at `kld`).** Preset, layer, and uniform are
+  already stable tokens and are used verbatim; only display strings (family,
+  category) are slugged (lowercase, spaces/underscores → `-`, strip non `[a-z0-9-]`).
+
+  | Surface | Id |
+  |---|---|
+  | control field | `kld.<preset>.<layer>.<uniform>` |
+  | color channel | `…<uniform>.r` / `.g` / `.b` |
+  | section copy button | `<scope>.copy` |
+  | standalone form (no Tuner) | `kld.<layer>.<uniform>` |
+  | transform | `kld.transform.rotate-<deg>` / `.flip-<axis>` |
+  | mask | `kld.mask.hardness` / `.threshold` |
+  | family tab | `kld.family.<slug>` |
+  | category item | `kld.category.<slug-family>.<slug-category>` |
+  | preset tile | `kld.preset.<id>` |
+
+- **Static-prefix families.** `KaleidoscopeTransformControls` and
+  `KaleidoscopeMaskControls` render outside any preset scope, so they take a
+  `testIDPrefix` prop (default `kld.transform` / `kld.mask`); override it only when a
+  screen mounts two instances.
+- **BYO tiles get the id.** `PresetGrid` passes the tile id through the `RenderTile`
+  state (`state.testID`); a custom `renderTile` should apply it to its pressable
+  root, as the demo does.
+- **A11y rides along.** The same pass fills real gaps: the transform flip/rotate
+  pressables carry an `accessibilityLabel` ("Flip horizontal", "Rotate 90 degrees"),
+  not just a role. Add the label when you add the id.
+
 ## Out-of-scope organization
 
 These were considered and rejected for the current scale; revisit when
