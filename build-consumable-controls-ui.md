@@ -109,7 +109,7 @@ build-consumable-controls-ui.md           - deleted at completion (Inspector Gad
 - `src/controls/index.ts`: barrel seeded with the theme exports; later commits extend it. Relative imports stay extension-less (Metro house rule).
 
 **Files rewritten:**
-- `package.json`: add the full `./controls` conditions map (`types`, `react-native` → `src/controls/index.ts`, `browser`/`import`/`default` → `dist/...`, matching `./ui`); add `@react-native-community/slider` to `peerDependencies` as a floor (`^4.5.0`, must include the demo's `4.5.2`), mark it `peerDependenciesMeta: { optional: true }` (matching `nativewind`/`react-native-webrtc`), and add it as a devDependency pinned to `4.5.2` for the lib's own typecheck/build.
+- `package.json`: add the full `./controls` conditions map (`types`, `react-native` → `src/controls/index.ts`, `browser`/`import`/`default` → `dist/...`, matching `./ui`); add `@react-native-community/slider` to `peerDependencies` as a floor (`^4.5.0`, must include the demo's `4.5.2`), mark it `peerDependenciesMeta: { optional: true }` (matching `nativewind`/`react-native-webrtc`). The matching devDependency lands in Commit 5 with the Slider primitive that imports it (knip flags a declared-but-unimported devDep, so it can't precede its use).
 
 **Gate:** `bun run check` passes (`check:package` runs `publint --strict`; attw is not wired in the aggregator, so don't claim it).
 
@@ -128,6 +128,7 @@ build-consumable-controls-ui.md           - deleted at completion (Inspector Gad
 - `src/controls/primitives/{label,readout,slider,color-picker,button}.tsx`: each merges `cn(defaults, theme.<slot>ClassName, className)` and `style={[theme.<slot>Style, style]}`; keeps its current hard-coded `StyleSheet` defaults as the un-themed baseline; stateful ones overlay `active`/`inactive`/`disabled` at the container (mirrors `PresetTile`'s `selected && styles.selected`). `Slider` wraps `@react-native-community/slider` with the `safeSliderValue` zero-guard (port the explanatory comment); display reads the field value synchronously, only the form emit debounces. `ColorPicker` is v1-equivalent to today's `ColorRow`. Each field associates its `Label`/`Readout` with the control via `accessibilityLabel` (RN has no `htmlFor`).
 
 **Files rewritten:**
+- `package.json`: add `@react-native-community/slider` as a devDependency pinned to `4.5.2` (now that the Slider primitive imports it) + `bun install`.
 - `src/controls/index.ts`: export the primitives + `makeControls`/`ControlForm`.
 - `src/nativewind.ts`: `cssInterop` each primitive's `*ClassName` props to their `*Style` targets — **inside** `registerKaleidoscopeNativeWind()` (never at module scope, so `sideEffects: false` stays true).
 - `test/picker-nativewind-parity.test.ts`: read both the `./ui` and `./controls` barrels, but scope the "styleable" set to the **primitive** components (the picker leaves + `src/controls/primitives/*`); providers/shells (`ControlForm`, `KaleidoscopeTuner`, `ControlSection`, `KaleidoscopeThemeProvider`, mask/transform) are PascalCase but must be **excluded**, else the bidirectional `registered === styleable` assertion fails. Barrel re-exports use `export { X } from './…'` so the extractor sees them.

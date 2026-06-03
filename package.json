@@ -49,6 +49,13 @@
       "import": "./dist/src/ui/index.js",
       "default": "./dist/src/ui/index.js"
     },
+    "./controls": {
+      "types": "./dist/src/controls/index.d.ts",
+      "react-native": "./src/controls/index.ts",
+      "browser": "./dist/src/controls/index.js",
+      "import": "./dist/src/controls/index.js",
+      "default": "./dist/src/controls/index.js"
+    },
     "./nativewind": {
       "types": "./dist/src/nativewind.d.ts",
       "react-native": "./src/nativewind.ts",
@@ -303,9 +310,13 @@
     "react-native-webrtc": ">=124.0.0",
     "@livekit/react-native-webrtc": ">=144.0.0",
     "livekit-client": ">=2.0.0",
-    "nativewind": ">=4.0.0"
+    "nativewind": ">=4.0.0",
+    "@react-native-community/slider": ">=4.5.0"
   },
   "peerDependenciesMeta": {
+    "@react-native-community/slider": {
+      "optional": true
+    },
     "nativewind": {
       "optional": true
     },
