@@ -1,20 +1,15 @@
-// Fairy cave: a moonlit night sky through the round opening, the cave plate, and
-// fireflies drifting on top, you in the cave.
-//
-// A packaged composite: within the library it imports its image layers
-// relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// Web variant. Resolves the thumbnail URI via expo-asset at module-load time.
+// Native is fairy-cave.ts (no thumbnail). Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
-// Native variant; fairy-cave.web.ts adds the expo-asset-resolved thumbnail.
-// On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+import { Asset } from 'expo-asset';
 import { fairyTreehouse } from '../../images/fairy-treehouse/fairy-treehouse';
 import type { Composite } from '../../src/kaleidoscope/types';
+import fairyCaveThumb from './fairy-cave.thumb.webp';
 
 export const fairyCave = {
   name: 'Fairy Cave',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(fairyCaveThumb).uri,
   layers: [
     {
       id: 'sky',

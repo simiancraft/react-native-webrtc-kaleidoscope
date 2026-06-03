@@ -1,20 +1,16 @@
-// Underwater: the underwater plate with animated god rays additively on top, the
-// ray tint color-matched to the scene's cool light, the masked person on top.
-//
-// A packaged composite: within the library it imports its image layers
-// relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// Web variant. Resolves the thumbnail URI via expo-asset at module-load time.
+// Native is underwater.ts (no thumbnail).
+// Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
-// Native variant; underwater.web.ts adds the expo-asset-resolved thumbnail. On
-// native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+import { Asset } from 'expo-asset';
 import { stylizedDark } from '../../images/stylized-dark/stylized-dark';
 import type { Composite } from '../../src/kaleidoscope/types';
+import underwaterThumb from './underwater.thumb.webp';
 
 export const underwater = {
   name: 'Underwater',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(underwaterThumb).uri,
   layers: [
     { id: 'stylized-dark', shader: 'image', source: stylizedDark },
     {

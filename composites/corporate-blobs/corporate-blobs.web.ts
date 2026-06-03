@@ -1,23 +1,16 @@
-// Corporate blobs: a corporate-logo backdrop, you composited over it, and large
-// decorative edge/vignette blobs framing the frame on top (normal blend; the
-// center stays clear so you read through). Each blob's color is its own uniform,
-// so the eight-color brand palette is fully tunable; uColor grades them all
-// together.
-//
-// A packaged composite: within the library it imports its image layers
-// relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// Web variant. Resolves the thumbnail URI via expo-asset at module-load time.
+// Native is corporate-blobs.ts (no thumbnail).
+// Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
-// Native variant; corporate-blobs.web.ts adds the expo-asset-resolved
-// thumbnail. On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+import { Asset } from 'expo-asset';
 import { corporateLogo } from '../../images/corporate-logo/corporate-logo';
 import type { Composite } from '../../src/kaleidoscope/types';
+import corporateBlobsThumb from './corporate-blobs.thumb.webp';
 
 export const corporateBlobs = {
   name: 'Corporate Blobs',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(corporateBlobsThumb).uri,
   layers: [
     { id: 'corporate-logo', shader: 'image', source: corporateLogo },
     // You, in front of the logo (blobs frame you from the edges, on top).

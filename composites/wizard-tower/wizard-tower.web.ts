@@ -1,22 +1,15 @@
-// Wizard tower: sunset clouds visible through the chamber's cut-out sky, the
-// tower plate composited on top, you standing in the chamber.
-//
-// A packaged composite: an ordered painter's stack of layers under one name,
-// with display metadata. The library ships it so a consuming book can list it by
-// importing this module; consumers copy this file's shape to author their own.
-// Within the library it imports its image layers relatively; a consumer would
-// import from `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// Web variant. Resolves the thumbnail URI via expo-asset at module-load time.
+// Native is wizard-tower.ts (no thumbnail). Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
-// Native variant; wizard-tower.web.ts adds the expo-asset-resolved thumbnail.
-// On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+import { Asset } from 'expo-asset';
 import { wizardsTower } from '../../images/wizards-tower/wizards-tower';
 import type { Composite } from '../../src/kaleidoscope/types';
+import wizardTowerThumb from './wizard-tower.thumb.webp';
 
 export const wizardTower = {
   name: 'Wizard Tower',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(wizardTowerThumb).uri,
   layers: [
     {
       id: 'sky',

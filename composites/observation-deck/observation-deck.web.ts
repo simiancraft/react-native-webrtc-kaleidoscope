@@ -1,22 +1,16 @@
-// Space observation deck: a simianlights field seen through the deck's panoramic
-// window (a cut-out plate), you standing in the room, an anamorphic lens flare
-// across the glass. Back-to-front: simianlights, deck plate, you, flare. The
-// full "space scene".
-//
-// A packaged composite: within the library it imports its image layers
-// relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// Web variant. Resolves the thumbnail URI via expo-asset at module-load time.
+// Native is observation-deck.ts (no thumbnail).
+// Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
-// Native variant; observation-deck.web.ts adds the expo-asset-resolved
-// thumbnail. On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+import { Asset } from 'expo-asset';
 import { observationDeck as observationDeckPlate } from '../../images/observation-deck/observation-deck';
 import type { Composite } from '../../src/kaleidoscope/types';
+import observationDeckThumb from './observation-deck.thumb.webp';
 
 export const observationDeck = {
   name: 'Observation Deck',
   category: 'Worlds',
+  thumbnail: Asset.fromModule(observationDeckThumb).uri,
   layers: [
     {
       id: 'field',
