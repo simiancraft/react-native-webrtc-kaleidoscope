@@ -56,10 +56,18 @@ export interface PresetItemState {
   readonly onPress: () => void;
 }
 
-/** Render-prop for one preset tile; `uri` is the resolved thumbnail source (undefined renders the recessed variant). */
+/**
+ * Render-prop for one preset tile. `uri` is the resolved thumbnail source
+ * (undefined renders the recessed variant); `testID` is the tile's deterministic
+ * `accessibilityIdentifier` (`kld.preset.<id>`), which a BYO tile should apply to
+ * its pressable root so Maestro can address it.
+ */
 export type RenderTile = (
   preset: PresetView,
-  state: PresetItemState & { readonly uri: string | number | undefined },
+  state: PresetItemState & {
+    readonly uri: string | number | undefined;
+    readonly testID: string;
+  },
 ) => ReactNode;
 
 /**

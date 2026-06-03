@@ -53,6 +53,7 @@ const renderDemoTile: RenderTile = (preset, state) => (
     selected={state.selected}
     disabled={state.disabled}
     onPress={state.onPress}
+    testID={state.testID}
     badge={DEMO_OWNED.has(preset.id) ? 'demo-owned' : undefined}
   />
 );

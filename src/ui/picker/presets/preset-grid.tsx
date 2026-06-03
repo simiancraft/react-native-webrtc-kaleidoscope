@@ -10,6 +10,7 @@
 
 import { Fragment, useMemo } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
+import { presetTileTestId } from '../../../test-id';
 import type { PresetView, RenderTile } from '../picker.types';
 import { resolveBackgroundUri } from '../resolve-background-uri';
 import { PresetTile } from './preset-tile';
@@ -33,6 +34,7 @@ const defaultRenderTile: RenderTile = (preset, state) => (
     selected={state.selected}
     disabled={state.disabled}
     onPress={state.onPress}
+    testID={state.testID}
   />
 );
 
@@ -68,6 +70,7 @@ export function PresetGrid(props: PresetGridProps) {
               disabled,
               uri: uriById.get(preset.id),
               onPress: () => onSelect(selected ? null : preset.id),
+              testID: presetTileTestId(preset.id),
             })}
           </Fragment>
         );

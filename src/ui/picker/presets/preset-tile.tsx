@@ -44,15 +44,18 @@ interface PresetTileProps {
   readonly className?: string | undefined;
   /** RN style override; applied after the defaults. */
   readonly style?: StyleProp<ViewStyle> | undefined;
+  /** Deterministic `accessibilityIdentifier` (`kld.preset.<id>`). */
+  readonly testID?: string | undefined;
 }
 
 export function PresetTile(props: PresetTileProps) {
-  const { label, uri, selected, disabled = false, onPress, badge, style } = props;
+  const { label, uri, selected, disabled = false, onPress, badge, style, testID } = props;
   const hasWallpaper = !!uri;
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected, disabled }}
+      testID={testID}
       disabled={disabled}
       onPress={onPress}
       style={[
