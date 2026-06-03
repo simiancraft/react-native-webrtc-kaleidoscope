@@ -4,15 +4,17 @@
 //
 // A packaged composite consumers can list by importing this module.
 
-// Native variant; simianlights.web.ts adds the expo-asset-resolved thumbnail.
-// On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+// Native variant. The thumbnail is the string id the prebuild plugin bundles
+// `simianlights.thumb.webp` as into the native app target;
+// `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
+// (simianlights.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
+// mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const simianlights = {
   name: 'Simianlights',
   category: 'Worlds',
+  thumbnail: 'simianlights-thumb',
   layers: [
     {
       id: 'field',

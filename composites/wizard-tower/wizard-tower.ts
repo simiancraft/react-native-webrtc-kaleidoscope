@@ -7,16 +7,18 @@
 // Within the library it imports its image layers relatively; a consumer would
 // import from `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
-// Native variant; wizard-tower.web.ts adds the expo-asset-resolved thumbnail.
-// On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+// Native variant. The thumbnail is the string id the prebuild plugin
+// (app.plugin.js) bundles `wizard-tower.thumb.webp` as into the native app
+// target; `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
+// (wizard-tower.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
+// mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { wizardsTower } from '../../images/wizards-tower/wizards-tower';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const wizardTower = {
   name: 'Wizard Tower',
   category: 'Worlds',
+  thumbnail: 'wizard-tower-thumb',
   layers: [
     {
       id: 'sky',

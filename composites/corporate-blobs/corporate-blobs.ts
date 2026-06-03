@@ -8,16 +8,18 @@
 // relatively; a consumer would import from
 // `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
-// Native variant; corporate-blobs.web.ts adds the expo-asset-resolved
-// thumbnail. On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+// Native variant. The thumbnail is the string id the prebuild plugin bundles
+// `corporate-blobs.thumb.webp` as into the native app target;
+// `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
+// (corporate-blobs.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
+// mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { corporateLogo } from '../../images/corporate-logo/corporate-logo';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const corporateBlobs = {
   name: 'Corporate Blobs',
   category: 'Worlds',
+  thumbnail: 'corporate-blobs-thumb',
   layers: [
     { id: 'corporate-logo', shader: 'image', source: corporateLogo },
     // You, in front of the logo (blobs frame you from the edges, on top).

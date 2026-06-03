@@ -5,16 +5,17 @@
 // relatively; a consumer would import from
 // `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
-// Native variant; fairy-cave.web.ts adds the expo-asset-resolved thumbnail.
-// On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+// Native variant. The thumbnail is the string id the prebuild plugin bundles
+// `fairy-cave.thumb.webp` as into the native app target; `resolveBackgroundUri`
+// looks it up in Bundle.main. The web sibling (fairy-cave.web.ts) keeps the
+// `Asset.fromModule(...).uri` pattern; mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { fairyTreehouse } from '../../images/fairy-treehouse/fairy-treehouse';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const fairyCave = {
   name: 'Fairy Cave',
   category: 'Worlds',
+  thumbnail: 'fairy-cave-thumb',
   layers: [
     {
       id: 'sky',

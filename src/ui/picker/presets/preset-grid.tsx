@@ -41,8 +41,20 @@ export function PresetGrid(props: PresetGridProps) {
   const renderItem = renderTile ?? defaultRenderTile;
   // Resolve thumbnail URIs once per preset set (not per render/selection); the
   // result is pure in (id, source).
+  // The native resolver looks the thumbnail up by id in Bundle.main. For image
+  // presets the preset id and the thumbnail's bundle filename coincide (a
+  // background's plate id IS its preset id); for composites they differ (the
+  // composite's thumb is bundled as `<composite-id>-thumb.webp`), so pass the
+  // source as the lookup key when it is a string and falls back to the preset
+  // id otherwise.
   const uriById = useMemo(
-    () => new Map(presets.map((p) => [p.id, resolveBackgroundUri(p.id, p.source)] as const)),
+    () =>
+      new Map(
+        presets.map((p) => {
+          const lookupId = typeof p.source === 'string' ? p.source : p.id;
+          return [p.id, resolveBackgroundUri(lookupId, p.source)] as const;
+        }),
+      ),
     [presets],
   );
   return (

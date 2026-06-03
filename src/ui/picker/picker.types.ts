@@ -28,8 +28,11 @@ export interface PresetView {
   readonly id: string;
   readonly label: string;
   readonly family: Family;
-  /** Thumbnail source (web URL or native preset name); present when the book entry has one. */
-  readonly source?: string | undefined;
+  /**
+   * Thumbnail source (web URL or native preset name as `string`, or a Metro
+   * asset module id as `number`); present when the book entry has one.
+   */
+  readonly source?: string | number | undefined;
 }
 
 /**
@@ -46,7 +49,7 @@ export interface PresetItemState {
 /** Render-prop for one preset tile; `uri` is the resolved thumbnail source (undefined renders the recessed variant). */
 export type RenderTile = (
   preset: PresetView,
-  state: PresetItemState & { readonly uri: string | undefined },
+  state: PresetItemState & { readonly uri: string | number | undefined },
 ) => ReactNode;
 
 /**

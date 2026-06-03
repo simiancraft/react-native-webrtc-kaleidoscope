@@ -318,6 +318,28 @@ function resolveAssetPath(specifier, baseDir, projectRoot) {
   }
 }
 
+// Every packaged composite the book imports, with the on-disk path of its
+// `<name>.thumb.webp` sibling. Mirrors collectImageRefs but for composites'
+// picker-tile thumbnails (different asset family: thumbs vs image-layer
+// plates). The thumb's bundle id is `<composite-name>-thumb`; the suffix
+// disambiguates from same-named image plates (e.g. observation-deck the plate
+// vs observation-deck-thumb the scene preview).
+function collectCompositeThumbRefs(bookSource, projectRoot) {
+  const refs = [];
+  const seen = new Set();
+  for (const specifier of Object.values(parseImports(bookSource))) {
+    const compositeTs = resolveCompositeSource(specifier, projectRoot);
+    if (!compositeTs) continue;
+    const name = specifier.substring(specifier.lastIndexOf('/') + 1);
+    if (seen.has(name)) continue;
+    const thumbPath = path.join(path.dirname(compositeTs), `${name}.thumb.webp`);
+    if (!fs.existsSync(thumbPath)) continue;
+    seen.add(name);
+    refs.push({ id: `${name}-thumb`, srcPath: thumbPath });
+  }
+  return refs;
+}
+
 // Copy each `image`-layer plate into the Android app's assets under
 // images/<id>.webp, so CompositeFactory can resolve it by the same basename id
 // JS sends. Idempotent; non-fatal (warn, never throw).
@@ -348,6 +370,32 @@ function copyAndroidImages(projectRoot, platformProjectRoot) {
   }
   console.log(
     `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} image plate(s) into the Android bundle from ${PRESET_BOOK_FILENAME}.`,
+  );
+}
+
+// Copy each packaged composite's `<name>.thumb.webp` into the Android app's
+// assets under images/<id>-thumb.webp (same flat directory as image plates;
+// the `-thumb` suffix keeps them disjoint). The picker's resolveBackgroundUri
+// looks them up by the same basename. Mirrors copyAndroidImages.
+function copyAndroidThumbnails(projectRoot, platformProjectRoot) {
+  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
+  let source;
+  try {
+    source = fs.readFileSync(bookPath, 'utf8');
+  } catch {
+    return;
+  }
+  const refs = collectCompositeThumbRefs(source, projectRoot);
+  if (refs.length === 0) return;
+  const destDir = path.join(platformProjectRoot, 'app', 'src', 'main', 'assets', 'images');
+  fs.mkdirSync(destDir, { recursive: true });
+  const copiedIds = [];
+  for (const { id, srcPath } of refs) {
+    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
+    copiedIds.push(id);
+  }
+  console.log(
+    `[react-native-webrtc-kaleidoscope] Copied ${copiedIds.length} composite thumbnail(s) into the Android bundle.`,
   );
 }
 
@@ -455,6 +503,80 @@ function copyIosImages(projectRoot, platformProjectRoot) {
   );
 }
 
+// Copy each packaged composite's `<name>.thumb.webp` into the iOS app target's
+// resources and register each in the pbxproj's Copy Bundle Resources phase,
+// landing as `<name>-thumb.webp` in Bundle.main. Mirrors copyIosImages.
+function copyIosThumbnails(projectRoot, platformProjectRoot) {
+  const bookPath = path.join(projectRoot, PRESET_BOOK_FILENAME);
+  let source;
+  try {
+    source = fs.readFileSync(bookPath, 'utf8');
+  } catch {
+    return;
+  }
+  const refs = collectCompositeThumbRefs(source, projectRoot);
+  if (refs.length === 0) return;
+
+  let IOSConfig;
+  try {
+    // eslint-disable-next-line global-require
+    ({ IOSConfig } = require(require.resolve('@expo/config-plugins', { paths: [projectRoot] })));
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not load @expo/config-plugins to register iOS composite thumbnails; picker thumbnails may be missing at runtime. ${String(error)}`,
+    );
+    return;
+  }
+  const { XcodeUtils } = IOSConfig;
+
+  let projectName;
+  try {
+    const xcodeprojDir = fs
+      .readdirSync(platformProjectRoot)
+      .find((entry) => entry.endsWith('.xcodeproj'));
+    if (!xcodeprojDir) return;
+    projectName = xcodeprojDir.replace(/\.xcodeproj$/, '');
+  } catch {
+    return;
+  }
+
+  const destDir = path.join(platformProjectRoot, projectName);
+  fs.mkdirSync(destDir, { recursive: true });
+
+  const copiedIds = [];
+  for (const { id, srcPath } of refs) {
+    fs.copyFileSync(srcPath, path.join(destDir, `${id}.webp`));
+    copiedIds.push(id);
+  }
+  if (copiedIds.length === 0) return;
+
+  let project;
+  try {
+    project = XcodeUtils.getPbxproj(projectRoot);
+  } catch (error) {
+    console.warn(
+      `[react-native-webrtc-kaleidoscope] Could not read the iOS pbxproj to add composite thumbnails; thumbnails may be missing at runtime. ${String(error)}`,
+    );
+    return;
+  }
+  for (const id of copiedIds) {
+    XcodeUtils.addResourceFileToGroup({
+      filepath: `${projectName}/${id}.webp`,
+      groupName: projectName,
+      isBuildFile: true,
+      project,
+      verbose: false,
+    });
+  }
+  fs.writeFileSync(
+    path.join(platformProjectRoot, `${projectName}.xcodeproj`, 'project.pbxproj'),
+    project.writeSync(),
+  );
+  console.log(
+    `[react-native-webrtc-kaleidoscope] Bundled ${copiedIds.length} composite thumbnail(s) into the iOS app target.`,
+  );
+}
+
 const withKaleidoscope = (config) => {
   if (!config.mods) {
     config.mods = {};
@@ -482,6 +604,13 @@ const withKaleidoscope = (config) => {
       } catch (error) {
         console.warn(
           `[react-native-webrtc-kaleidoscope] Could not copy image plates into the Android bundle; image layers may be missing at runtime. ${String(error)}`,
+        );
+      }
+      try {
+        copyAndroidThumbnails(modRequest.projectRoot, modRequest.platformProjectRoot);
+      } catch (error) {
+        console.warn(
+          `[react-native-webrtc-kaleidoscope] Could not copy composite thumbnails into the Android bundle; picker thumbnails may be missing at runtime. ${String(error)}`,
         );
       }
     }
@@ -577,6 +706,13 @@ const withKaleidoscope = (config) => {
       } catch (error) {
         console.warn(
           `[react-native-webrtc-kaleidoscope] Could not bundle image plates into the iOS app target; image layers may be missing at runtime. ${String(error)}`,
+        );
+      }
+      try {
+        copyIosThumbnails(modRequest.projectRoot, platformProjectRoot);
+      } catch (error) {
+        console.warn(
+          `[react-native-webrtc-kaleidoscope] Could not bundle composite thumbnails into the iOS app target; picker thumbnails may be missing at runtime. ${String(error)}`,
         );
       }
     }

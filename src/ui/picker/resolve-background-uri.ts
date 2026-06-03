@@ -22,5 +22,10 @@ let cachedModule: BackgroundUriModule | undefined;
 const nativeModule = (): BackgroundUriModule =>
   (cachedModule ??= requireNativeModule<BackgroundUriModule>('RnWebrtcKaleidoscope'));
 
-export const resolveBackgroundUri: ResolveBackgroundUri = (id, source) =>
-  nativeModule().resolveBackgroundUri?.(id) ?? source;
+export const resolveBackgroundUri: ResolveBackgroundUri = (id, source) => {
+  // A numeric source is a Metro asset module id (from `require('./foo.webp')`)
+  // and is consumable directly by `<Image source={number}>`; the native module
+  // resolves only string preset names, so pass numbers straight through.
+  if (typeof source === 'number') return source;
+  return nativeModule().resolveBackgroundUri?.(id) ?? source;
+};

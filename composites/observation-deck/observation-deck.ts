@@ -7,16 +7,19 @@
 // relatively; a consumer would import from
 // `react-native-webrtc-kaleidoscope/images/<name>` instead.
 
-// Native variant; observation-deck.web.ts adds the expo-asset-resolved
-// thumbnail. On native, Asset.fromModule(...).uri can't run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws); mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+// Native variant. The thumbnail is the string id the prebuild plugin bundles
+// `observation-deck.thumb.webp` as into the native app target;
+// `resolveBackgroundUri` looks it up in Bundle.main. The `-thumb` suffix
+// disambiguates from the image plate of the same composite id. The web sibling
+// (observation-deck.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
+// mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { observationDeck as observationDeckPlate } from '../../images/observation-deck/observation-deck';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const observationDeck = {
   name: 'Observation Deck',
   category: 'Worlds',
+  thumbnail: 'observation-deck-thumb',
   layers: [
     {
       id: 'field',

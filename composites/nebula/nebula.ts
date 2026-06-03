@@ -3,16 +3,21 @@
 //
 // A packaged composite consumers can list by importing this module.
 //
-// Native variant. The thumbnail is set in nebula.web.ts via expo-asset; on
-// native, Asset.fromModule(...).uri cannot run at module-load time
-// (resolveAssetSource returns null in the dev client and the `.uri`
-// destructure throws). Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
+// Native variant. The thumbnail is the string id the prebuild plugin
+// (app.plugin.js) bundles `nebula.thumb.webp` as into the native app target;
+// `resolveBackgroundUri` looks it up by that id in Bundle.main. Metro's
+// require()-based asset path is not used here because the symlinked-library
+// bundling registers only the first few thumb webps in the asset registry
+// (the rest get module ids that `Image.resolveAssetSource` cannot resolve).
+// The web sibling (nebula.web.ts) keeps the `Asset.fromModule(...).uri`
+// pattern; mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const nebula = {
   name: 'Nebula',
   category: 'Worlds',
+  thumbnail: 'nebula-thumb',
   layers: [
     {
       id: 'nebula',

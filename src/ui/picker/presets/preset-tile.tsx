@@ -29,8 +29,12 @@ import {
 
 interface PresetTileProps {
   readonly label: string;
-  /** Resolved thumbnail URI (web URL or native file:// URI); undefined renders the recessed button. */
-  readonly uri: string | undefined;
+  /**
+   * Resolved thumbnail source. A `string` is a URL (web) or file:// URI (native
+   * preset-name lookup); a `number` is a Metro asset module id consumed directly
+   * by `<Image source={number}>`. Undefined renders the recessed button.
+   */
+  readonly uri: string | number | undefined;
   readonly selected: boolean;
   readonly disabled?: boolean | undefined;
   readonly onPress: () => void;
@@ -61,7 +65,13 @@ export function PresetTile(props: PresetTileProps) {
     >
       {({ pressed, hovered = false }: { pressed: boolean; hovered?: boolean }) => (
         <>
-          {hasWallpaper ? <Image source={{ uri }} style={styles.thumb} resizeMode="cover" /> : null}
+          {hasWallpaper ? (
+            <Image
+              source={typeof uri === 'number' ? uri : { uri }}
+              style={styles.thumb}
+              resizeMode="cover"
+            />
+          ) : null}
           {hasWallpaper ? <View style={styles.scrim} /> : null}
           {badge ? (
             <View style={styles.badge}>
