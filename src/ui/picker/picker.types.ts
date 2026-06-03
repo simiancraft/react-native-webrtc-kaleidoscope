@@ -2,8 +2,9 @@
 //
 // These types are the seam between the composite picker, its family renderers,
 // and the per-item leaves. The composite reads the consumer's preset book,
-// flattens each preset to a `PresetView`, groups by `family` (the book entry's category), and
-// dispatches to a family-appropriate control. Selection is controlled: the
+// flattens each preset to a `PresetView`, groups by `family` (the book entry's
+// taxonomy root), and dispatches to a family-appropriate control. Selection is
+// controlled: the
 // component emits the chosen preset id; the host applies it via `kaleidoscope`.
 //
 // No runtime imports from platform-specific packages live here (it is the
@@ -14,8 +15,8 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import type { PresetBook } from '../../kaleidoscope/types';
 
 /**
- * A composite's family; the grouping (tab) axis. With the unified composite
- * shape this is the book entry's `category` (e.g. 'Worlds', 'Backgrounds').
+ * A composite's family; the grouping (tab) axis. This is the book entry's
+ * taxonomy root (`taxonomy[0]`, e.g. 'Worlds', 'Backgrounds').
  */
 export type Family = string;
 

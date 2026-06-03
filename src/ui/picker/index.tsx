@@ -99,7 +99,9 @@ export function usePicker<P extends PresetBook>(
     for (const id of Object.keys(presets)) {
       const preset = presets[id];
       if (!preset) continue;
-      const family = preset.category;
+      // Group tabs by the taxonomy root; the subgroup (taxonomy[1], when present)
+      // is not yet a browser level (the nested layout is a follow-up).
+      const family = preset.taxonomy[0];
       const view: PresetView = {
         id,
         label: labelFor?.(id as keyof P & string) ?? preset.name,

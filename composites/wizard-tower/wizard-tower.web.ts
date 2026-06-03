@@ -8,7 +8,7 @@ import wizardTowerThumb from './wizard-tower.thumb.webp';
 
 export const wizardTower = {
   name: 'Wizard Tower',
-  category: 'Worlds',
+  taxonomy: ['Worlds'],
   thumbnail: Asset.fromModule(wizardTowerThumb).uri,
   layers: [
     {

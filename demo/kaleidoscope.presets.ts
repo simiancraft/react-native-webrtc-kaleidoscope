@@ -1,13 +1,13 @@
 // The consumer's preset book. Every entry is a name -> Composite: an ordered
-// painter's stack of layers, plus a readable `name` and a `category` (the
-// picker's grouping axis). This is the file a consuming app owns and curates;
+// painter's stack of layers, plus a readable `name` and a `taxonomy` (the
+// picker's grouping path, root first). This is the file a consuming app owns and curates;
 // the prebuild plugin (native) parses it to copy only the referenced
 // image/shader sources into the bundle. On web it is read at runtime by
 // kaleidoscope().
 //
 // The packaged "Worlds" and "Sky" composites are imported from the library
 // (`react-native-webrtc-kaleidoscope/composites/<name>`); the book lists them by
-// spreading them in. The simpler Backgrounds, Blur, and Plasma category entries
+// spreading them in. The simpler Backgrounds, Blur, and Plasma entries
 // stay inline as the demo's curated examples and the consumer-authoring pattern:
 // each references a library image (`.../images/<name>`) or a library shader by
 // name. `wolf-cave` is a demo-OWNED image (not in the package), proving a
@@ -74,7 +74,7 @@ export const presets = {
   // as a one-generative-layer-plus-subject composite. ---
   'plasma-ocean': {
     name: 'Ocean',
-    category: 'Plasma',
+    taxonomy: ['Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -87,7 +87,7 @@ export const presets = {
   },
   'plasma-sunset': {
     name: 'Sunset',
-    category: 'Plasma',
+    taxonomy: ['Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -100,7 +100,7 @@ export const presets = {
   },
   'plasma-mint': {
     name: 'Mint',
-    category: 'Plasma',
+    taxonomy: ['Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -113,7 +113,7 @@ export const presets = {
   },
   'plasma-fast': {
     name: 'Fast',
-    category: 'Plasma',
+    taxonomy: ['Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -128,7 +128,7 @@ export const presets = {
   // --- Blur: a camera-sampling blur on the background, you sharp on top. ---
   'blur-low': {
     name: 'Low',
-    category: 'Blur',
+    taxonomy: ['Blur'],
     controls: BlurControls,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 1.5 } },
@@ -137,7 +137,7 @@ export const presets = {
   },
   'blur-medium': {
     name: 'Medium',
-    category: 'Blur',
+    taxonomy: ['Blur'],
     controls: BlurControls,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
@@ -146,7 +146,7 @@ export const presets = {
   },
   'blur-high': {
     name: 'High',
-    category: 'Blur',
+    taxonomy: ['Blur'],
     controls: BlurControls,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
@@ -158,13 +158,13 @@ export const presets = {
   // the thumbnail is the same image source. ---
   'simiancraft-light': {
     name: 'Simiancraft Light',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: simiancraftLight,
     layers: [{ id: 'simiancraft-light', shader: 'image', source: simiancraftLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'simiancraft-dark': {
     name: 'Simiancraft Dark',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: simiancraftDark,
     layers: [{ id: 'simiancraft-dark', shader: 'image', source: simiancraftDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
@@ -173,61 +173,61 @@ export const presets = {
   // it into the native bundle as wolf-cave.webp.
   'wolf-cave': {
     name: 'Wolf Cave',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: wolfCave,
     layers: [{ id: 'wolf-cave', shader: 'image', source: wolfCave }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'debug-resolutions': {
     name: 'Debug Resolutions',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: debugResolutions,
     layers: [{ id: 'debug-resolutions', shader: 'image', source: debugResolutions }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'dark-office': {
     name: 'Dark Office',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: darkOffice,
     layers: [{ id: 'dark-office', shader: 'image', source: darkOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'light-office': {
     name: 'Light Office',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: lightOffice,
     layers: [{ id: 'light-office', shader: 'image', source: lightOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'home-light': {
     name: 'Home Light',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: homeLight,
     layers: [{ id: 'home-light', shader: 'image', source: homeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'home-dark': {
     name: 'Home Dark',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: homeDark,
     layers: [{ id: 'home-dark', shader: 'image', source: homeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'nature-light': {
     name: 'Nature Light',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: natureLight,
     layers: [{ id: 'nature-light', shader: 'image', source: natureLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'nature-dark': {
     name: 'Nature Dark',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: natureDark,
     layers: [{ id: 'nature-dark', shader: 'image', source: natureDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'stylized-light': {
     name: 'Stylized Light',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: stylizedLight,
     layers: [{ id: 'stylized-light', shader: 'image', source: stylizedLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'stylized-dark': {
     name: 'Stylized Dark',
-    category: 'Backgrounds',
+    taxonomy: ['Backgrounds'],
     thumbnail: stylizedDark,
     layers: [{ id: 'stylized-dark', shader: 'image', source: stylizedDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },

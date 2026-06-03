@@ -16,7 +16,7 @@ import type { Composite } from '../../src/kaleidoscope/types';
 
 export const nebula = {
   name: 'Nebula',
-  category: 'Worlds',
+  taxonomy: ['Worlds'],
   thumbnail: 'nebula-thumb',
   layers: [
     {

@@ -18,7 +18,7 @@ import type { Composite } from '../../src/kaleidoscope/types';
 
 export const observationDeck = {
   name: 'Observation Deck',
-  category: 'Worlds',
+  taxonomy: ['Worlds'],
   thumbnail: 'observation-deck-thumb',
   layers: [
     {

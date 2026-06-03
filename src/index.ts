@@ -60,6 +60,7 @@ export type {
   PatchFor,
   Preset,
   PresetBook,
+  Taxonomy,
   TransformInput,
 } from './kaleidoscope/types';
 export type {

@@ -9,7 +9,7 @@ import underwaterThumb from './underwater.thumb.webp';
 
 export const underwater = {
   name: 'Underwater',
-  category: 'Worlds',
+  taxonomy: ['Worlds'],
   thumbnail: Asset.fromModule(underwaterThumb).uri,
   layers: [
     { id: 'stylized-dark', shader: 'image', source: stylizedDark },

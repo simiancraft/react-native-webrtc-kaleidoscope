@@ -9,7 +9,7 @@ import observationDeckThumb from './observation-deck.thumb.webp';
 
 export const observationDeck = {
   name: 'Observation Deck',
-  category: 'Worlds',
+  taxonomy: ['Worlds'],
   thumbnail: Asset.fromModule(observationDeckThumb).uri,
   layers: [
     {

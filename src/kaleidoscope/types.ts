@@ -19,15 +19,24 @@ import type { PatchableShaderName, ShaderUniformsMap } from '../shaders';
 import type { LayerSpec } from '../types';
 
 /**
+ * A composite's place in the browser: an ordered path of group names, deepest
+ * last. One level (`['Backgrounds']`) is a flat group; two
+ * (`['Worlds', 'Wizard Tower']`) is group then subgroup. The list IS the depth,
+ * so there is no way to set a group without its parent. Extend to three levels by
+ * adding a member here when needed.
+ */
+export type Taxonomy = readonly [string] | readonly [string, string];
+
+/**
  * A composite: an ordered painter's stack of layers under one book name, plus
- * display metadata (`name`, `category`, optional `thumbnail`). `kaleidoscope(id)`
+ * display metadata (`name`, `taxonomy`, optional `thumbnail`). `kaleidoscope(id)`
  * runs the whole stack as one effect through the one compositor.
  */
 export type Composite = {
   /** Human-readable label for the picker. */
   readonly name: string;
-  /** Grouping axis for the picker (e.g. 'Worlds', 'Backgrounds', 'Blur'). */
-  readonly category: string;
+  /** Grouping path for the picker, root first (e.g. `['Worlds', 'Wizard Tower']`). */
+  readonly taxonomy: Taxonomy;
   /**
    * Optional thumbnail source for the picker rail.
    * - `string`: a resolved URL (web) or native preset name routed through

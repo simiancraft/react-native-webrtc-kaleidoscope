@@ -13,7 +13,7 @@ import type { Composite } from '../../src/kaleidoscope/types';
 
 export const simianlights = {
   name: 'Simianlights',
-  category: 'Worlds',
+  taxonomy: ['Worlds'],
   thumbnail: 'simianlights-thumb',
   layers: [
     {

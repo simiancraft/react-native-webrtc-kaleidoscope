@@ -9,7 +9,7 @@ import corporateBlobsThumb from './corporate-blobs.thumb.webp';
 
 export const corporateBlobs = {
   name: 'Corporate Blobs',
-  category: 'Worlds',
+  taxonomy: ['Worlds'],
   thumbnail: Asset.fromModule(corporateBlobsThumb).uri,
   layers: [
     { id: 'corporate-logo', shader: 'image', source: corporateLogo },
