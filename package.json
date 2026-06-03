@@ -249,6 +249,62 @@
       "import": "./dist/composites/corporate-blobs/corporate-blobs.js",
       "default": "./dist/composites/corporate-blobs/corporate-blobs.js"
     },
+    "./composites/wizard-tower/controls": {
+      "types": "./dist/composites/wizard-tower/wizard-tower.controls.d.ts",
+      "react-native": "./composites/wizard-tower/wizard-tower.controls.tsx",
+      "browser": "./dist/composites/wizard-tower/wizard-tower.controls.js",
+      "import": "./dist/composites/wizard-tower/wizard-tower.controls.js",
+      "default": "./dist/composites/wizard-tower/wizard-tower.controls.js"
+    },
+    "./composites/clouds/controls": {
+      "types": "./dist/composites/clouds/clouds.controls.d.ts",
+      "react-native": "./composites/clouds/clouds.controls.tsx",
+      "browser": "./dist/composites/clouds/clouds.controls.js",
+      "import": "./dist/composites/clouds/clouds.controls.js",
+      "default": "./dist/composites/clouds/clouds.controls.js"
+    },
+    "./composites/corporate-blobs/controls": {
+      "types": "./dist/composites/corporate-blobs/corporate-blobs.controls.d.ts",
+      "react-native": "./composites/corporate-blobs/corporate-blobs.controls.tsx",
+      "browser": "./dist/composites/corporate-blobs/corporate-blobs.controls.js",
+      "import": "./dist/composites/corporate-blobs/corporate-blobs.controls.js",
+      "default": "./dist/composites/corporate-blobs/corporate-blobs.controls.js"
+    },
+    "./composites/fairy-cave/controls": {
+      "types": "./dist/composites/fairy-cave/fairy-cave.controls.d.ts",
+      "react-native": "./composites/fairy-cave/fairy-cave.controls.tsx",
+      "browser": "./dist/composites/fairy-cave/fairy-cave.controls.js",
+      "import": "./dist/composites/fairy-cave/fairy-cave.controls.js",
+      "default": "./dist/composites/fairy-cave/fairy-cave.controls.js"
+    },
+    "./composites/nebula/controls": {
+      "types": "./dist/composites/nebula/nebula.controls.d.ts",
+      "react-native": "./composites/nebula/nebula.controls.tsx",
+      "browser": "./dist/composites/nebula/nebula.controls.js",
+      "import": "./dist/composites/nebula/nebula.controls.js",
+      "default": "./dist/composites/nebula/nebula.controls.js"
+    },
+    "./composites/observation-deck/controls": {
+      "types": "./dist/composites/observation-deck/observation-deck.controls.d.ts",
+      "react-native": "./composites/observation-deck/observation-deck.controls.tsx",
+      "browser": "./dist/composites/observation-deck/observation-deck.controls.js",
+      "import": "./dist/composites/observation-deck/observation-deck.controls.js",
+      "default": "./dist/composites/observation-deck/observation-deck.controls.js"
+    },
+    "./composites/simianlights/controls": {
+      "types": "./dist/composites/simianlights/simianlights.controls.d.ts",
+      "react-native": "./composites/simianlights/simianlights.controls.tsx",
+      "browser": "./dist/composites/simianlights/simianlights.controls.js",
+      "import": "./dist/composites/simianlights/simianlights.controls.js",
+      "default": "./dist/composites/simianlights/simianlights.controls.js"
+    },
+    "./composites/underwater/controls": {
+      "types": "./dist/composites/underwater/underwater.controls.d.ts",
+      "react-native": "./composites/underwater/underwater.controls.tsx",
+      "browser": "./dist/composites/underwater/underwater.controls.js",
+      "import": "./dist/composites/underwater/underwater.controls.js",
+      "default": "./dist/composites/underwater/underwater.controls.js"
+    },
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
       "require": "./app.plugin.js",
