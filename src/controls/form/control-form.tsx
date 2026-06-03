@@ -9,7 +9,9 @@
 // ControlForm re-seeds from `uniforms`. There is no effect syncing state to props.
 
 import type { ReactNode } from 'react';
-import { createContext, useEffect, useReducer, useRef } from 'react';
+import { createContext, useContext, useEffect, useReducer, useRef } from 'react';
+import { controlScope } from '../../test-id';
+import { ControlScopeContext } from './scope';
 
 /** One field's value: a scalar uniform or a vecN (e.g. an RGB triple). */
 export type FieldValue = number | readonly number[];
@@ -21,6 +23,8 @@ export type ControlFormContextValue = {
   readonly values: FormValues;
   readonly setField: (key: string, value: FieldValue) => void;
   readonly disabled: boolean;
+  /** The form's test-id scope (`kld.<preset>.<layer>`); fields append their uniform. */
+  readonly path: string;
 };
 
 export const ControlFormContext = createContext<ControlFormContextValue | null>(null);
@@ -89,10 +93,12 @@ export function ControlForm({
   // remount/preset switch.
   useEffect(() => () => pending.current?.(), []);
 
+  const presetId = useContext(ControlScopeContext);
   const ctx: ControlFormContextValue = {
     values,
     setField: (key, value) => dispatch({ key, value }),
     disabled,
+    path: controlScope(presetId, id),
   };
 
   return <ControlFormContext.Provider value={ctx}>{children}</ControlFormContext.Provider>;

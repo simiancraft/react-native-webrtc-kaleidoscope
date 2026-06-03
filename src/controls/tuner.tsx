@@ -6,6 +6,7 @@
 
 import type { ReactElement } from 'react';
 import type { KaleidoscopeControlsProps, PresetBook } from '../kaleidoscope/types';
+import { ControlScopeContext } from './form/scope';
 
 export type KaleidoscopeTunerProps<P extends PresetBook> = {
   readonly presets: P;
@@ -36,5 +37,9 @@ export function KaleidoscopeTuner<P extends PresetBook>({
     }
   }
 
-  return <Controls key={value} uniforms={uniforms} onPatch={onPatch} disabled={disabled} />;
+  return (
+    <ControlScopeContext.Provider value={value}>
+      <Controls key={value} uniforms={uniforms} onPatch={onPatch} disabled={disabled} />
+    </ControlScopeContext.Provider>
+  );
 }

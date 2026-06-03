@@ -7,12 +7,15 @@
 // the key and value types to a shader's uniform type.
 
 import { useContext } from 'react';
+import { fieldTestId } from '../../test-id';
 import { ControlFormContext, type FieldValue } from './control-form';
 
 export type Field = {
   readonly value: FieldValue | undefined;
   readonly onChange: (value: FieldValue) => void;
   readonly disabled: boolean;
+  /** Deterministic `accessibilityIdentifier` for this field: `<form path>.<key>`. */
+  readonly testID: string;
 };
 
 export function useField(key: string): Field {
@@ -27,5 +30,6 @@ export function useField(key: string): Field {
     value: ctx.values[key],
     onChange: (value) => ctx.setField(key, value),
     disabled: ctx.disabled,
+    testID: fieldTestId(ctx.path, key),
   };
 }
