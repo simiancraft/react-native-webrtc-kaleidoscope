@@ -10,7 +10,7 @@
 // `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
 // (underwater.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
-import { stylizedDark } from '../../images/stylized-dark/stylized-dark';
+import { underwaterDark } from '../../images/underwater-dark/underwater-dark';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const underwater = {
@@ -18,7 +18,7 @@ export const underwater = {
   taxonomy: ['Worlds', 'Oceanic'],
   thumbnail: 'underwater-thumb',
   layers: [
-    { id: 'stylized-dark', shader: 'image', source: stylizedDark },
+    { id: 'underwater-dark', shader: 'image', source: underwaterDark },
     {
       id: 'rays',
       shader: 'godrays',

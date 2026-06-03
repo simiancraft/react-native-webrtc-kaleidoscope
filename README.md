@@ -260,7 +260,8 @@ Ten backgrounds ship as `image` layers, imported per preset (e.g. `import { dark
 | Office | <img src="images/light-office/light-office.thumb.webp" width="220" alt="light-office" /> | <img src="images/dark-office/dark-office.thumb.webp" width="220" alt="dark-office" /> |
 | Home | <img src="images/home-light/home-light.thumb.webp" width="220" alt="home-light" /> | <img src="images/home-dark/home-dark.thumb.webp" width="220" alt="home-dark" /> |
 | Nature | <img src="images/nature-light/nature-light.thumb.webp" width="220" alt="nature-light" /> | <img src="images/nature-dark/nature-dark.thumb.webp" width="220" alt="nature-dark" /> |
-| Stylized | <img src="images/stylized-light/stylized-light.thumb.webp" width="220" alt="stylized-light" /> | <img src="images/stylized-dark/stylized-dark.thumb.webp" width="220" alt="stylized-dark" /> |
+| Sci-Fi | <img src="images/sci-fi-light/sci-fi-light.thumb.webp" width="220" alt="sci-fi-light" /> | |
+| Underwater | | <img src="images/underwater-dark/underwater-dark.thumb.webp" width="220" alt="underwater-dark" /> |
 | Simiancraft | <img src="images/simiancraft-light/simiancraft-light.thumb.webp" width="220" alt="simiancraft-light" /> | <img src="images/simiancraft-dark/simiancraft-dark.thumb.webp" width="220" alt="simiancraft-dark" /> |
 
 Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:

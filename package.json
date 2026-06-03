@@ -123,19 +123,19 @@
       "import": "./dist/images/nature-dark/nature-dark.js",
       "default": "./dist/images/nature-dark/nature-dark.js"
     },
-    "./images/stylized-light": {
-      "types": "./dist/images/stylized-light/stylized-light.d.ts",
-      "react-native": "./images/stylized-light/stylized-light.ts",
-      "browser": "./dist/images/stylized-light/stylized-light.web.js",
-      "import": "./dist/images/stylized-light/stylized-light.js",
-      "default": "./dist/images/stylized-light/stylized-light.js"
+    "./images/sci-fi-light": {
+      "types": "./dist/images/sci-fi-light/sci-fi-light.d.ts",
+      "react-native": "./images/sci-fi-light/sci-fi-light.ts",
+      "browser": "./dist/images/sci-fi-light/sci-fi-light.web.js",
+      "import": "./dist/images/sci-fi-light/sci-fi-light.js",
+      "default": "./dist/images/sci-fi-light/sci-fi-light.js"
     },
-    "./images/stylized-dark": {
-      "types": "./dist/images/stylized-dark/stylized-dark.d.ts",
-      "react-native": "./images/stylized-dark/stylized-dark.ts",
-      "browser": "./dist/images/stylized-dark/stylized-dark.web.js",
-      "import": "./dist/images/stylized-dark/stylized-dark.js",
-      "default": "./dist/images/stylized-dark/stylized-dark.js"
+    "./images/underwater-dark": {
+      "types": "./dist/images/underwater-dark/underwater-dark.d.ts",
+      "react-native": "./images/underwater-dark/underwater-dark.ts",
+      "browser": "./dist/images/underwater-dark/underwater-dark.web.js",
+      "import": "./dist/images/underwater-dark/underwater-dark.js",
+      "default": "./dist/images/underwater-dark/underwater-dark.js"
     },
     "./images/simiancraft-light": {
       "types": "./dist/images/simiancraft-light/simiancraft-light.d.ts",
@@ -207,8 +207,8 @@
     "./images/home-dark.webp": "./images/home-dark/home-dark.webp",
     "./images/nature-light.webp": "./images/nature-light/nature-light.webp",
     "./images/nature-dark.webp": "./images/nature-dark/nature-dark.webp",
-    "./images/stylized-light.webp": "./images/stylized-light/stylized-light.webp",
-    "./images/stylized-dark.webp": "./images/stylized-dark/stylized-dark.webp",
+    "./images/sci-fi-light.webp": "./images/sci-fi-light/sci-fi-light.webp",
+    "./images/underwater-dark.webp": "./images/underwater-dark/underwater-dark.webp",
     "./images/simiancraft-light.webp": "./images/simiancraft-light/simiancraft-light.webp",
     "./images/simiancraft-dark.webp": "./images/simiancraft-dark/simiancraft-dark.webp",
     "./images/wizards-tower.webp": "./images/wizards-tower/wizards-tower.webp",

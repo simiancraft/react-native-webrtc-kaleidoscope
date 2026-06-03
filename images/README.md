@@ -25,8 +25,8 @@ export const presets = {
 The bundled plates (the catalog lives in `presets.ts` as `BACKGROUND_PRESETS`)
 are `debug-resolutions` (a viewport/resolution calibration grid for verifying
 cover-fit) plus ten themed backgrounds: `dark-office`, `light-office`,
-`home-light`, `home-dark`, `nature-light`, `nature-dark`, `stylized-light`,
-`stylized-dark`, `simiancraft-light`, and `simiancraft-dark`. The packaged
+`home-light`, `home-dark`, `nature-light`, `nature-dark`, `sci-fi-light`,
+`underwater-dark`, `simiancraft-light`, and `simiancraft-dark`. The packaged
 composites under `composites/` bundle a few more plates of their own
 (`wizards-tower`, `observation-deck`, `fairy-treehouse`).
 

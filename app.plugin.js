@@ -203,7 +203,7 @@ function parseImports(source) {
 
 // Derive an image plate id from its source specifier: the basename without
 // extension (e.g. './assets/backgrounds/wizards-tower.webp' -> 'wizards-tower',
-// 'react-native-webrtc-kaleidoscope/images/stylized-dark' -> 'stylized-dark').
+// 'react-native-webrtc-kaleidoscope/images/underwater-dark' -> 'underwater-dark').
 // Used only as the fallback id when an image layer omits an explicit `id`; it
 // follows the same basename == id convention the runtime sends as the native
 // `source`, so native resolves assets/images/<id>.webp.

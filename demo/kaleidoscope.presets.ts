@@ -57,8 +57,8 @@ import { natureDark } from 'react-native-webrtc-kaleidoscope/images/nature-dark'
 import { natureLight } from 'react-native-webrtc-kaleidoscope/images/nature-light';
 import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/images/simiancraft-dark';
 import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/images/simiancraft-light';
-import { stylizedDark } from 'react-native-webrtc-kaleidoscope/images/stylized-dark';
-import { stylizedLight } from 'react-native-webrtc-kaleidoscope/images/stylized-light';
+import { sciFiLight } from 'react-native-webrtc-kaleidoscope/images/sci-fi-light';
+import { underwaterDark } from 'react-native-webrtc-kaleidoscope/images/underwater-dark';
 
 const wolfCave = Asset.fromModule(require('./assets/backgrounds/wolf-cave.webp')).uri;
 
@@ -154,17 +154,17 @@ export const presets = {
     thumbnail: homeDark,
     layers: [{ id: 'home-dark', shader: 'image', source: homeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
-  'stylized-light': {
+  'sci-fi-light': {
     name: 'Landscape',
     taxonomy: ['Backgrounds', 'Sci-Fi'],
-    thumbnail: stylizedLight,
-    layers: [{ id: 'stylized-light', shader: 'image', source: stylizedLight }, { id: 'you', shader: 'direct', target: 'subject' }],
+    thumbnail: sciFiLight,
+    layers: [{ id: 'sci-fi-light', shader: 'image', source: sciFiLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
-  'stylized-dark': {
+  'underwater-dark': {
     name: 'Underwater',
     taxonomy: ['Backgrounds', 'Ocean'],
-    thumbnail: stylizedDark,
-    layers: [{ id: 'stylized-dark', shader: 'image', source: stylizedDark }, { id: 'you', shader: 'direct', target: 'subject' }],
+    thumbnail: underwaterDark,
+    layers: [{ id: 'underwater-dark', shader: 'image', source: underwaterDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'debug-resolutions': {
     name: 'Resolutions',
