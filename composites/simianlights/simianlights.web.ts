@@ -8,7 +8,7 @@ import simianlightsThumb from './simianlights.thumb.webp';
 
 export const simianlights = {
   name: 'Simianlights',
-  taxonomy: ['Worlds'],
+  taxonomy: ['Shaders', 'Simianlights'],
   thumbnail: Asset.fromModule(simianlightsThumb).uri,
   layers: [
     {

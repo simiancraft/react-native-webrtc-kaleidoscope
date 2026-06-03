@@ -7,7 +7,7 @@ import type { Composite } from '../../src/kaleidoscope/types';
 
 export const clouds = {
   name: 'Daytime',
-  taxonomy: ['Sky'],
+  taxonomy: ['Shaders', 'Sky'],
   layers: [
     {
       id: 'sky',

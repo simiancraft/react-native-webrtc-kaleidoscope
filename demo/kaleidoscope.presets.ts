@@ -57,24 +57,129 @@ import { stylizedLight } from 'react-native-webrtc-kaleidoscope/images/stylized-
 const wolfCave = Asset.fromModule(require('./assets/backgrounds/wolf-cave.webp')).uri;
 
 export const presets = {
-  // --- Worlds: composed scenes (shown FIRST), imported from the library. ---
+  // --- Effects: your video run through some DSP. Blur is a camera-sampling blur
+  // on the background, you sharp on top. ---
+  'blur-low': {
+    name: 'Low',
+    taxonomy: ['Effects', 'Blur'],
+    controls: BlurControls,
+    layers: [
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 1.5 } },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'blur-medium': {
+    name: 'Medium',
+    taxonomy: ['Effects', 'Blur'],
+    controls: BlurControls,
+    layers: [
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'blur-high': {
+    name: 'High',
+    taxonomy: ['Effects', 'Blur'],
+    controls: BlurControls,
+    layers: [
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+
+  // --- Worlds: composed scenes, imported from the library. Each carries its own
+  // depth-2 taxonomy (group 'Worlds', category per scene). ---
   'wizard-tower': { ...wizardTower, controls: WizardTowerControls },
   'observation-deck': { ...observationDeck, controls: ObservationDeckControls },
   'fairy-cave': { ...fairyCave, controls: FairyCaveControls },
   underwater: { ...underwater, controls: UnderwaterControls },
-  nebula: { ...nebula, controls: NebulaControls },
-  simianlights: { ...simianlights, controls: SimianlightsControls },
   'corporate-blobs': { ...corporateBlobs, controls: CorporateBlobsControls },
 
-  // --- Sky: raymarched clouds with you composited over them. ---
-  clouds: { ...clouds, controls: CloudsControls },
+  // --- Backgrounds: one image layer (cover-fit). The id is the plate basename;
+  // the thumbnail is the same image source. Simiancraft leads (shop's demo). ---
+  'simiancraft-light': {
+    name: 'Simiancraft Light',
+    taxonomy: ['Backgrounds', 'Simiancraft'],
+    thumbnail: simiancraftLight,
+    layers: [{ id: 'simiancraft-light', shader: 'image', source: simiancraftLight }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'simiancraft-dark': {
+    name: 'Simiancraft Dark',
+    taxonomy: ['Backgrounds', 'Simiancraft'],
+    thumbnail: simiancraftDark,
+    layers: [{ id: 'simiancraft-dark', shader: 'image', source: simiancraftDark }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'dark-office': {
+    name: 'Dark Office',
+    taxonomy: ['Backgrounds', 'Office'],
+    thumbnail: darkOffice,
+    layers: [{ id: 'dark-office', shader: 'image', source: darkOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'light-office': {
+    name: 'Light Office',
+    taxonomy: ['Backgrounds', 'Office'],
+    thumbnail: lightOffice,
+    layers: [{ id: 'light-office', shader: 'image', source: lightOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'nature-light': {
+    name: 'Nature Light',
+    taxonomy: ['Backgrounds', 'Nature'],
+    thumbnail: natureLight,
+    layers: [{ id: 'nature-light', shader: 'image', source: natureLight }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'nature-dark': {
+    name: 'Nature Dark',
+    taxonomy: ['Backgrounds', 'Nature'],
+    thumbnail: natureDark,
+    layers: [{ id: 'nature-dark', shader: 'image', source: natureDark }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'home-light': {
+    name: 'Home Light',
+    taxonomy: ['Backgrounds', 'Home'],
+    thumbnail: homeLight,
+    layers: [{ id: 'home-light', shader: 'image', source: homeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'home-dark': {
+    name: 'Home Dark',
+    taxonomy: ['Backgrounds', 'Home'],
+    thumbnail: homeDark,
+    layers: [{ id: 'home-dark', shader: 'image', source: homeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'stylized-light': {
+    name: 'Landscape',
+    taxonomy: ['Backgrounds', 'Sci-Fi'],
+    thumbnail: stylizedLight,
+    layers: [{ id: 'stylized-light', shader: 'image', source: stylizedLight }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'stylized-dark': {
+    name: 'Underwater',
+    taxonomy: ['Backgrounds', 'Ocean'],
+    thumbnail: stylizedDark,
+    layers: [{ id: 'stylized-dark', shader: 'image', source: stylizedDark }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  'debug-resolutions': {
+    name: 'Resolutions',
+    taxonomy: ['Backgrounds', 'Debug'],
+    thumbnail: debugResolutions,
+    layers: [{ id: 'debug-resolutions', shader: 'image', source: debugResolutions }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
+  // A demo-owned image (NOT part of the package), proving a consumer can add
+  // their own background. The prebuild plugin reads the require specifier to copy
+  // it into the native bundle as wolf-cave.webp.
+  'wolf-cave': {
+    name: 'Wolf Cave',
+    taxonomy: ['Backgrounds', 'User'],
+    thumbnail: wolfCave,
+    layers: [{ id: 'wolf-cave', shader: 'image', source: wolfCave }, { id: 'you', shader: 'direct', target: 'subject' }],
+  },
 
-  // --- Plasma: a generative plasma field with you composited over it. The old
-  // single plasma shader composited the person over its output; the same shape
-  // as a one-generative-layer-plus-subject composite. ---
+  // --- Shaders: generative GLSL fields with you composited over them. clouds,
+  // nebula, and simianlights are packaged composites (their own depth-2
+  // taxonomy); the plasma entries stay inline as the consumer-authoring pattern. ---
+  clouds: { ...clouds, controls: CloudsControls },
   'plasma-ocean': {
     name: 'Ocean',
-    taxonomy: ['Plasma'],
+    taxonomy: ['Shaders', 'Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -87,7 +192,7 @@ export const presets = {
   },
   'plasma-sunset': {
     name: 'Sunset',
-    taxonomy: ['Plasma'],
+    taxonomy: ['Shaders', 'Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -100,7 +205,7 @@ export const presets = {
   },
   'plasma-mint': {
     name: 'Mint',
-    taxonomy: ['Plasma'],
+    taxonomy: ['Shaders', 'Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -113,7 +218,7 @@ export const presets = {
   },
   'plasma-fast': {
     name: 'Fast',
-    taxonomy: ['Plasma'],
+    taxonomy: ['Shaders', 'Plasma'],
     controls: PlasmaControls,
     layers: [
       {
@@ -124,113 +229,8 @@ export const presets = {
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
-
-  // --- Blur: a camera-sampling blur on the background, you sharp on top. ---
-  'blur-low': {
-    name: 'Low',
-    taxonomy: ['Blur'],
-    controls: BlurControls,
-    layers: [
-      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 1.5 } },
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-  'blur-medium': {
-    name: 'Medium',
-    taxonomy: ['Blur'],
-    controls: BlurControls,
-    layers: [
-      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-  'blur-high': {
-    name: 'High',
-    taxonomy: ['Blur'],
-    controls: BlurControls,
-    layers: [
-      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
-      { id: 'you', shader: 'direct', target: 'subject' },
-    ],
-  },
-
-  // --- Backgrounds: one image layer (cover-fit). The id is the plate basename;
-  // the thumbnail is the same image source. ---
-  'simiancraft-light': {
-    name: 'Simiancraft Light',
-    taxonomy: ['Backgrounds'],
-    thumbnail: simiancraftLight,
-    layers: [{ id: 'simiancraft-light', shader: 'image', source: simiancraftLight }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'simiancraft-dark': {
-    name: 'Simiancraft Dark',
-    taxonomy: ['Backgrounds'],
-    thumbnail: simiancraftDark,
-    layers: [{ id: 'simiancraft-dark', shader: 'image', source: simiancraftDark }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  // A demo-owned image (NOT part of the package), proving a consumer can add
-  // their own background. The prebuild plugin reads the require specifier to copy
-  // it into the native bundle as wolf-cave.webp.
-  'wolf-cave': {
-    name: 'Wolf Cave',
-    taxonomy: ['Backgrounds'],
-    thumbnail: wolfCave,
-    layers: [{ id: 'wolf-cave', shader: 'image', source: wolfCave }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'debug-resolutions': {
-    name: 'Debug Resolutions',
-    taxonomy: ['Backgrounds'],
-    thumbnail: debugResolutions,
-    layers: [{ id: 'debug-resolutions', shader: 'image', source: debugResolutions }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'dark-office': {
-    name: 'Dark Office',
-    taxonomy: ['Backgrounds'],
-    thumbnail: darkOffice,
-    layers: [{ id: 'dark-office', shader: 'image', source: darkOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'light-office': {
-    name: 'Light Office',
-    taxonomy: ['Backgrounds'],
-    thumbnail: lightOffice,
-    layers: [{ id: 'light-office', shader: 'image', source: lightOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'home-light': {
-    name: 'Home Light',
-    taxonomy: ['Backgrounds'],
-    thumbnail: homeLight,
-    layers: [{ id: 'home-light', shader: 'image', source: homeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'home-dark': {
-    name: 'Home Dark',
-    taxonomy: ['Backgrounds'],
-    thumbnail: homeDark,
-    layers: [{ id: 'home-dark', shader: 'image', source: homeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'nature-light': {
-    name: 'Nature Light',
-    taxonomy: ['Backgrounds'],
-    thumbnail: natureLight,
-    layers: [{ id: 'nature-light', shader: 'image', source: natureLight }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'nature-dark': {
-    name: 'Nature Dark',
-    taxonomy: ['Backgrounds'],
-    thumbnail: natureDark,
-    layers: [{ id: 'nature-dark', shader: 'image', source: natureDark }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'stylized-light': {
-    name: 'Stylized Light',
-    taxonomy: ['Backgrounds'],
-    thumbnail: stylizedLight,
-    layers: [{ id: 'stylized-light', shader: 'image', source: stylizedLight }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
-  'stylized-dark': {
-    name: 'Stylized Dark',
-    taxonomy: ['Backgrounds'],
-    thumbnail: stylizedDark,
-    layers: [{ id: 'stylized-dark', shader: 'image', source: stylizedDark }, { id: 'you', shader: 'direct', target: 'subject' }],
-  },
+  nebula: { ...nebula, controls: NebulaControls },
+  simianlights: { ...simianlights, controls: SimianlightsControls },
 
   // Transforms are NOT book presets: they're driven by the transform() verb
   // (flip/rotate), not curated art. The book is the art catalog only.

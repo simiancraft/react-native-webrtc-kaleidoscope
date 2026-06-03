@@ -9,7 +9,7 @@ import nebulaThumb from './nebula.thumb.webp';
 
 export const nebula = {
   name: 'Nebula',
-  taxonomy: ['Worlds'],
+  taxonomy: ['Shaders', 'Nebula'],
   thumbnail: Asset.fromModule(nebulaThumb).uri,
   layers: [
     {

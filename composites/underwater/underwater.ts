@@ -15,7 +15,7 @@ import type { Composite } from '../../src/kaleidoscope/types';
 
 export const underwater = {
   name: 'Underwater',
-  taxonomy: ['Worlds'],
+  taxonomy: ['Worlds', 'Oceanic'],
   thumbnail: 'underwater-thumb',
   layers: [
     { id: 'stylized-dark', shader: 'image', source: stylizedDark },

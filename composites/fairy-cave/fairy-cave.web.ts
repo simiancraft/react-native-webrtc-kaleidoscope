@@ -8,7 +8,7 @@ import fairyCaveThumb from './fairy-cave.thumb.webp';
 
 export const fairyCave = {
   name: 'Fairy Cave',
-  taxonomy: ['Worlds'],
+  taxonomy: ['Worlds', 'Fairy Cave'],
   thumbnail: Asset.fromModule(fairyCaveThumb).uri,
   layers: [
     {

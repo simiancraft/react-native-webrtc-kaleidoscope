@@ -17,7 +17,7 @@ import type { Composite } from '../../src/kaleidoscope/types';
 
 export const wizardTower = {
   name: 'Wizard Tower',
-  taxonomy: ['Worlds'],
+  taxonomy: ['Worlds', 'Wizard Tower'],
   thumbnail: 'wizard-tower-thumb',
   layers: [
     {

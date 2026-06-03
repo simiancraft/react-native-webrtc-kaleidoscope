@@ -14,7 +14,7 @@ import type { Composite } from '../../src/kaleidoscope/types';
 
 export const fairyCave = {
   name: 'Fairy Cave',
-  taxonomy: ['Worlds'],
+  taxonomy: ['Worlds', 'Fairy Cave'],
   thumbnail: 'fairy-cave-thumb',
   layers: [
     {

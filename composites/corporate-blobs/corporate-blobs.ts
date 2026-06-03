@@ -17,8 +17,8 @@ import { corporateLogo } from '../../images/corporate-logo/corporate-logo';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const corporateBlobs = {
-  name: 'Corporate Blobs',
-  taxonomy: ['Worlds'],
+  name: 'Blobs',
+  taxonomy: ['Worlds', 'Corporate'],
   thumbnail: 'corporate-blobs-thumb',
   layers: [
     { id: 'corporate-logo', shader: 'image', source: corporateLogo },
