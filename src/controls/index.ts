@@ -6,5 +6,7 @@
 // grows commit by commit; the theme surface lands first so later primitives can
 // register against a real exported entry.
 
+export { ControlForm, type ControlFormProps, type FieldValue } from './form/control-form';
+export { type Field, useField } from './form/use-field';
 export { KaleidoscopeThemeProvider, useKaleidoscopeTheme, useThemeSlot } from './theme/provider';
 export type { KaleidoscopeThemeSlots, SlotStyle, ThemeSlot } from './theme/slots';
