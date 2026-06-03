@@ -33,7 +33,13 @@ export const fairyCave = {
       id: 'fireflies',
       shader: 'fireflies',
       blend: 'additive',
-      uniforms: { uGlowSize: 0.025, uDotSize: 0.004, uSpeed: 0.18, uTwinkle: 1.6 },
+      uniforms: {
+        uGlowSize: 0.025,
+        uDotSize: 0.004,
+        uSpeed: 0.18,
+        uTwinkle: 1.6,
+        uColor: [1.0, 0.82, 0.32],
+      },
     },
     // You, in the cave (fireflies drifting behind you).
     { id: 'you', shader: 'direct', target: 'subject' },

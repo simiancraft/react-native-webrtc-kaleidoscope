@@ -2,6 +2,7 @@
 // transparent overlay of drifting glowing motes (use blend 'additive'). Shader
 // source is shaders/fireflies.frag.
 
+import type { RGB } from '../../src/types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `fireflies` layer shader. */
@@ -14,6 +15,8 @@ export type FirefliesUniforms = {
   readonly uSpeed: number;
   /** Twinkle (fade in/out) speed. */
   readonly uTwinkle: number;
+  /** Firefly tint, RGB each channel 0..1 (the warm default is the amber look). */
+  readonly uColor: RGB;
 };
 
 /** The `fireflies` shader's tunable uniforms; defaults are the denser look. */
@@ -54,4 +57,5 @@ export const FIREFLIES_CONTROLS: readonly UniformControl[] = [
     step: 0.1,
     doc: 'Fade in/out speed.',
   },
+  { name: 'uColor', kind: 'color', default: [1.0, 0.82, 0.32], doc: 'Firefly tint.' },
 ];

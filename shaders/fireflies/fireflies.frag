@@ -9,8 +9,8 @@
 // texture), so net texture flips are zero on every runtime; no gl_FragCoord.
 //
 // Alpha: STRAIGHT (non-premultiplied) -- oColor.a follows brightness, color is
-// accumulated independently. Kept byte-for-byte in sync with FIREFLIES_FRAG_SRC
-// in src/web/effects/layer-shaders.ts (the web compositor's copy).
+// accumulated independently. This is the single source; build:shaders codegens
+// it to every runtime (web FIREFLIES_FRAG_SRC, Android, iOS .metalsrc).
 //
 // Precision: highp float (the sin()*43758.5453123 hash bands at mediump).
 
@@ -23,6 +23,7 @@ uniform float uGlowSize;
 uniform float uDotSize;
 uniform float uSpeed;
 uniform float uTwinkle;
+uniform vec3 uColor;
 
 in highp vec2 vUv;
 out vec4 oColor;
@@ -58,8 +59,7 @@ void main() {
         float glow = exp(-d * d / (uGlowSize * uGlowSize));
         float core = smoothstep(uDotSize, 0.0, d);
         float intensity = pulse * (glow * 0.55 + core * 1.4);
-        vec3 fireflyColor = vec3(1.0, 0.82, 0.32);
-        color += fireflyColor * intensity;
+        color += uColor * intensity;
         alpha += intensity * 0.55;
     }
     alpha = clamp(alpha, 0.0, 1.0);

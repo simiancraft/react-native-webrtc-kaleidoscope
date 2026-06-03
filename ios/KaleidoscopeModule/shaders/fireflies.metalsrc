@@ -13,31 +13,31 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant float& uSpeed [[buffer(0)]], constant float2& uResolution [[buffer(1)]], constant float& uTime [[buffer(2)]], constant float& uTwinkle [[buffer(3)]], constant float& uGlowSize [[buffer(4)]], constant float& uDotSize [[buffer(5)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant float& uSpeed [[buffer(0)]], constant float2& uResolution [[buffer(1)]], constant float& uTime [[buffer(2)]], constant float& uTwinkle [[buffer(3)]], constant float& uGlowSize [[buffer(4)]], constant float& uDotSize [[buffer(5)]], constant float3& uColor [[buffer(6)]])
 {
     main0_out out = {};
     float _94 = uResolution.x / uResolution.y;
-    float2 _297 = in.vUv;
-    _297.x = in.vUv.x * _94;
-    float _302;
-    float3 _303;
-    _303 = float3(0.0);
-    _302 = 0.0;
-    for (int _301 = 0; _301 < 36; )
+    float2 _295 = in.vUv;
+    _295.x = in.vUv.x * _94;
+    float _300;
+    float3 _301;
+    _301 = float3(0.0);
+    _300 = 0.0;
+    for (int _299 = 0; _299 < 36; )
     {
-        float _120 = float(_301);
-        float _248 = uTime * uSpeed;
-        float2 _264 = fract(float2(fract(sin(_120 * 12.69999980926513671875) * 43758.546875), fract(sin(_120 * 31.299999237060546875) * 43758.546875)) + (float2(sin(_248 + (fract(sin(_120 * 5.099999904632568359375) * 43758.546875) * 6.28318023681640625)), cos((_248 * 0.730000019073486328125) + (fract(sin(_120 * 9.69999980926513671875) * 43758.546875) * 6.28318023681640625))) * 0.119999997317790985107421875));
-        float2 _300 = _264;
-        _300.x = _264.x * _94;
-        float _141 = length(_297 - _300);
+        float _120 = float(_299);
+        float _246 = uTime * uSpeed;
+        float2 _262 = fract(float2(fract(sin(_120 * 12.69999980926513671875) * 43758.546875), fract(sin(_120 * 31.299999237060546875) * 43758.546875)) + (float2(sin(_246 + (fract(sin(_120 * 5.099999904632568359375) * 43758.546875) * 6.28318023681640625)), cos((_246 * 0.730000019073486328125) + (fract(sin(_120 * 9.69999980926513671875) * 43758.546875) * 6.28318023681640625))) * 0.119999997317790985107421875));
+        float2 _298 = _262;
+        _298.x = _262.x * _94;
+        float _141 = length(_295 - _298);
         float _188 = pow(0.5 + (0.5 * sin((uTime * uTwinkle) + (fract(sin(_120 * 17.1000003814697265625) * 43758.546875) * 6.28318023681640625))), 2.5) * ((exp(((-_141) * _141) / (uGlowSize * uGlowSize)) * 0.550000011920928955078125) + (smoothstep(uDotSize, 0.0, _141) * 1.39999997615814208984375));
-        _303 += (float3(1.0, 0.819999992847442626953125, 0.319999992847442626953125) * _188);
-        _302 += (_188 * 0.550000011920928955078125);
-        _301++;
+        _301 += (uColor * _188);
+        _300 += (_188 * 0.550000011920928955078125);
+        _299++;
         continue;
     }
-    out.oColor = float4(fast::clamp(_303, float3(0.0), float3(1.0)), fast::clamp(_302, 0.0, 1.0));
+    out.oColor = float4(fast::clamp(_301, float3(0.0), float3(1.0)), fast::clamp(_300, 0.0, 1.0));
     return out;
 }
 
