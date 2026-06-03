@@ -47,6 +47,7 @@ export type {
   Composite,
   KaleidoscopeBindOptions,
   KaleidoscopeControls,
+  KaleidoscopeControlsProps,
   MaskInput,
   PatchesFor,
   PatchFor,

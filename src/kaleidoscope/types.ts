@@ -14,6 +14,7 @@
 // normalized 0..1 where practical; ranges are documented in JSDoc as hints for
 // IntelliSense and tooling, not enforced at runtime (validation is userland).
 
+import type { ComponentType } from 'react';
 import type { PatchableShaderName, ShaderUniformsMap } from '../shaders';
 import type { LayerSpec } from '../types';
 
@@ -39,6 +40,30 @@ export type Composite = {
   readonly thumbnail?: string | number;
   /** The painter's stack, back to front. Each layer's `id` is unique here. */
   readonly layers: ReadonlyArray<LayerSpec>;
+  /**
+   * Optional editor for this preset: a component (e.g. a `<Composite>Controls`)
+   * the Tuner renders, which mounts a `ControlForm` + `ControlSection` per tunable
+   * layer. The Tuner supplies the chrome wrapper at the layer level, so this
+   * component composes shader fragments and must not add its own. `undefined`
+   * renders nothing. The `import type` keeps composites runtime-React-free.
+   */
+  readonly controls?: ComponentType<KaleidoscopeControlsProps>;
+};
+
+/**
+ * What the Tuner passes a preset's `controls` component: the per-layer baked
+ * uniforms keyed by layer id, and the single shared `onPatch` every layer's
+ * `ControlForm` emits through (the `id` discriminates). Intentionally loose at
+ * this boundary (heterogeneous layers); per-shader typing is recovered inside
+ * each `<Shader>Controls` via `makeControls<U>()`.
+ */
+export type KaleidoscopeControlsProps = {
+  readonly uniforms: Readonly<Record<string, Readonly<Record<string, number | readonly number[]>>>>;
+  readonly onPatch: (patch: {
+    readonly id: string;
+    readonly uniforms: Record<string, number | readonly number[]>;
+  }) => void;
+  readonly disabled?: boolean;
 };
 
 /** The consumer's book: a flat record of composites keyed by id. */
