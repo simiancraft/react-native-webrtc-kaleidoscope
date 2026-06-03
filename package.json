@@ -179,6 +179,27 @@
       "import": "./dist/images/corporate-logo/corporate-logo.js",
       "default": "./dist/images/corporate-logo/corporate-logo.js"
     },
+    "./images/wizard-tower-night": {
+      "types": "./dist/images/wizard-tower-night/wizard-tower-night.d.ts",
+      "react-native": "./images/wizard-tower-night/wizard-tower-night.ts",
+      "browser": "./dist/images/wizard-tower-night/wizard-tower-night.web.js",
+      "import": "./dist/images/wizard-tower-night/wizard-tower-night.js",
+      "default": "./dist/images/wizard-tower-night/wizard-tower-night.js"
+    },
+    "./images/fairy-grotto": {
+      "types": "./dist/images/fairy-grotto/fairy-grotto.d.ts",
+      "react-native": "./images/fairy-grotto/fairy-grotto.ts",
+      "browser": "./dist/images/fairy-grotto/fairy-grotto.web.js",
+      "import": "./dist/images/fairy-grotto/fairy-grotto.js",
+      "default": "./dist/images/fairy-grotto/fairy-grotto.js"
+    },
+    "./images/fairy-hollow": {
+      "types": "./dist/images/fairy-hollow/fairy-hollow.d.ts",
+      "react-native": "./images/fairy-hollow/fairy-hollow.ts",
+      "browser": "./dist/images/fairy-hollow/fairy-hollow.web.js",
+      "import": "./dist/images/fairy-hollow/fairy-hollow.js",
+      "default": "./dist/images/fairy-hollow/fairy-hollow.js"
+    },
     "./images/debug-resolutions.webp": "./images/debug-resolutions/debug-resolutions.webp",
     "./images/dark-office.webp": "./images/dark-office/dark-office.webp",
     "./images/light-office.webp": "./images/light-office/light-office.webp",
@@ -194,12 +215,36 @@
     "./images/observation-deck.webp": "./images/observation-deck/observation-deck.webp",
     "./images/fairy-treehouse.webp": "./images/fairy-treehouse/fairy-treehouse.webp",
     "./images/corporate-logo.webp": "./images/corporate-logo/corporate-logo.webp",
+    "./images/wizard-tower-night.webp": "./images/wizard-tower-night/wizard-tower-night.webp",
+    "./images/fairy-grotto.webp": "./images/fairy-grotto/fairy-grotto.webp",
+    "./images/fairy-hollow.webp": "./images/fairy-hollow/fairy-hollow.webp",
     "./composites/wizard-tower": {
       "types": "./dist/composites/wizard-tower/wizard-tower.d.ts",
       "react-native": "./composites/wizard-tower/wizard-tower.ts",
       "browser": "./dist/composites/wizard-tower/wizard-tower.web.js",
       "import": "./dist/composites/wizard-tower/wizard-tower.js",
       "default": "./dist/composites/wizard-tower/wizard-tower.js"
+    },
+    "./composites/wizard-tower-night": {
+      "types": "./dist/composites/wizard-tower-night/wizard-tower-night.d.ts",
+      "react-native": "./composites/wizard-tower-night/wizard-tower-night.ts",
+      "browser": "./dist/composites/wizard-tower-night/wizard-tower-night.web.js",
+      "import": "./dist/composites/wizard-tower-night/wizard-tower-night.js",
+      "default": "./dist/composites/wizard-tower-night/wizard-tower-night.js"
+    },
+    "./composites/fairy-grotto": {
+      "types": "./dist/composites/fairy-grotto/fairy-grotto.d.ts",
+      "react-native": "./composites/fairy-grotto/fairy-grotto.ts",
+      "browser": "./dist/composites/fairy-grotto/fairy-grotto.web.js",
+      "import": "./dist/composites/fairy-grotto/fairy-grotto.js",
+      "default": "./dist/composites/fairy-grotto/fairy-grotto.js"
+    },
+    "./composites/fairy-hollow": {
+      "types": "./dist/composites/fairy-hollow/fairy-hollow.d.ts",
+      "react-native": "./composites/fairy-hollow/fairy-hollow.ts",
+      "browser": "./dist/composites/fairy-hollow/fairy-hollow.web.js",
+      "import": "./dist/composites/fairy-hollow/fairy-hollow.js",
+      "default": "./dist/composites/fairy-hollow/fairy-hollow.js"
     },
     "./composites/observation-deck": {
       "types": "./dist/composites/observation-deck/observation-deck.d.ts",
@@ -255,6 +300,27 @@
       "browser": "./dist/composites/wizard-tower/wizard-tower.controls.js",
       "import": "./dist/composites/wizard-tower/wizard-tower.controls.js",
       "default": "./dist/composites/wizard-tower/wizard-tower.controls.js"
+    },
+    "./composites/wizard-tower-night/controls": {
+      "types": "./dist/composites/wizard-tower-night/wizard-tower-night.controls.d.ts",
+      "react-native": "./composites/wizard-tower-night/wizard-tower-night.controls.tsx",
+      "browser": "./dist/composites/wizard-tower-night/wizard-tower-night.controls.js",
+      "import": "./dist/composites/wizard-tower-night/wizard-tower-night.controls.js",
+      "default": "./dist/composites/wizard-tower-night/wizard-tower-night.controls.js"
+    },
+    "./composites/fairy-grotto/controls": {
+      "types": "./dist/composites/fairy-grotto/fairy-grotto.controls.d.ts",
+      "react-native": "./composites/fairy-grotto/fairy-grotto.controls.tsx",
+      "browser": "./dist/composites/fairy-grotto/fairy-grotto.controls.js",
+      "import": "./dist/composites/fairy-grotto/fairy-grotto.controls.js",
+      "default": "./dist/composites/fairy-grotto/fairy-grotto.controls.js"
+    },
+    "./composites/fairy-hollow/controls": {
+      "types": "./dist/composites/fairy-hollow/fairy-hollow.controls.d.ts",
+      "react-native": "./composites/fairy-hollow/fairy-hollow.controls.tsx",
+      "browser": "./dist/composites/fairy-hollow/fairy-hollow.controls.js",
+      "import": "./dist/composites/fairy-hollow/fairy-hollow.controls.js",
+      "default": "./dist/composites/fairy-hollow/fairy-hollow.controls.js"
     },
     "./composites/clouds/controls": {
       "types": "./dist/composites/clouds/clouds.controls.d.ts",
