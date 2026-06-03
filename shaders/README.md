@@ -55,9 +55,9 @@ background. So your `.frag`:
    - `src/types.ts`: add `<name>: { uniforms: Partial<ShaderUniformsMap['<name>']> }`
      to `LayerShaderOptions` (the closed catalog the `LayerSpec` discriminant
      narrows on).
-   - `src/shaders/index.ts`: import `<Name>Uniforms` and `<NAME>_CONTROLS`, add
-     `<name>: <Name>Uniforms` to `ShaderUniformsMap`, add
-     `<name>: <NAME>_CONTROLS` to `LAYER_CONTROLS`, and re-export both.
+   - `src/shaders/index.ts`: import the `<Name>Uniforms` type, add
+     `<name>: <Name>Uniforms` to `ShaderUniformsMap`, and re-export both
+     `<Name>Uniforms` (type) and `<NAME>_CONTROLS` (value) for consumers.
    - `src/web/effects/layer-shaders.ts`: map `<name>` to its generated
      `<NAME>_FRAG_SRC` const in `LAYER_SHADER_SOURCES` (the web compositor and the
      native compositors dispatch on the name; there is no per-effect file).

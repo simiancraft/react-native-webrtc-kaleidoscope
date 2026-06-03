@@ -1,29 +1,18 @@
 // Per-shader interface barrel. Each layer shader exports its typed uniforms and
 // a control descriptor (the runtime metadata the demo generates tuning controls
-// from, and the shader's documentation). LAYER_CONTROLS is the registry the demo
-// reads to show controls for whatever tunable layers the active composite contains.
+// from, and the shader's documentation). The per-shader `*_CONTROLS` are
+// re-exported individually; a consumer imports the one its preset's layer needs.
 
-import type { UniformControl } from '../../shaders/_shared/types';
 import type { AnamorphicLensFlareUniforms } from '../../shaders/anamorphic-lensflare/anamorphic-lensflare';
-import { ANAMORPHIC_LENSFLARE_CONTROLS } from '../../shaders/anamorphic-lensflare/anamorphic-lensflare';
 import type { BlurUniforms } from '../../shaders/blur/blur';
-import { BLUR_CONTROLS } from '../../shaders/blur/blur';
 import type { CloudsUniforms } from '../../shaders/clouds/clouds';
-import { CLOUDS_CONTROLS } from '../../shaders/clouds/clouds';
 import type { CorporateBlobsUniforms } from '../../shaders/corporate-blobs/corporate-blobs';
-import { CORPORATE_BLOBS_CONTROLS } from '../../shaders/corporate-blobs/corporate-blobs';
 import type { FirefliesUniforms } from '../../shaders/fireflies/fireflies';
-import { FIREFLIES_CONTROLS } from '../../shaders/fireflies/fireflies';
 import type { GodraysUniforms } from '../../shaders/godrays/godrays';
-import { GODRAYS_CONTROLS } from '../../shaders/godrays/godrays';
 import type { LightBeamsAndMotesUniforms } from '../../shaders/light-beams-and-motes/light-beams-and-motes';
-import { LIGHT_BEAMS_AND_MOTES_CONTROLS } from '../../shaders/light-beams-and-motes/light-beams-and-motes';
 import type { NebulaUniforms } from '../../shaders/nebula/nebula';
-import { NEBULA_CONTROLS } from '../../shaders/nebula/nebula';
 import type { PlasmaUniforms } from '../../shaders/plasma/plasma';
-import { PLASMA_CONTROLS } from '../../shaders/plasma/plasma';
 import type { SimianlightsUniforms } from '../../shaders/simianlights/simianlights';
-import { SIMIANLIGHTS_CONTROLS } from '../../shaders/simianlights/simianlights';
 
 export { defaultUniforms, type UniformControl } from '../../shaders/_shared/types';
 export type { AnamorphicLensFlareUniforms } from '../../shaders/anamorphic-lensflare/anamorphic-lensflare';
@@ -68,22 +57,3 @@ export type ShaderUniformsMap = {
 
 /** A patchable (uniform-bearing) layer shader name. */
 export type PatchableShaderName = keyof ShaderUniformsMap;
-
-/**
- * Tunable layer shaders → their control descriptors, aggregated. A public
- * convenience map keyed by shader name; the controls kit's `UniformControls`
- * takes a single shader's `*_CONTROLS` directly, so nothing internal reads this
- * aggregate. `image`/`direct` carry no uniforms, so they are absent.
- */
-export const LAYER_CONTROLS: Readonly<Record<PatchableShaderName, readonly UniformControl[]>> = {
-  blur: BLUR_CONTROLS,
-  clouds: CLOUDS_CONTROLS,
-  godrays: GODRAYS_CONTROLS,
-  fireflies: FIREFLIES_CONTROLS,
-  plasma: PLASMA_CONTROLS,
-  nebula: NEBULA_CONTROLS,
-  simianlights: SIMIANLIGHTS_CONTROLS,
-  'anamorphic-lensflare': ANAMORPHIC_LENSFLARE_CONTROLS,
-  'light-beams-and-motes': LIGHT_BEAMS_AND_MOTES_CONTROLS,
-  'corporate-blobs': CORPORATE_BLOBS_CONTROLS,
-};

@@ -78,7 +78,8 @@ export type {
   SimianlightsUniforms,
   UniformControl,
 } from './shaders';
-// Per-shader control descriptors + the registry (platform-agnostic data).
+// Per-shader control descriptors (platform-agnostic data). Imported individually
+// per the shader a preset's layer uses; there is no all-shaders aggregate.
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
   BLUR_CONTROLS,
@@ -87,7 +88,6 @@ export {
   defaultUniforms,
   FIREFLIES_CONTROLS,
   GODRAYS_CONTROLS,
-  LAYER_CONTROLS,
   LIGHT_BEAMS_AND_MOTES_CONTROLS,
   NEBULA_CONTROLS,
   PLASMA_CONTROLS,
