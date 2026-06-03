@@ -29,6 +29,9 @@ describe('slug', () => {
   test('keeps already-kebab tokens stable', () => {
     expect(slug('fairy-grotto')).toBe('fairy-grotto');
   });
+  test('handles a long hyphen run linearly (ReDoS regression, alert #9)', () => {
+    expect(slug(`${'-'.repeat(50_000)}a${'-'.repeat(50_000)}`)).toBe('a');
+  });
 });
 
 describe('controlScope', () => {

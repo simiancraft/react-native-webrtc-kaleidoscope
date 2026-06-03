@@ -25,13 +25,18 @@ export const MASK_TESTID_PREFIX = `${TESTID_ROOT}.mask`;
  * underscores to `-`, drop anything outside `[a-z0-9-]`, collapse repeats, trim.
  */
 export function slug(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_]+/g, '-')
-    .replace(/[^a-z0-9-]+/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return (
+    s
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_]+/g, '-')
+      .replace(/[^a-z0-9-]+/g, '')
+      .replace(/-+/g, '-')
+      // Runs are collapsed to a single '-' above, so each edge has at most one
+      // hyphen; trim one char (no quantifier) instead of '-+$', whose backtracking
+      // is polynomial on a long hyphen run (ReDoS, code-scanning alert #9).
+      .replace(/^-|-$/g, '')
+  );
 }
 
 /**
