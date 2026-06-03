@@ -1,8 +1,11 @@
-// Drift guard: every styleable component exported from src/ui/index.ts must be
-// registered with cssInterop in src/nativewind.ts, or it silently ignores
-// `className` in production while the rest honor it. Nothing else enforces this
-// (it compiles, typechecks, and the registry-parity test covers native bridges,
-// not this), so pin it by text the same way registry-parity.test.ts does.
+// Drift guard: every styleable component exported from src/ui/index.ts and the
+// control primitives (src/controls/primitives/index.ts) must be registered with
+// cssInterop in src/nativewind.ts, or it silently ignores `className` in
+// production while the rest honor it. Scope is the PRIMITIVES barrel, not the
+// whole ./controls barrel, so providers and shells (ControlForm, the Tuner,
+// ControlSection, the theme provider) are not wrongly demanded into the list.
+// Nothing else enforces this (it compiles, typechecks, and registry-parity
+// covers native bridges, not this), so pin it by text.
 
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
@@ -10,6 +13,7 @@ import { readFileSync } from 'node:fs';
 const read = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
 const uiIndex = read('../src/ui/index.ts');
+const controlsPrimitives = read('../src/controls/primitives/index.ts');
 const nativewind = read('../src/nativewind.ts');
 
 // Value (non-type) named exports from a barrel; skips `export type { ... }`
@@ -39,8 +43,10 @@ const cssInteropTargets = (src: string): string[] =>
 const isComponentName = (name: string): boolean => /^[A-Z][a-zA-Z0-9]*$/.test(name);
 
 describe('picker nativewind interop parity', () => {
-  test('every styleable ./ui export is cssInterop-registered in ./nativewind', () => {
-    const styleable = valueExports(uiIndex).filter(isComponentName).sort();
+  test('every styleable ./ui + control-primitive export is cssInterop-registered in ./nativewind', () => {
+    const styleable = [...valueExports(uiIndex), ...valueExports(controlsPrimitives)]
+      .filter(isComponentName)
+      .sort();
     const registered = cssInteropTargets(nativewind).sort();
     expect(registered).toEqual(styleable);
     expect(registered.length).toBeGreaterThan(0);

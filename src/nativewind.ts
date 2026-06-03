@@ -12,15 +12,20 @@
 // so the class string the consumer passes is resolved by their NativeWind setup.
 
 import { cssInterop } from 'nativewind';
+import { Button } from './controls/primitives/button';
+import { ColorPicker } from './controls/primitives/color-picker';
+import { Label } from './controls/primitives/label';
+import { Readout } from './controls/primitives/readout';
+import { Slider } from './controls/primitives/slider';
 import { KaleidoscopePicker } from './ui/picker';
 import { PickerLayout } from './ui/picker/layout';
 import { PresetGrid } from './ui/picker/presets/preset-grid';
 import { PresetTile } from './ui/picker/presets/preset-tile';
 
 /**
- * Register the picker components with NativeWind so they accept `className`.
- * Idempotent; call once at app/interop setup. Requires the optional `nativewind`
- * peer dependency.
+ * Register the picker and control primitives with NativeWind so they accept
+ * `className`. Idempotent; call once at app/interop setup. Requires the optional
+ * `nativewind` peer dependency.
  */
 export function registerKaleidoscopeNativeWind(): void {
   const mapping = { className: 'style' } as const;
@@ -28,4 +33,9 @@ export function registerKaleidoscopeNativeWind(): void {
   cssInterop(PickerLayout, mapping);
   cssInterop(PresetGrid, mapping);
   cssInterop(PresetTile, mapping);
+  cssInterop(Label, mapping);
+  cssInterop(Readout, mapping);
+  cssInterop(Slider, mapping);
+  cssInterop(ColorPicker, mapping);
+  cssInterop(Button, mapping);
 }
