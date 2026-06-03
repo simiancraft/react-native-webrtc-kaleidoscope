@@ -9,7 +9,7 @@
 // (`react-native-webrtc-kaleidoscope/composites/<name>`); the book lists them by
 // spreading them in. The simpler Backgrounds, Blur, and Plasma entries
 // stay inline as the demo's curated examples and the consumer-authoring pattern:
-// each references a library image (`.../images/<name>`) or a library shader by
+// each references a library image (`.../images/<category>/<leaf>`) or a library shader by
 // name. `wolf-cave` is a demo-OWNED image (not in the package), proving a
 // consumer can add their own background.
 //
@@ -48,17 +48,17 @@ import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/compo
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
 import { BlurControls, PlasmaControls } from './src/demo-controls';
-import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office';
-import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug-resolutions';
-import { homeDark } from 'react-native-webrtc-kaleidoscope/images/home-dark';
-import { homeLight } from 'react-native-webrtc-kaleidoscope/images/home-light';
-import { lightOffice } from 'react-native-webrtc-kaleidoscope/images/light-office';
-import { natureDark } from 'react-native-webrtc-kaleidoscope/images/nature-dark';
-import { natureLight } from 'react-native-webrtc-kaleidoscope/images/nature-light';
-import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/images/simiancraft-dark';
-import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/images/simiancraft-light';
-import { sciFiLight } from 'react-native-webrtc-kaleidoscope/images/sci-fi-light';
-import { underwaterDark } from 'react-native-webrtc-kaleidoscope/images/underwater-dark';
+import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
+import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug/debug-resolutions';
+import { homeDark } from 'react-native-webrtc-kaleidoscope/images/home/home-dark';
+import { homeLight } from 'react-native-webrtc-kaleidoscope/images/home/home-light';
+import { officeLight } from 'react-native-webrtc-kaleidoscope/images/office/office-light';
+import { landscapeDark } from 'react-native-webrtc-kaleidoscope/images/nature/landscape-dark';
+import { landscapeLight } from 'react-native-webrtc-kaleidoscope/images/nature/landscape-light';
+import { simiancraftDark } from 'react-native-webrtc-kaleidoscope/images/simiancraft/simiancraft-dark';
+import { simiancraftLight } from 'react-native-webrtc-kaleidoscope/images/simiancraft/simiancraft-light';
+import { sciFiLight } from 'react-native-webrtc-kaleidoscope/images/sci-fi/sci-fi-light';
+import { oceanscapeDark } from 'react-native-webrtc-kaleidoscope/images/underwater/oceanscape-dark';
 
 const wolfCave = Asset.fromModule(require('./assets/backgrounds/wolf-cave.webp')).uri;
 
@@ -118,29 +118,29 @@ export const presets = {
     thumbnail: simiancraftDark,
     layers: [{ id: 'simiancraft-dark', shader: 'image', source: simiancraftDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
-  'dark-office': {
+  'office-dark': {
     name: 'Dark Office',
     taxonomy: ['Backgrounds', 'Office'],
-    thumbnail: darkOffice,
-    layers: [{ id: 'dark-office', shader: 'image', source: darkOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
+    thumbnail: officeDark,
+    layers: [{ id: 'office-dark', shader: 'image', source: officeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
-  'light-office': {
+  'office-light': {
     name: 'Light Office',
     taxonomy: ['Backgrounds', 'Office'],
-    thumbnail: lightOffice,
-    layers: [{ id: 'light-office', shader: 'image', source: lightOffice }, { id: 'you', shader: 'direct', target: 'subject' }],
+    thumbnail: officeLight,
+    layers: [{ id: 'office-light', shader: 'image', source: officeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
-  'nature-light': {
+  'landscape-light': {
     name: 'Nature Light',
     taxonomy: ['Backgrounds', 'Nature'],
-    thumbnail: natureLight,
-    layers: [{ id: 'nature-light', shader: 'image', source: natureLight }, { id: 'you', shader: 'direct', target: 'subject' }],
+    thumbnail: landscapeLight,
+    layers: [{ id: 'landscape-light', shader: 'image', source: landscapeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
-  'nature-dark': {
+  'landscape-dark': {
     name: 'Nature Dark',
     taxonomy: ['Backgrounds', 'Nature'],
-    thumbnail: natureDark,
-    layers: [{ id: 'nature-dark', shader: 'image', source: natureDark }, { id: 'you', shader: 'direct', target: 'subject' }],
+    thumbnail: landscapeDark,
+    layers: [{ id: 'landscape-dark', shader: 'image', source: landscapeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'home-light': {
     name: 'Home Light',
@@ -160,11 +160,11 @@ export const presets = {
     thumbnail: sciFiLight,
     layers: [{ id: 'sci-fi-light', shader: 'image', source: sciFiLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
-  'underwater-dark': {
+  'oceanscape-dark': {
     name: 'Underwater',
     taxonomy: ['Backgrounds', 'Ocean'],
-    thumbnail: underwaterDark,
-    layers: [{ id: 'underwater-dark', shader: 'image', source: underwaterDark }, { id: 'you', shader: 'direct', target: 'subject' }],
+    thumbnail: oceanscapeDark,
+    layers: [{ id: 'oceanscape-dark', shader: 'image', source: oceanscapeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'debug-resolutions': {
     name: 'Resolutions',

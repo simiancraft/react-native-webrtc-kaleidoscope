@@ -5,14 +5,14 @@
 // with display metadata. The library ships it so a consuming book can list it by
 // importing this module; consumers copy this file's shape to author their own.
 // Within the library it imports its image layers relatively; a consumer would
-// import from `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// import from `react-native-webrtc-kaleidoscope/images/<category>/<leaf>` instead.
 
 // Native variant. The thumbnail is the string id the prebuild plugin
 // (app.plugin.js) bundles `wizard-tower.thumb.webp` as into the native app
 // target; `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
 // (wizard-tower.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
-import { wizardsTower } from '../../images/wizards-tower/wizards-tower';
+import { wizardTower1 } from '../../images/wizard-tower/wizard-tower-1';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const wizardTower = {
@@ -37,7 +37,7 @@ export const wizardTower = {
         uSoftness: 0.23,
       },
     },
-    { id: 'wizards-tower', shader: 'image', source: wizardsTower },
+    { id: 'wizard-tower-1', shader: 'image', source: wizardTower1 },
     // You, standing in the chamber.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],

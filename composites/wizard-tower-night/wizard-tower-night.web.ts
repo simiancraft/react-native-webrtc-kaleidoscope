@@ -2,7 +2,7 @@
 // Native is wizard-tower-night.ts (no thumbnail).
 
 import { Asset } from 'expo-asset';
-import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower-night/wizard-tower-night';
+import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
 import type { Composite } from '../../src/kaleidoscope/types';
 import wizardTowerNightThumb from './wizard-tower-night.thumb.webp';
 

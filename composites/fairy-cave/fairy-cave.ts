@@ -3,13 +3,13 @@
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// `react-native-webrtc-kaleidoscope/images/<category>/<leaf>` instead.
 
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `fairy-cave.thumb.webp` as into the native app target; `resolveBackgroundUri`
 // looks it up in Bundle.main. The web sibling (fairy-cave.web.ts) keeps the
 // `Asset.fromModule(...).uri` pattern; mirrors images/<id>/{<id>.ts,<id>.web.ts}.
-import { fairyTreehouse } from '../../images/fairy-treehouse/fairy-treehouse';
+import { treehouse } from '../../images/fairy-caves/treehouse';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const fairyCave = {
@@ -34,7 +34,7 @@ export const fairyCave = {
         uSoftness: 0.18,
       },
     },
-    { id: 'fairy-treehouse', shader: 'image', source: fairyTreehouse },
+    { id: 'treehouse', shader: 'image', source: treehouse },
     {
       id: 'fireflies',
       shader: 'fireflies',

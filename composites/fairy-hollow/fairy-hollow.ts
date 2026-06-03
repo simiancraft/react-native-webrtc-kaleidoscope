@@ -6,12 +6,12 @@
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// `react-native-webrtc-kaleidoscope/images/<category>/<leaf>` instead.
 
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `fairy-hollow.thumb.webp` as into the native app target; `resolveBackgroundUri`
 // looks it up in Bundle.main. The web sibling keeps the `Asset.fromModule` path.
-import { fairyHollow as fairyHollowPlate } from '../../images/fairy-hollow/fairy-hollow';
+import { hollow } from '../../images/fairy-caves/hollow';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const fairyHollow = {
@@ -36,7 +36,7 @@ export const fairyHollow = {
         uSoftness: 0.2,
       },
     },
-    { id: 'fairy-hollow', shader: 'image', source: fairyHollowPlate },
+    { id: 'hollow', shader: 'image', source: hollow },
     {
       id: 'fireflies',
       shader: 'fireflies',

@@ -5,7 +5,7 @@
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// `react-native-webrtc-kaleidoscope/images/<category>/<leaf>` instead.
 
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `observation-deck.thumb.webp` as into the native app target;
@@ -13,7 +13,7 @@
 // disambiguates from the image plate of the same composite id. The web sibling
 // (observation-deck.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
-import { observationDeck as observationDeckPlate } from '../../images/observation-deck/observation-deck';
+import { observationDeck as observationDeckPlate } from '../../images/spaceship/observation-deck';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const observationDeck = {

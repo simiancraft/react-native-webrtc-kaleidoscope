@@ -2,7 +2,7 @@
 // Native is fairy-grotto.ts (no thumbnail).
 
 import { Asset } from 'expo-asset';
-import { fairyGrotto as fairyGrottoPlate } from '../../images/fairy-grotto/fairy-grotto';
+import { grotto } from '../../images/fairy-caves/grotto';
 import type { Composite } from '../../src/kaleidoscope/types';
 import fairyGrottoThumb from './fairy-grotto.thumb.webp';
 
@@ -28,7 +28,7 @@ export const fairyGrotto = {
         uSoftness: 0.2,
       },
     },
-    { id: 'fairy-grotto', shader: 'image', source: fairyGrottoPlate },
+    { id: 'grotto', shader: 'image', source: grotto },
     {
       id: 'fireflies',
       shader: 'fireflies',

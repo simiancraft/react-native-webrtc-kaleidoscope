@@ -109,25 +109,25 @@ First declare a **preset book** in your project: a flat catalog of **composites*
 ```ts
 // kaleidoscope.presets.ts
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
-import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office';
+import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 // Packaged composites ship ready to use; import and spread them in.
 import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower';
 
 export const presets = {
   // Replace your background with an image, you composited over it.
-  'dark-office': {
+  'office-dark': {
     name: 'Dark Office',
-    category: 'Backgrounds',
-    thumbnail: darkOffice,
+    taxonomy: ['Backgrounds', 'Office'],
+    thumbnail: officeDark,
     layers: [
-      { id: 'bg', shader: 'image', source: darkOffice },
+      { id: 'office-dark', shader: 'image', source: officeDark },
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
   // Blur the background, stay sharp.
   'blur-heavy': {
     name: 'Heavy',
-    category: 'Blur',
+    taxonomy: ['Effects', 'Blur'],
     layers: [
       { id: 'bg', shader: 'blur', target: 'background', uniforms: { sigma: 7 } },
       { id: 'you', shader: 'direct', target: 'subject' },
@@ -253,22 +253,22 @@ The `clouds` (Sky) composite also ships; its preview tile is pending.
 
 ## Background presets
 
-Ten backgrounds ship as `image` layers, imported per preset (e.g. `import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office'`). On web a preset can also be any image URL or data URI; native resolves bundled preset names only.
+The bundled backgrounds ship as `image` layers, filed by category and imported per plate (e.g. `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`). On web a plate can also be any image URL or data URI; native resolves bundled plate ids only.
 
-| Theme | Light | Dark |
+| Category | Light | Dark |
 |---|---|---|
-| Office | <img src="images/light-office/light-office.thumb.webp" width="220" alt="light-office" /> | <img src="images/dark-office/dark-office.thumb.webp" width="220" alt="dark-office" /> |
-| Home | <img src="images/home-light/home-light.thumb.webp" width="220" alt="home-light" /> | <img src="images/home-dark/home-dark.thumb.webp" width="220" alt="home-dark" /> |
-| Nature | <img src="images/nature-light/nature-light.thumb.webp" width="220" alt="nature-light" /> | <img src="images/nature-dark/nature-dark.thumb.webp" width="220" alt="nature-dark" /> |
-| Sci-Fi | <img src="images/sci-fi-light/sci-fi-light.thumb.webp" width="220" alt="sci-fi-light" /> | |
-| Underwater | | <img src="images/underwater-dark/underwater-dark.thumb.webp" width="220" alt="underwater-dark" /> |
-| Simiancraft | <img src="images/simiancraft-light/simiancraft-light.thumb.webp" width="220" alt="simiancraft-light" /> | <img src="images/simiancraft-dark/simiancraft-dark.thumb.webp" width="220" alt="simiancraft-dark" /> |
+| Office | <img src="images/office/office-light.thumb.webp" width="220" alt="office-light" /> | <img src="images/office/office-dark.thumb.webp" width="220" alt="office-dark" /> |
+| Home | <img src="images/home/home-light.thumb.webp" width="220" alt="home-light" /> | <img src="images/home/home-dark.thumb.webp" width="220" alt="home-dark" /> |
+| Nature | <img src="images/nature/landscape-light.thumb.webp" width="220" alt="landscape-light" /> | <img src="images/nature/landscape-dark.thumb.webp" width="220" alt="landscape-dark" /> |
+| Sci-Fi | <img src="images/sci-fi/sci-fi-light.thumb.webp" width="220" alt="sci-fi-light" /> | |
+| Underwater | | <img src="images/underwater/oceanscape-dark.thumb.webp" width="220" alt="oceanscape-dark" /> |
+| Simiancraft | <img src="images/simiancraft/simiancraft-light.thumb.webp" width="220" alt="simiancraft-light" /> | <img src="images/simiancraft/simiancraft-dark.thumb.webp" width="220" alt="simiancraft-dark" /> |
 
-Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:
+The `simiancraft` category also ships two transparent brand plates, `simiancraft-light-transparency` and `simiancraft-dark-transparency` (alpha preserved). Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:
 
-<img src="images/debug-resolutions/debug-resolutions.thumb.webp" width="220" alt="debug-resolutions" />
+<img src="images/debug/debug-resolutions.thumb.webp" width="220" alt="debug-resolutions" />
 
-See [`images/README.md`](./images/README.md) for sizing and how to add a preset.
+See [`images/README.md`](./images/README.md) for the folder layout, the two plate formats, and how to add one.
 
 ## Web and native differences
 
@@ -276,7 +276,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 - **Output track.** On web each `kaleidoscope`/`transform` command rebuilds the Insertable-Streams pipeline and yields a NEW `MediaStreamTrack`, surfaced via `onTrack`; on native the bound track is mutated in place. `mask` updates the segmentation edge the running composite reads each frame, with no rebuild on either platform.
 - **Image source.** An `image` layer's `source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
-- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per preset: `import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office'`. Each preset is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`images/README.md`](./images/README.md).
+- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per plate: `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`. Each plate is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`images/README.md`](./images/README.md).
 - **Segmentation model on web.** The web compositor loads MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. The `transform` ops need no model.
 - **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers (Chrome, Edge); Safari and Firefox lack the API, so the effects throw a clear capability error and the demo falls back to the unprocessed track.
 
@@ -292,7 +292,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 The canonical assets live in three root, folder-per-item directories, out of the TypeScript build path; the build and the prebuild copy read from them:
 
 - `shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `shaders/_shared/` also holds the cross-cutting frags (`composite.frag`, `composite-camera.frag`, `transform.frag`). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these. See [shaders/README.md](./shaders/README.md) to add or extend a shader.
-- `images/<name>/`: each bundled background's `.ts` / `.web.ts` loader pair and its `.webp`, behind a `./images/<name>` subpath export.
+- `images/<category>/`: plates filed by category, several per folder. Each plate is a quad: `<leaf>.webp`, its `<leaf>.thumb.webp`, and the `<leaf>.ts` / `<leaf>.web.ts` loader pair, behind a `./images/<category>/<leaf>` subpath export.
 - `composites/<name>/`: each packaged composite (a `Composite` definition), behind a `./composites/<name>` subpath export.
 
 The code lives across the platform surfaces:

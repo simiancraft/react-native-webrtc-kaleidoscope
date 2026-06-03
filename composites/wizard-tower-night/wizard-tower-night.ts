@@ -5,13 +5,13 @@
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// `react-native-webrtc-kaleidoscope/images/<category>/<leaf>` instead.
 
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `wizard-tower-night.thumb.webp` as into the native app target;
 // `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
 // (wizard-tower-night.web.ts) keeps the `Asset.fromModule(...).uri` pattern.
-import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower-night/wizard-tower-night';
+import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const wizardTowerNight = {

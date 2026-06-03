@@ -3,7 +3,7 @@
 // folder layout the exports map points at. The library build
 // (tsconfig.build.json, rootDir '.') emits the .js/.d.ts for each item under
 // dist/<tree>/<name>/; the .webp itself is not a TS input, so it is copied here.
-//   - images/<name>/*.webp     -> dist/images/<name>/      (plate + its thumb)
+//   - images/<category>/*.webp -> dist/images/<category>/  (plates + their thumbs)
 //   - composites/<name>/*.webp -> dist/composites/<name>/  (the scene thumbnail
 //     a composite's def imports, e.g. fairy-cave.thumb.webp)
 

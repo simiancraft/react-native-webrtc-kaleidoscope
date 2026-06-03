@@ -2,7 +2,7 @@
 // Native is fairy-cave.ts (no thumbnail). Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
 import { Asset } from 'expo-asset';
-import { fairyTreehouse } from '../../images/fairy-treehouse/fairy-treehouse';
+import { treehouse } from '../../images/fairy-caves/treehouse';
 import type { Composite } from '../../src/kaleidoscope/types';
 import fairyCaveThumb from './fairy-cave.thumb.webp';
 
@@ -28,7 +28,7 @@ export const fairyCave = {
         uSoftness: 0.18,
       },
     },
-    { id: 'fairy-treehouse', shader: 'image', source: fairyTreehouse },
+    { id: 'treehouse', shader: 'image', source: treehouse },
     {
       id: 'fireflies',
       shader: 'fireflies',

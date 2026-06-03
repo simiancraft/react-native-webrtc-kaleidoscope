@@ -2,7 +2,7 @@
 // Native is wizard-tower.ts (no thumbnail). Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
 import { Asset } from 'expo-asset';
-import { wizardsTower } from '../../images/wizards-tower/wizards-tower';
+import { wizardTower1 } from '../../images/wizard-tower/wizard-tower-1';
 import type { Composite } from '../../src/kaleidoscope/types';
 import wizardTowerThumb from './wizard-tower.thumb.webp';
 
@@ -28,7 +28,7 @@ export const wizardTower = {
         uSoftness: 0.23,
       },
     },
-    { id: 'wizards-tower', shader: 'image', source: wizardsTower },
+    { id: 'wizard-tower-1', shader: 'image', source: wizardTower1 },
     // You, standing in the chamber.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],

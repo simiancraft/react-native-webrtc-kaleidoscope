@@ -3,7 +3,7 @@
 // Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
 import { Asset } from 'expo-asset';
-import { corporateLogo } from '../../images/corporate-logo/corporate-logo';
+import { corporateLogo } from '../../images/corporate/corporate-logo';
 import type { Composite } from '../../src/kaleidoscope/types';
 import corporateBlobsThumb from './corporate-blobs.thumb.webp';
 

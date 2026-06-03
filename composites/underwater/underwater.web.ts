@@ -3,16 +3,16 @@
 // Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
 import { Asset } from 'expo-asset';
-import { underwaterDark } from '../../images/underwater-dark/underwater-dark';
+import { oceanscapeDark } from '../../images/underwater/oceanscape-dark';
 import type { Composite } from '../../src/kaleidoscope/types';
 import underwaterThumb from './underwater.thumb.webp';
 
 export const underwater = {
   name: 'Underwater',
-  taxonomy: ['Worlds', 'Oceanic'],
+  taxonomy: ['Worlds', 'Ocean'],
   thumbnail: Asset.fromModule(underwaterThumb).uri,
   layers: [
-    { id: 'underwater-dark', shader: 'image', source: underwaterDark },
+    { id: 'oceanscape-dark', shader: 'image', source: oceanscapeDark },
     {
       id: 'rays',
       shader: 'godrays',

@@ -169,7 +169,7 @@ function patchPodfile(contents, pod) {
 // Static-analyzability is the consumer's contract (documented in the README):
 // each `image` layer is `{ id: '<id>', shader: 'image', source: <ref> }`, where
 // <ref> is a `require('./x.webp')` literal, a single named import from a
-// `.../images/<name>` specifier, or a `const X = ...require('./x.webp')...`
+// `.../images/<category>/<leaf>` specifier, or a `const X = ...require('./x.webp')...`
 // binding (e.g. `Asset.fromModule(require('./x.webp')).uri`). The mod warns
 // (never throws) on anything it cannot parse or resolve, matching the plugin's
 // non-fatal contract.
@@ -202,8 +202,8 @@ function parseImports(source) {
 }
 
 // Derive an image plate id from its source specifier: the basename without
-// extension (e.g. './assets/backgrounds/wizards-tower.webp' -> 'wizards-tower',
-// 'react-native-webrtc-kaleidoscope/images/underwater-dark' -> 'underwater-dark').
+// extension (e.g. './assets/backgrounds/wolf-cave.webp' -> 'wolf-cave',
+// 'react-native-webrtc-kaleidoscope/images/underwater/oceanscape-dark' -> 'oceanscape-dark').
 // Used only as the fallback id when an image layer omits an explicit `id`; it
 // follows the same basename == id convention the runtime sends as the native
 // `source`, so native resolves assets/images/<id>.webp.
@@ -271,7 +271,7 @@ function collectImageRefs(bookSource, projectRoot) {
   const refs = [];
   const seen = new Set();
   // Resolve each layer's asset at collection time, where the source FILE's dir is
-  // known: a relative specifier (a composite's `../../images/<name>`) resolves
+  // known: a relative specifier (a composite's `../../images/<category>/<leaf>`) resolves
   // against that dir; a package specifier resolves via the library export.
   const addFrom = (src, baseDir) => {
     for (const { id, specifier } of parseImageRefs(src)) {

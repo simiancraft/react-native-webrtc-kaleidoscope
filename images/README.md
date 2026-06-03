@@ -1,63 +1,95 @@
-# Image presets
+# Image plates
 
-Bundled background plates for `image` layers. An `image` layer is one entry in a
-composite's layer stack: `{ id, shader: 'image', source }`, where `source` is the
-plate. Import a preset and use it as that `source` (and, usually, as the
-composite's `thumbnail`):
+Bundled plates for `image` layers. An `image` layer is one entry in a composite's
+layer stack: `{ id, shader: 'image', source }`, where `source` is the plate.
+Import a plate and use it as that `source` (and, usually, as the composite's
+`thumbnail`):
 
 ```ts
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
-import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office';
+import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 
 export const presets = {
-  'dark-office': {
+  'office-dark': {
     name: 'Dark Office',
-    category: 'Backgrounds',
-    thumbnail: darkOffice,
+    taxonomy: ['Backgrounds', 'Office'],
+    thumbnail: officeDark,
     layers: [
-      { id: 'dark-office', shader: 'image', source: darkOffice },
+      { id: 'office-dark', shader: 'image', source: officeDark },
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
 } as const satisfies PresetBook;
 ```
 
-The bundled plates (the catalog lives in `presets.ts` as `BACKGROUND_PRESETS`)
-are `debug-resolutions` (a viewport/resolution calibration grid for verifying
-cover-fit) plus ten themed backgrounds: `dark-office`, `light-office`,
-`home-light`, `home-dark`, `nature-light`, `nature-dark`, `sci-fi-light`,
-`underwater-dark`, `simiancraft-light`, and `simiancraft-dark`. The packaged
-composites under `composites/` bundle a few more plates of their own
-(`wizards-tower`, `observation-deck`, `fairy-treehouse`).
+## Folder layout: one folder per category, one plate per leaf
 
-`darkOffice` resolves per platform via a build-time file split (`dark-office.ts`
-for native, `dark-office.web.ts` for web, with the shared contract in
+Plates are filed by **category** (the plate's taxonomy, i.e. the picker's
+second-level group), not one folder per image. A category folder holds one or
+more plates, and each plate is a **quad** of same-named files:
+
+```
+images/<category>/
+  <leaf>.webp         the plate art
+  <leaf>.thumb.webp   the 320x180 picker tile (same basename + .thumb)
+  <leaf>.ts           native loader (returns the plate id)
+  <leaf>.web.ts       web loader (returns the bundled WebP URL)
+```
+
+The `<leaf>` is the plate id. It is **globally unique** across all categories
+because it doubles as both the native bundle basename (`assets/images/<leaf>.webp`)
+and the `image` layer's `id`. The categories that ship today:
+
+| Category | Plates |
+|----------|--------|
+| `office` | `office-dark`, `office-light` |
+| `home` | `home-dark`, `home-light` |
+| `nature` | `landscape-dark`, `landscape-light` |
+| `sci-fi` | `sci-fi-light` |
+| `underwater` | `oceanscape-dark` |
+| `simiancraft` | `simiancraft-light`, `simiancraft-dark`, `simiancraft-light-transparency`, `simiancraft-dark-transparency` |
+| `corporate` | `corporate-logo` |
+| `debug` | `debug-resolutions` (a viewport/resolution calibration grid) |
+| `fairy-caves` | `grotto`, `hollow`, `treehouse`, `treehouse-2`, `treehouse-3` |
+| `spaceship` | `observation-deck` |
+| `wizard-tower` | `wizard-tower-1`, `wizard-tower-2`, `wizard-tower-night` |
+
+`presets.ts` lists the standalone-background plates as `BACKGROUND_PRESETS` (the
+`office`/`home`/`nature`/`sci-fi`/`underwater`/`simiancraft`/`corporate`/`debug`
+leaves), which types a consumer's `source` autocomplete. The `fairy-caves`,
+`spaceship`, and `wizard-tower` cutout plates are not standalone backgrounds; they
+are layered inside the packaged composites under `composites/`.
+
+## Platform split, tree-shaking
+
+`officeDark` resolves per platform via a build-time file split (`office-dark.ts`
+for native, `office-dark.web.ts` for web, with the shared contract in
 `preset-source.types.ts`); the bundler picks the variant, there is no runtime
 `Platform.OS` branch:
 
 - **Web:** the bundled WebP's URL, which the compositor fetches and uploads as a
   texture for the `image` layer.
-- **Native (iOS/Android):** the plate id (`'dark-office'`); the native module
+- **Native (iOS/Android):** the plate id (`'office-dark'`); the native module
   loads its own bundled copy by that id. The native variant imports no WebP and
   no expo-asset, so native bundles neither at the source level. At `expo prebuild`
   the config plugin reads your preset book, finds the `image` layers it actually
   references, and copies just those WebPs into the native bundle under
-  `assets/images/<id>.webp`.
+  `assets/images/<leaf>.webp`.
 
-An `image` layer's `id` doubles as the native plate id, so it must match the
-plate's WebP basename. The barrel exports the catalog, not the sources:
+Each plate is its own loader pair behind its own `./images/<category>/<leaf>`
+subpath export, and the package sets `sideEffects: false`, so a web bundler drops
+any plate you do not import. Metro does not tree-shake, so a per-plate import is
+the only way to pull just the WebP you use; import per plate on purpose. The
+barrel exports the catalog, not the sources:
 
 ```ts
 import { BACKGROUND_PRESETS, type BackgroundPresetName } from 'react-native-webrtc-kaleidoscope/images';
 ```
 
-Sources are imported per preset on purpose. Metro does not tree-shake, so a
-per-preset import is the only way to pull just the WebP you use.
-
 For a non-Expo web bundler, import the asset URL directly:
 
 ```ts
-import darkOfficeUrl from 'react-native-webrtc-kaleidoscope/images/dark-office.webp';
+import officeDarkUrl from 'react-native-webrtc-kaleidoscope/images/office/office-dark.webp';
 ```
 
 You are not limited to the bundled plates. On web an `image` layer's `source` can
@@ -65,75 +97,91 @@ be any image URL or data URI; on native, supply your own WebP and let the prebui
 copy it (the demo's `wolf-cave` preset does exactly this with a `require()`'d
 asset the plugin resolves statically).
 
-## Optimal plate: size, shape, format
+## Plate format: two kinds
 
 A plate is composited behind the segmented subject and sampled with bilinear
 filtering and no mipmaps, so resolution beyond the output video size is discarded;
 it costs decode time, memory, and upload bandwidth without improving the picture.
 Smaller, well-sized assets shorten load and switch latency; they do not change
 steady-state shader cost (once uploaded, the file format is invisible to the GPU).
+Two plate kinds drive two encodings:
 
-Target:
+### Opaque background plate (no alpha)
+
+A full-frame background. The default and the common case.
 
 - **Resolution:** 1280x720. Matches typical WebRTC output. Go to 1920x1080 only
-  if your source art genuinely has that many pixels; upscaling produces a soft,
-  not crisp, 1080p.
+  if your source art genuinely has that many pixels.
 - **Shape:** 16:9, the call's aspect. Center-crop other ratios so the runtime
   does not stretch or letterbox.
-- **Format:** lossy WebP, no alpha (a full-frame background needs none). WebP is
-  supported across the targets this library runs on.
-- **Quality:** ~q88. High enough to avoid banding on smooth walls and gradients,
-  while still landing well under ~100 KB for typical plates. Lossless is the
-  wrong tool here: on photographic content it lands near the original PNG size.
-
-The shipped office plates were produced from 1536x1024 source art with ImageMagick:
+- **Format:** lossy WebP, no alpha. Lossless is the wrong tool here: on
+  photographic content it lands near the original PNG size.
+- **Quality:** ~q88. No banding on smooth walls and gradients, still well under
+  ~150 KB for a typical plate.
 
 ```sh
 convert in.png -resize "1280x720^" -gravity center -extent 1280x720 \
-  -quality 88 -define webp:method=6 dark-office.webp
+  -quality 88 -define webp:method=6 office-dark.webp
 ```
+
+`debug-resolutions` is the deliberate exception: a high-detail calibration grid
+kept crisp (~750 KB), not a photographic background.
+
+### Alpha plate (transparency)
+
+A plate with transparent regions: a cutout that lets a lower layer (the night sky,
+a shader) show through, or a logo. Keep the alpha; never flatten it.
+
+- **Photographic cutout** (the `fairy-caves`, `spaceship`, `wizard-tower` scenes):
+  lossy WebP at ~q88 with alpha preserved. Keep the source aspect (these are often
+  3:2 or 16:9); the compositor cover-fits, so the exact aspect is not load-bearing.
+
+  ```sh
+  convert in.png -resize "1280x720^" -gravity center -background none -extent 1280x720 \
+    -quality 88 -define webp:method=6 treehouse-2.webp
+  ```
+
+- **Flat logo / brand art** (the `simiancraft-*-transparency` plates): lossy color
+  with **lossless alpha**, so the transparency edges stay crisp while the flat
+  field compresses cheaply. True lossless on the whole image balloons past 500 KB
+  for no visible gain.
+
+  ```sh
+  convert in.png -resize "1280x720^" -gravity center -background none -extent 1280x720 \
+    -quality 90 -define webp:alpha-quality=100 -define webp:method=6 \
+    simiancraft-dark-transparency.webp
+  ```
 
 ## Thumbnails
 
-The preset book references a small thumbnail per composite (the picker tile), not
-the full plate. Shipping the 1280x720 plate as its own `thumbnail` wastes decode
-time and memory on a tile that renders ~160px wide. Each plate folder carries a
-downscaled `<name>.thumb.webp` next to the plate.
-
-Target:
+Every plate carries a downscaled `<leaf>.thumb.webp` beside it: the picker tile,
+not the full plate. Shipping the 1280x720 plate as its own `thumbnail` wastes
+decode time and memory on a tile that renders ~160px wide.
 
 - **Resolution:** **320x180** (16:9), center-cropped to fill. Uniform across every
-  thumbnail so picker tiles are one shape regardless of the source's aspect (the
-  plates themselves vary: 16:9 backgrounds, 3:2 composites). Crisp to ~160px at 2x
-  DPR; a picker tile never needs more.
-- **Format:** lossy WebP at ~q80 (a tile tolerates more compression than a
-  full-frame background), `method=6`.
-- **Crop:** center-cropped cover-fit (`-extent`), not a letterboxed fit, so the
-  tile is filled. A non-16:9 source loses a little off the long edge.
-- **Naming:** `<name>.thumb.webp`, in the same `images/<name>/` folder as the plate.
-
-Recipe (cover-fit to 320x180, center-cropped):
+  thumbnail so picker tiles are one shape regardless of the plate's aspect.
+- **Format:** lossy WebP at ~q80, `method=6`. Alpha plates keep `-background none`.
+- **Naming:** `<leaf>.thumb.webp`, in the same `images/<category>/` folder, same
+  basename as the plate.
 
 ```sh
-convert <source> -resize "320x180^" -gravity center -extent 320x180 \
-  -quality 80 -define webp:method=6 <name>.thumb.webp
+convert <plate> -resize "320x180^" -gravity center -extent 320x180 \
+  -quality 80 -define webp:method=6 <leaf>.thumb.webp
 ```
-
-A screenshot you are turning into a thumbnail (a captured "world" or "sky") takes
-the same recipe; feed the source image in place of `<source>`.
 
 ## Adding a plate
 
-1. Append the name to `BACKGROUND_PRESETS` in `presets.ts`.
-2. Create `images/<name>/` and drop the optimized `<name>.webp` in it (recipe above).
-3. Make its `<name>.thumb.webp` (Thumbnails recipe above) and reference it as the
-   composite's `thumbnail` instead of the full plate.
-4. Add the loader pair mirroring `dark-office`: `<name>.ts` (native, returns the
-   plate id) and `<name>.web.ts` (web, returns the WebP URL), both annotated with
+1. Pick or create the category folder `images/<category>/`.
+2. Drop the optimized `<leaf>.webp` in it (pick the encoding for its kind, above).
+3. Make its `<leaf>.thumb.webp` (recipe above).
+4. Add the loader pair mirroring `office-dark`: `<leaf>.ts` (native, returns the
+   plate id) and `<leaf>.web.ts` (web, returns the WebP URL), both annotated with
    `PresetSource` from `preset-source.types.ts`.
-5. Add the `./images/<name>` export (with `react-native`, `browser`,
-   `import`, `default` conditions) and `./images/<name>.webp` to the
+5. Add the `./images/<category>/<leaf>` export (with `react-native`, `browser`,
+   `import`, `default` conditions) and `./images/<category>/<leaf>.webp` to the
    package `exports`.
+6. If it is a standalone background, append `<leaf>` to `BACKGROUND_PRESETS` in
+   `presets.ts`. Cutout plates that only feed a packaged composite skip this.
 
 No native registration is needed. The one registered native effect is
 `composite`; plates are data, not factories. The prebuild copies only the plates

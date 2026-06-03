@@ -2,7 +2,7 @@
 // Native is fairy-hollow.ts (no thumbnail).
 
 import { Asset } from 'expo-asset';
-import { fairyHollow as fairyHollowPlate } from '../../images/fairy-hollow/fairy-hollow';
+import { hollow } from '../../images/fairy-caves/hollow';
 import type { Composite } from '../../src/kaleidoscope/types';
 import fairyHollowThumb from './fairy-hollow.thumb.webp';
 
@@ -28,7 +28,7 @@ export const fairyHollow = {
         uSoftness: 0.2,
       },
     },
-    { id: 'fairy-hollow', shader: 'image', source: fairyHollowPlate },
+    { id: 'hollow', shader: 'image', source: hollow },
     {
       id: 'fireflies',
       shader: 'fireflies',

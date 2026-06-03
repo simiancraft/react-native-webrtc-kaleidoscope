@@ -3,7 +3,7 @@
 // Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
 import { Asset } from 'expo-asset';
-import { observationDeck as observationDeckPlate } from '../../images/observation-deck/observation-deck';
+import { observationDeck as observationDeckPlate } from '../../images/spaceship/observation-deck';
 import type { Composite } from '../../src/kaleidoscope/types';
 import observationDeckThumb from './observation-deck.thumb.webp';
 

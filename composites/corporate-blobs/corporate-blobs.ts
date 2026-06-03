@@ -6,14 +6,14 @@
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from
-// `react-native-webrtc-kaleidoscope/images/<name>` instead.
+// `react-native-webrtc-kaleidoscope/images/<category>/<leaf>` instead.
 
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `corporate-blobs.thumb.webp` as into the native app target;
 // `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
 // (corporate-blobs.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
-import { corporateLogo } from '../../images/corporate-logo/corporate-logo';
+import { corporateLogo } from '../../images/corporate/corporate-logo';
 import type { Composite } from '../../src/kaleidoscope/types';
 
 export const corporateBlobs = {

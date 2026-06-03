@@ -253,18 +253,23 @@ processor is `composite`; an `image` layer resolves the plate by id at runtime,
 so adding a plate needs NO native registration. The flow mirrors
 [`images/README.md`](./images/README.md) "Adding a plate":
 
-1. Append the plate name to `BACKGROUND_PRESETS` in `images/presets.ts` (the
-   single source of truth).
-2. Create `images/<name>/` and drop the optimized `<name>.webp` in it (the
-   format/size recipe is in `images/README.md`).
-3. Add the loader pair mirroring `dark-office`: `images/<name>/<name>.ts`
-   (native, returns the plate id) and `images/<name>/<name>.web.ts` (web,
+Plates are filed by **category** (the taxonomy's second level), several leaves
+per folder; the leaf is the globally-unique plate id.
+
+1. If it is a standalone background, append the leaf to `BACKGROUND_PRESETS` in
+   `images/presets.ts`. A cutout plate that only feeds a packaged composite skips
+   this.
+2. Create or reuse `images/<category>/` and drop the optimized `<leaf>.webp` in
+   it. Two encodings: opaque backgrounds are 1280x720 lossy q88 with no alpha;
+   alpha plates keep their transparency (recipes in `images/README.md`).
+3. Add the loader pair mirroring `office-dark`: `images/<category>/<leaf>.ts`
+   (native, returns the plate id) and `images/<category>/<leaf>.web.ts` (web,
    returns the WebP URL), both annotated with `PresetSource` from
    `images/preset-source.types.ts`.
-4. Add the `./images/<name>` export (with `react-native`, `browser`, `import`,
-   `default` conditions) and the `./images/<name>.webp` asset export to the
-   package `exports` (Metro has no tree-shaking; consumers import one plate's
-   bytes via its subpath).
+4. Add the `./images/<category>/<leaf>` export (with `react-native`, `browser`,
+   `import`, `default` conditions) and the `./images/<category>/<leaf>.webp` asset
+   export to the package `exports` (Metro has no tree-shaking; consumers import
+   one plate's bytes via its subpath).
 
 At `expo prebuild` the config plugin reads the consumer's preset book, finds the
 `image` layers it references, and copies just those WebPs into the native bundle
