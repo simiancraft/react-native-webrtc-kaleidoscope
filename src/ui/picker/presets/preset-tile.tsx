@@ -96,13 +96,22 @@ const styles = StyleSheet.create({
   tile: {
     aspectRatio: 16 / 9,
     minWidth: 96,
-    // Yoga floor for percentage flexBasis + aspectRatio collapse: without this,
-    // each tile resolves to 118 x 4 px on iOS (verified via Maestro hierarchy
-    // bounds), turning every wallpaper tile into a thin gray strip; the
-    // recessed variant survived only because its visible border made the 4px
-    // height look like a deliberate divider. 54 = 96 * 9 / 16, the minWidth's
-    // aspect-derived height, so a tile whose width grows past the floor still
-    // tracks the 16:9 ratio.
+    // GENERAL React Native gotcha worth naming, because it bites LLM-generated
+    // layouts in particular: Yoga (RN's flex engine) will silently collapse a
+    // view to zero height when the layout describes height purely by derivation
+    // (a percentage `flexBasis` plus an `aspectRatio`, or content that has not
+    // measured yet) without an explicit floor. It smashes shut like an
+    // unbroken IE6 `<div>`. If a row of tiles ever renders as thin strips, the
+    // first thing to check is whether each tile has a `height` or `minHeight`
+    // anywhere in its chain.
+    //
+    // THIS SITE: declared `flexBasis: '30%'` + `aspectRatio: 16/9` and no
+    // height floor; each tile resolved to 118 x 4 px on iOS (Maestro hierarchy
+    // bounds), turning every wallpaper tile into a thin gray strip. The
+    // recessed variant survived only because its visible 2px border made the
+    // 4px collapse read as a deliberate divider. 54 = 96 * 9 / 16 (the
+    // minWidth's aspect-derived height), so a tile whose width grows past the
+    // floor still tracks the 16:9 ratio via `aspectRatio`.
     minHeight: 54,
     flexGrow: 1,
     flexBasis: '30%',
