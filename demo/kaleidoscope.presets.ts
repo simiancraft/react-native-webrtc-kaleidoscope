@@ -24,15 +24,24 @@ import { Asset } from 'expo-asset';
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
 // Packaged composites (the "Worlds" and "Sky" scenes), shipped by the library.
 import { clouds } from 'react-native-webrtc-kaleidoscope/composites/clouds';
+import { CloudsControls } from 'react-native-webrtc-kaleidoscope/composites/clouds/controls';
 import { corporateBlobs } from 'react-native-webrtc-kaleidoscope/composites/corporate-blobs';
+import { CorporateBlobsControls } from 'react-native-webrtc-kaleidoscope/composites/corporate-blobs/controls';
 import { fairyCave } from 'react-native-webrtc-kaleidoscope/composites/fairy-cave';
+import { FairyCaveControls } from 'react-native-webrtc-kaleidoscope/composites/fairy-cave/controls';
 import { nebula } from 'react-native-webrtc-kaleidoscope/composites/nebula';
+import { NebulaControls } from 'react-native-webrtc-kaleidoscope/composites/nebula/controls';
 import { observationDeck } from 'react-native-webrtc-kaleidoscope/composites/observation-deck';
+import { ObservationDeckControls } from 'react-native-webrtc-kaleidoscope/composites/observation-deck/controls';
 import { simianlights } from 'react-native-webrtc-kaleidoscope/composites/simianlights';
+import { SimianlightsControls } from 'react-native-webrtc-kaleidoscope/composites/simianlights/controls';
 import { underwater } from 'react-native-webrtc-kaleidoscope/composites/underwater';
+import { UnderwaterControls } from 'react-native-webrtc-kaleidoscope/composites/underwater/controls';
 import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower';
+import { WizardTowerControls } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower/controls';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
+import { BlurControls, PlasmaControls } from './src/demo-controls';
 import { darkOffice } from 'react-native-webrtc-kaleidoscope/images/dark-office';
 import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug-resolutions';
 import { homeDark } from 'react-native-webrtc-kaleidoscope/images/home-dark';
@@ -49,16 +58,16 @@ const wolfCave = Asset.fromModule(require('./assets/backgrounds/wolf-cave.webp')
 
 export const presets = {
   // --- Worlds: composed scenes (shown FIRST), imported from the library. ---
-  'wizard-tower': wizardTower,
-  'observation-deck': observationDeck,
-  'fairy-cave': fairyCave,
-  underwater,
-  nebula,
-  simianlights,
-  'corporate-blobs': corporateBlobs,
+  'wizard-tower': { ...wizardTower, controls: WizardTowerControls },
+  'observation-deck': { ...observationDeck, controls: ObservationDeckControls },
+  'fairy-cave': { ...fairyCave, controls: FairyCaveControls },
+  underwater: { ...underwater, controls: UnderwaterControls },
+  nebula: { ...nebula, controls: NebulaControls },
+  simianlights: { ...simianlights, controls: SimianlightsControls },
+  'corporate-blobs': { ...corporateBlobs, controls: CorporateBlobsControls },
 
   // --- Sky: raymarched clouds with you composited over them. ---
-  clouds,
+  clouds: { ...clouds, controls: CloudsControls },
 
   // --- Plasma: a generative plasma field with you composited over it. The old
   // single plasma shader composited the person over its output; the same shape
@@ -66,6 +75,7 @@ export const presets = {
   'plasma-ocean': {
     name: 'Ocean',
     category: 'Plasma',
+    controls: PlasmaControls,
     layers: [
       {
         id: 'plasma',
@@ -78,6 +88,7 @@ export const presets = {
   'plasma-sunset': {
     name: 'Sunset',
     category: 'Plasma',
+    controls: PlasmaControls,
     layers: [
       {
         id: 'plasma',
@@ -90,6 +101,7 @@ export const presets = {
   'plasma-mint': {
     name: 'Mint',
     category: 'Plasma',
+    controls: PlasmaControls,
     layers: [
       {
         id: 'plasma',
@@ -102,6 +114,7 @@ export const presets = {
   'plasma-fast': {
     name: 'Fast',
     category: 'Plasma',
+    controls: PlasmaControls,
     layers: [
       {
         id: 'plasma',
@@ -116,6 +129,7 @@ export const presets = {
   'blur-low': {
     name: 'Low',
     category: 'Blur',
+    controls: BlurControls,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 1.5 } },
       { id: 'you', shader: 'direct', target: 'subject' },
@@ -124,6 +138,7 @@ export const presets = {
   'blur-medium': {
     name: 'Medium',
     category: 'Blur',
+    controls: BlurControls,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
       { id: 'you', shader: 'direct', target: 'subject' },
@@ -132,6 +147,7 @@ export const presets = {
   'blur-high': {
     name: 'High',
     category: 'Blur',
+    controls: BlurControls,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
       { id: 'you', shader: 'direct', target: 'subject' },
