@@ -1,0 +1,85 @@
+// KaleidoscopeMaskControls: the segmentation-edge panel, themed and controlled.
+// Either slider emits the full MaskInput (the mask verb is absolute). Not a
+// layer form, so it has no ControlForm (and thus no copy button) and uses the
+// raw slider directly with the themed Label/Readout primitives.
+
+import RNSlider from '@react-native-community/slider';
+import { StyleSheet, View } from 'react-native';
+import type { MaskInput } from '../kaleidoscope/types';
+import { ControlSection } from './control-section';
+import { Label } from './primitives/label';
+import { Readout } from './primitives/readout';
+
+export type KaleidoscopeMaskControlsProps = {
+  readonly hardness: number;
+  readonly threshold: number;
+  readonly onChange: (mask: MaskInput) => void;
+  readonly disabled?: boolean;
+};
+
+function MaskRow({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: number;
+  readonly disabled: boolean;
+  readonly onChange: (v: number) => void;
+}) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.line}>
+        <Label>{label}</Label>
+        <Readout>{value.toFixed(2)}</Readout>
+      </View>
+      <RNSlider
+        style={styles.slider}
+        accessibilityLabel={label}
+        // Floor at 0.01: at exactly 0 the mask smoothstep range collapses
+        // (lo === hi) and the edge breaks. 0.01 keeps it well-defined. This is a
+        // shader-math floor, distinct from the field slider's web-crash epsilon.
+        minimumValue={0.01}
+        maximumValue={1}
+        step={0.01}
+        value={value}
+        disabled={disabled}
+        onValueChange={onChange}
+        minimumTrackTintColor="#8888ff"
+        maximumTrackTintColor="#444"
+        thumbTintColor="#eeeeff"
+      />
+    </View>
+  );
+}
+
+export function KaleidoscopeMaskControls({
+  hardness,
+  threshold,
+  onChange,
+  disabled = false,
+}: KaleidoscopeMaskControlsProps) {
+  return (
+    <ControlSection title="mask">
+      <MaskRow
+        label="hardness"
+        value={hardness}
+        disabled={disabled}
+        onChange={(v) => onChange({ hardness: v, threshold })}
+      />
+      <MaskRow
+        label="threshold"
+        value={threshold}
+        disabled={disabled}
+        onChange={(v) => onChange({ hardness, threshold: v })}
+      />
+    </ControlSection>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { gap: 2 },
+  line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  slider: { width: '100%', height: 32 },
+});

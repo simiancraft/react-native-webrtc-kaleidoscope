@@ -11,9 +11,17 @@ export { ControlSection, type ControlSectionProps } from './control-section';
 export { ControlForm, type ControlFormProps, type FieldValue } from './form/control-form';
 export { makeControls } from './form/make-controls';
 export { type Field, useField } from './form/use-field';
+export {
+  KaleidoscopeMaskControls,
+  type KaleidoscopeMaskControlsProps,
+} from './mask-controls';
 export * from './primitives';
 export { KaleidoscopeThemeProvider, useKaleidoscopeTheme, useThemeSlot } from './theme/provider';
 export type { KaleidoscopeThemeSlots, SlotStyle, ThemeSlot } from './theme/slots';
+export {
+  KaleidoscopeTransformControls,
+  type KaleidoscopeTransformControlsProps,
+} from './transform-controls';
 export { KaleidoscopeTuner, type KaleidoscopeTunerProps } from './tuner';
 export {
   type ControlOverride,
