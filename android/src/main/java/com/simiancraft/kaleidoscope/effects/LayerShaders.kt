@@ -19,15 +19,15 @@ package com.simiancraft.kaleidoscope.effects
 import com.simiancraft.kaleidoscope.gpu.ShadersGenerated
 
 internal object LayerShaders {
-  // ---- compositor-local layer programs (image + subject), ported from composite.ts -
+    // ---- compositor-local layer programs (image + subject), ported from composite.ts -
 
-  // Cover-fit a still texture, output PREMULTIPLIED so a straight-alpha image
-  // (a transparent sky / cut-out opening) composites correctly with the "over"
-  // blend: transparent regions show the stack beneath. uCoverScale zooms the UV
-  // about center to crop-fit (mirrors BLIT_FRAG_SRC in composite.ts). No V-flip in
-  // the shader: the image bitmap is pre-flipped on upload (matches
-  // BackgroundImageFactory), so the texture already lands semantic-top at v=1.
-  const val IMAGE_FRAG = """#version 300 es
+    // Cover-fit a still texture, output PREMULTIPLIED so a straight-alpha image
+    // (a transparent sky / cut-out opening) composites correctly with the "over"
+    // blend: transparent regions show the stack beneath. uCoverScale zooms the UV
+    // about center to crop-fit (mirrors BLIT_FRAG_SRC in composite.ts). No V-flip in
+    // the shader: the image bitmap is pre-flipped on upload (matches
+    // BackgroundImageFactory), so the texture already lands semantic-top at v=1.
+    const val IMAGE_FRAG = """#version 300 es
 precision highp float;
 uniform sampler2D uTex;
 uniform vec2 uCoverScale;
@@ -40,13 +40,13 @@ void main() {
 }
 """
 
-  // The masked camera person, output PREMULTIPLIED (rgb already scaled by the
-  // mask alpha) so a "normal" over-blend composites the person onto the stack.
-  // Mirrors SUBJECT_FRAG_SRC in composite.ts. uMaskUvScale/uMaskUvOffset carry the
-  // mask orientation: on Android the mask round-trip (glReadPixels bottom-up +
-  // Bitmap top-down + packMask flip-back) leaves the mask aligned with the
-  // camera FBO, so these are identity (1,1)/(0,0) here, unlike web's (1,-1)/(0,1).
-  const val SUBJECT_FRAG = """#version 300 es
+    // The masked camera person, output PREMULTIPLIED (rgb already scaled by the
+    // mask alpha) so a "normal" over-blend composites the person onto the stack.
+    // Mirrors SUBJECT_FRAG_SRC in composite.ts. uMaskUvScale/uMaskUvOffset carry the
+    // mask orientation: on Android the mask round-trip (glReadPixels bottom-up +
+    // Bitmap top-down + packMask flip-back) leaves the mask aligned with the
+    // camera FBO, so these are identity (1,1)/(0,0) here, unlike web's (1,-1)/(0,1).
+    const val SUBJECT_FRAG = """#version 300 es
 precision highp float;
 uniform sampler2D uCamera;
 uniform sampler2D uMask;
@@ -65,23 +65,23 @@ void main() {
 }
 """
 
-  // CAMERA layer migrated to the single-source pipeline; see
-  // Shaders.COMPOSITE_CAMERA_FRAG (canonical shaders/_shared/composite-camera.frag).
+    // CAMERA layer migrated to the single-source pipeline; see
+    // Shaders.COMPOSITE_CAMERA_FRAG (canonical shaders/_shared/composite-camera.frag).
 
-  // BLUR layer migrated to the single-source pipeline; see
-  // Shaders.COMPOSITE_BLUR_FRAG (canonical shaders/blur/composite-blur.frag).
-  //
-  // The compositor primitives that remain hand-written here (IMAGE, SUBJECT,
-  // MASKED) are intentionally left hand-authored and mirrored in composite.ts
-  // (web) and composite-*.metalsrc (iOS): small, stable, with bespoke host buffer
-  // bindings, so they stay hand-maintained rather than codegen'd. Keep in sync.
+    // BLUR layer migrated to the single-source pipeline; see
+    // Shaders.COMPOSITE_BLUR_FRAG (canonical shaders/blur/composite-blur.frag).
+    //
+    // The compositor primitives that remain hand-written here (IMAGE, SUBJECT,
+    // MASKED) are intentionally left hand-authored and mirrored in composite.ts
+    // (web) and composite-*.metalsrc (iOS): small, stable, with bespoke host buffer
+    // bindings, so they stay hand-maintained rather than codegen'd. Keep in sync.
 
-  // Masked-composite: stencil a rendered scratch layer (uTex, treated as
-  // premultiplied) to the subject by multiplying through the mask alpha. Keeps the
-  // result premultiplied so the caller's "over"/"additive" blend composites it
-  // correctly. Mirrors MASKED_FRAG_SRC in composite.ts; identity mask UV on Android
-  // (the readback already aligns it), unlike web's (1,-1)/(0,1).
-  const val MASKED_FRAG = """#version 300 es
+    // Masked-composite: stencil a rendered scratch layer (uTex, treated as
+    // premultiplied) to the subject by multiplying through the mask alpha. Keeps the
+    // result premultiplied so the caller's "over"/"additive" blend composites it
+    // correctly. Mirrors MASKED_FRAG_SRC in composite.ts; identity mask UV on Android
+    // (the readback already aligns it), unlike web's (1,-1)/(0,1).
+    const val MASKED_FRAG = """#version 300 es
 precision highp float;
 uniform sampler2D uTex;
 uniform sampler2D uMask;
@@ -100,15 +100,16 @@ void main() {
 }
 """
 
-  // Every generative background is single-sourced from shaders/<name>.frag via
-  // build:shaders; this map points each dispatch name at its generated const.
-  val GENERATIVE: Map<String, String> = mapOf(
-    "godrays" to ShadersGenerated.GODRAYS_FRAG,
-    "clouds" to ShadersGenerated.CLOUDS_FRAG,
-    "fireflies" to ShadersGenerated.FIREFLIES_FRAG,
-    "nebula" to ShadersGenerated.NEBULA_FRAG,
-    "simianlights" to ShadersGenerated.SIMIANLIGHTS_FRAG,
-    "anamorphic-lensflare" to ShadersGenerated.ANAMORPHIC_LENSFLARE_FRAG,
-    "plasma" to ShadersGenerated.PLASMA_FRAG,
-  )
+    // Every generative background is single-sourced from shaders/<name>.frag via
+    // build:shaders; this map points each dispatch name at its generated const.
+    val GENERATIVE: Map<String, String> =
+        mapOf(
+            "godrays" to ShadersGenerated.GODRAYS_FRAG,
+            "clouds" to ShadersGenerated.CLOUDS_FRAG,
+            "fireflies" to ShadersGenerated.FIREFLIES_FRAG,
+            "nebula" to ShadersGenerated.NEBULA_FRAG,
+            "simianlights" to ShadersGenerated.SIMIANLIGHTS_FRAG,
+            "anamorphic-lensflare" to ShadersGenerated.ANAMORPHIC_LENSFLARE_FRAG,
+            "plasma" to ShadersGenerated.PLASMA_FRAG,
+        )
 }

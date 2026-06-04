@@ -449,6 +449,8 @@
     "check:package": "publint --strict",
     "check:knip": "knip",
     "check:react-compiler": "eslint src/components 'catalog/composites/**/*.controls.tsx'",
+    "check:kotlin": "bun run scripts/ktlint.ts",
+    "format:kotlin": "bun run scripts/ktlint.ts --format",
     "build:plugin": "bun run scripts/build-plugin.ts",
     "check:plugin": "bun run build:plugin && git diff --exit-code -- plugin/build",
     "refresh:android": "cd demo && npm install",

@@ -29,30 +29,30 @@ package com.simiancraft.kaleidoscope.gpu
 // and takes an Op in its constructor; an internal Op would leak through a public
 // signature.
 object Orientation {
-  /** Screen-space reorientation operations the transform effect exposes. */
-  enum class Op { FLIP_X, FLIP_Y, ROTATE_CW, ROTATE_CCW }
+    /** Screen-space reorientation operations the transform effect exposes. */
+    enum class Op { FLIP_X, FLIP_Y, ROTATE_CW, ROTATE_CCW }
 
-  /** Does the op swap output dimensions (w x h -> h x w)? True for rotations. */
-  fun swapsDimensions(op: Op): Boolean = op == Op.ROTATE_CW || op == Op.ROTATE_CCW
+    /** Does the op swap output dimensions (w x h -> h x w)? True for rotations. */
+    fun swapsDimensions(op: Op): Boolean = op == Op.ROTATE_CW || op == Op.ROTATE_CCW
 
-  /**
-   * Column-major 2x2 for glUniformMatrix2fv. The input frame is already
-   * display-upright (see Ingest), so this is rotation-independent.
-   *
-   * flip-x: negate U -> column 0 = (-1, 0), column 1 = (0, 1).
-   * flip-y: negate V -> column 0 = ( 1, 0), column 1 = (0, -1).
-   * rotate-cw / rotate-ccw: screen 90-degree rotations. Device-confirmed on the
-   *   clean sampled space (both flips correct on both platforms, so the matrix->
-   *   screen map is axis-aligned and orientation-preserving): columns (0,-1),(1,0)
-   *   rendered COUNTER-clockwise, so clockwise is the inverse, columns (0,1),(-1,0).
-   */
-  fun mat2For(op: Op): FloatArray =
-    when (op) {
-      Op.FLIP_X -> floatArrayOf(-1f, 0f, 0f, 1f)
-      Op.FLIP_Y -> floatArrayOf(1f, 0f, 0f, -1f)
-      // Device-confirmed: columns (0,-1),(1,0) rendered CCW on the clean space,
-      // so clockwise is its inverse, columns (0,1),(-1,0).
-      Op.ROTATE_CW -> floatArrayOf(0f, 1f, -1f, 0f)
-      Op.ROTATE_CCW -> floatArrayOf(0f, -1f, 1f, 0f)
-    }
+    /**
+     * Column-major 2x2 for glUniformMatrix2fv. The input frame is already
+     * display-upright (see Ingest), so this is rotation-independent.
+     *
+     * flip-x: negate U -> column 0 = (-1, 0), column 1 = (0, 1).
+     * flip-y: negate V -> column 0 = ( 1, 0), column 1 = (0, -1).
+     * rotate-cw / rotate-ccw: screen 90-degree rotations. Device-confirmed on the
+     *   clean sampled space (both flips correct on both platforms, so the matrix->
+     *   screen map is axis-aligned and orientation-preserving): columns (0,-1),(1,0)
+     *   rendered COUNTER-clockwise, so clockwise is the inverse, columns (0,1),(-1,0).
+     */
+    fun mat2For(op: Op): FloatArray =
+        when (op) {
+            Op.FLIP_X -> floatArrayOf(-1f, 0f, 0f, 1f)
+            Op.FLIP_Y -> floatArrayOf(1f, 0f, 0f, -1f)
+            // Device-confirmed: columns (0,-1),(1,0) rendered CCW on the clean space,
+            // so clockwise is its inverse, columns (0,1),(-1,0).
+            Op.ROTATE_CW -> floatArrayOf(0f, 1f, -1f, 0f)
+            Op.ROTATE_CCW -> floatArrayOf(0f, -1f, 1f, 0f)
+        }
 }

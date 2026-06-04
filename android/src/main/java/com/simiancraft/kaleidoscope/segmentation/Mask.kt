@@ -47,256 +47,268 @@ import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
-internal class Mask(private val context: Context) {
-  // Cached small-FBO state for the downsample pass.
-  private var downsampleFbo: Fbo? = null
-  private var downsampleProgram: GlProgram? = null
+internal class Mask(
+    private val context: Context,
+) {
+    // Cached small-FBO state for the downsample pass.
+    private var downsampleFbo: Fbo? = null
+    private var downsampleProgram: GlProgram? = null
 
-  // Cached output texture for the mask. Reused across frames.
-  private var maskTextureId: Int = 0
-  private var maskTexWidth: Int = 0
-  private var maskTexHeight: Int = 0
+    // Cached output texture for the mask. Reused across frames.
+    private var maskTextureId: Int = 0
+    private var maskTexWidth: Int = 0
+    private var maskTexHeight: Int = 0
 
-  // Throttle to a single in-flight segmentation at a time. Set true on
-  // kickoff (GL thread), reset false when the engine reports done.
-  private val isProcessing = AtomicBoolean(false)
+    // Throttle to a single in-flight segmentation at a time. Set true on
+    // kickoff (GL thread), reset false when the engine reports done.
+    private val isProcessing = AtomicBoolean(false)
 
-  // Worker -> GL thread handoff: a Bitmap ready to upload as the mask
-  // texture. AtomicReference makes the read+clear (GL thread) and
-  // write+read-prev (worker thread) atomic, so there is no window in which
-  // both threads can observe the same bitmap reference.
-  private val pendingMaskBitmap = AtomicReference<Bitmap?>(null)
+    // Worker -> GL thread handoff: a Bitmap ready to upload as the mask
+    // texture. AtomicReference makes the read+clear (GL thread) and
+    // write+read-prev (worker thread) atomic, so there is no window in which
+    // both threads can observe the same bitmap reference.
+    private val pendingMaskBitmap = AtomicReference<Bitmap?>(null)
 
-  // Pre-allocated readback buffer (resized only on input-dim change).
-  private var pixelByteBuffer: ByteBuffer? = null
+    // Pre-allocated readback buffer (resized only on input-dim change).
+    private var pixelByteBuffer: ByteBuffer? = null
 
-  // Temporal-smoothing (EMA) state: the previous smoothed confidence buffer and
-  // its dims. Touched only on the SegmentationEngine worker thread (packMask),
-  // which is single-threaded, so no locking. (If a future change ever reads
-  // these off that thread, e.g. on the GL thread, they would need @Volatile.)
-  private var smoothedMask: FloatArray? = null
-  private var smoothedMaskW: Int = 0
-  private var smoothedMaskH: Int = 0
+    // Temporal-smoothing (EMA) state: the previous smoothed confidence buffer and
+    // its dims. Touched only on the SegmentationEngine worker thread (packMask),
+    // which is single-threaded, so no locking. (If a future change ever reads
+    // these off that thread, e.g. on the GL thread, they would need @Volatile.)
+    private var smoothedMask: FloatArray? = null
+    private var smoothedMaskW: Int = 0
+    private var smoothedMaskH: Int = 0
 
-  /**
-   * Per-frame mask production. Always returns immediately (no segmentation
-   * blocking on the GL thread). Returns the GL texture handle of the latest
-   * available mask, or -1 if no segmentation has completed yet. Callers must
-   * treat -1 as "no mask this frame" and fall through to the original frame.
-   */
-  fun produce(
-    source2D: Int,
-    sourceWidth: Int,
-    sourceHeight: Int,
-  ): Int {
-    // Step 1: drain any pending mask the worker has produced. getAndSet
-    // claims the bitmap atomically; the GL thread is now its sole owner.
-    val pending = pendingMaskBitmap.getAndSet(null)
-    if (pending != null) {
-      try {
-        uploadMaskBitmap(pending)
-      } catch (t: Throwable) {
-        Log.e(TAG, "uploadMaskBitmap failed", t)
-      } finally {
-        pending.recycle()
-      }
-    }
-
-    // Step 2: kick off a new segmentation if the worker is idle.
-    if (isProcessing.compareAndSet(false, true)) {
-      try {
-        val downsampleBmp =
-          renderAndReadback(source2D, sourceWidth, sourceHeight, EffectTuning.targetShortSide)
-        if (downsampleBmp != null) {
-          SegmentationEngine.submit(
-            downsampleBmp,
-            context,
-            onMask = { raw, w, h -> packMask(raw, w, h) },
-            onDone = { isProcessing.set(false) },
-          )
-        } else {
-          isProcessing.set(false)
+    /**
+     * Per-frame mask production. Always returns immediately (no segmentation
+     * blocking on the GL thread). Returns the GL texture handle of the latest
+     * available mask, or -1 if no segmentation has completed yet. Callers must
+     * treat -1 as "no mask this frame" and fall through to the original frame.
+     */
+    fun produce(
+        source2D: Int,
+        sourceWidth: Int,
+        sourceHeight: Int,
+    ): Int {
+        // Step 1: drain any pending mask the worker has produced. getAndSet
+        // claims the bitmap atomically; the GL thread is now its sole owner.
+        val pending = pendingMaskBitmap.getAndSet(null)
+        if (pending != null) {
+            try {
+                uploadMaskBitmap(pending)
+            } catch (t: Throwable) {
+                Log.e(TAG, "uploadMaskBitmap failed", t)
+            } finally {
+                pending.recycle()
+            }
         }
-      } catch (t: Throwable) {
-        Log.e(TAG, "Mask kickoff failed", t)
-        isProcessing.set(false)
-      }
+
+        // Step 2: kick off a new segmentation if the worker is idle.
+        if (isProcessing.compareAndSet(false, true)) {
+            try {
+                val downsampleBmp =
+                    renderAndReadback(source2D, sourceWidth, sourceHeight, EffectTuning.targetShortSide)
+                if (downsampleBmp != null) {
+                    SegmentationEngine.submit(
+                        downsampleBmp,
+                        context,
+                        onMask = { raw, w, h -> packMask(raw, w, h) },
+                        onDone = { isProcessing.set(false) },
+                    )
+                } else {
+                    isProcessing.set(false)
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Mask kickoff failed", t)
+                isProcessing.set(false)
+            }
+        }
+
+        return if (maskTextureId == 0) -1 else maskTextureId
     }
 
-    return if (maskTextureId == 0) -1 else maskTextureId
-  }
-
-  /**
-   * Release this Mask's GL resources. Call from the GL thread. Does NOT touch
-   * the SegmentationEngine's worker thread or segmenter (those are process-
-   * lived and shared). Not currently invoked by any caller because
-   * VideoFrameProcessor has no explicit teardown hook; see the file header on
-   * the bounded GL leak this implies.
-   */
-  fun release() {
-    try {
-      if (maskTextureId != 0) {
-        GLES30.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
-        maskTextureId = 0
-      }
-      downsampleFbo?.delete()
-      downsampleFbo = null
-      downsampleProgram?.delete()
-      downsampleProgram = null
-      pendingMaskBitmap.getAndSet(null)?.recycle()
-      smoothedMask = null
-    } catch (t: Throwable) {
-      Log.w(TAG, "Mask.release encountered an error; resources may leak", t)
+    /**
+     * Release this Mask's GL resources. Call from the GL thread. Does NOT touch
+     * the SegmentationEngine's worker thread or segmenter (those are process-
+     * lived and shared). Not currently invoked by any caller because
+     * VideoFrameProcessor has no explicit teardown hook; see the file header on
+     * the bounded GL leak this implies.
+     */
+    fun release() {
+        try {
+            if (maskTextureId != 0) {
+                GLES30.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
+                maskTextureId = 0
+            }
+            downsampleFbo?.delete()
+            downsampleFbo = null
+            downsampleProgram?.delete()
+            downsampleProgram = null
+            pendingMaskBitmap.getAndSet(null)?.recycle()
+            smoothedMask = null
+        } catch (t: Throwable) {
+            Log.w(TAG, "Mask.release encountered an error; resources may leak", t)
+        }
     }
-  }
 
-  // --- Worker thread (invoked by SegmentationEngine) -----------------------
+    // --- Worker thread (invoked by SegmentationEngine) -----------------------
 
-  /**
-   * Apply EMA smoothing to the raw upright confidence mask, flip it back into
-   * the bottom-up orientation the upload/composite expects, quantize to 8-bit
-   * RGBA, and stage it for the GL thread to upload. Runs on the engine's single
-   * worker thread, so the EMA state below needs no locking.
-   */
-  private fun packMask(raw: FloatArray, maskW: Int, maskH: Int) {
-    val pixelCount = maskW * maskH
+    /**
+     * Apply EMA smoothing to the raw upright confidence mask, flip it back into
+     * the bottom-up orientation the upload/composite expects, quantize to 8-bit
+     * RGBA, and stage it for the GL thread to upload. Runs on the engine's single
+     * worker thread, so the EMA state below needs no locking.
+     */
+    private fun packMask(
+        raw: FloatArray,
+        maskW: Int,
+        maskH: Int,
+    ) {
+        val pixelCount = maskW * maskH
 
-    // Temporal smoothing (exponential moving average) across mask updates, to
-    // damp shoulder-popping / edge shimmer. History resets on dim change.
-    val prevSmoothed = smoothedMask
-    val blend = prevSmoothed != null && smoothedMaskW == maskW && smoothedMaskH == maskH
-    val smoothed = if (blend) prevSmoothed!! else FloatArray(pixelCount)
+        // Temporal smoothing (exponential moving average) across mask updates, to
+        // damp shoulder-popping / edge shimmer. History resets on dim change.
+        val prevSmoothed = smoothedMask
+        val blend = prevSmoothed != null && smoothedMaskW == maskW && smoothedMaskH == maskH
+        val smoothed = if (blend) prevSmoothed!! else FloatArray(pixelCount)
 
-    val outPixels = IntArray(pixelCount)
-    for (i in 0 until pixelCount) {
-      val r = raw[i].coerceIn(0f, 1f)
-      val s = if (blend) MASK_EMA_ALPHA * r + (1f - MASK_EMA_ALPHA) * smoothed[i] else r
-      smoothed[i] = s
-      val c = (s * 255f + 0.5f).toInt() and 0xFF
-      // Flip vertically back into the orientation the upload/composite expects
-      // (the engine segmented an upright copy). smoothedMask stays in upright
-      // space for frame-to-frame EMA consistency; only the output is flipped.
-      val row = i / maskW
-      val col = i - row * maskW
-      outPixels[(maskH - 1 - row) * maskW + col] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
+        val outPixels = IntArray(pixelCount)
+        for (i in 0 until pixelCount) {
+            val r = raw[i].coerceIn(0f, 1f)
+            val s = if (blend) MASK_EMA_ALPHA * r + (1f - MASK_EMA_ALPHA) * smoothed[i] else r
+            smoothed[i] = s
+            val c = (s * 255f + 0.5f).toInt() and 0xFF
+            // Flip vertically back into the orientation the upload/composite expects
+            // (the engine segmented an upright copy). smoothedMask stays in upright
+            // space for frame-to-frame EMA consistency; only the output is flipped.
+            val row = i / maskW
+            val col = i - row * maskW
+            outPixels[(maskH - 1 - row) * maskW + col] = (0xFF shl 24) or (c shl 16) or (c shl 8) or c
+        }
+        smoothedMask = smoothed
+        smoothedMaskW = maskW
+        smoothedMaskH = maskH
+
+        val outBmp = Bitmap.createBitmap(maskW, maskH, Bitmap.Config.ARGB_8888)
+        outBmp.setPixels(outPixels, 0, maskW, 0, 0, maskW, maskH)
+
+        // Hand off to GL thread. getAndSet atomically claims any previously
+        // unconsumed bitmap as `prev` so we own the recycle; the GL thread
+        // can never observe the same reference we are about to free.
+        val prev = pendingMaskBitmap.getAndSet(outBmp)
+        prev?.recycle()
     }
-    smoothedMask = smoothed
-    smoothedMaskW = maskW
-    smoothedMaskH = maskH
 
-    val outBmp = Bitmap.createBitmap(maskW, maskH, Bitmap.Config.ARGB_8888)
-    outBmp.setPixels(outPixels, 0, maskW, 0, 0, maskW, maskH)
+    // --- GL thread -----------------------------------------------------------
 
-    // Hand off to GL thread. getAndSet atomically claims any previously
-    // unconsumed bitmap as `prev` so we own the recycle; the GL thread
-    // can never observe the same reference we are about to free.
-    val prev = pendingMaskBitmap.getAndSet(outBmp)
-    prev?.recycle()
-  }
+    private fun renderAndReadback(
+        source2D: Int,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        downsampleSize: Int,
+    ): Bitmap? =
+        try {
+            val dsW = downsampleSize
+            val dsH =
+                (downsampleSize.toLong() * sourceHeight / sourceWidth).toInt().coerceAtLeast(16).let {
+                    if (it % 2 == 0) it else it - 1
+                }
 
-  // --- GL thread -----------------------------------------------------------
+            val fbo = ensureDownsampleFbo(dsW, dsH)
+            val prog = ensureDownsampleProgram()
 
-  private fun renderAndReadback(
-    source2D: Int,
-    sourceWidth: Int,
-    sourceHeight: Int,
-    downsampleSize: Int,
-  ): Bitmap? {
-    return try {
-      val dsW = downsampleSize
-      val dsH = (downsampleSize.toLong() * sourceHeight / sourceWidth).toInt().coerceAtLeast(16).let {
-        if (it % 2 == 0) it else it - 1
-      }
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, source2D)
+            fbo.bind()
+            prog.use()
+            prog.setInt("uTex", 0)
+            GLES30.glDisable(GLES30.GL_DEPTH_TEST)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
 
-      val fbo = ensureDownsampleFbo(dsW, dsH)
-      val prog = ensureDownsampleProgram()
+            val byteCount = dsW * dsH * 4
+            val pixelBuf = ensurePixelByteBuffer(byteCount)
+            GLES30.glReadPixels(0, 0, dsW, dsH, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, pixelBuf)
 
-      GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-      GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, source2D)
-      fbo.bind()
-      prog.use()
-      prog.setInt("uTex", 0)
-      GLES30.glDisable(GLES30.GL_DEPTH_TEST)
-      GLES30.glDisable(GLES30.GL_BLEND)
-      GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            val bmp = Bitmap.createBitmap(dsW, dsH, Bitmap.Config.ARGB_8888)
+            pixelBuf.rewind()
+            bmp.copyPixelsFromBuffer(pixelBuf)
+            bmp
+        } catch (t: Throwable) {
+            Log.e(TAG, "renderAndReadback failed", t)
+            null
+        }
 
-      val byteCount = dsW * dsH * 4
-      val pixelBuf = ensurePixelByteBuffer(byteCount)
-      GLES30.glReadPixels(0, 0, dsW, dsH, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, pixelBuf)
-
-      val bmp = Bitmap.createBitmap(dsW, dsH, Bitmap.Config.ARGB_8888)
-      pixelBuf.rewind()
-      bmp.copyPixelsFromBuffer(pixelBuf)
-      bmp
-    } catch (t: Throwable) {
-      Log.e(TAG, "renderAndReadback failed", t)
-      null
+    private fun uploadMaskBitmap(bmp: Bitmap) {
+        ensureMaskTexture(bmp.width, bmp.height)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTextureId)
+        android.opengl.GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bmp, 0)
+        GlDebug.check("mask upload texImage2D")
     }
-  }
 
-  private fun uploadMaskBitmap(bmp: Bitmap) {
-    ensureMaskTexture(bmp.width, bmp.height)
-    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTextureId)
-    android.opengl.GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bmp, 0)
-    GlDebug.check("mask upload texImage2D")
-  }
+    // --- Lazy init helpers ---------------------------------------------------
 
-  // --- Lazy init helpers ---------------------------------------------------
-
-  private fun ensureDownsampleFbo(w: Int, h: Int): Fbo {
-    val existing = downsampleFbo
-    if (existing != null && existing.width == w && existing.height == h) return existing
-    existing?.delete()
-    val fbo = Fbo(w, h)
-    downsampleFbo = fbo
-    return fbo
-  }
-
-  private fun ensureDownsampleProgram(): GlProgram {
-    val existing = downsampleProgram
-    if (existing != null) return existing
-    val prog = GlProgram(Shaders.PASSTHROUGH_VERT, TWO_D_PASSTHROUGH_FRAG)
-    downsampleProgram = prog
-    return prog
-  }
-
-  private fun ensurePixelByteBuffer(size: Int): ByteBuffer {
-    val existing = pixelByteBuffer
-    if (existing != null && existing.capacity() >= size) {
-      existing.rewind()
-      return existing
+    private fun ensureDownsampleFbo(
+        w: Int,
+        h: Int,
+    ): Fbo {
+        val existing = downsampleFbo
+        if (existing != null && existing.width == w && existing.height == h) return existing
+        existing?.delete()
+        val fbo = Fbo(w, h)
+        downsampleFbo = fbo
+        return fbo
     }
-    val buf = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
-    pixelByteBuffer = buf
-    return buf
-  }
 
-  private fun ensureMaskTexture(w: Int, h: Int) {
-    if (maskTextureId != 0 && maskTexWidth == w && maskTexHeight == h) return
-    if (maskTextureId != 0) {
-      GLES30.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
+    private fun ensureDownsampleProgram(): GlProgram {
+        val existing = downsampleProgram
+        if (existing != null) return existing
+        val prog = GlProgram(Shaders.PASSTHROUGH_VERT, TWO_D_PASSTHROUGH_FRAG)
+        downsampleProgram = prog
+        return prog
     }
-    val ids = IntArray(1)
-    GLES30.glGenTextures(1, ids, 0)
-    maskTextureId = ids[0]
-    maskTexWidth = w
-    maskTexHeight = h
-    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTextureId)
-    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
-    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-    GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-  }
 
-  companion object {
-    private const val TAG = "Kaleidoscope.Mask"
+    private fun ensurePixelByteBuffer(size: Int): ByteBuffer {
+        val existing = pixelByteBuffer
+        if (existing != null && existing.capacity() >= size) {
+            existing.rewind()
+            return existing
+        }
+        val buf = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
+        pixelByteBuffer = buf
+        return buf
+    }
 
-    // EMA weight for the new mask vs history. Higher = more responsive, lower =
-    // smoother (more lag). 0.5 is ~a 1-2 update time constant at the ~10-20 Hz
-    // mask rate: damps flicker without obvious lag.
-    private const val MASK_EMA_ALPHA = 0.5f
+    private fun ensureMaskTexture(
+        w: Int,
+        h: Int,
+    ) {
+        if (maskTextureId != 0 && maskTexWidth == w && maskTexHeight == h) return
+        if (maskTextureId != 0) {
+            GLES30.glDeleteTextures(1, intArrayOf(maskTextureId), 0)
+        }
+        val ids = IntArray(1)
+        GLES30.glGenTextures(1, ids, 0)
+        maskTextureId = ids[0]
+        maskTexWidth = w
+        maskTexHeight = h
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, maskTextureId)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+    }
 
-    private const val TWO_D_PASSTHROUGH_FRAG = """#version 300 es
+    companion object {
+        private const val TAG = "Kaleidoscope.Mask"
+
+        // EMA weight for the new mask vs history. Higher = more responsive, lower =
+        // smoother (more lag). 0.5 is ~a 1-2 update time constant at the ~10-20 Hz
+        // mask rate: damps flicker without obvious lag.
+        private const val MASK_EMA_ALPHA = 0.5f
+
+        private const val TWO_D_PASSTHROUGH_FRAG = """#version 300 es
 precision mediump float;
 uniform sampler2D uTex;
 in highp vec2 vUv;
@@ -305,5 +317,5 @@ void main() {
   oColor = texture(uTex, vUv);
 }
 """
-  }
+    }
 }

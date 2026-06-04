@@ -20,18 +20,18 @@ import com.simiancraft.kaleidoscope.effects.TransformFactory
 import com.simiancraft.kaleidoscope.gpu.Orientation
 
 object Registration {
-  @JvmStatic
-  fun registerAll(context: Context) {
-    // Geometric reorientation effects. flip-x is the corrected screen-horizontal
-    // mirror (replaces the old "mirror" CPU effect). The rotation correction
-    // lives entirely in Orientation.kt; each registration just names its op.
-    ProcessorProvider.addProcessor("flip-x", TransformFactory(Orientation.Op.FLIP_X))
-    ProcessorProvider.addProcessor("flip-y", TransformFactory(Orientation.Op.FLIP_Y))
-    ProcessorProvider.addProcessor("rotate-cw", TransformFactory(Orientation.Op.ROTATE_CW))
-    ProcessorProvider.addProcessor("rotate-ccw", TransformFactory(Orientation.Op.ROTATE_CCW))
+    @JvmStatic
+    fun registerAll(context: Context) {
+        // Geometric reorientation effects. flip-x is the corrected screen-horizontal
+        // mirror (replaces the old "mirror" CPU effect). The rotation correction
+        // lives entirely in Orientation.kt; each registration just names its op.
+        ProcessorProvider.addProcessor("flip-x", TransformFactory(Orientation.Op.FLIP_X))
+        ProcessorProvider.addProcessor("flip-y", TransformFactory(Orientation.Op.FLIP_Y))
+        ProcessorProvider.addProcessor("rotate-cw", TransformFactory(Orientation.Op.ROTATE_CW))
+        ProcessorProvider.addProcessor("rotate-ccw", TransformFactory(Orientation.Op.ROTATE_CCW))
 
-    // The single art compositor; every art effect (image, blur, generative) is a
-    // layer in the stack JS delivers via setCompositeLayers.
-    ProcessorProvider.addProcessor("composite", CompositeFactory(context))
-  }
+        // The single art compositor; every art effect (image, blur, generative) is a
+        // layer in the stack JS delivers via setCompositeLayers.
+        ProcessorProvider.addProcessor("composite", CompositeFactory(context))
+    }
 }
