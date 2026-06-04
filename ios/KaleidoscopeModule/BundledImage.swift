@@ -24,11 +24,11 @@ import Foundation
 final class BundleAnchor: NSObject {}
 
 enum BundledImage {
-  /// Resolve a bundled image plate `<id>.webp`, searching the app bundle first
-  /// (the prebuild plugin copies every referenced plate into the app target, so
+  /// Resolve a bundled image `<id>.webp`, searching the app bundle first
+  /// (the prebuild plugin copies every referenced image into the app target, so
   /// they land flattened in `Bundle.main`) or, as a fallback, the Kaleidoscope
   /// resource bundle and its `images/` subdir. The compositor loads the
-  /// same plates; shared by the JS thumbnail resolver (`resolveImageUri`).
+  /// same images; shared by the JS thumbnail resolver (`resolveImageUri`).
   static func bundledURL(for id: String) -> URL? {
     let containing = Bundle(for: BundleAnchor.self)
     let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing

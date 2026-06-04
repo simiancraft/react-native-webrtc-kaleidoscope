@@ -22,7 +22,7 @@
 //      premultiplied over (normal) or add (additive)). A scratch-backed layer
 //      renders its content into a .private scratch texture in a SEPARATE pass
 //      first. Per layer kind (mirrors the generalized composite.ts / CompositeFactory):
-//        - 'image'/background  : cover-fit the plate (composite-image.metalsrc).
+//        - 'image'/background  : cover-fit the image (composite-image.metalsrc).
 //        - 'direct'/background : raw camera fullscreen (composite-camera.metalsrc).
 //        - 'blur'/background   : two-pass camera-sampling gaussian
 //                     (composite-blur.metalsrc) into scratchA->scratchB, then blit
@@ -94,11 +94,11 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
   private var generativeUniformIndices = [String: [String: Int]]()
   private var generativeFailed = Set<String>()
 
-  // Plate textures by id, loaded lazily on first use; cached for the session.
+  // Image textures by id, loaded lazily on first use; cached for the session.
   // Each entry carries the source aspect for cover-fit. A failed load is
   // remembered so we don't re-read the bundle every frame.
-  private var plateTextures = [String: PlateTexture]()
-  private var missingPlates = Set<String>()
+  private var imageTextures = [String: ImageTexture]()
+  private var missingImages = Set<String>()
 
   // Host monotonic clock origin for uTime (CACurrentMediaTime; see ShaderProcessor).
   private var startTime: CFTimeInterval?
@@ -106,7 +106,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
   private static let builtinNames: Set<String> = ["uTime", "uResolution"]
   private static let imagesSubdir = "images"
 
-  private struct PlateTexture {
+  private struct ImageTexture {
     let texture: MTLTexture
     let aspect: Float
   }
@@ -247,7 +247,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     // Step 4: R3 frame-pipelining. keepAlive holds the per-frame inputs the
     // in-flight GPU command buffer still reads after process() returns: the
     // pooled original buffer + wrapper, the output wrapper, and (when a subject
-    // layer ran) the mask buffer + wrapper. Plate textures are loaded once via
+    // layer ran) the mask buffer + wrapper. Image textures are loaded once via
     // MTKTextureLoader and cached on this instance (.private, not pool buffers),
     // so they need no keep-alive, same as BackgroundImageProcessor's background.
     var keepAlive: [Any] = [originalBuffer, originalWrapper, outputWrapper]
@@ -289,7 +289,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
   // one-pass cam x mask fast path; any other shader renders to a scratch then a
   // masked-composite multiplies by the mask alpha), a 'background' layer draws
   // fullscreen (image cover-fit, direct raw camera, blur the two-pass gaussian,
-  // generative its frag). Any failure to build a pipeline / load a plate / compile
+  // generative its frag). Any failure to build a pipeline / load a image / compile
   // a shader skips THIS layer (logged once) rather than aborting the frame, so a
   // partial composite still composites; mirroring CompositeFactory's per-layer skips.
   //
@@ -367,18 +367,18 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         os_log("image layer has no source id; skipping", log: CompositeProcessor.log, type: .info)
         return
       }
-      guard let plate = ensurePlateTexture(id: id, device: renderer.device),
+      guard let image = ensureImageTexture(id: id, device: renderer.device),
             let fragment = ensureImageFragment(renderer: renderer),
             let pipeline = ensurePipeline(
               fragment: fragment, fragmentLabel: "composite-image", blend: blend, renderer: renderer
             ) else { return }
-      let cover = coverScale(outW: width, outH: height, imgAspect: plate.aspect)
+      let cover = coverScale(outW: width, outH: height, imgAspect: image.aspect)
       withOutputEncoder(
         commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
         isFirstOutputDraw: &isFirstOutputDraw, label: "composite-image"
       ) { encoder in
         renderer.drawCompositeImageLayer(
-          encoder: encoder, pipeline: pipeline, plate: plate.texture, coverScale: cover
+          encoder: encoder, pipeline: pipeline, image: image.texture, coverScale: cover
         )
       }
     case "direct":
@@ -529,20 +529,20 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         os_log("image layer has no source id; skipping", log: CompositeProcessor.log, type: .info)
         return nil
       }
-      guard let plate = ensurePlateTexture(id: id, device: renderer.device),
+      guard let image = ensureImageTexture(id: id, device: renderer.device),
             let fragment = ensureImageFragment(renderer: renderer),
             let pipeline = ensurePipeline(
               fragment: fragment, fragmentLabel: "composite-image",
               blend: .opaqueBase, renderer: renderer
             ) else { return nil }
-      let cover = coverScale(outW: width, outH: height, imgAspect: plate.aspect)
+      let cover = coverScale(outW: width, outH: height, imgAspect: image.aspect)
       do {
         try renderer.drawFullscreen(
           commandBuffer: commandBuffer, pipeline: pipeline, target: scratchA, label: "composite-image-scratch"
         ) { encoder in
           var coverVar = cover
           encoder.setFragmentBytes(&coverVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
-          encoder.setFragmentTexture(plate.texture, index: 0)
+          encoder.setFragmentTexture(image.texture, index: 0)
           encoder.setFragmentSamplerState(renderer.linearClampSampler, index: 0)
         }
       } catch {
@@ -781,14 +781,14 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     return bindings
   }
 
-  // MARK: - Plate loading
+  // MARK: - Image loading
 
-  /// Resolve a composite plate `<id>.webp`. The iOS prebuild copies composite plates into
+  /// Resolve a composite image `<id>.webp`. The iOS prebuild copies composite images into
   /// the app target's resources under images/<id>.webp (see app.plugin.js's
   /// copyIosImages), so it lands in Bundle.main; fall back to the
   /// Kaleidoscope resource bundle's images/ for a test/static layout.
   /// Mirrors BackgroundImageProcessor.bundledURL but in the images subdir.
-  static func plateURL(for id: String) -> URL? {
+  static func imageURL(for id: String) -> URL? {
     let containing = Bundle(for: CompositeProcessor.self)
     let resourceBundle = Bundle.kaleidoscopeResources(relativeTo: containing) ?? containing
     return Bundle.main.url(forResource: id, withExtension: "webp", subdirectory: imagesSubdir)
@@ -797,18 +797,18 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
       ?? resourceBundle.url(forResource: id, withExtension: "webp")
   }
 
-  /// Lazy-load the plate WebP as a Metal texture via MTKTextureLoader (decoded by
+  /// Lazy-load the image WebP as a Metal texture via MTKTextureLoader (decoded by
   /// ImageIO, which supports WebP on iOS 14+; the podspec floors iOS 15). Cached
   /// per id; a failed load is remembered. The texture loads top-left origin like
   /// BackgroundImageProcessor's background; the V-flip parity is folded into the
   /// cover-scale at draw time (see coverScale).
-  private func ensurePlateTexture(id: String, device: MTLDevice) -> PlateTexture? {
-    if let plate = plateTextures[id] { return plate }
-    if missingPlates.contains(id) { return nil }
-    guard let url = CompositeProcessor.plateURL(for: id) else {
-      os_log("composite plate %{public}@.webp not found in app bundle or Kaleidoscope.bundle",
+  private func ensureImageTexture(id: String, device: MTLDevice) -> ImageTexture? {
+    if let image = imageTextures[id] { return image }
+    if missingImages.contains(id) { return nil }
+    guard let url = CompositeProcessor.imageURL(for: id) else {
+      os_log("composite image %{public}@.webp not found in app bundle or Kaleidoscope.bundle",
              log: CompositeProcessor.log, type: .error, id)
-      missingPlates.insert(id)
+      missingImages.insert(id)
       return nil
     }
     let loader = MTKTextureLoader(device: device)
@@ -821,14 +821,14 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     do {
       let texture = try loader.newTexture(URL: url, options: options)
       let aspect = Float(texture.width) / Float(max(texture.height, 1))
-      let plate = PlateTexture(texture: texture, aspect: aspect)
-      plateTextures[id] = plate
-      os_log("composite plate %{public}@ loaded: %dx%d aspect=%.3f",
+      let image = ImageTexture(texture: texture, aspect: aspect)
+      imageTextures[id] = image
+      os_log("composite image %{public}@ loaded: %dx%d aspect=%.3f",
              log: CompositeProcessor.log, type: .info, id, texture.width, texture.height, aspect)
-      return plate
+      return image
     } catch {
-      missingPlates.insert(id)
-      os_log("composite plate %{public}@ load failed: %{public}@",
+      missingImages.insert(id)
+      os_log("composite image %{public}@ load failed: %{public}@",
              log: CompositeProcessor.log, type: .error, id, error.localizedDescription)
       return nil
     }
@@ -837,14 +837,14 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
   // Center-crop cover-fit UV scale (mirrors coverScale in composite.ts / CompositeFactory),
   // with the V axis NEGATED to fold in the MTKTextureLoader V-flip parity. The
   // composite-image fragment computes uv = (vUv - 0.5) * coverScale + 0.5; a negative
-  // y reflects about the crop window's center, so the plate lands semantic-top at
+  // y reflects about the crop window's center, so the image lands semantic-top at
   // vUv.y=1, matching the CoreImage-rendered camera "original" (which composites
   // correct on-device). This is the same texture-origin parity fix
   // BackgroundImageProcessor applies on uBgUvScale.y; here the cover-scale IS the
   // sampling scale (the fragment centers it about 0.5), so a single -y suffices
   // and stays centered for both letterbox branches. Camera orientation is handled
   // at ingest and is independent of this term. RISK: parity is reasoned, not
-  // device-verified on iOS; if a plate renders vertically inverted, this -sy is
+  // device-verified on iOS; if a image renders vertically inverted, this -sy is
   // the single term to flip back to +sy.
   private func coverScale(outW: Int, outH: Int, imgAspect: Float) -> SIMD2<Float> {
     let outAspect = Float(outW) / Float(outH)

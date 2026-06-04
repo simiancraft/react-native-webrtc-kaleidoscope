@@ -28,7 +28,7 @@ struct CompositeLayer {
   let shader: String
   let target: String // "background" | "subject"
   let blend: String? // "normal" | "additive" | nil (base = opaque)
-  let source: String? // plate id for an `image` layer; nil otherwise
+  let source: String? // image id for an `image` layer; nil otherwise
   let uniforms: [String: [Float]] // generative-layer uniforms, by name
 }
 

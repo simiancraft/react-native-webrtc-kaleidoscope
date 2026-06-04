@@ -34,7 +34,7 @@ Pod::Spec.new do |s|
   #       so each `main0` stays in its own namespace.
   s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift}'
 
-  # Bundled image plates (mirrors android/src/main/assets/images/) plus the
+  # Bundled images (mirrors android/src/main/assets/images/) plus the
   # transpiled Metal shader SOURCE. Both are loaded at runtime from the
   # Kaleidoscope.bundle:
   #   - BundledImage resolves "dark-office" -> dark-office.webp (shared by

@@ -124,20 +124,20 @@ extension MetalRenderer {
     return encoder
   }
 
-  /// Draw one image (plate) layer into the open composite encoder. Binds uCoverScale
-  /// at buffer(0), the plate texture at texture(0), the shared sampler at
+  /// Draw one image layer into the open composite encoder. Binds uCoverScale
+  /// at buffer(0), the image texture at texture(0), the shared sampler at
   /// sampler(0); matching composite-image.metalsrc. Sets the pipeline (which carries
   /// the blend mode) and draws the fullscreen quad.
   func drawCompositeImageLayer(
     encoder: MTLRenderCommandEncoder,
     pipeline: MTLRenderPipelineState,
-    plate: MTLTexture,
+    image: MTLTexture,
     coverScale: SIMD2<Float>
   ) {
     encoder.setRenderPipelineState(pipeline)
     var coverScaleVar = coverScale
     encoder.setFragmentBytes(&coverScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
-    encoder.setFragmentTexture(plate, index: 0)
+    encoder.setFragmentTexture(image, index: 0)
     encoder.setFragmentSamplerState(linearClampSampler, index: 0)
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }

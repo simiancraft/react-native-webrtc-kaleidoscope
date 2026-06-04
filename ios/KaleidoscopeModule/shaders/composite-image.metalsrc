@@ -13,7 +13,7 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Composite compositor IMAGE layer. Cover-fit a still plate, output PREMULTIPLIED so
+// Composite compositor IMAGE layer. Cover-fit a still image, output PREMULTIPLIED so
 // a straight-alpha image (transparent sky / cut-out opening) composites
 // correctly with the premultiplied "over" blend the CompositeProcessor sets on the
 // render pipeline. Mirrors LayerShaders.IMAGE_FRAG (Android) / BLIT_FRAG_SRC
