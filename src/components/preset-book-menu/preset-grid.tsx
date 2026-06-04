@@ -8,7 +8,7 @@
 // source URL on web, the in-bundle file:// URI on native; undefined for a preset
 // with no thumbnail (the tile then renders its recessed variant).
 
-import { Fragment, useMemo } from 'react';
+import { Fragment } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import { presetTileTestId } from '../../lib/test-id';
 import { PresetTile } from '../preset-tile';
@@ -41,23 +41,19 @@ const defaultRenderTile: RenderTile = (preset, state) => (
 export function PresetGrid(props: PresetGridProps) {
   const { presets, value, onSelect, disabled = false, renderTile, style } = props;
   const renderItem = renderTile ?? defaultRenderTile;
-  // Resolve thumbnail URIs once per preset set (not per render/selection); the
-  // result is pure in (id, source).
+  // Resolve each preset's thumbnail URI; pure in (id, source), so React Compiler
+  // memoizes the map by `presets` when the library is compiled.
   // The native resolver looks the thumbnail up by id in Bundle.main. For image
   // presets the preset id and the thumbnail's bundle filename coincide (a
   // background's plate id IS its preset id); for composites they differ (the
   // composite's thumb is bundled as `<composite-id>-thumb.webp`), so pass the
   // source as the lookup key when it is a string and falls back to the preset
   // id otherwise.
-  const uriById = useMemo(
-    () =>
-      new Map(
-        presets.map((p) => {
-          const lookupId = typeof p.source === 'string' ? p.source : p.id;
-          return [p.id, resolveImageUri(lookupId, p.source)] as const;
-        }),
-      ),
-    [presets],
+  const uriById = new Map(
+    presets.map((p) => {
+      const lookupId = typeof p.source === 'string' ? p.source : p.id;
+      return [p.id, resolveImageUri(lookupId, p.source)] as const;
+    }),
   );
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Presets" style={[styles.grid, style]}>

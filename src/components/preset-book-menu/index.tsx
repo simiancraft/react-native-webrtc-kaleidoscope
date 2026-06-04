@@ -5,7 +5,7 @@
 // family/category, own the active tab and category) and is exported for BYO
 // layouts.
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { KaleidoscopePresetBook } from '../../kaleidoscope.preset-book.types';
 import { categoryTestId, familyTestId } from '../../lib/test-id';
@@ -121,63 +121,55 @@ export function PresetBookMenu<P extends KaleidoscopePresetBook>(props: PresetBo
 
 /**
  * Group a preset book by family and category, and own the active tab and
- * category. Off the React Compiler in this package, so the grouping is memoized
- * by hand on `[presets, labelFor]`; a consumer passing an inline `labelFor`
- * busts it (pass a stable reference to keep it). The active tab and category are
- * reconciled every render: each survives as long as it is still in the book,
- * else it falls back to the first; so swapping `presets`, or switching to a
- * family that lacks the prior category, can't strand a dead selection.
+ * category. The grouping is plain — no hand-rolled memo: React Compiler memoizes
+ * it when the library is compiled, and it is cheap to recompute otherwise. The
+ * active tab and category are reconciled every render: each survives as long as
+ * it is still in the book, else it falls back to the first; so swapping
+ * `presets`, or switching to a family that lacks the prior category, can't strand
+ * a dead selection.
  */
 export function usePresetBookMenu<P extends KaleidoscopePresetBook>(
   presets: P,
   labelFor?: (id: keyof P & string) => string,
 ): PresetBookMenuModel {
-  const { families, viewsByFamily, categoriesByFamily, viewsByFamilyCategory } = useMemo(() => {
-    const fams: Family[] = [];
-    const byFamily = new Map<Family, PresetView[]>();
-    const catsByFamily = new Map<Family, Category[]>();
-    const byFamilyCategory = new Map<Family, Map<Category, PresetView[]>>();
-    for (const id of Object.keys(presets)) {
-      const preset = presets[id];
-      if (!preset) continue;
-      // taxonomy[0] is the family (tab); taxonomy[1], when present, is the
-      // category (left-hand menu). A depth-1 preset has no category.
-      const family = preset.taxonomy[0];
-      const category = preset.taxonomy[1];
-      const view: PresetView = {
-        id,
-        label: labelFor?.(id as keyof P & string) ?? preset.name,
-        family,
-        category,
-        source:
-          typeof preset.thumbnail === 'string' || typeof preset.thumbnail === 'number'
-            ? preset.thumbnail
-            : undefined,
-      };
-      if (!byFamily.has(family)) {
-        fams.push(family);
-        byFamily.set(family, []);
-        catsByFamily.set(family, []);
-        byFamilyCategory.set(family, new Map());
-      }
-      byFamily.get(family)?.push(view);
-      if (category !== undefined) {
-        const cats = catsByFamily.get(family);
-        const catViews = byFamilyCategory.get(family);
-        if (cats && catViews && !catViews.has(category)) {
-          cats.push(category);
-          catViews.set(category, []);
-        }
-        catViews?.get(category)?.push(view);
-      }
-    }
-    return {
-      families: fams,
-      viewsByFamily: byFamily,
-      categoriesByFamily: catsByFamily,
-      viewsByFamilyCategory: byFamilyCategory,
+  const families: Family[] = [];
+  const viewsByFamily = new Map<Family, PresetView[]>();
+  const categoriesByFamily = new Map<Family, Category[]>();
+  const viewsByFamilyCategory = new Map<Family, Map<Category, PresetView[]>>();
+  for (const id of Object.keys(presets)) {
+    const preset = presets[id];
+    if (!preset) continue;
+    // taxonomy[0] is the family (tab); taxonomy[1], when present, is the
+    // category (left-hand menu). A depth-1 preset has no category.
+    const family = preset.taxonomy[0];
+    const category = preset.taxonomy[1];
+    const view: PresetView = {
+      id,
+      label: labelFor?.(id as keyof P & string) ?? preset.name,
+      family,
+      category,
+      source:
+        typeof preset.thumbnail === 'string' || typeof preset.thumbnail === 'number'
+          ? preset.thumbnail
+          : undefined,
     };
-  }, [presets, labelFor]);
+    if (!viewsByFamily.has(family)) {
+      families.push(family);
+      viewsByFamily.set(family, []);
+      categoriesByFamily.set(family, []);
+      viewsByFamilyCategory.set(family, new Map());
+    }
+    viewsByFamily.get(family)?.push(view);
+    if (category !== undefined) {
+      const cats = categoriesByFamily.get(family);
+      const catViews = viewsByFamilyCategory.get(family);
+      if (cats && catViews && !catViews.has(category)) {
+        cats.push(category);
+        catViews.set(category, []);
+      }
+      catViews?.get(category)?.push(view);
+    }
+  }
 
   const [activeTab, setActiveTab] = useState<Family | undefined>(undefined);
   const family = activeTab && families.includes(activeTab) ? activeTab : families[0];
