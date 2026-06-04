@@ -21,13 +21,13 @@ import {
   PresetBookMenu,
   PresetTile,
   type RenderTile,
-} from 'react-native-webrtc-kaleidoscope/picker';
+} from 'react-native-webrtc-kaleidoscope/preset-book-menu';
 import {
   KaleidoscopeThemeProvider,
   MaskControlPanel,
   PresetControlPanel,
   TransformControlPanel,
-} from 'react-native-webrtc-kaleidoscope/tuner';
+} from 'react-native-webrtc-kaleidoscope/preset-control-panel';
 import { type PresetId, presets } from '../kaleidoscope.preset-book';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';

@@ -42,14 +42,14 @@
       "import": "./dist/src/index.js",
       "default": "./dist/src/index.js"
     },
-    "./picker": {
+    "./preset-book-menu": {
       "types": "./dist/src/components/preset-book-menu/index.d.ts",
       "react-native": "./src/components/preset-book-menu/index.tsx",
       "browser": "./dist/src/components/preset-book-menu/index.js",
       "import": "./dist/src/components/preset-book-menu/index.js",
       "default": "./dist/src/components/preset-book-menu/index.js"
     },
-    "./tuner": {
+    "./preset-control-panel": {
       "types": "./dist/src/components/preset-control-panel/index.d.ts",
       "react-native": "./src/components/preset-control-panel/index.ts",
       "browser": "./dist/src/components/preset-control-panel/index.js",
