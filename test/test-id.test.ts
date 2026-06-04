@@ -11,7 +11,7 @@ import {
   slug,
   TESTID_ROOT,
   TRANSFORM_TESTID_PREFIX,
-} from '../src/test-id';
+} from '../src/lib/test-id';
 
 describe('slug', () => {
   test('lowercases and hyphenates spaces', () => {

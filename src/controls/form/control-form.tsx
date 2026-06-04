@@ -10,7 +10,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useReducer, useRef } from 'react';
-import { controlScope } from '../../test-id';
+import { controlScope } from '../../lib/test-id';
 import { ControlScopeContext } from './scope';
 
 /** One field's value: a scalar uniform or a vecN (e.g. an RGB triple). */

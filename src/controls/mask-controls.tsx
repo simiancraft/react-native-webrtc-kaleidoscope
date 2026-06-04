@@ -6,7 +6,7 @@
 import RNSlider from '@react-native-community/slider';
 import { StyleSheet, View } from 'react-native';
 import type { MaskInput } from '../kaleidoscope/types';
-import { MASK_TESTID_PREFIX } from '../test-id';
+import { MASK_TESTID_PREFIX } from '../lib/test-id';
 import { ControlSection } from './control-section';
 import { Label } from './primitives/label';
 import { Readout } from './primitives/readout';

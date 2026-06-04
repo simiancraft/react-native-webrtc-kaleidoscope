@@ -7,7 +7,7 @@
 // the key and value types to a shader's uniform type.
 
 import { useContext } from 'react';
-import { fieldTestId } from '../../test-id';
+import { fieldTestId } from '../../lib/test-id';
 import { ControlFormContext, type FieldValue } from './control-form';
 
 export type Field = {

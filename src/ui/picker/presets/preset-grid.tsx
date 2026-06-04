@@ -10,7 +10,7 @@
 
 import { Fragment, useMemo } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
-import { presetTileTestId } from '../../../test-id';
+import { presetTileTestId } from '../../../lib/test-id';
 import type { PresetView, RenderTile } from '../picker.types';
 import { resolveBackgroundUri } from '../resolve-background-uri';
 import { PresetTile } from './preset-tile';
