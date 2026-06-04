@@ -14,7 +14,7 @@ import { SLIDER_TINTS, safeSliderValue } from './slider-value';
 const CH = ['R', 'G', 'B'] as const;
 const CH_KEY = ['r', 'g', 'b'] as const;
 
-export type ColorPresetBookMenuProps = {
+export type ColorPickerProps = {
   /** The uniform key this picker drives (an RGB triple). */
   readonly uniform: string;
   /** Display name; defaults to the uniform key. */
@@ -24,7 +24,7 @@ export type ColorPresetBookMenuProps = {
   readonly style?: StyleProp<ViewStyle>;
 };
 
-export function ColorPicker({ uniform, label, style }: ColorPresetBookMenuProps) {
+export function ColorPicker({ uniform, label, style }: ColorPickerProps) {
   const field = useField(uniform);
   const { style: themeStyle } = useThemeSlot('colorPicker');
   const rgb = Array.isArray(field.value) ? field.value : [0, 0, 0];
