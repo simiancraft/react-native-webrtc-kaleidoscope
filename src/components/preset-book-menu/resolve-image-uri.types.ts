@@ -12,7 +12,7 @@
  * Returns `undefined` when no thumbnail can be resolved (the tile shows just its
  * label).
  */
-export type ResolveThumbnailUri = (
+export type ResolveImageUri = (
   id: string,
   source: string | number | undefined,
 ) => string | number | undefined;

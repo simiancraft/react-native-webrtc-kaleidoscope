@@ -11,7 +11,7 @@
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `corporate-blobs.thumb.webp` as into the native app target;
-// `resolveThumbnailUri` looks it up in Bundle.main. The web sibling
+// `resolveImageUri` looks it up in Bundle.main. The web sibling
 // (corporate-blobs.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { corporateLogo } from '../../images/corporate/corporate-logo';

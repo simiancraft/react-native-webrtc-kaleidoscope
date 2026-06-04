@@ -4,7 +4,7 @@
 // renders recessed buttons of the same footprint. The tile renderer is the
 // `renderTile` slot or the default.
 //
-// The thumbnail URI comes from the platform-split `resolveThumbnailUri`: the
+// The thumbnail URI comes from the platform-split `resolveImageUri`: the
 // source URL on web, the in-bundle file:// URI on native; undefined for a preset
 // with no thumbnail (the tile then renders its recessed variant).
 
@@ -12,8 +12,8 @@ import { Fragment, useMemo } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import { presetTileTestId } from '../../lib/test-id';
 import { PresetTile } from '../preset-tile';
-import { resolveThumbnailUri } from '../preset-tile/resolve-thumbnail-uri';
 import type { PresetView, RenderTile } from './preset-book-menu.types';
+import { resolveImageUri } from './resolve-image-uri';
 
 interface PresetGridProps {
   readonly presets: ReadonlyArray<PresetView>;
@@ -54,7 +54,7 @@ export function PresetGrid(props: PresetGridProps) {
       new Map(
         presets.map((p) => {
           const lookupId = typeof p.source === 'string' ? p.source : p.id;
-          return [p.id, resolveThumbnailUri(lookupId, p.source)] as const;
+          return [p.id, resolveImageUri(lookupId, p.source)] as const;
         }),
       ),
     [presets],

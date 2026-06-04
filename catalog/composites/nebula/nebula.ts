@@ -5,7 +5,7 @@
 //
 // Native variant. The thumbnail is the string id the prebuild plugin
 // (app.plugin.js) bundles `nebula.thumb.webp` as into the native app target;
-// `resolveThumbnailUri` looks it up by that id in Bundle.main. Metro's
+// `resolveImageUri` looks it up by that id in Bundle.main. Metro's
 // require()-based asset path is not used here because the symlinked-library
 // bundling registers only the first few thumb webps in the asset registry
 // (the rest get module ids that `Image.resolveAssetSource` cannot resolve).

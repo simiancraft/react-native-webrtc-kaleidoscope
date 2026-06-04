@@ -15,7 +15,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class KaleidoscopeModule : Module() {
-  // Application context captured at OnCreate. resolveThumbnailUri uses this
+  // Application context captured at OnCreate. resolveImageUri uses this
   // instead of the lazy appContext.reactContext (which can be transiently null
   // at call time) so the thumbnail existence check is as robust as the
   // composite factory, which holds its own captured context.
@@ -67,7 +67,7 @@ class KaleidoscopeModule : Module() {
     // `/android_asset` path and fails silently, leaving the tile blank. The
     // background-replace effect reads the same asset via assets.open() directly,
     // which is why the full background renders while the thumbnail did not.
-    Function("resolveThumbnailUri") { id: String ->
+    Function("resolveImageUri") { id: String ->
       // Device-robust existence check. Two independent device-vs-emulator hazards
       // both left library thumbnails blank on hardware while the emulator looked
       // fine, so guard against both:

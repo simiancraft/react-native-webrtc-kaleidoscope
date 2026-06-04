@@ -7,7 +7,7 @@
 
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
-// `fairy-cave.thumb.webp` as into the native app target; `resolveThumbnailUri`
+// `fairy-cave.thumb.webp` as into the native app target; `resolveImageUri`
 // looks it up in Bundle.main. The web sibling (fairy-cave.web.ts) keeps the
 // `Asset.fromModule(...).uri` pattern; mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { treehouse } from '../../images/fairy-caves/treehouse';

@@ -8,7 +8,7 @@
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `underwater.thumb.webp` as into the native app target;
-// `resolveThumbnailUri` looks it up in Bundle.main. The web sibling
+// `resolveImageUri` looks it up in Bundle.main. The web sibling
 // (underwater.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { oceanscapeDark } from '../../images/underwater/oceanscape-dark';

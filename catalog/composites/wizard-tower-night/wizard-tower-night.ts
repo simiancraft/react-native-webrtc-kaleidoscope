@@ -10,7 +10,7 @@
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `wizard-tower-night.thumb.webp` as into the native app target;
-// `resolveThumbnailUri` looks it up in Bundle.main. The web sibling
+// `resolveImageUri` looks it up in Bundle.main. The web sibling
 // (wizard-tower-night.web.ts) keeps the `Asset.fromModule(...).uri` pattern.
 import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
 
