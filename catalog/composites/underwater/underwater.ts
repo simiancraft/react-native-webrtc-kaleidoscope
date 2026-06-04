@@ -1,5 +1,5 @@
-// Underwater: the underwater plate with animated god rays additively on top, the
-// ray tint color-matched to the scene's cool light, the masked person on top.
+// Underwater: the underwater image with animated god rays additively on top, the
+// ray tint color-matched to the composite's cool light, the masked person on top.
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from

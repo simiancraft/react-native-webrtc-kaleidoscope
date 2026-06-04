@@ -1,7 +1,7 @@
 // Wizard tower (night): the same chamber as wizard-tower, lit by torchlight with
-// a deep dusk sky through the cut-out, the night plate on top, you in the
+// a deep dusk sky through the cut-out, the night image on top, you in the
 // chamber. A variation of the wizard-tower composite with the clouds `sky`
-// retuned to a moody night and the night plate swapped in.
+// retuned to a moody night and the night image swapped in.
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from

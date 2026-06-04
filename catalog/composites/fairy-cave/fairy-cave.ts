@@ -1,4 +1,4 @@
-// Fairy cave: a moonlit night sky through the round opening, the cave plate, and
+// Fairy cave: a moonlit night sky through the round opening, the cave image, and
 // fireflies drifting on top, you in the cave.
 //
 // A packaged composite: within the library it imports its image layers

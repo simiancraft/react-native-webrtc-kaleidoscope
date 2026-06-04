@@ -1,7 +1,7 @@
 // Space observation deck: a simianlights field seen through the deck's panoramic
-// window (a cut-out plate), you standing in the room, an anamorphic lens flare
-// across the glass. Back-to-front: simianlights, deck plate, you, flare. The
-// full "space scene".
+// window (a cut-out image), you standing in the room, an anamorphic lens flare
+// across the glass. Back-to-front: simianlights, deck image, you, flare. The
+// full "space composite".
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from
@@ -11,7 +11,7 @@ import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.t
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `observation-deck.thumb.webp` as into the native app target;
 // `resolveImageUri` looks it up in Bundle.main. The `-thumb` suffix
-// disambiguates from the image plate of the same composite id. The web sibling
+// disambiguates from the image of the same composite id. The web sibling
 // (observation-deck.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { observationDeck as observationDeckPlate } from '../../images/spaceship/observation-deck';

@@ -1,5 +1,5 @@
 // Wizard tower: sunset clouds visible through the chamber's cut-out sky, the
-// tower plate composited on top, you standing in the chamber.
+// tower image composited on top, you standing in the chamber.
 //
 // A packaged composite: an ordered painter's stack of layers under one name,
 // with display metadata. The library ships it so a consuming book can list it by

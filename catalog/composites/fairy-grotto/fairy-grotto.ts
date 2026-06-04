@@ -1,5 +1,5 @@
 // Fairy grotto: a root-cave variant of fairy-cave. A bright sky through the round
-// opening, the grotto plate, warm fire-orange fireflies drifting on top, you in
+// opening, the grotto image, warm fire-orange fireflies drifting on top, you in
 // the cave. A variation of fairy-cave with the clouds `sky` brightened and the
 // fireflies color-shifted warmer to match the fire-lit alcoves.
 //

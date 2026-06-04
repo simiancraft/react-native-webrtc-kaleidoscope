@@ -1,4 +1,4 @@
-// Turnkey controls for the corporate-blobs composite. Demonstrates a per-scene
+// Turnkey controls for the corporate-blobs composite. Demonstrates a per-composite
 // override: the blob size (`uScale`) is narrowed to a tighter band than the
 // shader's full range, via the CompositeLayerControlPanel `overrides` prop.
 

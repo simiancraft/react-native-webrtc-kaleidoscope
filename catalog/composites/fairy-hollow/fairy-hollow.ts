@@ -1,5 +1,5 @@
 // Fairy hollow: a grand-portal root-cave variant of fairy-cave. A bright sky
-// through the large round opening, the hollow plate, cool fireflies drifting on
+// through the large round opening, the hollow image, cool fireflies drifting on
 // top, you in the cave. A variation of fairy-cave with the clouds `sky`
 // brightened further and the fireflies color-shifted cool to read against the
 // near-white portal.
