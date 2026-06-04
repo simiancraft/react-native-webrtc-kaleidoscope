@@ -16,8 +16,8 @@ import {
   type SetMask,
 } from './kaleidoscope/controls';
 import type {
+  KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  KaleidoscopeControls,
   PresetBook,
 } from './kaleidoscope/types';
 import { type ApplyVideoEffects, type CompositeSpec, type LayerSpec, toEffectSpec } from './types';
@@ -52,8 +52,8 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 export type { BackgroundPresetName } from '../images';
 export type {
   Composite,
+  KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  KaleidoscopeControls,
   KaleidoscopeControlsProps,
   MaskInput,
   PatchesFor,
@@ -273,7 +273,7 @@ const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
 export const bindKaleidoscope = <P extends PresetBook>(
   track: MediaStreamTrack,
   options: KaleidoscopeBindOptions<P>,
-): KaleidoscopeControls<P> => {
+): KaleidoscopeBinding<P> => {
   const reconcile: Reconcile = {
     apply: (specs) => applyVideoEffects(track, specs),
     dispose: () => {},

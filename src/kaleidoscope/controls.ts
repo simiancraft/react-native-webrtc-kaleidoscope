@@ -17,8 +17,8 @@ import type { EffectSpec, TransformName } from '../types';
 import { compositeToEffectSpec } from './shader-to-spec';
 import type {
   Composite,
+  KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  KaleidoscopeControls,
   PresetBook,
   TransformInput,
 } from './types';
@@ -71,7 +71,7 @@ export const createControls = <P extends PresetBook>(
   setMask: SetMask,
   setLayerUniforms: SetLayerUniforms,
   resetLayerUniforms: ResetLayerUniforms,
-): KaleidoscopeControls<P> => {
+): KaleidoscopeBinding<P> => {
   let art: EffectSpec | null = null;
   let transformOps: EffectSpec[] = [];
   let current = baseTrack;

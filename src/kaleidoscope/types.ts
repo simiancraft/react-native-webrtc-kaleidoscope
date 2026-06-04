@@ -160,7 +160,7 @@ type KaleidoscopeCommand<P extends PresetBook> = <K extends keyof P>(
  * preset and `mask` both update what the running composite reads each frame, so
  * they need no rebuild.
  */
-export interface KaleidoscopeControls<P extends PresetBook> {
+export interface KaleidoscopeBinding<P extends PresetBook> {
   readonly kaleidoscope: KaleidoscopeCommand<P>;
   readonly transform: (t?: TransformInput) => void;
   readonly mask: (m: MaskInput) => void;

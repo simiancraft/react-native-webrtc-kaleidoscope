@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   bindKaleidoscope,
-  type KaleidoscopeControls,
+  type KaleidoscopeBinding,
   type PatchesFor,
 } from 'react-native-webrtc-kaleidoscope';
 import {
@@ -88,7 +88,7 @@ export default function DemoScreen() {
   const [hardness, setHardness] = useState(0.6);
   const [threshold, setThreshold] = useState(0.75);
   const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
-  const [controls, setControls] = useState<KaleidoscopeControls<typeof presets> | null>(null);
+  const [controls, setControls] = useState<KaleidoscopeBinding<typeof presets> | null>(null);
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
