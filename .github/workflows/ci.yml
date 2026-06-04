@@ -38,6 +38,9 @@ jobs:
       - name: Typecheck tests (tsgo)
         run: bun run typecheck:test
 
+      - name: React Compiler safety (eslint react-compiler rule on library components)
+        run: bun run check:react-compiler
+
       - name: Build (library + config plugin)
         run: bun run build
 
