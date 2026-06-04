@@ -119,7 +119,7 @@ No central `test/`. Tests colocate with the thing they test, so the four+ areas 
   - Packaging tail: delete `app.plugin.d.ts` (types now come from `dist/prebuild`); repoint `exports["./app.plugin.js"].types` → `./dist/prebuild`; drop the `.d.ts` from `files`.
   - Behavior change: the shim `require('./dist/prebuild')` means `dist` must be built before prebuild runs (published consumers ship `dist`; the library's own demo already builds first). Today's plugin works with no build; document the new dependency.
 - **W4 — Components.** Collapse `controls/` + `ui/` into `components/` (`ui/` primitives + `picker/`/`tuner/` features) per Zone Composer (D6); relocate `resolve-background-uri` (rename off `background`).
-- **W5 — Catalog.** Move `shaders/`, `images/`, `composites/` under `catalog/`; move the shader type-catalog beside the shaders; per-shader subpath exports (D5).
+- **W5 — Catalog. ✅ FUNCTIONAL MOVE SHIPPED (`8c8d96a`).** `shaders/`, `images/`, `composites/` now live under `catalog/`. Public export subpaths (`./images/X`, `./composites/X`) were kept STABLE — `catalog/` is internal organization, so it does not leak into the consumer's import paths and this is not a breaking change. Repointed: exports-map values, `catalog→src` relative imports (one extra `../`), `copy:assets`, `build:shaders` source, the prebuild's `resolveCompositeSource` read path, the tsconfig/biome/knip scopes, and `files`. Verified through typecheck, knip, dist build (`dist/catalog/*`), publint, the test suite, and the demo web export. DEFERRED to W7: the prose/native-comment disk-path references (a blind sweep would corrupt the stable public-import-path mentions, so it needs the careful W7 pass). D5 (per-shader web subpaths) is orthogonal to the folder move and unchanged here.
 - **W6 — Lib.** `test-id.ts → src/lib/` (it's an id-maker, not test-ids; consider renaming the concept); `clamp` and generic types (`RGB`) land here.
 - **W7 — Vocabulary + docs.** De-plate / de-background / de-scene across code and docs (D4); update `CLAUDE.md`/`AGENTS.md` glossary for the `preset` vs `composite` split.
 
@@ -163,6 +163,7 @@ No central `test/`. Tests colocate with the thing they test, so the four+ areas 
 - ✅ `3e6f22b` — drop the unused `LAYER_CONTROLS` aggregate.
 - ✅ `21f61f3` — **W3 prebuild**: `plugin/src` → committed `plugin/build`; `app.plugin.js` a one-line shim; `plugin/src/{android,ios,lib}`; `registerDangerousPatch` centralizes the chained-mod contract; shared `readTextOrNull`/`copyRefs`/`collectReferencedAssets`; delete `src/prebuild` and orphaned `src/lib/constants.ts`. Curing D1 (copy duplication) and D2 (ectopic plugin logic). Caveat: not yet proven on a real EAS prebuild.
 - ✅ `0b25113` — **W2 drivers**: `src/web/ → web-driver/` (root peer of `android/`/`ios/`); `web-driver/index.ts` barrel + `web-driver/test/`; repointed shader codegen output, tsconfig/biome/knip scopes, and all `src/web/` cross-references. Verified through the dist `browser` condition, Metro web export, and the test suite. `clamp` left in-driver (deferred from the plan).
+- ✅ `8c8d96a` — **W5 catalog (functional)**: `shaders/`/`images/`/`composites/` → `catalog/`; public subpaths kept stable; exports values, `catalog→src` import depth, build scripts, prebuild read path, and tsconfig/biome/knip/files repointed. Doc disk-path sweep deferred to W7.
 
 ## References
 
