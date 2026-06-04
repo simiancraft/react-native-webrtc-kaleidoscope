@@ -3,7 +3,7 @@
 
 import { Asset } from 'expo-asset';
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
-import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
+import { wizardTowerNight as wizardTowerNightImage } from '../../images/wizard-tower/wizard-tower-night';
 import wizardTowerNightThumb from './wizard-tower-night.thumb.webp';
 
 export const wizardTowerNight = {
@@ -28,7 +28,7 @@ export const wizardTowerNight = {
         uSoftness: 0.23,
       },
     },
-    { id: 'wizard-tower-night', shader: 'image', source: wizardTowerNightPlate },
+    { id: 'wizard-tower-night', shader: 'image', source: wizardTowerNightImage },
     // You, standing in the chamber.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],

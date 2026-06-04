@@ -12,7 +12,7 @@ import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.t
 // `wizard-tower-night.thumb.webp` as into the native app target;
 // `resolveImageUri` looks it up in Bundle.main. The web sibling
 // (wizard-tower-night.web.ts) keeps the `Asset.fromModule(...).uri` pattern.
-import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
+import { wizardTowerNight as wizardTowerNightImage } from '../../images/wizard-tower/wizard-tower-night';
 
 export const wizardTowerNight = {
   name: 'Night',
@@ -36,7 +36,7 @@ export const wizardTowerNight = {
         uSoftness: 0.23,
       },
     },
-    { id: 'wizard-tower-night', shader: 'image', source: wizardTowerNightPlate },
+    { id: 'wizard-tower-night', shader: 'image', source: wizardTowerNightImage },
     // You, standing in the chamber.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],

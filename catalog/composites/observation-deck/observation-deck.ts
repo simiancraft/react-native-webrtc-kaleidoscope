@@ -14,7 +14,7 @@ import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.t
 // disambiguates from the image of the same composite id. The web sibling
 // (observation-deck.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
-import { observationDeck as observationDeckPlate } from '../../images/spaceship/observation-deck';
+import { observationDeck as observationDeckImage } from '../../images/spaceship/observation-deck';
 
 export const observationDeck = {
   name: 'Observation Deck',
@@ -34,7 +34,7 @@ export const observationDeck = {
       },
     },
     // The deck interior; the window is cut out so the field shows through.
-    { id: 'observation-deck', shader: 'image', source: observationDeckPlate },
+    { id: 'observation-deck', shader: 'image', source: observationDeckImage },
     // You, standing at the window.
     { id: 'you', shader: 'direct', target: 'subject' },
     // Lens flare across the glass, on top of everything. Magenta/pink tint

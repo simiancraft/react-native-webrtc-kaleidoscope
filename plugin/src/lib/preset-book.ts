@@ -197,7 +197,7 @@ function collectCompositeThumbRefs(bookSource: string, projectRoot: string): Thu
 
 /**
  * Read the consumer's preset book at the project root and collect every asset it
- * references: image-layer plates plus packaged-composite thumbnails. Returns null
+ * references: image-layer images plus packaged-composite thumbnails. Returns null
  * when there is no book (a consumer that declares no assets), which both
  * platforms treat as "nothing to bundle, stay quiet". The ONE place the book is
  * read from disk; the platform asset modules consume the result.

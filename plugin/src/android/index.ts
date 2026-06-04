@@ -4,7 +4,7 @@ import type { ExpoConfig } from '../lib/types';
 import { copyAndroidAssets } from './assets';
 
 /**
- * Android prebuild patch: copy every referenced image plate + composite
+ * Android prebuild patch: copy every referenced image + composite
  * thumbnail into the app bundle. Registered as a chained dangerous mod (see
  * registerDangerousPatch). Non-fatal.
  */

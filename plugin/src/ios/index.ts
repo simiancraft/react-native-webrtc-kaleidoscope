@@ -12,7 +12,7 @@ import { patchPodfile, resolveWebrtcPod } from './pods';
  * registerDangerousPatch). All idempotent and non-fatal:
  *   1. declare react-native-webrtc with `:modular_headers => true` in the Podfile,
  *   2. raise ios.deploymentTarget so autolinking doesn't drop the pod,
- *   3. copy every referenced image plate + composite thumbnail into the app target.
+ *   3. copy every referenced image + composite thumbnail into the app target.
  */
 export function withKaleidoscopeIos(config: ExpoConfig): ExpoConfig {
   return registerDangerousPatch(config, 'ios', ({ projectRoot, platformProjectRoot }) => {

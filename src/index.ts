@@ -163,7 +163,7 @@ const serializeCompositeLayers = (layers: ReadonlyArray<KaleidoscopeLayer>): str
     };
     if (layer.blend != null) base.blend = layer.blend;
     if (layer.shader === 'image') {
-      // The layer id is the plate id (the bundled WebP basename); the native
+      // The layer id is the image id (the bundled WebP basename); the native
       // compositor resolves assets/images/<id>.webp from it.
       base.source = layer.id;
     } else if ('uniforms' in layer) {
@@ -214,7 +214,7 @@ const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
       nativeModule().setCompositeLayers?.(serializeCompositeLayers((spec as CompositeSpec).layers));
     }
   }
-  // The composite name is book-driven: the prebuild copied the plates and native
+  // The composite name is book-driven: the prebuild copied the images and native
   // registration installed the one "composite" compositor, so it passes the
   // crash-guard. Transforms must be in the static set (always are).
   const mapped = specs.map((spec) => ({

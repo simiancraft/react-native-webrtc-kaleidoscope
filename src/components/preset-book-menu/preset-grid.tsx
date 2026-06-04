@@ -45,7 +45,7 @@ export function PresetGrid(props: PresetGridProps) {
   // memoizes the map by `presets` when the library is compiled.
   // The native resolver looks the thumbnail up by id in Bundle.main. For image
   // presets the preset id and the thumbnail's bundle filename coincide (a
-  // background's plate id IS its preset id); for composites they differ (the
+  // background's image id IS its preset id); for composites they differ (the
   // composite's thumb is bundled as `<composite-id>-thumb.webp`), so pass the
   // source as the lookup key when it is a string and falls back to the preset
   // id otherwise.

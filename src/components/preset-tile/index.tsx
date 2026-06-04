@@ -6,8 +6,8 @@
 // "light up" via an overlay sheet (web hover is inert on native, where
 // `hovered` is simply undefined).
 //
-// The tile is a fixed 16:9 box (`aspectRatio`), matching the 1280x720 plates and
-// 320x180 thumbnails, so cover-fit shows the whole plate and every tile is the
+// The tile is a fixed 16:9 box (`aspectRatio`), matching the 1280x720 images and
+// 320x180 thumbnails, so cover-fit shows the whole image and every tile is the
 // same shape regardless of how wide a column resolves to. Width comes from the
 // flex row (`flexBasis`/`maxWidth`); `aspectRatio` derives the height from it.
 // (Historical note: an earlier attempt rendered thin strips when Yoga failed to

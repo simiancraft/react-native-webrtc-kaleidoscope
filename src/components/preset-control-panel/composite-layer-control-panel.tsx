@@ -4,7 +4,7 @@
 // description (its `*_CONTROLS`); this renders it with no per-shader file.
 //
 // KaleidoscopePreset-level customization is props: pass a filtered `controls` array to
-// hide knobs, or `overrides` to narrow a control's range/label for this scene.
+// hide knobs, or `overrides` to narrow a control's range/label for this composite.
 // `makeControls<U>()` remains the typed path for custom widgets that need a
 // hand-authored, type-checked `uniform`.
 

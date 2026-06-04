@@ -61,7 +61,7 @@ function findProjectName(platformProjectRoot: string): string | null {
 }
 
 /**
- * Copy every referenced image plate AND composite thumbnail into the iOS app
+ * Copy every referenced image AND composite thumbnail into the iOS app
  * target's resources, then register each in the pbxproj's Copy Bundle Resources
  * phase so the WebP ships in the .app. Xcode flattens resource refs into the
  * bundle root, so each lands as `<id>.webp` in Bundle.main; CompositeProcessor and
