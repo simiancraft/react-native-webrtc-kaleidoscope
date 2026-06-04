@@ -30,7 +30,7 @@
 - **`transform`**: absolute flips and rotation (snapped to 90°), reapplied as full state each call.
 - **`mask`**: the segmentation edge (hardness, threshold) shared by every art effect.
 - **Tree-shaking**: declare a preset book; only the assets you reference ship in your native bundle (web tree-shakes by import).
-- **Drop-in UI (optional)**: a preset-driven `KaleidoscopePicker` (the menu) under `react-native-webrtc-kaleidoscope/ui`, plus a headless live-editor kit (`KaleidoscopeTuner`, mask and transform controls, a theme provider) under `react-native-webrtc-kaleidoscope/controls`. Controlled and NativeWind-ready. See [Drop-in UI](#drop-in-ui-optional).
+- **Drop-in UI (optional)**: a preset-driven `PresetBookMenu` (the menu) under `react-native-webrtc-kaleidoscope/preset-book-menu`, plus a headless live-editor kit (`PresetControlPanel`, mask and transform controls, a theme provider) under `react-native-webrtc-kaleidoscope/preset-control-panel`. Controlled and NativeWind-ready. See [Drop-in UI](#drop-in-ui-optional).
 
 | Platform | Transform | Blur | Background replacement | Notes |
 |---|---|---|---|---|
@@ -41,7 +41,7 @@
 
 ### Coming soon
 
-- **Animated image-plate backgrounds**: a bundled still that moves (beyond the procedural shaders, which already render behind the person today). Same composite path; the new piece is a per-effect background producer for animated plates.
+- **Animated image-image backgrounds**: a bundled still that moves (beyond the procedural shaders, which already render behind the person today). Same composite path; the new piece is a per-effect background producer for animated images.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
 ## Install
@@ -133,7 +133,7 @@ export const presets = {
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
-  // A packaged multi-layer composite (clouds + a cut-out plate + you).
+  // A packaged multi-layer composite (clouds + a cut-out image + you).
   'wizard-tower': wizardTower,
 } as const satisfies PresetBook;
 ```
@@ -181,11 +181,11 @@ Numeric shader uniforms are normalized 0..1 by convention where practical; JSDoc
 
 ## Drop-in UI (optional)
 
-Build your own controls against the three verbs, or import a ready-made, headless picker from `react-native-webrtc-kaleidoscope/ui` that reads your preset book directly:
+Build your own controls against the three verbs, or import a ready-made, headless picker from `react-native-webrtc-kaleidoscope/preset-book-menu` that reads your preset book directly:
 
 ```tsx
 import { useEffect, useState } from 'react';
-import { KaleidoscopePicker } from 'react-native-webrtc-kaleidoscope/ui';
+import { PresetBookMenu } from 'react-native-webrtc-kaleidoscope/preset-book-menu';
 import { presets } from './kaleidoscope.preset-book';
 
 // `kaleidoscope` is the verb returned by bindKaleidoscope(track, { presets }).
@@ -196,15 +196,15 @@ function BackgroundControls({ kaleidoscope }) {
     else kaleidoscope(null);
   }, [art, kaleidoscope]);
 
-  return <KaleidoscopePicker presets={presets} value={art} onSelect={setArt} />;
+  return <PresetBookMenu presets={presets} value={art} onSelect={setArt} />;
 }
 ```
 
-`KaleidoscopePicker` is a two-level browser driven by each composite's `taxonomy`: a tab row across the top, one tab per **group** (`taxonomy[0]`, e.g. Effects, Worlds, Backgrounds, Shaders), and a left-hand menu of **categories** (`taxonomy[1]`) under the active group; the tile grid is filtered by both. A flat (depth-1) group shows no category menu. Every preset renders as a uniform tile: a wallpaper when the composite has a `thumbnail`, a recessed button of the same footprint when it does not, so a thumbnail-less preset never breaks the grid. The same pieces are exported as standalone primitives (`PresetGrid`, `PresetTile`, plus the `usePicker` hook and `PickerLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
+`PresetBookMenu` is a two-level browser driven by each composite's `taxonomy`: a tab row across the top, one tab per **group** (`taxonomy[0]`, e.g. Effects, Worlds, Backgrounds, Shaders), and a left-hand menu of **categories** (`taxonomy[1]`) under the active group; the tile grid is filtered by both. A flat (depth-1) group shows no category menu. Every preset renders as a uniform tile: a wallpaper when the composite has a `thumbnail`, a recessed button of the same footprint when it does not, so a thumbnail-less preset never breaks the grid. The same pieces are exported as standalone primitives (`PresetGrid`, `PresetTile`, plus the `usePresetBookMenu` hook and `PresetBookMenuLayout`), so you can lay out your own. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the components are presentational: they emit the selected id, you apply it via `kaleidoscope`.
 
 **Styling, three tiers.** Sensible defaults out of the box; override with an RN `style` prop, a `className` prop, or a `renderTile` render-prop slot for full control.
 
-**NativeWind-ready.** The components accept `className`. To turn it on, import the opt-in registration once in your NativeWind interop setup (`nativewind` is an optional peer dependency; the core `./ui` import never pulls it in):
+**NativeWind-ready.** The components accept `className`. To turn it on, import the opt-in registration once in your NativeWind interop setup (`nativewind` is an optional peer dependency; the core `./preset-book-menu` import never pulls it in):
 
 ```ts
 import { registerKaleidoscopeNativeWind } from 'react-native-webrtc-kaleidoscope/nativewind';
@@ -213,25 +213,25 @@ registerKaleidoscopeNativeWind();
 
 ### Live controls (the editor)
 
-For a tuning or admin panel, `react-native-webrtc-kaleidoscope/controls` ships a headless editor that reads the active preset and renders a control per tunable uniform, plus the mask and transform panels:
+For a tuning or admin panel, `react-native-webrtc-kaleidoscope/preset-control-panel` ships a headless editor that reads the active preset and renders a control per tunable uniform, plus the mask and transform panels:
 
 ```tsx
 import {
   KaleidoscopeThemeProvider,
-  KaleidoscopeTuner,
-  KaleidoscopeMaskControls,
-  KaleidoscopeTransformControls,
-} from 'react-native-webrtc-kaleidoscope/controls';
+  PresetControlPanel,
+  MaskControlPanel,
+  TransformControlPanel,
+} from 'react-native-webrtc-kaleidoscope/preset-control-panel';
 
 // `controls` is the object from bindKaleidoscope(track, { presets }).
 <KaleidoscopeThemeProvider>
-  <KaleidoscopeTuner presets={presets} value={art} onPatch={(p) => controls.kaleidoscope(art, [p])} />
-  <KaleidoscopeMaskControls hardness={h} threshold={t} onChange={setMask} />
-  <KaleidoscopeTransformControls flip={flip} rotate={rotate} onChange={setTransform} />
+  <PresetControlPanel presets={presets} value={art} onPatch={(p) => controls.kaleidoscope(art, [p])} />
+  <MaskControlPanel hardness={h} threshold={t} onChange={setMask} />
+  <TransformControlPanel flip={flip} rotate={rotate} onChange={setTransform} />
 </KaleidoscopeThemeProvider>
 ```
 
-Each preset supplies its editor as a `controls` component on the book entry. The packaged composites export theirs at `react-native-webrtc-kaleidoscope/composites/<name>/controls`; for your own presets, compose `UniformControls` over a shader's control descriptor (or `makeControls` for a custom widget). See [shaders/README.md](./shaders/README.md).
+Each preset supplies its editor as a `controls` component on the book entry. The packaged composites export theirs at `react-native-webrtc-kaleidoscope/composites/<name>/controls`; for your own presets, compose `CompositeLayerControlPanel` over a shader's control descriptor (or `makeControls` for a custom widget). See [catalog/shaders/README.md](./catalog/shaders/README.md).
 
 Like the picker, the editor is controlled and presentational: it emits patches and you apply them. `KaleidoscopeThemeProvider` themes every control at once (a slot bank; `style` works everywhere, `className` via the same opt-in NativeWind interop). The sliders need `@react-native-community/slider` (an optional peer; a native module, so installing it needs a dev-client rebuild).
 
@@ -239,7 +239,7 @@ Live per-layer tuning runs on web today; on native the editor renders but the li
 
 ## Worlds
 
-Packaged composites: multi-layer scenes (a generative shader or a cut-out plate, the masked person on top), imported and spread into your book (e.g. `import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower'`). They carry their own `taxonomy: ['Worlds', <scene>]`, so the picker groups them under the Worlds tab.
+Packaged composites: a multi-layer stack (a generative shader or a cut-out image, the masked person on top), imported and spread into your book (e.g. `import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower'`). They carry their own `taxonomy: ['Worlds', <group>]`, so the menu groups them under the Worlds tab.
 
 | Wizard Tower | Observation Deck | Fairy Cave |
 |---|---|---|
@@ -253,7 +253,7 @@ The `clouds` (Sky) composite also ships; its preview tile is pending.
 
 ## Background presets
 
-The bundled backgrounds ship as `image` layers, filed by category and imported per plate (e.g. `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`). On web a plate can also be any image URL or data URI; native resolves bundled plate ids only.
+The bundled backgrounds ship as `image` layers, filed by category and imported per image (e.g. `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`). On web a image can also be any image URL or data URI; native resolves bundled image ids only.
 
 | Category | Light | Dark |
 |---|---|---|
@@ -264,11 +264,11 @@ The bundled backgrounds ship as `image` layers, filed by category and imported p
 | Underwater | | <img src="images/underwater/oceanscape-dark.thumb.webp" width="220" alt="oceanscape-dark" /> |
 | Simiancraft | <img src="images/simiancraft/simiancraft-light.thumb.webp" width="220" alt="simiancraft-light" /> | <img src="images/simiancraft/simiancraft-dark.thumb.webp" width="220" alt="simiancraft-dark" /> |
 
-The `simiancraft` category also ships two transparent brand plates, `simiancraft-light-transparency` and `simiancraft-dark-transparency` (alpha preserved). Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:
+The `simiancraft` category also ships two transparent brand images, `simiancraft-light-transparency` and `simiancraft-dark-transparency` (alpha preserved). Plus **`debug-resolutions`**, a viewport/resolution calibration grid for verifying background cover-fit:
 
 <img src="images/debug/debug-resolutions.thumb.webp" width="220" alt="debug-resolutions" />
 
-See [`images/README.md`](./images/README.md) for the folder layout, the two plate formats, and how to add one.
+See [`catalog/images/README.md`](./catalog/images/README.md) for the folder layout, the two image formats, and how to add one.
 
 ## Web and native differences
 
@@ -276,7 +276,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 - **Output track.** On web each `kaleidoscope`/`transform` command rebuilds the Insertable-Streams pipeline and yields a NEW `MediaStreamTrack`, surfaced via `onTrack`; on native the bound track is mutated in place. `mask` updates the segmentation edge the running composite reads each frame, with no rebuild on either platform.
 - **Image source.** An `image` layer's `source` is a bundled preset name on native (the upstream `_setVideoEffects` registry is keyed by flat strings, not URIs), but on web it accepts either a preset name or an arbitrary image URL or data URI.
-- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per plate: `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`. Each plate is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`images/README.md`](./images/README.md).
+- **Background presets ship as tree-shakeable files.** The bundled backgrounds (see [Background presets](#background-presets)) are importable per image: `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`. Each image is its own file behind its own subpath export, and the package sets `sideEffects: false`, so an unused preset is dropped by web bundlers; since Metro doesn't tree-shake, it is simply never imported on native. Web resolves the bundled WebP to a URL; native loads its own bundled copy by name. Web also still accepts an arbitrary image URL or data URI. See [`catalog/images/README.md`](./catalog/images/README.md).
 - **Segmentation model on web.** The web compositor loads MediaPipe Selfie Segmentation from the jsdelivr CDN (`cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation`) on first use. A strict Content-Security-Policy must allow that origin for `script-src`, `connect-src`, and the WASM fetch, and the effects do not work offline. The `transform` ops need no model.
 - **Browser support on web.** Effects use Insertable Streams (`MediaStreamTrackProcessor` and `MediaStreamTrackGenerator`), which ship in Chromium-based browsers (Chrome, Edge); Safari and Firefox lack the API, so the effects throw a clear capability error and the demo falls back to the unprocessed track.
 
@@ -291,9 +291,9 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 The canonical assets live in three root, folder-per-item directories, out of the TypeScript build path; the build and the prebuild copy read from them:
 
-- `shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `shaders/_shared/` also holds the cross-cutting frags (`composite.frag`, `composite-camera.frag`, `transform.frag`). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these. See [shaders/README.md](./shaders/README.md) to add or extend a shader.
-- `images/<category>/`: plates filed by category, several per folder. Each plate is a quad: `<leaf>.webp`, its `<leaf>.thumb.webp`, and the `<leaf>.ts` / `<leaf>.web.ts` loader pair, behind a `./images/<category>/<leaf>` subpath export.
-- `composites/<name>/`: each packaged composite (a `Composite` definition), behind a `./composites/<name>` subpath export.
+- `catalog/shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `catalog/shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `catalog/shaders/_shared/` also holds the cross-cutting frags (`composite.frag`, `composite-camera.frag`, `transform.frag`). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these. See [catalog/shaders/README.md](./catalog/shaders/README.md) to add or extend a shader.
+- `catalog/images/<category>/`: images filed by category, several per folder. Each image is a quad: `<leaf>.webp`, its `<leaf>.thumb.webp`, and the `<leaf>.ts` / `<leaf>.web.ts` loader pair, behind a `./images/<category>/<leaf>` subpath export.
+- `catalog/composites/<name>/`: each packaged composite (a `KaleidoscopePreset`), behind a `./composites/<name>` subpath export.
 
 The code lives across the platform surfaces:
 
@@ -302,7 +302,7 @@ The code lives across the platform surfaces:
 - `android/`: OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation + the layered compositor (`effects/CompositeFactory.kt`); codegen lands in `gpu/ShadersGenerated.kt`, the hand-written layer GLSL in `effects/LayerShaders.kt`.
 - `ios/`: Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model Android bundles); the canonical GLSL transpiles to Metal via `scripts/build-shaders.ts`.
 
-Every effect is a LAYER in one compositor: an `image` plate, a `direct` passthrough (the masked person, or the raw camera), a camera-sampling `blur`, or a generative shader, composited back to front with per-layer blend. There is one registered native effect, `composite`; its layer stack is delivered out of band and reconciled each command.
+Every effect is a LAYER in one compositor: an `image` image, a `direct` passthrough (the masked person, or the raw camera), a camera-sampling `blur`, or a generative shader, composited back to front with per-layer blend. There is one registered native effect, `composite`; its layer stack is delivered out of band and reconciled each command.
 
 See [`PATTERNS.md`](./PATTERNS.md) for the file-layout conventions, texture-orientation contract, and recipe for adding new effects, shaders, presets, or tunable parameters.
 
@@ -311,7 +311,7 @@ See [`PATTERNS.md`](./PATTERNS.md) for the file-layout conventions, texture-orie
 - [CONTRIBUTING.md](./CONTRIBUTING.md): setup, scripts, commit conventions.
 - [AGENTS.md](./AGENTS.md): agent and contributor orientation.
 - [PATTERNS.md](./PATTERNS.md): codebase conventions and how-to-extend.
-- [shaders/README.md](./shaders/README.md): adding and extending shaders.
+- [catalog/shaders/README.md](./catalog/shaders/README.md): adding and extending shaders.
 - [SECURITY.md](./SECURITY.md): security policy and reporting.
 - [NOTICE.md](./NOTICE.md): third-party attributions.
 - Sibling projects: [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge); same OSS-hygiene template.
