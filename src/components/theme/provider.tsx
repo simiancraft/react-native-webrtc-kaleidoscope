@@ -1,13 +1,14 @@
-// The controls theme provider: one context holding the flat slot bank that every
-// control primitive reads to self-decorate. Mirrors the React Native Reusables
+// The theme provider: one context holding the flat slot bank that every control
+// primitive reads to self-decorate. Mirrors the React Native Reusables
 // `TextClassContext` idea, generalized to a slot map.
 //
-// Pass a MEMOIZED `value`: this package is off the React Compiler, so a fresh
-// object each render would re-render every themed primitive.
+// Pass a STABLE `value` (React Compiler memoizes it on the consumer side;
+// otherwise memoize it by hand): a fresh object each render re-renders every
+// themed primitive.
 //
 // Leaf module: imports only `react` and the slot types. It must never import from
-// sibling `controls/` modules or from `ui/`, so `ui/` can depend on it (the one
-// allowed `ui/` -> `controls/theme` edge) without a cycle.
+// sibling component modules or from `ui/`, so `ui/` can depend on it (the one
+// allowed `ui/` -> `theme/` edge) without a cycle.
 
 import type { ReactNode } from 'react';
 import { createContext, useContext } from 'react';

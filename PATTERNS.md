@@ -113,13 +113,13 @@ not hand-edit):
 - iOS: `ios/KaleidoscopeModule/shaders/*.metalsrc`.
 
 The composite shader (`shaders/composite.frag`) is the canonical mix-with-
-mask shader; every layer kind (a blur layer, an image plate, a generative
+mask shader; every layer kind (a blur layer, an image, a generative
 shader like Simianlights or Nebula) composites through it unchanged.
 Per-effect shaders (currently `shaders/blur.frag`, `shaders/transform.frag`)
 live as separate files under `shaders/`.
 
 It is **background-source-agnostic**: `mix(background, original, mask)` does
-not care whether `uBackground` is a loaded image plate, the blurred camera, or a
+not care whether `uBackground` is a loaded image, the blurred camera, or a
 generative shader's output; a new layer differs only in how it produces that
 texture. Because orientation is normalized upstream at the ingest (see
 "Orientation" below), a new shader composites correctly on every platform with
@@ -138,7 +138,7 @@ Consequences a contributor must not undo:
 - `Orientation.{kt,swift}` (`mat2For` / `uvTransform`) are pure SCREEN-SPACE
   matrices for the transform ops (flip-x = negate U, flip-y = negate V,
   rotate-cw/ccw = axis swap). They do NOT read `frame.rotation`.
-- An `image` layer samples its WebP plate texture directly; no pre-orient pass.
+- An `image` layer samples its WebP image texture directly; no pre-orient pass.
 - There is NO per-effect orientation correction anywhere. Adding one re-creates
   the "orientation cascade" this design removed (it surfaced as "every fix
   breaks another effect" across web/Android/iOS during development).
@@ -218,7 +218,7 @@ is data plus a shader, with no `Registration.kt` / `Registration.swift` change:
 1. **Spec**: add the shader name and its required fields to `LayerShaderOptions`
    in `src/types.ts` (the closed catalog the `LayerSpec` discriminant narrows
    on). A generative layer takes `uniforms`.
-2. **GLSL**: add the canonical `shaders/<name>.frag` and run `bun run
+2. **GLSL**: add the canonical `catalog/shaders/<name>.frag` and run `bun run
    build:shaders`; the codegen emits the per-platform sources (web
    `*_FRAG_SRC` const, Android, iOS). Do not hand-edit the generated files. (See
    "Where a new GLSL shader goes" for the pipeline; that is its own subsystem.)
@@ -246,36 +246,36 @@ because the upstream `react-native-webrtc` `_setVideoEffects` API takes
 per-layer parameters travel out of band through `setCompositeLayers` and the
 effect-tuning channel, not through the registry name.
 
-### Where a new image plate goes
+### Where a new image goes
 
-A bundled plate is layer DATA, not a registered effect. The one registered art
-processor is `composite`; an `image` layer resolves the plate by id at runtime,
-so adding a plate needs NO native registration. The flow mirrors
-[`images/README.md`](./images/README.md) "Adding a plate":
+A bundled image is layer DATA, not a registered effect. The one registered art
+processor is `composite`; an `image` layer resolves the image by id at runtime,
+so adding an image needs NO native registration. The flow mirrors
+[`catalog/images/README.md`](./catalog/images/README.md) "Adding an image":
 
 Plates are filed by **category** (the taxonomy's second level), several leaves
 per folder; the leaf is the globally-unique image id.
 
 1. If it is a standalone background, append the leaf to `BACKGROUND_PRESETS` in
-   `images/presets.ts`. A cutout plate that only feeds a packaged composite skips
+   `catalog/images/image-ids.ts`. A cutout image that only feeds a packaged composite skips
    this.
-2. Create or reuse `images/<category>/` and drop the optimized `<leaf>.webp` in
+2. Create or reuse `catalog/images/<category>/` and drop the optimized `<leaf>.webp` in
    it. Two encodings: opaque backgrounds are 1280x720 lossy q88 with no alpha;
-   alpha plates keep their transparency (recipes in `images/README.md`).
-3. Add the loader pair mirroring `office-dark`: `images/<category>/<leaf>.ts`
-   (native, returns the image id) and `images/<category>/<leaf>.web.ts` (web,
+   alpha images keep their transparency (recipes in `catalog/images/README.md`).
+3. Add the loader pair mirroring `office-dark`: `catalog/images/<category>/<leaf>.ts`
+   (native, returns the image id) and `catalog/images/<category>/<leaf>.web.ts` (web,
    returns the WebP URL), both annotated with `ImageSource` from
    `images/image.types.ts`.
 4. Add the `./images/<category>/<leaf>` export (with `react-native`, `browser`,
    `import`, `default` conditions) and the `./images/<category>/<leaf>.webp` asset
    export to the package `exports` (Metro has no tree-shaking; consumers import
-   one plate's bytes via its subpath).
+   one image's bytes via its subpath).
 
 At `expo prebuild` the config plugin reads the consumer's preset book, finds the
 `image` layers it references, and copies just those WebPs into the native bundle
-under `assets/images/<id>.webp`. The native side resolves a plate by that id at
+under `assets/images/<id>.webp`. The native side resolves an image by that id at
 runtime; there is no `Registration.kt` / `Registration.swift` line to add. The
-type-level autocomplete (`BackgroundPresetName`) picks up the new plate from the
+type-level autocomplete (`BackgroundPresetName`) picks up the new image from the
 catalog automatically.
 
 ### Where GL pipeline helpers go
@@ -430,8 +430,8 @@ pressure grows.
 - **Shared GLSL source files.** Right answer long-term; the duplication is
   bearable at four shaders. Needs a Metro transformer on web and an Android
   assets loader; not free.
-- **Codegen sync of the image-plate catalog to native.** Moot under the
-  unified model: plates are not registered names. The catalog lives in TS
-  (`images/presets.ts`); the prebuild plugin copies only the plates a consumer's
+- **Codegen sync of the image-image catalog to native.** Moot under the
+  unified model: images are not registered names. The catalog lives in TS
+  (`catalog/images/image-ids.ts`); the prebuild plugin copies only the images a consumer's
   book references, and the native side resolves them by id at runtime, so there
   is nothing for Kotlin or Swift to mirror.

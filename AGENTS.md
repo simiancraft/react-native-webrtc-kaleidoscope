@@ -8,7 +8,8 @@ This kit was unified so that every effect is one shape: a **composite**. The old
 
 | Term | Meaning | Where it lives |
 |------|---------|----------------|
-| **composite** | The one registered native effect: a stack of layers rendered back-to-front into the output frame. Every preset is a composite; "one effect" is a composite with a single layer. | registered effect string `"composite"`; `CompositeFactory` / `CompositeProcessor` (native); `makeComposite` (web); `CompositeSpec` (types) |
+| **preset** | What a consumer AUTHORS in their `kaleidoscope.preset-book.ts`: a named `{ taxonomy, layers, thumbnail?, controls? }`. A preset PROJECTS into a runtime composite (its layer stack) when applied via `kaleidoscope(id)`; the consumer never writes a composite directly. | `KaleidoscopePreset` (types); the consumer's preset book |
+| **composite** | The one registered native effect a preset projects into: a stack of layers rendered back-to-front into the output frame. "One effect" is a composite with a single layer. | registered effect string `"composite"`; `CompositeFactory` / `CompositeProcessor` (native); `makeComposite` (web); `CompositeSpec` (types) |
 | **layer** | One entry in a composite's stack: `{ id, shader, target?, blend?, source?/uniforms? }`, rendered in array order. | `LayerSpec` (types); `CompositeLayer` (native) |
 | **id** | A layer's stable address within its composite. `kaleidoscope(presetId, patches)` addresses layers by `id` and merges partial uniforms over the baked values. | `LayerSpec.id`, `LayerPatch.id` |
 | **shader** | What a layer draws: a GLSL effect basename (`clouds`, `plasma`, `godrays`, `fireflies`, `blur`), or one of the two built-ins `image` (a bundled plate) and `direct` (the raw camera). | `LayerSpec.shader` |
