@@ -254,7 +254,7 @@ so adding a plate needs NO native registration. The flow mirrors
 [`images/README.md`](./images/README.md) "Adding a plate":
 
 Plates are filed by **category** (the taxonomy's second level), several leaves
-per folder; the leaf is the globally-unique plate id.
+per folder; the leaf is the globally-unique image id.
 
 1. If it is a standalone background, append the leaf to `BACKGROUND_PRESETS` in
    `images/presets.ts`. A cutout plate that only feeds a packaged composite skips
@@ -263,9 +263,9 @@ per folder; the leaf is the globally-unique plate id.
    it. Two encodings: opaque backgrounds are 1280x720 lossy q88 with no alpha;
    alpha plates keep their transparency (recipes in `images/README.md`).
 3. Add the loader pair mirroring `office-dark`: `images/<category>/<leaf>.ts`
-   (native, returns the plate id) and `images/<category>/<leaf>.web.ts` (web,
-   returns the WebP URL), both annotated with `PresetSource` from
-   `images/preset-source.types.ts`.
+   (native, returns the image id) and `images/<category>/<leaf>.web.ts` (web,
+   returns the WebP URL), both annotated with `ImageSource` from
+   `images/image.types.ts`.
 4. Add the `./images/<category>/<leaf>` export (with `react-native`, `browser`,
    `import`, `default` conditions) and the `./images/<category>/<leaf>.webp` asset
    export to the package `exports` (Metro has no tree-shaking; consumers import

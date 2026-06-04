@@ -1,6 +1,6 @@
-import type { PresetSource } from '../preset-source.types';
+import type { ImageSource } from '../image.types';
 
 // Native variant. The native module loads its own bundled resource by name, so
-// the source is just the plate id; no WebP import, no expo-asset on native.
+// the source is just the image id; no WebP import, no expo-asset on native.
 // Web is handled by wizard-tower-2.web.ts.
-export const wizardTower2: PresetSource = 'wizard-tower-2';
+export const wizardTower2: ImageSource = 'wizard-tower-2';

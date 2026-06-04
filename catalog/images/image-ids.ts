@@ -9,7 +9,7 @@
 //     so a consumer's image-layer `source` autocompletes to a bundled image (a
 //     free-form string is also accepted on web for consumer-provided URLs),
 //   - the per-image loader pairs (catalog/images/<category>/<leaf>.ts and .web.ts),
-//     which annotate their export against PresetSource.
+//     which annotate their export against ImageSource.
 //
 // The native side does NOT mirror this list at registration time: there is one
 // registered effect, `composite`, and images are data. At `expo prebuild` the

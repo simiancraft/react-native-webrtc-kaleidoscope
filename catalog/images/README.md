@@ -32,11 +32,11 @@ more plates, and each plate is a **quad** of same-named files:
 images/<category>/
   <leaf>.webp         the plate art
   <leaf>.thumb.webp   the 320x180 picker tile (same basename + .thumb)
-  <leaf>.ts           native loader (returns the plate id)
+  <leaf>.ts           native loader (returns the image id)
   <leaf>.web.ts       web loader (returns the bundled WebP URL)
 ```
 
-The `<leaf>` is the plate id. It is **globally unique** across all categories
+The `<leaf>` is the image id. It is **globally unique** across all categories
 because it doubles as both the native bundle basename (`assets/images/<leaf>.webp`)
 and the `image` layer's `id`. The categories that ship today:
 
@@ -64,12 +64,12 @@ are layered inside the packaged composites under `composites/`.
 
 `officeDark` resolves per platform via a build-time file split (`office-dark.ts`
 for native, `office-dark.web.ts` for web, with the shared contract in
-`preset-source.types.ts`); the bundler picks the variant, there is no runtime
+`image.types.ts`); the bundler picks the variant, there is no runtime
 `Platform.OS` branch:
 
 - **Web:** the bundled WebP's URL, which the compositor fetches and uploads as a
   texture for the `image` layer.
-- **Native (iOS/Android):** the plate id (`'office-dark'`); the native module
+- **Native (iOS/Android):** the image id (`'office-dark'`); the native module
   loads its own bundled copy by that id. The native variant imports no WebP and
   no expo-asset, so native bundles neither at the source level. At `expo prebuild`
   the config plugin reads your preset book, finds the `image` layers it actually
@@ -175,8 +175,8 @@ convert <plate> -resize "320x180^" -gravity center -extent 320x180 \
 2. Drop the optimized `<leaf>.webp` in it (pick the encoding for its kind, above).
 3. Make its `<leaf>.thumb.webp` (recipe above).
 4. Add the loader pair mirroring `office-dark`: `<leaf>.ts` (native, returns the
-   plate id) and `<leaf>.web.ts` (web, returns the WebP URL), both annotated with
-   `PresetSource` from `preset-source.types.ts`.
+   image id) and `<leaf>.web.ts` (web, returns the WebP URL), both annotated with
+   `ImageSource` from `image.types.ts`.
 5. Add the `./images/<category>/<leaf>` export (with `react-native`, `browser`,
    `import`, `default` conditions) and `./images/<category>/<leaf>.webp` to the
    package `exports`.
