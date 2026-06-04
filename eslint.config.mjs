@@ -6,8 +6,9 @@
 // src/), so a consumer with React Compiler enabled compiles these components in
 // their own graph. This rule flags any component that violates the Rules of React,
 // so such a consumer gets a correct, optimizable result instead of a per-component
-// bail-out. (The package itself is authored "off the compiler" with hand-rolled
-// memoization; this verifies the components are nonetheless compiler-safe.)
+// bail-out. (The library ships unmemoized source: no hand-rolled `useMemo`/
+// `useCallback`; consumers run React Compiler over it, so this gate verifies
+// every component is compiler-safe and gets optimized in the consumer's graph.)
 //
 // The demo is intentionally out of scope (it is the consumer, not the library).
 
