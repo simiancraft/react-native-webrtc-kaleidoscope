@@ -3,7 +3,7 @@
 //
 // A packaged composite consumers can list by importing this module.
 
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const clouds = {
   name: 'Daytime',
@@ -29,4 +29,4 @@ export const clouds = {
     // You, under the sky.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

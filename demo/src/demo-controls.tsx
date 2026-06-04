@@ -7,11 +7,11 @@ import { BLUR_CONTROLS, PLASMA_CONTROLS } from 'react-native-webrtc-kaleidoscope
 import {
   ControlForm,
   ControlSection,
-  type KaleidoscopeControlsProps,
+  type KaleidoscopeControls,
   UniformControls,
 } from 'react-native-webrtc-kaleidoscope/controls';
 
-export function PlasmaControls({ uniforms, onPatch, disabled }: KaleidoscopeControlsProps) {
+export function PlasmaControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (
     <ControlForm id="plasma" uniforms={uniforms.plasma ?? {}} onPatch={onPatch} disabled={disabled}>
       <ControlSection title="plasma">
@@ -21,7 +21,7 @@ export function PlasmaControls({ uniforms, onPatch, disabled }: KaleidoscopeCont
   );
 }
 
-export function BlurControls({ uniforms, onPatch, disabled }: KaleidoscopeControlsProps) {
+export function BlurControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (
     <ControlForm id="blur" uniforms={uniforms.blur ?? {}} onPatch={onPatch} disabled={disabled}>
       <ControlSection title="blur">

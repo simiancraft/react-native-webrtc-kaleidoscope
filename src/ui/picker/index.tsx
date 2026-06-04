@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import type { PresetBook } from '../../kaleidoscope/types';
+import type { KaleidoscopePresetBook } from '../../kaleidoscope/types';
 import { categoryTestId, familyTestId } from '../../test-id';
 import { PickerLayout } from './layout';
 import type { Category, Family, PickerProps, PresetView } from './picker.types';
@@ -48,7 +48,7 @@ export interface PickerModel {
  *   onSelect={setArt}
  * />
  */
-export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) {
+export function KaleidoscopePicker<P extends KaleidoscopePresetBook>(props: PickerProps<P>) {
   // `className` (declared on PickerProps) is intentionally not destructured: the
   // ./nativewind cssInterop registration consumes it at the JSX boundary and
   // merges the resolved classes into `style` before this body runs.
@@ -128,7 +128,7 @@ export function KaleidoscopePicker<P extends PresetBook>(props: PickerProps<P>) 
  * else it falls back to the first; so swapping `presets`, or switching to a
  * family that lacks the prior category, can't strand a dead selection.
  */
-export function usePicker<P extends PresetBook>(
+export function usePicker<P extends KaleidoscopePresetBook>(
   presets: P,
   labelFor?: (id: keyof P & string) => string,
 ): PickerModel {

@@ -10,7 +10,7 @@
 // looks it up in Bundle.main. The web sibling (fairy-cave.web.ts) keeps the
 // `Asset.fromModule(...).uri` pattern; mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { treehouse } from '../../images/fairy-caves/treehouse';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const fairyCave = {
   name: 'Fairy Cave',
@@ -50,4 +50,4 @@ export const fairyCave = {
     // You, in the cave (fireflies drifting behind you).
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

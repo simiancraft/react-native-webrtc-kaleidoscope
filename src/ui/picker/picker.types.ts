@@ -12,7 +12,7 @@
 
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import type { PresetBook } from '../../kaleidoscope/types';
+import type { KaleidoscopePresetBook } from '../../kaleidoscope/types';
 
 /**
  * A composite's family; the grouping (tab) axis. This is the book entry's
@@ -96,7 +96,7 @@ export interface PickerStyleProps {
 }
 
 /** Props for the drop-in composite picker (the tabbed kitchen sink). */
-export interface PickerProps<P extends PresetBook = PresetBook>
+export interface PickerProps<P extends KaleidoscopePresetBook = KaleidoscopePresetBook>
   extends PickerSelection<keyof P & string>,
     PickerStyleProps {
   /** The consumer's preset book. */

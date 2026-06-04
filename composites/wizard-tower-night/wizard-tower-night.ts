@@ -12,7 +12,7 @@
 // `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
 // (wizard-tower-night.web.ts) keeps the `Asset.fromModule(...).uri` pattern.
 import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const wizardTowerNight = {
   name: 'Night',
@@ -40,4 +40,4 @@ export const wizardTowerNight = {
     // You, standing in the chamber.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

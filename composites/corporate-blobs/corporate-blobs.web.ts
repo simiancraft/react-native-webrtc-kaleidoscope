@@ -4,7 +4,7 @@
 
 import { Asset } from 'expo-asset';
 import { corporateLogo } from '../../images/corporate/corporate-logo';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 import corporateBlobsThumb from './corporate-blobs.thumb.webp';
 
 export const corporateBlobs = {
@@ -39,4 +39,4 @@ export const corporateBlobs = {
       },
     },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

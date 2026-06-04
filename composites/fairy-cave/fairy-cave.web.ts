@@ -3,7 +3,7 @@
 
 import { Asset } from 'expo-asset';
 import { treehouse } from '../../images/fairy-caves/treehouse';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 import fairyCaveThumb from './fairy-cave.thumb.webp';
 
 export const fairyCave = {
@@ -44,4 +44,4 @@ export const fairyCave = {
     // You, in the cave (fireflies drifting behind you).
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

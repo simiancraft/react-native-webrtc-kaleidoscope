@@ -16,7 +16,7 @@
 
 import type { ComponentType } from 'react';
 import type { PatchableShaderName, ShaderUniformsMap } from '../shaders';
-import type { LayerSpec } from '../types';
+import type { KaleidoscopeLayer } from '../types';
 
 /**
  * A composite's place in the browser: an ordered path of group names, deepest
@@ -25,18 +25,18 @@ import type { LayerSpec } from '../types';
  * so there is no way to set a group without its parent. Extend to three levels by
  * adding a member here when needed.
  */
-export type Taxonomy = readonly [string] | readonly [string, string];
+export type KaleidoscopeTaxonomy = readonly [string] | readonly [string, string];
 
 /**
  * A composite: an ordered painter's stack of layers under one book name, plus
  * display metadata (`name`, `taxonomy`, optional `thumbnail`). `kaleidoscope(id)`
  * runs the whole stack as one effect through the one compositor.
  */
-export type Composite = {
+export type KaleidoscopePreset = {
   /** Human-readable label for the picker. */
   readonly name: string;
   /** Grouping path for the picker, root first (e.g. `['Worlds', 'Wizard Tower']`). */
-  readonly taxonomy: Taxonomy;
+  readonly taxonomy: KaleidoscopeTaxonomy;
   /**
    * Optional thumbnail source for the picker rail.
    * - `string`: a resolved URL (web) or native preset name routed through
@@ -48,15 +48,15 @@ export type Composite = {
    */
   readonly thumbnail?: string | number;
   /** The painter's stack, back to front. Each layer's `id` is unique here. */
-  readonly layers: ReadonlyArray<LayerSpec>;
+  readonly layers: ReadonlyArray<KaleidoscopeLayer>;
   /**
-   * Optional editor for this preset: a component (e.g. a `<Composite>Controls`)
+   * Optional editor for this preset: a component (e.g. a `<KaleidoscopePreset>Controls`)
    * the Tuner renders, which mounts a `ControlForm` + `ControlSection` per tunable
    * layer. The Tuner supplies the chrome wrapper at the layer level, so this
    * component composes shader fragments and must not add its own. `undefined`
    * renders nothing. The `import type` keeps composites runtime-React-free.
    */
-  readonly controls?: ComponentType<KaleidoscopeControlsProps>;
+  readonly controls?: ComponentType<KaleidoscopeControls>;
 };
 
 /**
@@ -66,7 +66,7 @@ export type Composite = {
  * this boundary (heterogeneous layers); per-shader typing is recovered inside
  * each `<Shader>Controls` via `makeControls<U>()`.
  */
-export type KaleidoscopeControlsProps = {
+export type KaleidoscopeControls = {
   readonly uniforms: Readonly<Record<string, Readonly<Record<string, number | readonly number[]>>>>;
   readonly onPatch: (patch: {
     readonly id: string;
@@ -76,14 +76,14 @@ export type KaleidoscopeControlsProps = {
 };
 
 /** The consumer's book: a flat record of composites keyed by id. */
-export type PresetBook = Readonly<Record<string, Composite>>;
+export type KaleidoscopePresetBook = Readonly<Record<string, KaleidoscopePreset>>;
 
 /**
- * A materialized book entry: a `Composite` plus the `id` it was keyed by. This
+ * A materialized book entry: a `KaleidoscopePreset` plus the `id` it was keyed by. This
  * is what the picker and the tuner iterate (the book is keyed; this carries the
  * key inline so a flattened list keeps its identity).
  */
-export type Preset = { readonly id: string } & Composite;
+export type KaleidoscopePresetEntry = { readonly id: string } & KaleidoscopePreset;
 
 /**
  * A live per-layer uniform override for ONE layer, derived from the layer's own
@@ -106,7 +106,7 @@ export type PatchFor<L> = L extends {
  * preset's ids/uniforms; with a variable `cmd` it widens to the book-wide union
  * and is runtime-checked by id.
  */
-export type PatchesFor<P extends PresetBook, K extends keyof P> = ReadonlyArray<
+export type PatchesFor<P extends KaleidoscopePresetBook, K extends keyof P> = ReadonlyArray<
   PatchFor<P[K]['layers'][number]>
 >;
 
@@ -131,8 +131,8 @@ export type MaskInput = {
   readonly threshold: number;
 };
 
-export type KaleidoscopeBindOptions<P extends PresetBook> = {
-  /** The consumer's preset book. Declare it `as const satisfies PresetBook`. */
+export type KaleidoscopeBindOptions<P extends KaleidoscopePresetBook> = {
+  /** The consumer's preset book. Declare it `as const satisfies KaleidoscopePresetBook`. */
   readonly presets: P;
   /**
    * Called with the live output track after every art/transform command. On web
@@ -148,7 +148,7 @@ export type KaleidoscopeBindOptions<P extends PresetBook> = {
  * given, the patches merge through the live no-rebuild uniform channel (keyed by
  * layer id) instead of rebuilding, so a slider drag stays smooth.
  */
-type KaleidoscopeCommand<P extends PresetBook> = <K extends keyof P>(
+type KaleidoscopeCommand<P extends KaleidoscopePresetBook> = <K extends keyof P>(
   cmd: K | null,
   patches?: PatchesFor<P, K>,
 ) => void;
@@ -160,7 +160,7 @@ type KaleidoscopeCommand<P extends PresetBook> = <K extends keyof P>(
  * preset and `mask` both update what the running composite reads each frame, so
  * they need no rebuild.
  */
-export interface KaleidoscopeBinding<P extends PresetBook> {
+export interface KaleidoscopeBinding<P extends KaleidoscopePresetBook> {
   readonly kaleidoscope: KaleidoscopeCommand<P>;
   readonly transform: (t?: TransformInput) => void;
   readonly mask: (m: MaskInput) => void;

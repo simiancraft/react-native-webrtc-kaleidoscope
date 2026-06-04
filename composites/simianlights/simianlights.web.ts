@@ -3,7 +3,7 @@
 // Mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
 import { Asset } from 'expo-asset';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 import simianlightsThumb from './simianlights.thumb.webp';
 
 export const simianlights = {
@@ -26,4 +26,4 @@ export const simianlights = {
     // You, drifting in the field.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

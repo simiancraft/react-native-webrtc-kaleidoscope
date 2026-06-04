@@ -27,19 +27,19 @@ export type TransformSpec = {
 export type RGB = readonly [number, number, number];
 
 /** How a composite layer blends over the layers beneath it (painter's order). */
-export type BlendMode = 'normal' | 'additive';
+export type KaleidoscopeBlendMode = 'normal' | 'additive';
 
 /**
  * Which part of the frame a layer applies to. Omit for `'background'` (the
  * accumulated stack so far); `'subject'` stencils the layer to the segmented
  * person. The same shader can run on either target.
  */
-export type LayerTarget = 'background' | 'subject';
+export type KaleidoscopeLayerTarget = 'background' | 'subject';
 
 /**
  * The closed catalog of layer shaders and the fields each one requires. Keeping
  * it closed (mirrors `ShaderUniformsMap` for presets) is what lets the `shader`
- * discriminant narrow cleanly on a `LayerSpec`:
+ * discriminant narrow cleanly on a `KaleidoscopeLayer`:
  *   - `'image'`  replaces the target with a still image (needs `source`).
  *   - `'direct'` passes the target through unchanged (a matrix passthrough): on
  *     the subject that is the masked person; on the background it is a no-op.
@@ -69,7 +69,7 @@ export type LayerShaderOptions = {
   };
 };
 
-/** A layer shader name; the `LayerSpec` discriminant. */
+/** A layer shader name; the `KaleidoscopeLayer` discriminant. */
 export type LayerShaderName = keyof LayerShaderOptions;
 
 /**
@@ -83,12 +83,12 @@ export type LayerShaderName = keyof LayerShaderOptions;
  * and for an `image` layer it doubles as the native plate id (the bundled WebP
  * basename), since the native facade sends `layer.id` as the plate `source`.
  */
-export type LayerSpec = {
+export type KaleidoscopeLayer = {
   readonly [S in LayerShaderName]: {
     readonly id: string;
     readonly shader: S;
-    readonly target?: LayerTarget;
-    readonly blend?: BlendMode;
+    readonly target?: KaleidoscopeLayerTarget;
+    readonly blend?: KaleidoscopeBlendMode;
   } & LayerShaderOptions[S];
 }[LayerShaderName];
 
@@ -100,7 +100,7 @@ export type LayerSpec = {
  */
 export type CompositeSpec = {
   readonly name: 'composite';
-  readonly layers: ReadonlyArray<LayerSpec>;
+  readonly layers: ReadonlyArray<KaleidoscopeLayer>;
 };
 
 export type EffectSpec = CompositeSpec | TransformSpec;

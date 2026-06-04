@@ -6,11 +6,11 @@ import { FIREFLIES_CONTROLS } from '../../shaders/fireflies/fireflies';
 import {
   ControlForm,
   ControlSection,
-  type KaleidoscopeControlsProps,
+  type KaleidoscopeControls,
   UniformControls,
 } from '../../src/controls';
 
-export function FairyCaveControls({ uniforms, onPatch, disabled }: KaleidoscopeControlsProps) {
+export function FairyCaveControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (
     <>
       <ControlForm id="sky" uniforms={uniforms.sky ?? {}} onPatch={onPatch} disabled={disabled}>

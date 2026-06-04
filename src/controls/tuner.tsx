@@ -5,19 +5,19 @@
 // the host routes onPatch into `kaleidoscope(activeId, [patch])`.
 
 import type { ReactElement } from 'react';
-import type { KaleidoscopeControlsProps, PresetBook } from '../kaleidoscope/types';
+import type { KaleidoscopeControls, KaleidoscopePresetBook } from '../kaleidoscope/types';
 import { ControlScopeContext } from './form/scope';
 
-export type KaleidoscopeTunerProps<P extends PresetBook> = {
+export type KaleidoscopeTunerProps<P extends KaleidoscopePresetBook> = {
   readonly presets: P;
   /** The active preset id, or null when nothing is selected. */
   readonly value: (keyof P & string) | null;
   /** Routed to the host, which applies it via `kaleidoscope(value, [patch])`. */
-  readonly onPatch: KaleidoscopeControlsProps['onPatch'];
+  readonly onPatch: KaleidoscopeControls['onPatch'];
   readonly disabled?: boolean;
 };
 
-export function KaleidoscopeTuner<P extends PresetBook>({
+export function KaleidoscopeTuner<P extends KaleidoscopePresetBook>({
   presets,
   value,
   onPatch,

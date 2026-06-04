@@ -11,7 +11,7 @@
 // (underwater.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { oceanscapeDark } from '../../images/underwater/oceanscape-dark';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const underwater = {
   name: 'Underwater',
@@ -39,4 +39,4 @@ export const underwater = {
     // subject target = a passthrough of the segmented person.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

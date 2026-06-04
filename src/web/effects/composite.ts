@@ -19,7 +19,7 @@
 // stencils it. The mask edge is the shared mask() tuning, so the demo sliders
 // drive composites.
 
-import type { LayerSpec } from '../../types';
+import type { KaleidoscopeLayer } from '../../types';
 import type { FrameTransform } from '../insertable-streams';
 import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
 import {
@@ -299,7 +299,7 @@ type GpuState = {
 
 let state: GpuState | null = null;
 
-const layersSignature = (layers: ReadonlyArray<LayerSpec>): string =>
+const layersSignature = (layers: ReadonlyArray<KaleidoscopeLayer>): string =>
   layers.map((l) => `${l.id}:${l.shader}:${l.target ?? 'background'}`).join('|');
 
 const disposeState = (s: GpuState): void => {
@@ -339,7 +339,11 @@ const ensureInputCanvas = (width: number, height: number): OffscreenCanvasRender
 
 const isCameraSampler = (shader: string): boolean => shader === 'direct' || shader === 'blur';
 
-const ensureState = (width: number, height: number, layers: ReadonlyArray<LayerSpec>): GpuState => {
+const ensureState = (
+  width: number,
+  height: number,
+  layers: ReadonlyArray<KaleidoscopeLayer>,
+): GpuState => {
   const sig = layersSignature(layers);
   if (state && state.width === width && state.height === height && state.layersSig === sig) {
     return state;
@@ -496,12 +500,14 @@ export const resetLayerUniforms = (): void => {
   for (const id of Object.keys(layerUniformOverrides)) delete layerUniformOverrides[id];
 };
 
-const mergedUniforms = (layer: Extract<LayerSpec, { uniforms: UniformMap }>): UniformMap => {
+const mergedUniforms = (
+  layer: Extract<KaleidoscopeLayer, { uniforms: UniformMap }>,
+): UniformMap => {
   const override = layerUniformOverrides[layer.id];
   return override ? { ...layer.uniforms, ...override } : layer.uniforms;
 };
 
-export const makeComposite = (layers: ReadonlyArray<LayerSpec>): FrameTransform => {
+export const makeComposite = (layers: ReadonlyArray<KaleidoscopeLayer>): FrameTransform => {
   // A preset switch builds a fresh composite; drop any live overrides whose layer id
   // is not in this stack so a reused id (e.g. 'you') can't carry a stale override
   // from the previous preset into this one.
@@ -510,7 +516,7 @@ export const makeComposite = (layers: ReadonlyArray<LayerSpec>): FrameTransform 
     if (!ids.has(id)) clearLayerUniforms(id);
   }
   const imageSources = layers.filter(
-    (l): l is Extract<LayerSpec, { shader: 'image' }> => l.shader === 'image',
+    (l): l is Extract<KaleidoscopeLayer, { shader: 'image' }> => l.shader === 'image',
   );
   const needsSegmentation = layers.some((l) => l.target === 'subject');
   const needsCamera = layers.some((l) => isCameraSampler(l.shader));
@@ -590,7 +596,7 @@ export const makeComposite = (layers: ReadonlyArray<LayerSpec>): FrameTransform 
     // Render a layer's content into scratchA (blend off, cleared), returning the
     // texture that holds it. Blur is special: it runs the separable passes
     // (camera -> scratchA -> scratchB) and returns scratchB.
-    const renderContentToScratch = (layer: LayerSpec): WebGLTexture | null => {
+    const renderContentToScratch = (layer: KaleidoscopeLayer): WebGLTexture | null => {
       gl.disable(gl.BLEND);
       if (layer.shader === 'blur') {
         if (!s.blur || !s.camera || !s.scratchA || !s.scratchB) return null;

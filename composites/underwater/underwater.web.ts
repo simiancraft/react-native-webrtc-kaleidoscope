@@ -4,7 +4,7 @@
 
 import { Asset } from 'expo-asset';
 import { oceanscapeDark } from '../../images/underwater/oceanscape-dark';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 import underwaterThumb from './underwater.thumb.webp';
 
 export const underwater = {
@@ -33,4 +33,4 @@ export const underwater = {
     // subject target = a passthrough of the segmented person.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

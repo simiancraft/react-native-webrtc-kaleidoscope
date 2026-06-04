@@ -6,7 +6,7 @@ Import a plate and use it as that `source` (and, usually, as the composite's
 `thumbnail`):
 
 ```ts
-import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
+import type { KaleidoscopePresetBook } from 'react-native-webrtc-kaleidoscope';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 
 export const presets = {
@@ -19,7 +19,7 @@ export const presets = {
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
-} as const satisfies PresetBook;
+} as const satisfies KaleidoscopePresetBook;
 ```
 
 ## Folder layout: one folder per category, one plate per leaf

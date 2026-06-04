@@ -4,11 +4,11 @@ import { NEBULA_CONTROLS } from '../../shaders/nebula/nebula';
 import {
   ControlForm,
   ControlSection,
-  type KaleidoscopeControlsProps,
+  type KaleidoscopeControls,
   UniformControls,
 } from '../../src/controls';
 
-export function NebulaControls({ uniforms, onPatch, disabled }: KaleidoscopeControlsProps) {
+export function NebulaControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (
     <ControlForm id="nebula" uniforms={uniforms.nebula ?? {}} onPatch={onPatch} disabled={disabled}>
       <ControlSection title="nebula">

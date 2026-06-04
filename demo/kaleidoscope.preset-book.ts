@@ -1,4 +1,4 @@
-// The consumer's preset book. Every entry is a name -> Composite: an ordered
+// The consumer's preset book. Every entry is a name -> KaleidoscopePreset: an ordered
 // painter's stack of layers, plus a readable `name` and a `taxonomy` (the
 // picker's grouping path, root first). This is the file a consuming app owns and curates;
 // the prebuild plugin (native) parses it to copy only the referenced
@@ -17,11 +17,11 @@
 // its native plate id (the bundled WebP basename), so image layers keep their
 // plate-basename id; every other layer gets a simple unique-per-preset id.
 //
-// `as const satisfies PresetBook` gives per-layer typing and rejects a wrong
+// `as const satisfies KaleidoscopePresetBook` gives per-layer typing and rejects a wrong
 // layer shape at compile time.
 
 import { Asset } from 'expo-asset';
-import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
+import type { KaleidoscopePresetBook } from 'react-native-webrtc-kaleidoscope';
 // Packaged composites (the "Worlds" and "Sky" scenes), shipped by the library.
 import { clouds } from 'react-native-webrtc-kaleidoscope/composites/clouds';
 import { CloudsControls } from 'react-native-webrtc-kaleidoscope/composites/clouds/controls';
@@ -243,6 +243,6 @@ export const presets = {
 
   // Transforms are NOT book presets: they're driven by the transform() verb
   // (flip/rotate), not curated art. The book is the art catalog only.
-} as const satisfies PresetBook;
+} as const satisfies KaleidoscopePresetBook;
 
 export type PresetId = keyof typeof presets;

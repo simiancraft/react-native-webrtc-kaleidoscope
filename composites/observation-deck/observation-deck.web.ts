@@ -4,7 +4,7 @@
 
 import { Asset } from 'expo-asset';
 import { observationDeck as observationDeckPlate } from '../../images/spaceship/observation-deck';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 import observationDeckThumb from './observation-deck.thumb.webp';
 
 export const observationDeck = {
@@ -47,4 +47,4 @@ export const observationDeck = {
       },
     },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

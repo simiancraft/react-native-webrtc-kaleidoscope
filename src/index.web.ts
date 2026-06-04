@@ -20,7 +20,7 @@ import {
 import type {
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  PresetBook,
+  KaleidoscopePresetBook,
 } from './kaleidoscope/types';
 import { type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import {
@@ -44,16 +44,16 @@ import { tuning } from './web/tuning';
 
 export type { BackgroundPresetName } from '../images';
 export type {
-  Composite,
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  KaleidoscopeControlsProps,
+  KaleidoscopeControls,
+  KaleidoscopePreset,
+  KaleidoscopePresetBook,
+  KaleidoscopePresetEntry,
+  KaleidoscopeTaxonomy,
   MaskInput,
   PatchesFor,
   PatchFor,
-  Preset,
-  PresetBook,
-  Taxonomy,
   TransformInput,
 } from './kaleidoscope/types';
 export type {
@@ -85,15 +85,15 @@ export {
   SIMIANLIGHTS_CONTROLS,
 } from './shaders';
 export type {
-  BlendMode,
   CompositeSpec,
   EffectInput,
   EffectName,
   EffectSpec,
+  KaleidoscopeBlendMode,
+  KaleidoscopeLayer,
+  KaleidoscopeLayerTarget,
   LayerShaderName,
   LayerShaderOptions,
-  LayerSpec,
-  LayerTarget,
   RGB,
   TransformName,
   TransformSpec,
@@ -163,7 +163,7 @@ export const applyVideoEffectsDisposable = (
  * patch of the active preset and `mask` both update what the running pipeline
  * reads per frame (no rebuild).
  */
-export const bindKaleidoscope = <P extends PresetBook>(
+export const bindKaleidoscope = <P extends KaleidoscopePresetBook>(
   track: MediaStreamTrack,
   options: KaleidoscopeBindOptions<P>,
 ): KaleidoscopeBinding<P> => {

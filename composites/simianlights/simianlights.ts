@@ -9,7 +9,7 @@
 // `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
 // (simianlights.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const simianlights = {
   name: 'Simianlights',
@@ -31,4 +31,4 @@ export const simianlights = {
     // You, drifting in the field.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

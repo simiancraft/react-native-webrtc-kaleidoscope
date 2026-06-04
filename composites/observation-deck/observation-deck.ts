@@ -14,7 +14,7 @@
 // (observation-deck.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { observationDeck as observationDeckPlate } from '../../images/spaceship/observation-deck';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const observationDeck = {
   name: 'Observation Deck',
@@ -56,4 +56,4 @@ export const observationDeck = {
       },
     },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

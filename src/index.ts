@@ -18,9 +18,14 @@ import {
 import type {
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  PresetBook,
+  KaleidoscopePresetBook,
 } from './kaleidoscope/types';
-import { type ApplyVideoEffects, type CompositeSpec, type LayerSpec, toEffectSpec } from './types';
+import {
+  type ApplyVideoEffects,
+  type CompositeSpec,
+  type KaleidoscopeLayer,
+  toEffectSpec,
+} from './types';
 
 // The native module's tuning functions. Only the three the JS layer drives are
 // declared: blur sigma (from a blur preset's options) and the mask edge (from
@@ -29,7 +34,7 @@ import { type ApplyVideoEffects, type CompositeSpec, type LayerSpec, toEffectSpe
 interface KaleidoscopeNativeModule {
   setMaskHardness: (value: number) => void;
   setMaskThreshold: (value: number) => void;
-  // Composite layer-stack channel. Optional: a native build predating the
+  // KaleidoscopePreset layer-stack channel. Optional: a native build predating the
   // compositor won't expose it, so callers guard with `?.`. JS sends the active
   // composite's ordered layer stack as a JSON string; native parses + composites
   // it. Blur sigma and generative uniforms now ride inside each layer's
@@ -51,16 +56,16 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 
 export type { BackgroundPresetName } from '../images';
 export type {
-  Composite,
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  KaleidoscopeControlsProps,
+  KaleidoscopeControls,
+  KaleidoscopePreset,
+  KaleidoscopePresetBook,
+  KaleidoscopePresetEntry,
+  KaleidoscopeTaxonomy,
   MaskInput,
   PatchesFor,
   PatchFor,
-  Preset,
-  PresetBook,
-  Taxonomy,
   TransformInput,
 } from './kaleidoscope/types';
 export type {
@@ -94,15 +99,15 @@ export {
   SIMIANLIGHTS_CONTROLS,
 } from './shaders';
 export type {
-  BlendMode,
   CompositeSpec,
   EffectInput,
   EffectName,
   EffectSpec,
+  KaleidoscopeBlendMode,
+  KaleidoscopeLayer,
+  KaleidoscopeLayerTarget,
   LayerShaderName,
   LayerShaderOptions,
-  LayerSpec,
-  LayerTarget,
   RGB,
   TransformName,
   TransformSpec,
@@ -154,7 +159,7 @@ const NATIVE_REGISTERED_EFFECTS: ReadonlySet<string> = new Set(registeredForPlat
 // Every layer carries its `id`. An `image` layer's native `source` IS its `id`
 // (the bundled WebP basename the prebuild plugin copied under that name); all
 // other layers carry their uniforms.
-const serializeCompositeLayers = (layers: ReadonlyArray<LayerSpec>): string => {
+const serializeCompositeLayers = (layers: ReadonlyArray<KaleidoscopeLayer>): string => {
   const wire = layers.map((layer) => {
     const base: Record<string, unknown> = {
       id: layer.id,
@@ -270,7 +275,7 @@ const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
  * after each `kaleidoscope` preset switch and `transform` command. `mask`
  * updates the segmentation edge the per-frame processors read.
  */
-export const bindKaleidoscope = <P extends PresetBook>(
+export const bindKaleidoscope = <P extends KaleidoscopePresetBook>(
   track: MediaStreamTrack,
   options: KaleidoscopeBindOptions<P>,
 ): KaleidoscopeBinding<P> => {

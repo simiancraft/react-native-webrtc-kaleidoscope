@@ -8,9 +8,9 @@
 // blend. Transforms are not book entries; the transform verb handles them.
 
 import type { EffectSpec } from '../types';
-import type { Composite } from './types';
+import type { KaleidoscopePreset } from './types';
 
-export const compositeToEffectSpec = (composite: Composite): EffectSpec => ({
+export const compositeToEffectSpec = (composite: KaleidoscopePreset): EffectSpec => ({
   name: 'composite',
   layers: composite.layers,
 });

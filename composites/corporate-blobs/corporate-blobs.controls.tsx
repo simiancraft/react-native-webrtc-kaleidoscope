@@ -6,11 +6,11 @@ import { CORPORATE_BLOBS_CONTROLS } from '../../shaders/corporate-blobs/corporat
 import {
   ControlForm,
   ControlSection,
-  type KaleidoscopeControlsProps,
+  type KaleidoscopeControls,
   UniformControls,
 } from '../../src/controls';
 
-export function CorporateBlobsControls({ uniforms, onPatch, disabled }: KaleidoscopeControlsProps) {
+export function CorporateBlobsControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (
     <ControlForm id="blobs" uniforms={uniforms.blobs ?? {}} onPatch={onPatch} disabled={disabled}>
       <ControlSection title="blobs">

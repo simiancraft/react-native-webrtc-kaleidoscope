@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { createControls } from '../src/kaleidoscope/controls';
-import type { Composite, PresetBook } from '../src/kaleidoscope/types';
+import type { KaleidoscopePreset, KaleidoscopePresetBook } from '../src/kaleidoscope/types';
 import type { EffectSpec } from '../src/types';
 
 // --- Fixtures -------------------------------------------------------------
@@ -17,7 +17,7 @@ import type { EffectSpec } from '../src/types';
 // Distinct fake tracks; identity is all the machine cares about.
 const baseTrack = { id: 'base' } as unknown as MediaStreamTrack;
 
-const aurora: Composite = {
+const aurora: KaleidoscopePreset = {
   name: 'Aurora',
   taxonomy: ['Backgrounds'],
   layers: [
@@ -27,13 +27,13 @@ const aurora: Composite = {
   ],
 };
 
-const blurOnly: Composite = {
+const blurOnly: KaleidoscopePreset = {
   name: 'Soft Blur',
   taxonomy: ['Camera'],
   layers: [{ id: 'blur', shader: 'blur', uniforms: { sigma: 3 } }],
 };
 
-const presets = { aurora, blur: blurOnly } as const satisfies PresetBook;
+const presets = { aurora, blur: blurOnly } as const satisfies KaleidoscopePresetBook;
 
 // A reconcile spy: records every spec array it applied, and hands back a fresh
 // track per call so the `track` getter / onTrack plumbing is observable.

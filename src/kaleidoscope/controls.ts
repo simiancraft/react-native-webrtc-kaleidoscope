@@ -16,10 +16,10 @@
 import type { EffectSpec, TransformName } from '../types';
 import { compositeToEffectSpec } from './shader-to-spec';
 import type {
-  Composite,
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  PresetBook,
+  KaleidoscopePreset,
+  KaleidoscopePresetBook,
   TransformInput,
 } from './types';
 
@@ -64,7 +64,7 @@ const decomposeTransform = (t?: TransformInput): EffectSpec[] => {
   return names.map((name) => ({ name }));
 };
 
-export const createControls = <P extends PresetBook>(
+export const createControls = <P extends KaleidoscopePresetBook>(
   baseTrack: MediaStreamTrack,
   { presets, onTrack }: KaleidoscopeBindOptions<P>,
   reconcile: Reconcile,
@@ -110,7 +110,7 @@ export const createControls = <P extends PresetBook>(
       // stale slider override across. A transform rebuild does NOT pass through
       // here, so slider tweaks survive flips/rotations of the active preset.
       activeId = cmd;
-      art = cmd == null ? null : compositeToEffectSpec(presets[cmd] as Composite);
+      art = cmd == null ? null : compositeToEffectSpec(presets[cmd] as KaleidoscopePreset);
       resetLayerUniforms();
       apply();
     },

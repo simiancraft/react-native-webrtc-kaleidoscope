@@ -6,15 +6,11 @@ import { SIMIANLIGHTS_CONTROLS } from '../../shaders/simianlights/simianlights';
 import {
   ControlForm,
   ControlSection,
-  type KaleidoscopeControlsProps,
+  type KaleidoscopeControls,
   UniformControls,
 } from '../../src/controls';
 
-export function ObservationDeckControls({
-  uniforms,
-  onPatch,
-  disabled,
-}: KaleidoscopeControlsProps) {
+export function ObservationDeckControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (
     <>
       <ControlForm id="field" uniforms={uniforms.field ?? {}} onPatch={onPatch} disabled={disabled}>

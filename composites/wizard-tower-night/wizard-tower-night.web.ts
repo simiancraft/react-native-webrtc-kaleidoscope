@@ -3,7 +3,7 @@
 
 import { Asset } from 'expo-asset';
 import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 import wizardTowerNightThumb from './wizard-tower-night.thumb.webp';
 
 export const wizardTowerNight = {
@@ -32,4 +32,4 @@ export const wizardTowerNight = {
     // You, standing in the chamber.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

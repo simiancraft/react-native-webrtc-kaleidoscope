@@ -11,7 +11,7 @@
 // `fairy-grotto.thumb.webp` as into the native app target; `resolveBackgroundUri`
 // looks it up in Bundle.main. The web sibling keeps the `Asset.fromModule` path.
 import { grotto } from '../../images/fairy-caves/grotto';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const fairyGrotto = {
   name: 'Grotto',
@@ -51,4 +51,4 @@ export const fairyGrotto = {
     // You, in the cave (fireflies drifting behind you).
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

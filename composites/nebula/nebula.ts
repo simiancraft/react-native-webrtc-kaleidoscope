@@ -12,7 +12,7 @@
 // The web sibling (nebula.web.ts) keeps the `Asset.fromModule(...).uri`
 // pattern; mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const nebula = {
   name: 'Nebula',
@@ -34,4 +34,4 @@ export const nebula = {
     // You, drifting in the field.
     { id: 'you', shader: 'direct', target: 'subject' },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;

@@ -53,7 +53,7 @@ background. So your `.frag`:
      uniform for editors and LLMs.
 3. **Register the shader** (three small edits, no native `Registration` change):
    - `src/types.ts`: add `<name>: { uniforms: Partial<ShaderUniformsMap['<name>']> }`
-     to `LayerShaderOptions` (the closed catalog the `LayerSpec` discriminant
+     to `LayerShaderOptions` (the closed catalog the `KaleidoscopeLayer` discriminant
      narrows on).
    - `src/shaders/index.ts`: import the `<Name>Uniforms` type, add
      `<name>: <Name>Uniforms` to `ShaderUniformsMap`, and re-export both

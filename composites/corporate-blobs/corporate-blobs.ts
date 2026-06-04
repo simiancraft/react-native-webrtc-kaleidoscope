@@ -14,7 +14,7 @@
 // (corporate-blobs.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { corporateLogo } from '../../images/corporate/corporate-logo';
-import type { Composite } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
 
 export const corporateBlobs = {
   name: 'Blobs',
@@ -48,4 +48,4 @@ export const corporateBlobs = {
       },
     },
   ],
-} as const satisfies Composite;
+} as const satisfies KaleidoscopePreset;
