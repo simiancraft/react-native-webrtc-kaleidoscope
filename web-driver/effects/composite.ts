@@ -35,7 +35,7 @@ import { LAYER_SHADER_SOURCES } from './layer-shaders';
 
 // The compositor primitives are single-sourced from catalog/shaders/_shared via
 // build:shaders, imported above: COMPOSITE_IMAGE_FRAG_SRC (cover-fit; also reused
-// for scratch blits, at cover scale or 1,1), COMPOSITE_SUBJECT_FRAG_SRC (the masked camera
+// for scratch blits, at cover scale or 1,1 for a 1:1 blit), COMPOSITE_SUBJECT_FRAG_SRC (the masked camera
 // person), COMPOSITE_MASKED_FRAG_SRC (stencil any layer to the subject), plus
 // COMPOSITE_CAMERA_FRAG_SRC and COMPOSITE_BLUR_FRAG_SRC. iOS carries one extra
 // blit variant (composite-blit) for its texture-origin parity; web reuses the
