@@ -1,0 +1,22 @@
+# Commit-time gate: keep the tree clean as we go. FAST checks only — the heavy
+# gate (build, demo build, test, knip, publint, shader/plugin drift) stays in CI
+# and `bun run check`. Native lint/format (ktlint/detekt/SwiftLint/SwiftFormat,
+# W8) is not here: it needs the Android SDK / a Swift toolchain that this hook,
+# like CI, can't assume. Run those locally via their own scripts.
+
+pre-commit:
+  parallel: true
+  jobs:
+    # Lint + format the staged files; auto-fix and re-stage so a commit lands clean.
+    - name: biome
+      glob: '*.{ts,tsx,js,jsx,mjs,json}'
+      run: bunx biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    # Whole-project typechecks (can't be staged-scoped) — fast under tsgo.
+    - name: typecheck
+      run: bun run typecheck
+    - name: typecheck-test
+      run: bun run typecheck:test
+    # React Compiler safety on the library's components.
+    - name: react-compiler
+      run: bun run check:react-compiler
