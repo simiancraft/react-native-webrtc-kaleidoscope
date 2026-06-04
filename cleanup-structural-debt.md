@@ -71,7 +71,10 @@ react-native-webrtc-kaleidoscope/
     ├── kaleidoscope.preset-book.types.ts   # + ENTRY #1 vocabulary (shared root, product-prefixed)
     ├── kaleidoscope/        # ENTRY #2 runtime: index.ts (+ .web.ts) = the 3 functions;
     │                        #   command machine; spec/contract types; test/
-    ├── prebuild/            # 🪓 ← app.plugin.js  ENTRY #4: index.ts + parse/copy/ios-pods + test/
+    ├── prebuild/            # 🪓 ← app.plugin.js  ENTRY #4: index.ts (withKaleidoscope) + test/
+    │   ├── ios/             #   ios.dangerous: pods + deployment-target (isVersionLessThan) + pbxproj registration
+    │   ├── android/         #   android.dangerous: Android asset placement
+    │   └── lib/             #   prebuild-internal shared: the book parser + the one copyRefs primitive
     ├── lib/                 # shared-by-everything: id-maker (🔀 ← test-id.ts), clamp, generic types; test/
     ├── components/          # ENTRY #3: ui/ primitives (🔀 ← controls/primitives) + picker/ + tuner/ ; test/
     ├── livekit.ts           # root-level adapter (specialty tech) — stays in src/
@@ -101,7 +104,12 @@ No central `test/`. Tests colocate with the thing they test, so the four+ areas 
 
 - **W1 — Preset-book vocabulary.** Author `src/kaleidoscope.preset-book.types.ts` from the book down; rename `kaleidoscope.presets.ts → kaleidoscope.preset-book.ts` everywhere (the plugin's `PRESET_BOOK_FILENAME`, demo, tests, README/llms.txt); delete `src/types.ts`; collapse the spec types.
 - **W2 — Drivers.** Move `src/web/ → web-driver/` at the repo root (peer to `android/`/`ios/`); give it its own entry + test suite; extract shared source that was hiding in it (`clamp`, tuning ranges) to `src/lib/`.
-- **W3 — Prebuild.** Move `app.plugin.js` logic into `src/prebuild/` TypeScript (D2); collapse the duplicated copy routines (D1); `app.plugin.js` → one-line shim.
+- **W3 — Prebuild.** Move `app.plugin.js` logic into `src/prebuild/` TypeScript (D2), split `ios/` · `android/` · `lib/`; `app.plugin.js` → one-line shim. No `web`. The text parser is prebuild-only (runtime gets the book as an object). Function map (every `app.plugin.js` member → TS home; all testable):
+  - `prebuild/index.ts` — `withKaleidoscope` (thin; wires the two mods).
+  - `prebuild/ios/index.ts` — the `ios.dangerous` mod (orchestration). `prebuild/ios/pods.ts` — `resolveWebrtcPod` + `patchPodfile` + `SENTINEL`. `prebuild/ios/deployment-target.ts` — `IOS_DEPLOYMENT_TARGET` + `isVersionLessThan` (private) + the props bump. `prebuild/ios/copy.ts` — `copyIosAssets` (folds `copyIosImages`+`copyIosThumbnails`; `copyRefs` + pbxproj registration).
+  - `prebuild/android/index.ts` — the `android.dangerous` mod. `prebuild/android/copy.ts` — `copyAndroidAssets` (folds the two Android copiers over `copyRefs`).
+  - `prebuild/lib/book.ts` — `parseImports`, `imageIdFromSpecifier` (← `plateIdFromSpecifier`, de-plate), `parseImageRefs`, `resolveCompositeSource`, `resolveAssetPath`, `PRESET_BOOK_FILENAME`, and the two collectors folded over a shared `walkBookSources` (they collect different families — image-layer plates vs composite thumbnails — so two thin extractors, one walk). `prebuild/lib/copy.ts` — the new `copyRefs(refs, destDir)` primitive.
+  - `src/lib/constants.ts` — `LOG_TAG` (the `[react-native-webrtc-kaleidoscope]` prefix, extracted; messages stay inline at the point of emission — no error map).
 - **W4 — Components.** Collapse `controls/` + `ui/` into `components/` (`ui/` primitives + `picker/`/`tuner/` features) per Zone Composer (D6); relocate `resolve-background-uri` (rename off `background`).
 - **W5 — Catalog.** Move `shaders/`, `images/`, `composites/` under `catalog/`; move the shader type-catalog beside the shaders; per-shader subpath exports (D5).
 - **W6 — Lib.** `test-id.ts → src/lib/` (it's an id-maker, not test-ids; consider renaming the concept); `clamp` and generic types (`RGB`) land here.
