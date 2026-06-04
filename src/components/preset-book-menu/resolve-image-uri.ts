@@ -15,7 +15,7 @@ interface ImageUriModule {
   readonly resolveImageUri?: (id: string) => string | null;
 }
 
-// Resolve the module once, lazily — it is registered at the Expo module's
+// Resolve the module once, lazily; it is registered at the Expo module's
 // OnCreate, before any picker renders. Hoisted out of the per-call path so a
 // grid of N tiles does not perform N module lookups per render.
 let cachedModule: ImageUriModule | undefined;

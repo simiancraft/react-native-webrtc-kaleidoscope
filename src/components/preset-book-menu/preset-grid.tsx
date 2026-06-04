@@ -1,5 +1,5 @@
 // Family renderer: one family's presets as a uniform tile grid. Every family
-// renders through this — the per-preset tile decides wallpaper-vs-recessed by
+// renders through this; the per-preset tile decides wallpaper-vs-recessed by
 // whether it has a resolved thumbnail, so a family with no thumbnails just
 // renders recessed buttons of the same footprint. The tile renderer is the
 // `renderTile` slot or the default.

@@ -20,7 +20,7 @@
 // trigger Xcode's MetalCompile build phase for the bundle target, which would
 // compile all three into a single `default.metallib` inside the bundle and
 // collide on the three `main0` entry points (air-lld duplicate-symbol errors
-// at link time) — exactly the collision the source_files exclusion already
+// at link time); exactly the collision the source_files exclusion already
 // avoids for the main target. The podspec's resource_bundles glob copies
 // KaleidoscopeModule/shaders/*.metalsrc into the bundle as plain text, and we
 // read that SOURCE TEXT here via String(contentsOf:), then hand it to
@@ -36,7 +36,7 @@ struct ShaderLibrary {
 
   /// The raw MSL source text this library was compiled from. Retained so the
   /// generic generative-shader path can parse the spirv-cross `[[buffer(n)]]`
-  /// decorations out of it (see uniformBufferIndices) — the only tractable way
+  /// decorations out of it (see uniformBufferIndices); the only tractable way
   /// to bind arbitrary-named uniforms by index without per-shader Swift. The
   /// fixed-binding shaders (passthrough/blur/composite/transform) ignore it.
   let source: String
@@ -77,7 +77,7 @@ struct ShaderLibrary {
   /// spirv-cross MSL source. This is the keystone of the GENERIC uniform binding
   /// (no per-shader Swift): spirv-cross emits each scalar/vector uniform as a
   /// `constant T& uName [[buffer(n)]]` argument on `main0`, and CRUCIALLY it does
-  /// NOT preserve GLSL declaration order — plasma.metalsrc binds
+  /// NOT preserve GLSL declaration order; plasma.metalsrc binds
   /// uResolution=0, uTime=1, uSpeed=2, uScale=3, uColorA=4, uColorB=5, which is
   /// neither GLSL order nor alphabetical. So a host-side name->index map MUST be
   /// derived from the actual decorations, not assumed. We match every

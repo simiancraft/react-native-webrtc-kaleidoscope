@@ -121,7 +121,7 @@ export function PresetBookMenu<P extends KaleidoscopePresetBook>(props: PresetBo
 
 /**
  * Group a preset book by family and category, and own the active tab and
- * category. The grouping is plain — no hand-rolled memo: React Compiler memoizes
+ * category. The grouping is plain; no hand-rolled memo: React Compiler memoizes
  * it when the library is compiled, and it is cheap to recompute otherwise. The
  * active tab and category are reconciled every render: each survives as long as
  * it is still in the book, else it falls back to the first; so swapping

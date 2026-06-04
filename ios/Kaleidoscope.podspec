@@ -86,7 +86,7 @@ Pod::Spec.new do |s|
   # `#if canImport(livekit_react_native_webrtc)` chains in Registration.swift
   # and the three Processor files. Android's build.gradle is upstream-first
   # (pre-existing inconsistency, tracked separately); do NOT mirror Android
-  # here — the iOS Swift code unconditionally imports the LiveKit module first
+  # here; the iOS Swift code unconditionally imports the LiveKit module first
   # when present, and the chosen dependency must match what Swift imports.
   #
   # The plugin's `pod ... :modular_headers => true` Podfile patch
@@ -97,7 +97,7 @@ Pod::Spec.new do |s|
   #
   # `__dir__` here is `<consumer>/node_modules/react-native-webrtc-kaleidoscope/
   # ios/` at pod-install time, so `../../@livekit/react-native-webrtc`
-  # resolves to `<consumer>/node_modules/@livekit/react-native-webrtc` —
+  # resolves to `<consumer>/node_modules/@livekit/react-native-webrtc`;
   # the same probe app.plugin.js performs at `:117`.
   livekit_fork_path = File.expand_path('../../@livekit/react-native-webrtc', __dir__)
   if File.directory?(livekit_fork_path)

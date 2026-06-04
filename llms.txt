@@ -1,6 +1,6 @@
 # react-native-webrtc-kaleidoscope
 
-> Live, on-device video effects for `react-native-webrtc`, packaged as a managed-Expo-friendly Expo Module. Works on web, Android, and iOS behind one JS facade. Every effect is a **composite**: a back-to-front stack of layers (a bundled image plate, the masked person, a camera blur, or a generative GLSL shader) rendered into the output frame. You drive it with three verbs: `kaleidoscope` (the background/art), `transform` (flip/rotate), and `mask` (the segmentation edge).
+> Live, on-device video effects for `react-native-webrtc`, packaged as a managed-Expo-friendly Expo Module. Works on web, Android, and iOS behind one JS facade. Every effect is a **composite**: a back-to-front stack of layers (a bundled image, the masked person, a camera blur, or a generative GLSL shader) rendered into the output frame. You drive it with three verbs: `kaleidoscope` (the background/art), `transform` (flip/rotate), and `mask` (the segmentation edge).
 
 This file is written for an LLM integrating the library into a consumer app. Follow it top to bottom and you can install it, provision presets, and get a working effect on screen.
 
@@ -30,7 +30,7 @@ plugins: ['react-native-webrtc', 'react-native-webrtc-kaleidoscope'];
 Then generate the native projects:
 
 ```sh
-bunx expo prebuild        # materializes native registration; copies referenced plates/shaders
+bunx expo prebuild        # materializes native registration; copies referenced images/shaders
 ```
 
 The plugin statically parses your preset book at prebuild time and copies **only** the image/shader sources your presets reference into the native bundle. Web needs no prebuild.
@@ -39,11 +39,11 @@ The plugin statically parses your preset book at prebuild time and copies **only
 
 You declare a **preset book** in your own project: a flat catalog of composites, the only things you can command. Each entry is a `Composite`:
 
-- `name` — human label shown in the picker.
-- `taxonomy` — the picker's grouping path, root first: `[group]` or `[group, category]` (e.g. `['Backgrounds', 'Office']`). Group is the tab; category is the second-level menu. (This field is named `taxonomy`, NOT `category`.)
-- `thumbnail?` — optional preview source for the picker tile.
-- `layers` — the painter's stack, rendered back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's own fields:
-  - `shader: 'image'` takes a `source` (a bundled plate id on native; a URL/data-URI also allowed on web).
+- `name`: human label shown in the picker.
+- `taxonomy`: the picker's grouping path, root first: `[group]` or `[group, category]` (e.g. `['Backgrounds', 'Office']`). Group is the tab; category is the second-level menu. (This field is named `taxonomy`, NOT `category`.)
+- `thumbnail?`: optional preview source for the picker tile.
+- `layers`: the painter's stack, rendered back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's own fields:
+  - `shader: 'image'` takes a `source` (a bundled image id on native; a URL/data-URI also allowed on web).
   - `shader: 'direct'` samples the ingest-normalized (upright, non-mirrored) camera frame. `target: 'subject'` = the masked person; `target: 'background'` = the full frame.
   - `shader: 'blur'` (camera-sampling) and the generative shaders (`plasma`, `clouds`, `nebula`, `godrays`, `fireflies`, …) take `uniforms`.
   - `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. `blend` is opaque base / `'normal'` / `'additive'`.
@@ -77,14 +77,14 @@ export const presets = {
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
-  // A packaged multi-layer composite (clouds + a cut-out plate + you).
+  // A packaged multi-layer composite (clouds + a cut-out image + you).
   'wizard-tower': wizardTower,
 } as const satisfies PresetBook;
 ```
 
 ### Fastest bootstrap: copy the demo's book
 
-The repo's `demo/kaleidoscope.preset-book.ts` is a complete, working preset book covering every group (Effects/Blur, Worlds, Backgrounds, Shaders/Plasma). The quickest start is to copy that file into your own project and trim it to what you want, rather than authoring from scratch. Two demo-local references to adjust when you do: it imports `./src/demo-controls` and attaches a `controls` component to each entry (only needed if you also mount the live-controls editor — drop the `controls:` fields otherwise), and it references a demo-owned `./assets/backgrounds/wolf-cave.webp` (replace with your own asset or remove that entry). Everything else imports straight from the package and works as-is.
+The repo's `demo/kaleidoscope.preset-book.ts` is a complete, working preset book covering every group (Effects/Blur, Worlds, Backgrounds, Shaders/Plasma). The quickest start is to copy that file into your own project and trim it to what you want, rather than authoring from scratch. Two demo-local references to adjust when you do: it imports `./src/demo-controls` and attaches a `controls` component to each entry (only needed if you also mount the live-controls editor; drop the `controls:` fields otherwise), and it references a demo-owned `./assets/backgrounds/wolf-cave.webp` (replace with your own asset or remove that entry). Everything else imports straight from the package and works as-is.
 
 ## Use (bind a track, drive three verbs)
 
@@ -174,12 +174,12 @@ Each preset supplies its editor as a `controls` component on the book entry. Pac
 ## Bundled assets you can reference
 
 - **Packaged composites** (multi-layer scenes), each behind `react-native-webrtc-kaleidoscope/composites/<name>`: `wizard-tower`, `wizard-tower-night`, `observation-deck`, `fairy-cave`, `fairy-grotto`, `fairy-hollow`, `underwater`, `nebula`, `simianlights`, `corporate-blobs`, `clouds`. Import the export and spread it into your book.
-- **Background image plates**, filed by category, each behind `react-native-webrtc-kaleidoscope/images/<category>/<leaf>`: e.g. `images/office/office-dark`, `images/home/home-light`, `images/nature/landscape-light`, `images/sci-fi/sci-fi-light`, `images/underwater/oceanscape-dark`, `images/simiancraft/simiancraft-light`, plus a `debug-resolutions` calibration grid. On web a plate `source` can also be any image URL or data URI; native resolves bundled plate ids only.
+- **Background images**, filed by category, each behind `react-native-webrtc-kaleidoscope/images/<category>/<leaf>`: e.g. `images/office/office-dark`, `images/home/home-light`, `images/nature/landscape-light`, `images/sci-fi/sci-fi-light`, `images/underwater/oceanscape-dark`, `images/simiancraft/simiancraft-light`, plus a `debug-resolutions` calibration grid. On web an image `source` can also be any image URL or data URI; native resolves bundled image ids only.
 
 ## Web vs native differences
 
 - **Output track.** Web rebuilds the pipeline per `kaleidoscope`/`transform` command and yields a NEW `MediaStreamTrack` (read it via `onTrack`); native mutates the bound track in place. `mask` never rebuilds.
-- **Image source.** Native accepts a bundled plate id only (the upstream `_setVideoEffects` registry is keyed by flat strings); web accepts a plate id, a URL, or a data URI.
+- **Image source.** Native accepts a bundled image id only (the upstream `_setVideoEffects` registry is keyed by flat strings); web accepts an image id, a URL, or a data URI.
 - **Web model fetch.** The web compositor loads MediaPipe Selfie Segmentation from `cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation` on first use; a strict CSP must allow that origin (`script-src`/`connect-src`/WASM), and effects do not work offline. `transform` needs no model.
 - **Web browser support.** Insertable Streams ship in Chromium (Chrome, Edge); Safari and Firefox lack the API and throw a clear capability error, so feature-detect before binding.
 - **Tree-shaking.** Plates are per-file subpath exports and the package is `sideEffects: false`, so web bundlers drop unused ones; Metro (native) simply never imports them.
@@ -192,7 +192,7 @@ Each preset supplies its editor as a `controls` component on the book entry. Pac
 
 ## Reference
 
-- README.md — the same integration story with previews of the bundled composites and plates.
-- PATTERNS.md — file-layout conventions, the texture-orientation contract, and recipes for adding effects/shaders/presets/tunable parameters.
-- shaders/README.md — authoring and extending shaders and their control descriptors.
+- README.md: the same integration story with previews of the bundled composites and images.
+- PATTERNS.md: file-layout conventions, the texture-orientation contract, and recipes for adding effects/shaders/presets/tunable parameters.
+- shaders/README.md: authoring and extending shaders and their control descriptors.
 - Sibling projects [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge) share this project's OSS-hygiene template.

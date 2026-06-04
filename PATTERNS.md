@@ -96,7 +96,7 @@ Run after editing any `.frag` / `.vert`, then commit the regenerated files:
 CI enforces freshness with `bun run check:shaders`: it regenerates and
 `git diff --exit-code`s the **deterministic** codegen (`ShadersGenerated.kt`,
 `shaders.generated.ts`), so a `.frag` edit pushed without regenerating fails
-the build. The transpiled `.metalsrc` is intentionally NOT diffed — spirv-cross
+the build. The transpiled `.metalsrc` is intentionally NOT diffed; spirv-cross
 emits slightly different MSL across tool versions, so diffing it across
 machines would flag false drift; the Kotlin/TS copies already catch any stale
 `.frag`. The check is CI-only, so contributors who don't touch shaders need
@@ -144,7 +144,7 @@ Consequences a contributor must not undo:
   breaks another effect" across web/Android/iOS during development).
 
 If a device shows the WHOLE frame rotated or mirrored wrong, it is an ingest
-calibration, not an effect bug: flip exactly one constant, per platform —
+calibration, not an effect bug: flip exactly one constant, per platform:
 `Ingest.ROTATION_DIRECTION` (rotation sign) or `Ingest.INGEST_MIRROR_X`
 (horizontal mirror). The web pipeline (canvas, display-space) is the
 orientation source of truth; native must match it.
@@ -166,7 +166,7 @@ web's mask flip or copying iOS's bg flip onto Android breaks that platform.
 ### Segmentation mask buffer ownership
 
 The mask the compositor reads must be a buffer the segmenter OWNS and hands out
-fresh per cycle — Android allocates a fresh bitmap (`Mask.kt`), iOS dequeues
+fresh per cycle; Android allocates a fresh bitmap (`Mask.kt`), iOS dequeues
 from a `CVPixelBufferPool` (`Segmenter.swift`). It must NOT be the live buffer
 the segmentation framework hands back (Vision recycles it) or a shallow reused
 ring: frame-pipelining keeps a mask texture GPU-referenced across multiple
@@ -286,7 +286,7 @@ strings. If a helper does anything *with* the pipeline (mask production,
 specific effects' state, etc.), it goes in a domain folder
 (`segmentation/`, `effects/`).
 
-The iOS equivalent is `ios/KaleidoscopeModule/gpu/` — Metal + CoreImage
+The iOS equivalent is `ios/KaleidoscopeModule/gpu/`; Metal + CoreImage
 primitives with no domain logic: `Ingest.swift` (orientation normalization),
 `Orientation.swift` (transform-op matrices), `MetalRenderer.swift` (pipelines
 and passes), `TextureBridge.swift` (ingest + texture/pool utilities). The Metal

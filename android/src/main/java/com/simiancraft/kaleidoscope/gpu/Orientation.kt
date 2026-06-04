@@ -15,7 +15,7 @@
 //   rotate-cw / rotate-ccw                            -> swap axes (+ a sign)
 //
 // There is no per-effect rotation/flip compensation anywhere; if a screenshot
-// shows the WHOLE frame rotated wrong, that is an ingest problem — flip
+// shows the WHOLE frame rotated wrong, that is an ingest problem; flip
 // Ingest.ROTATION_DIRECTION, do not add a correction here.
 //
 // mat2 column-major convention: floatArrayOf(a, b, c, d) builds the GLSL mat2

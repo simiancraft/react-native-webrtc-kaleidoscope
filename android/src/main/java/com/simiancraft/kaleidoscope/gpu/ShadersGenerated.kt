@@ -8,7 +8,7 @@
 package com.simiancraft.kaleidoscope.gpu
 
 internal object ShadersGenerated {
-    const val PASSTHROUGH_VERT = """#version 300 es
+  const val PASSTHROUGH_VERT = """#version 300 es
 precision highp float;
 out highp vec2 vUv;
 void main() {
@@ -18,7 +18,7 @@ void main() {
 }
 """
 
-    const val COMPOSITE_FRAG = """#version 300 es
+  const val COMPOSITE_FRAG = """#version 300 es
 precision mediump float;
 uniform sampler2D uOriginal;
 uniform sampler2D uBackground;
@@ -43,7 +43,7 @@ void main() {
 }
 """
 
-    const val COMPOSITE_CAMERA_FRAG = """#version 300 es
+  const val COMPOSITE_CAMERA_FRAG = """#version 300 es
 precision highp float;
 uniform sampler2D uCamera;
 in highp vec2 vUv;
@@ -53,7 +53,7 @@ void main() {
 }
 """
 
-    const val COMPOSITE_BLUR_FRAG = """#version 300 es
+  const val COMPOSITE_BLUR_FRAG = """#version 300 es
 precision highp float;
 uniform sampler2D uTex;
 uniform vec2 uDir;
@@ -79,7 +79,7 @@ void main() {
 }
 """
 
-    const val TRANSFORM_FRAG = """#version 300 es
+  const val TRANSFORM_FRAG = """#version 300 es
 precision mediump float;
 uniform sampler2D uTex;
 uniform mat2 uUvTransform;
@@ -91,7 +91,7 @@ void main() {
 }
 """
 
-    const val PLASMA_FRAG = """#version 300 es
+  const val PLASMA_FRAG = """#version 300 es
 precision highp float;
 
 uniform float uTime;       // seconds, monotonically increasing; range [0, inf)
@@ -127,7 +127,7 @@ void main() {
 }
 """
 
-    const val CLOUDS_FRAG = """#version 300 es
+  const val CLOUDS_FRAG = """#version 300 es
 precision highp float;
 
 uniform float uTime;
@@ -227,7 +227,7 @@ void main() {
 }
 """
 
-    const val NEBULA_FRAG = """#version 300 es
+  const val NEBULA_FRAG = """#version 300 es
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
@@ -358,7 +358,7 @@ void main() {
 }
 """
 
-    const val GODRAYS_FRAG = """#version 300 es
+  const val GODRAYS_FRAG = """#version 300 es
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing
@@ -433,7 +433,7 @@ void main() {
 }
 """
 
-    const val FIREFLIES_FRAG = """#version 300 es
+  const val FIREFLIES_FRAG = """#version 300 es
 precision highp float;
 
 uniform float uTime;
@@ -487,7 +487,7 @@ void main() {
 }
 """
 
-    const val SIMIANLIGHTS_FRAG = """#version 300 es
+  const val SIMIANLIGHTS_FRAG = """#version 300 es
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
@@ -618,7 +618,7 @@ void main() {
 }
 """
 
-    const val ANAMORPHIC_LENSFLARE_FRAG = """#version 300 es
+  const val ANAMORPHIC_LENSFLARE_FRAG = """#version 300 es
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
@@ -728,11 +728,10 @@ void main() {
 }
 """
 
-    // Generative background shaders, by name. The generic shader processor and
-    // directory-driven registration iterate this; adding a generative .frag adds
-    // an entry here automatically.
-    val GENERATIVE: Map<String, String> =
-        mapOf(
-            "plasma" to PLASMA_FRAG,
-        )
+  // Generative background shaders, by name. The generic shader processor and
+  // directory-driven registration iterate this; adding a generative .frag adds
+  // an entry here automatically.
+  val GENERATIVE: Map<String, String> = mapOf(
+    "plasma" to PLASMA_FRAG,
+  )
 }

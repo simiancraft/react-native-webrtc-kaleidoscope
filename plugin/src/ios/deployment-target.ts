@@ -38,7 +38,7 @@ function isVersionLessThan(existing: string | undefined, target: string): boolea
  *
  * Reads the file by hand (not readTextOrNull) because it must DISTINGUISH a
  * missing file (treat as `{}` and write the bump) from an unreadable one (bail
- * without clobbering) — a distinction readTextOrNull deliberately flattens.
+ * without clobbering); a distinction readTextOrNull deliberately flattens.
  */
 export function bumpDeploymentTarget(platformProjectRoot: string): void {
   const propsPath = path.join(platformProjectRoot, 'Podfile.properties.json');

@@ -12,8 +12,8 @@
 // The registry is now just TWO things (the effect-unification collapse, Phase C):
 //   - the four geometric transform ops (flip-x/flip-y/rotate-cw/rotate-ccw),
 //     sharing one TransformProcessor + transform.metalsrc, and
-//   - one "composite" compositor (CompositeProcessor): EVERY art effect — images,
-//     blur, generative shaders, masked subjects — is now a LAYER inside a
+//   - one "composite" compositor (CompositeProcessor): EVERY art effect (images,
+//     blur, generative shaders, masked subjects) is now a LAYER inside a
 //     composite, delivered out-of-band via setCompositeLayers (CompositeLayers) and
 //     composited per frame. The per-effect art processors (background-image-<id>,
 //     the bare generative names, blur) and their data-driven registration are

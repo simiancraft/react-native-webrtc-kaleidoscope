@@ -25,7 +25,7 @@ export default [
     rules: {
       // Report EVERY component the compiler would BAIL OUT of (skip), not just
       // hard Rules-of-React errors. We compile the whole library with React
-      // Compiler, so a skipped component ships unoptimized — that must fail the
+      // Compiler, so a skipped component ships unoptimized; that must fail the
       // gate. Non-deterministic gestures (try/catch, etc.) cause skips; this
       // makes the linter catch them so every component stays compilable.
       'react-compiler/react-compiler': ['error', { __unstable_donotuse_reportAllBailouts: true }],

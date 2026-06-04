@@ -46,10 +46,10 @@ These come from `org.json` (Android) vs Foundation `JSONSerialization` (iOS) and
 only occur on inputs `serializeCompositeLayers` never emits, so they are harmless
 today. They are documented, not tested, until we decide to converge or keep them:
 
-1. **Boolean uniform value.** `{"uColor": true}` — iOS accepts it as `1.0`
+1. **Boolean uniform value.** `{"uColor": true}`; iOS accepts it as `1.0`
    (Foundation deserializes JSON bools as `NSNumber`); Android skips it
    (`org.json` yields a `Boolean`, not a `Number`).
-2. **Wrong-typed `shader`.** `{"shader": 5}` — Android coerces to `"5"` and keeps
+2. **Wrong-typed `shader`.** `{"shader": 5}`; Android coerces to `"5"` and keeps
    the layer; iOS skips it (a non-`String` fails the cast).
-3. **Wrong-typed `target`.** `{"target": 1}` — Android coerces to `"1"`; iOS
+3. **Wrong-typed `target`.** `{"target": 1}`; Android coerces to `"1"`; iOS
    falls back to `"background"`.

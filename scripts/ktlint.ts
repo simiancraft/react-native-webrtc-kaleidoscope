@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Kotlin format + lint gate via ktlint, standalone (no Android SDK needed — just
+// Kotlin format + lint gate via ktlint, standalone (no Android SDK needed, just
 // a JVM). The Android module's gradle build needs the SDK (`check:android`), but
 // ktlint runs on the `.kt` source directly, so this works in CI and locally where
 // gradle-android cannot. Default: check (fail on issues). `--format` / `-F`:

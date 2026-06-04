@@ -121,7 +121,7 @@ if (loadErrs.length) {
   for (const e of loadErrs) console.log(`  ${e.text}`);
 }
 if (results.length === 0) {
-  console.log('NO PRESETS DRIVEN — the app did not render or the picker was empty.');
+  console.log('NO PRESETS DRIVEN; the app did not render or the picker was empty.');
   process.exit(1);
 }
 process.exit(failed.length === 0 && loadErrs.length === 0 ? 0 : 1);

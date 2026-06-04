@@ -126,7 +126,7 @@ extension MetalRenderer {
 
   /// Draw one image (plate) layer into the open composite encoder. Binds uCoverScale
   /// at buffer(0), the plate texture at texture(0), the shared sampler at
-  /// sampler(0) — matching composite-image.metalsrc. Sets the pipeline (which carries
+  /// sampler(0); matching composite-image.metalsrc. Sets the pipeline (which carries
   /// the blend mode) and draws the fullscreen quad.
   func drawCompositeImageLayer(
     encoder: MTLRenderCommandEncoder,
@@ -200,7 +200,7 @@ extension MetalRenderer {
 
   /// Draw the raw camera fullscreen (direct/background) into the open composite
   /// encoder. Binds the camera texture at texture(0), the shared sampler at
-  /// sampler(0) — matching composite-camera.metalsrc. No uniform buffers. Mirrors
+  /// sampler(0); matching composite-camera.metalsrc. No uniform buffers. Mirrors
   /// CompositeFactory.drawCameraLayer (Android) / the direct/background branch in
   /// composite.ts.
   func drawCompositeCameraLayer(
@@ -218,7 +218,7 @@ extension MetalRenderer {
   /// with a content-UV transform that folds in the scratch's per-pass V parity.
   /// Used for a blur/background layer. Binds uContentUvScale at buffer(0),
   /// uContentUvOffset at buffer(1), the scratch at texture(0), the shared sampler
-  /// at sampler(0) — matching composite-blit.metalsrc. Mirrors CompositeFactory.drawBlit
+  /// at sampler(0); matching composite-blit.metalsrc. Mirrors CompositeFactory.drawBlit
   /// (Android) / the blur/background blit in composite.ts.
   func drawCompositeBlitLayer(
     encoder: MTLRenderCommandEncoder,

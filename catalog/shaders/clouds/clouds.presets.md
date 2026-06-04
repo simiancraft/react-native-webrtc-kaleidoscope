@@ -36,7 +36,7 @@ Shared shape knobs: `STEPS` 64, `CLOUD_SCALE` 0.65, `DENSITY` 0.07,
 - `TRANSPARENT_BACKGROUND 0` → opaque sky + clouds: a full **background** layer.
 - `TRANSPARENT_BACKGROUND 1` → clouds only, **premultiplied alpha**: a transparent
   **overlay** layer. The compositor must blend it premultiplied (`dst*(1-a) + rgb`)
-  and must NOT re-apply gamma — the shader already skips the gamma lift on this
+  and must NOT re-apply gamma; the shader already skips the gamma lift on this
   path, which is correct for a premultiplied, to-be-composited buffer.
 
 ## Integration TODO (when wired into the channel)

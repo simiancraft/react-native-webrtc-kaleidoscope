@@ -9,7 +9,7 @@ import type { DangerousMod, ExpoConfig, ModConfig, ModRequest, PlatformMods } fr
  *   - CHAIN any previously registered dangerous mod (run it first, cooperate),
  *   - run `patch` with the resolved mod request,
  *   - return `result` (the chained mod's config), which is what Expo's dangerous
- *     base provider asserts on — NOT the original `config`.
+ *     base provider asserts on, NOT the original `config`.
  *
  * `patch` decides its own guards (which fields of the request it needs) and is
  * responsible for being non-fatal; the wrapper never throws on its behalf.

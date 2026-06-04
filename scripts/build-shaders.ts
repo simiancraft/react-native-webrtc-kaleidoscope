@@ -85,7 +85,7 @@ const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 // Code-generation targets, in deterministic emit order. iOS transpiles
 // everything in shaders/ regardless; these lists pick which shaders also get
 // code-generated into the Android Kotlin and web TS layers. They differ because
-// transform.frag is used by the native pipelines only — web reorients in
+// transform.frag is used by the native pipelines only; web reorients in
 // display space via canvas, so emitting its const to web would be dead code.
 const ANDROID_CODEGEN = [
   'passthrough.vert',
@@ -123,7 +123,7 @@ const ALL_CODEGEN = Array.from(new Set<string>([...ANDROID_CODEGEN, ...WEB_CODEG
 
 // Generative background shaders: the ones the generic shader processor runs
 // (animated, no input sampling). Emitted into a name->source registry on web
-// and Android so the dispatch and native registration are data-driven —
+// and Android so the dispatch and native registration are data-driven;
 // adding one here (plus the .frag and its option contract) is all it takes,
 // no per-shader dispatch case or native processor. Must be a subset of the
 // codegen lists above. Utility shaders (blur, composite, transform) are not
@@ -314,7 +314,7 @@ async function main(): Promise<void> {
 
   // 3. Stamp the iOS bundle with the shader list (PR-diff aid), and emit the
   // generative-shader names so iOS registration is data-driven (reads this at
-  // runtime and registers one generic processor per name) — the iOS analogue of
+  // runtime and registers one generic processor per name); the iOS analogue of
   // the Android GENERATIVE map. Adding a generative .frag updates this list.
   writeFileSync(join(METAL_OUT_DIR, 'SHADERS.txt'), `${files.sort().join('\n')}\n`);
   writeFileSync(

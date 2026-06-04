@@ -256,7 +256,7 @@ const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   //     violates the React Native bridge's nonnull contract. The supported
   //     clear value is `[]`, which iOS's VideoEffectProcessor treats as a
   //     passthrough (no double-release bug on this platform).
-  // The explicit type annotation is required — without it TS widens the
+  // The explicit type annotation is required; without it TS widens the
   // empty-array literal to `never[] | null`.
   const clearValue: ReadonlyArray<string> | null = Platform.OS === 'ios' ? [] : null;
   t._setVideoEffects(names.length === 0 ? clearValue : names);

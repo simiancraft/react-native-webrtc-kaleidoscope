@@ -37,11 +37,11 @@
 | Web (Chrome / Edge) | ✓ | ✓ | ✓ | MediaStreamTrackProcessor + MediaPipe Selfie Segmentation (WASM, CDN) |
 | Android (API 24+) | ✓ | ✓ | ✓ | OpenGL ES 3.0 + MediaPipe Selfie Segmentation (Tasks) |
 | iOS (≥ 15) | ✓ | ✓ | ✓ | Metal + MediaPipe Selfie Segmentation (Tasks), verified on device. Older A11 devices (iPhone X) run at a lower frame rate |
-| Safari / Firefox | — | — | — | No Insertable Streams; the effects throw a clear capability error |
+| Safari / Firefox | n/a | n/a | n/a | No Insertable Streams; the effects throw a clear capability error |
 
 ### Coming soon
 
-- **Animated image-image backgrounds**: a bundled still that moves (beyond the procedural shaders, which already render behind the person today). Same composite path; the new piece is a per-effect background producer for animated images.
+- **Animated image backgrounds**: a bundled still that moves (beyond the procedural shaders, which already render behind the person today). Same composite path; the new piece is a per-effect background producer for animated images.
 - A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
 ## Install
@@ -253,7 +253,7 @@ The `clouds` (Sky) composite also ships; its preview tile is pending.
 
 ## Background presets
 
-The bundled backgrounds ship as `image` layers, filed by category and imported per image (e.g. `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`). On web a image can also be any image URL or data URI; native resolves bundled image ids only.
+The bundled backgrounds ship as `image` layers, filed by category and imported per image (e.g. `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`). On web an image can also be any image URL or data URI; native resolves bundled image ids only.
 
 | Category | Light | Dark |
 |---|---|---|

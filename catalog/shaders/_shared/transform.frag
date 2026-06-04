@@ -1,4 +1,4 @@
-// Transform: a pure geometric reorientation of the input texture — an axis
+// Transform: a pure geometric reorientation of the input texture, an axis
 // flip or a 90-degree rotation. One shader serves all four ops (flip-x,
 // flip-y, rotate-cw, rotate-ccw); the host computes uUvTransform from the
 // desired SCREEN-space op and the frame's rotation via its platform Orientation

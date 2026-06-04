@@ -2,7 +2,7 @@
 
 Bundled images for `image` layers. An `image` layer is one entry in a composite's
 layer stack: `{ id, shader: 'image', source }`, where `source` is the image.
-Import a image and use it as that `source` (and, usually, as the composite's
+Import an image and use it as that `source` (and, usually, as the composite's
 `thumbnail`):
 
 ```ts
@@ -99,7 +99,7 @@ asset the plugin resolves statically).
 
 ## Image format: two kinds
 
-A image is composited behind the segmented subject and sampled with bilinear
+An image is composited behind the segmented subject and sampled with bilinear
 filtering and no mipmaps, so resolution beyond the output video size is discarded;
 it costs decode time, memory, and upload bandwidth without improving the picture.
 Smaller, well-sized assets shorten load and switch latency; they do not change
@@ -129,7 +129,7 @@ kept crisp (~750 KB), not a photographic background.
 
 ### Alpha image (transparency)
 
-A image with transparent regions: a cutout that lets a lower layer (the night sky,
+An image with transparent regions: a cutout that lets a lower layer (the night sky,
 a shader) show through, or a logo. Keep the alpha; never flatten it.
 
 - **Photographic cutout** (the `fairy-caves`, `spaceship`, `wizard-tower` scenes):
@@ -169,7 +169,7 @@ convert <image> -resize "320x180^" -gravity center -extent 320x180 \
   -quality 80 -define webp:method=6 <leaf>.thumb.webp
 ```
 
-## Adding a image
+## Adding an image
 
 1. Pick or create the category folder `images/<category>/`.
 2. Drop the optimized `<leaf>.webp` in it (pick the encoding for its kind, above).

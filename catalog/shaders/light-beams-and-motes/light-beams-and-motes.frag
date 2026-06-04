@@ -15,7 +15,7 @@
 // products collapse to banded garbage and the mote distribution dies. Same
 // reasoning as simianlights/blur.
 //
-// Alpha: STRAIGHT (non-premultiplied) — oColor.rgb is accumulated independently
+// Alpha: STRAIGHT (non-premultiplied); oColor.rgb is accumulated independently
 // of oColor.a, preserving the prototype's look. If the layer compositor expects
 // premultiplied input (godrays emits premultiplied), premultiply at integration;
 // this matches the staged state of the other overlays (fireflies emits straight

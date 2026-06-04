@@ -31,9 +31,9 @@ export type CopyRef = {
 /**
  * Copy each resolvable ref into `destDir` as `<id>.webp`, returning the ids
  * copied. `mkdir`s the destination, warns (never throws) on an unresolvable ref,
- * and skips it. The single mover both platforms call; the platform difference —
+ * and skips it. The single mover both platforms call; the platform difference (
  * Android merges into `assets/`, iOS copies into the app target and registers in
- * the pbxproj — lives in the platform asset modules, not here.
+ * the pbxproj) lives in the platform asset modules, not here.
  */
 export function copyRefs(refs: ReadonlyArray<CopyRef>, destDir: string): string[] {
   if (refs.length === 0) return [];

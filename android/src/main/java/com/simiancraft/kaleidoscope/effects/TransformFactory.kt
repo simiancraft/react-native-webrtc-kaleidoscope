@@ -1,4 +1,4 @@
-// Android transform effects — GPU pipeline. One factory class serves all four
+// Android transform effects: GPU pipeline. One factory class serves all four
 // geometric reorientation ops (flip-x, flip-y, rotate-cw, rotate-ccw); each
 // registration passes a different Orientation.Op.
 //
@@ -123,7 +123,7 @@ private class TransformProcessor(
         }
         val inputBuffer = frame.buffer
         if (inputBuffer !is VideoFrame.TextureBuffer) {
-            // Chained after a CPU effect emitting I420 — silently forward.
+            // Chained after a CPU effect emitting I420; silently forward.
             return null
         }
         // Both texture types are valid inputs:

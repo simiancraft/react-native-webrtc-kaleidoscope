@@ -172,7 +172,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     // Step 2: mask, only if a subject layer is present. Unlike the single-effect
     // processors (which forward the original until a mask warms up), a composite's
     // BACKGROUND layers are mask-independent, so we composite the stack regardless
-    // and skip ONLY the subject layer when no mask has completed yet — mirroring
+    // and skip ONLY the subject layer when no mask has completed yet; mirroring
     // CompositeFactory, which draws the rest of the stack and skips the subject on
     // maskTexId == -1. Always kick a new segmentation if idle so the mask keeps
     // refreshing.
@@ -291,7 +291,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
   // fullscreen (image cover-fit, direct raw camera, blur the two-pass gaussian,
   // generative its frag). Any failure to build a pipeline / load a plate / compile
   // a shader skips THIS layer (logged once) rather than aborting the frame, so a
-  // partial composite still composites — mirroring CompositeFactory's per-layer skips.
+  // partial composite still composites; mirroring CompositeFactory's per-layer skips.
   //
   // Each output draw opens its OWN composite encoder (clear on the first actual draw,
   // load after); scratch-backed layers render their content in a separate pass
@@ -477,7 +477,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
   //     (scratchOddParity). This restores the same orientation the layer would
   //     have had drawn directly (the composite-image -sy cover term included).
   // If a subject generative/image renders vertically inverted on device, flip the
-  // scratchOddParity term to even (and vice-versa) — that single constant is the
+  // scratchOddParity term to even (and vice-versa); that single constant is the
   // calibration knob, exactly like BlurProcessor's bgUvScale.
   private func renderContentToScratch(
     commandBuffer: MTLCommandBuffer,

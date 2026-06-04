@@ -1,4 +1,4 @@
-# Commit-time gate: keep the tree clean as we go. FAST checks only — the heavy
+# Commit-time gate: keep the tree clean as we go. FAST checks only; the heavy
 # gate (build, demo build, test, knip, publint, shader/plugin drift) stays in CI
 # and `bun run check`. Native lint/format (ktlint/detekt/SwiftLint/SwiftFormat,
 # W8) is not here: it needs the Android SDK / a Swift toolchain that this hook,
@@ -12,7 +12,7 @@ pre-commit:
       glob: '*.{ts,tsx,js,jsx,mjs,json}'
       run: bunx biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
-    # Whole-project typechecks (can't be staged-scoped) — fast under tsgo.
+    # Whole-project typechecks (can't be staged-scoped); fast under tsgo.
     - name: typecheck
       run: bun run typecheck
     - name: typecheck-test

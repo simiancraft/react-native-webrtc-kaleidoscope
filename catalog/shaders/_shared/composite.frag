@@ -1,5 +1,5 @@
 // Composite: mix(background, original, mask). Same shader serves blur,
-// background-image, and future procedural backgrounds; the per-effect
+// bundled images, and future procedural backgrounds; the per-effect
 // difference lives upstream in how uBackground is produced.
 //
 // UV convention: vUv = (0, 0) at bottom-left, (1, 1) at top-right.
@@ -9,7 +9,7 @@
 // PER-PLATFORM V-FLIP PARITY (verified; do NOT unify or "clean up" to identity).
 // The vertical flip a composite path needs comes from each platform's
 // texture-origin convention plus render-pass parity (the odd ping-pong pass
-// count) — NOT from camera orientation, which is normalized once at the ingest.
+// count); NOT from camera orientation, which is normalized once at the ingest.
 // It lands on a DIFFERENT uniform per platform:
 //   - Web (blur AND background): uMaskUvScale=(1,-1), uMaskUvOffset=(0,1);
 //     uBgUvScale/Offset carry cover-fit only.

@@ -41,12 +41,12 @@ background. So your `.frag`:
 
 ## Adding a shader
 
-1. **GLSL** — `catalog/shaders/<name>/<name>.frag`. Write the fragment against the
+1. **GLSL**: `catalog/shaders/<name>/<name>.frag`. Write the fragment against the
    contract above.
-2. **Types + control descriptor** — `catalog/shaders/<name>/<name>.ts`:
+2. **Types + control descriptor**: `catalog/shaders/<name>/<name>.ts`:
    - `export type <Name>Uniforms = { … }` (each uniform; colors are `RGB`,
      scalars are `number`). This is the single source for the layer's view model.
-   - `export const <NAME>_CONTROLS: readonly UniformControl[]` — one entry per
+   - `export const <NAME>_CONTROLS: readonly UniformControl[]`: one entry per
      tunable uniform with `name`, `kind` (`'float'` | `'color'`), `default`,
      range (`min`/`max`/`step` for floats), and a `doc` string. This descriptor
      is what drives the editor (see "Controls come free" below) and documents the
@@ -61,7 +61,7 @@ background. So your `.frag`:
    - `web-driver/effects/layer-shaders.ts`: map `<name>` to its generated
      `<NAME>_FRAG_SRC` const in `LAYER_SHADER_SOURCES` (the web compositor and the
      native compositors dispatch on the name; there is no per-effect file).
-4. **Codegen** — `bun run build:shaders`, then commit the regenerated web/Android
+4. **Codegen**: `bun run build:shaders`, then commit the regenerated web/Android
    sources. CI's `bun run check:shaders` regenerates and `git diff --exit-code`s
    the deterministic codegen, so a `.frag` edit pushed without regenerating fails
    the build.

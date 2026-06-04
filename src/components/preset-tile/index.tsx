@@ -1,4 +1,4 @@
-// Leaf: one preset tile. The single item shape for every family — it prints the
+// Leaf: one preset tile. The single item shape for every family; it prints the
 // label and, if the preset has a resolved thumbnail, paints it as a wallpaper
 // behind the label; with no thumbnail it is a recessed pressable button of the
 // SAME footprint, so a thumbnail-less preset never breaks the grid's flow. The

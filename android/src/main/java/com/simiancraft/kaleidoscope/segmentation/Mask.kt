@@ -12,7 +12,7 @@
 //   2. If no segmentation is currently in flight, render a small downsample
 //      snapshot of the input and submit it to the SegmentationEngine.
 //   3. Return the current mask GL texture handle (or -1 if no mask has
-//      completed yet — caller falls through to the original frame).
+//      completed yet; caller falls through to the original frame).
 //
 // The engine hands the raw foreground-confidence mask back (on its worker
 // thread) via packMask(), which applies EMA smoothing, flips the mask back into

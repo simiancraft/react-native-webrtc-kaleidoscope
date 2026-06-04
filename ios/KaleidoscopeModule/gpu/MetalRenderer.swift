@@ -458,7 +458,7 @@ final class MetalRenderer {
     // shader (shaders/passthrough.vert) computes both gl_Position and vUv
     // from gl_VertexID alone for IDs 0..3, forming a quad that covers the
     // full NDC viewport. A 3-vertex .triangle call here would draw only
-    // half the screen — the triangle ((-1,-1), (1,-1), (-1,1)) — with the
+    // half the screen, the triangle ((-1,-1), (1,-1), (-1,1)), with the
     // hypotenuse cutting diagonally across the frame, the SYMPTOM that
     // motivated this fix (half-black with diagonal staircase aliasing).
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
@@ -580,7 +580,7 @@ final class MetalRenderer {
   /// so this method stays NAME-AGNOSTIC: it knows only indices and byte layouts,
   /// never a uniform's meaning. A scalar binds as a single Float (4 bytes); a
   /// 2/3/4-component vector binds as a tightly packed [Float] whose byte count is
-  /// the element count * 4 — matching MSL's `constant float&` / `float2&` /
+  /// the element count * 4; matching MSL's `constant float&` / `float2&` /
   /// `float3&` / `float4&` argument layout (spirv-cross packs float3 as 16 bytes
   /// in a buffer; see the float3 caveat in ShaderProcessor where the host pads).
   func encodeGenerative(

@@ -33,13 +33,13 @@
 // ── HOW TO CONFIRM SUCCESS (an LLM can run these) ───────────────────────────
 //   1. Transparent %: this script prints it. It should ≈ the area you meant to
 //      cut. A jump well above that means --fuzz is eating the scene; back off.
-//   2. Leftover-crust count (catches DARK fringe a brightness test misses) —
+//   2. Leftover-crust count (catches DARK fringe a brightness test misses):
 //      count non-transparent magenta-HUE pixels (green well below red AND blue):
 //        magick OUT -channel RGBA \
 //          -fx 'a>0.5 && g<r && g<b && (r-g)>0.08 && (b-g)>0.08 && r>0.12 ? 1 : 0' \
 //          -alpha off -colorspace gray -format '%[fx:round(mean*w*h)]' info:
 //      0 == clean. (A bright-only test like `g<0.3 && b>0.45` will read 0 even
-//      when a dark fringe remains — that mistake happened; use the hue test.)
+//      when a dark fringe remains; that mistake happened; use the hue test.)
 //   3. Eyeball it: composite over a flat contrasting color and zoom the edge:
 //        magick OUT -background '#00b140' -flatten over.png
 //
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
       ]
     : ['-fuzz', `${fuzz}%`, '-transparent', color];
 
-  // The ImageMagick pipeline, token by token (order matters — operators apply
+  // The ImageMagick pipeline, token by token (order matters; operators apply
   // left to right to the image in flight):
   //   ${input}                 read the source image.
   //   -alpha set               ensure an alpha channel exists to write into
