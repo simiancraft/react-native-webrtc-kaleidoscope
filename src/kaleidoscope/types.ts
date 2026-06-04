@@ -14,76 +14,19 @@
 // normalized 0..1 where practical; ranges are documented in JSDoc as hints for
 // IntelliSense and tooling, not enforced at runtime (validation is userland).
 
-import type { ComponentType } from 'react';
+import type { KaleidoscopePresetBook } from '../kaleidoscope.preset-book.types';
 import type { PatchableShaderName, ShaderUniformsMap } from '../shaders';
-import type { KaleidoscopeLayer } from '../types';
 
-/**
- * A composite's place in the browser: an ordered path of group names, deepest
- * last. One level (`['Backgrounds']`) is a flat group; two
- * (`['Worlds', 'Wizard Tower']`) is group then subgroup. The list IS the depth,
- * so there is no way to set a group without its parent. Extend to three levels by
- * adding a member here when needed.
- */
-export type KaleidoscopeTaxonomy = readonly [string] | readonly [string, string];
-
-/**
- * A composite: an ordered painter's stack of layers under one book name, plus
- * display metadata (`name`, `taxonomy`, optional `thumbnail`). `kaleidoscope(id)`
- * runs the whole stack as one effect through the one compositor.
- */
-export type KaleidoscopePreset = {
-  /** Human-readable label for the picker. */
-  readonly name: string;
-  /** Grouping path for the picker, root first (e.g. `['Worlds', 'Wizard Tower']`). */
-  readonly taxonomy: KaleidoscopeTaxonomy;
-  /**
-   * Optional thumbnail source for the picker rail.
-   * - `string`: a resolved URL (web) or native preset name routed through
-   *   `resolveBackgroundUri`.
-   * - `number`: a Metro asset module id (the result of `require('./foo.webp')`),
-   *   consumed directly by `<Image source={number}>` without a URI hop. The
-   *   library's packaged composites use this on native (their `.web.ts` siblings
-   *   use the string form via `Asset.fromModule(...).uri`).
-   */
-  readonly thumbnail?: string | number;
-  /** The painter's stack, back to front. Each layer's `id` is unique here. */
-  readonly layers: ReadonlyArray<KaleidoscopeLayer>;
-  /**
-   * Optional editor for this preset: a component (e.g. a `<KaleidoscopePreset>Controls`)
-   * the Tuner renders, which mounts a `ControlForm` + `ControlSection` per tunable
-   * layer. The Tuner supplies the chrome wrapper at the layer level, so this
-   * component composes shader fragments and must not add its own. `undefined`
-   * renders nothing. The `import type` keeps composites runtime-React-free.
-   */
-  readonly controls?: ComponentType<KaleidoscopeControls>;
-};
-
-/**
- * What the Tuner passes a preset's `controls` component: the per-layer baked
- * uniforms keyed by layer id, and the single shared `onPatch` every layer's
- * `ControlForm` emits through (the `id` discriminates). Intentionally loose at
- * this boundary (heterogeneous layers); per-shader typing is recovered inside
- * each `<Shader>Controls` via `makeControls<U>()`.
- */
-export type KaleidoscopeControls = {
-  readonly uniforms: Readonly<Record<string, Readonly<Record<string, number | readonly number[]>>>>;
-  readonly onPatch: (patch: {
-    readonly id: string;
-    readonly uniforms: Record<string, number | readonly number[]>;
-  }) => void;
-  readonly disabled?: boolean;
-};
-
-/** The consumer's book: a flat record of composites keyed by id. */
-export type KaleidoscopePresetBook = Readonly<Record<string, KaleidoscopePreset>>;
-
-/**
- * A materialized book entry: a `KaleidoscopePreset` plus the `id` it was keyed by. This
- * is what the picker and the tuner iterate (the book is keyed; this carries the
- * key inline so a flattened list keeps its identity).
- */
-export type KaleidoscopePresetEntry = { readonly id: string } & KaleidoscopePreset;
+// The declarative preset-book vocabulary (point of entry #1) is owned by
+// `../kaleidoscope.preset-book.types`; re-exported here for the runtime
+// consumers that pair it with the three verbs below.
+export type {
+  KaleidoscopeControls,
+  KaleidoscopePreset,
+  KaleidoscopePresetBook,
+  KaleidoscopePresetEntry,
+  KaleidoscopeTaxonomy,
+} from '../kaleidoscope.preset-book.types';
 
 /**
  * A live per-layer uniform override for ONE layer, derived from the layer's own
