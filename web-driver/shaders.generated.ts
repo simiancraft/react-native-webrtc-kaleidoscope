@@ -72,6 +72,57 @@ void main() {
 }
 `;
 
+export const COMPOSITE_IMAGE_FRAG_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uCoverScale;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec2 uv = (vUv - 0.5) * uCoverScale + 0.5;
+  vec4 c = texture(uTex, uv);
+  oColor = vec4(c.rgb * c.a, c.a);
+}
+`;
+
+export const COMPOSITE_SUBJECT_FRAG_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uCamera;
+uniform sampler2D uMask;
+uniform vec2 uMaskUvScale;
+uniform vec2 uMaskUvOffset;
+uniform float uMaskLo;
+uniform float uMaskHi;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec3 cam = texture(uCamera, vUv).rgb;
+  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
+  float safeHi = max(uMaskHi, uMaskLo + 0.001);
+  float a = clamp(smoothstep(uMaskLo, safeHi, raw), 0.0, 1.0);
+  oColor = vec4(cam * a, a);
+}
+`;
+
+export const COMPOSITE_MASKED_FRAG_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform sampler2D uMask;
+uniform vec2 uMaskUvScale;
+uniform vec2 uMaskUvOffset;
+uniform float uMaskLo;
+uniform float uMaskHi;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec4 c = texture(uTex, vUv);
+  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
+  float safeHi = max(uMaskHi, uMaskLo + 0.001);
+  float a = clamp(smoothstep(uMaskLo, safeHi, raw), 0.0, 1.0);
+  oColor = c * a;
+}
+`;
+
 export const PLASMA_FRAG_SRC = `#version 300 es
 precision highp float;
 

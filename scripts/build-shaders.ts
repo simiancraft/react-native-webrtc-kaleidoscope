@@ -97,6 +97,9 @@ const UTILITY_ANDROID = [
   'composite.frag',
   'composite-camera.frag',
   'composite-blur.frag',
+  'composite-image.frag',
+  'composite-subject.frag',
+  'composite-masked.frag',
   'transform.frag',
 ] as const;
 const UTILITY_WEB = [
@@ -104,6 +107,9 @@ const UTILITY_WEB = [
   'composite.frag',
   'composite-camera.frag',
   'composite-blur.frag',
+  'composite-image.frag',
+  'composite-subject.frag',
+  'composite-masked.frag',
 ] as const;
 
 // Generative background shaders: the ones the generic shader processor runs

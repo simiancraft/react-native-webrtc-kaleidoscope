@@ -13,34 +13,10 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Composite compositor MASKED-COMPOSITE: stencil a rendered scratch layer (uTex,
-// treated as PREMULTIPLIED) to the subject by multiplying through the mask alpha.
-// Keeps the result premultiplied so the caller's "over"/"additive" blend
-// composites it correctly. Mirrors LayerShaders.MASKED_FRAG (Android) /
-// MASKED_FRAG_SRC (web). This is how ANY non-direct layer (generative, image,
-// blur) targets the subject: the host renders the layer's content to a scratch,
-// then this pass multiplies it by the mask alpha.
-//
-// uContentUvScale / uContentUvOffset carry the scratch's per-pass V parity (a
-// single-pass scratchA is V-flipped relative to a directly-drawn layer, so the
-// host passes (1,-1)/(0,1) for it and (1,1)/(0,0) for an even-pass blur scratch);
-// uMaskUvScale / uMaskUvOffset stay identity on iOS (the Segmenter's flip bracket
-// aligns the mask with the camera/output), matching the iOS background-image /
-// blur composites, unlike web's mask V-flip. uMaskLo / uMaskHi are the shared
-// mask() smoothstep edges.
-//
-// Hand-authored to match the spirv-cross idiom; ShaderLibrary loads it like the
-// transpiled .metalsrc. CompositeProcessor binds: buffer(0) uContentUvScale, (1)
-// uContentUvOffset, (2) uMaskUvScale, (3) uMaskUvOffset, (4) uMaskLo, (5) uMaskHi;
-// texture(0) uTex, (1) uMask; sampler(0) uTex's, sampler(1) uMask's.
-fragment main0_out main0(main0_in in [[stage_in]], constant float2& uContentUvScale [[buffer(0)]], constant float2& uContentUvOffset [[buffer(1)]], constant float2& uMaskUvScale [[buffer(2)]], constant float2& uMaskUvOffset [[buffer(3)]], constant float& uMaskLo [[buffer(4)]], constant float& uMaskHi [[buffer(5)]], texture2d<float> uTex [[texture(0)]], texture2d<float> uMask [[texture(1)]], sampler uTexSmplr [[sampler(0)]], sampler uMaskSmplr [[sampler(1)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uMaskUvScale [[buffer(0)]], constant float2& uMaskUvOffset [[buffer(1)]], constant float& uMaskHi [[buffer(2)]], constant float& uMaskLo [[buffer(3)]], texture2d<float> uTex [[texture(0)]], texture2d<float> uMask [[texture(1)]], sampler uTexSmplr [[sampler(0)]], sampler uMaskSmplr [[sampler(1)]])
 {
     main0_out out = {};
-    float2 contentUv = (in.vUv * uContentUvScale) + uContentUvOffset;
-    float4 c = uTex.sample(uTexSmplr, contentUv);
-    float raw = uMask.sample(uMaskSmplr, (in.vUv * uMaskUvScale) + uMaskUvOffset).x;
-    float safeHi = fast::max(uMaskHi, uMaskLo + 0.001);
-    float a = fast::clamp(smoothstep(uMaskLo, safeHi, raw), 0.0, 1.0);
-    out.oColor = c * a;
+    out.oColor = uTex.sample(uTexSmplr, in.vUv) * fast::clamp(smoothstep(uMaskLo, fast::max(uMaskHi, uMaskLo + 0.001000000047497451305389404296875), uMask.sample(uMaskSmplr, ((in.vUv * uMaskUvScale) + uMaskUvOffset)).x), 0.0, 1.0);
     return out;
 }
+

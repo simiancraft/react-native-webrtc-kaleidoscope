@@ -11,10 +11,15 @@
 //     shaders/_shared/composite-camera.frag).
 //   - COMPOSITE_BLUR_FRAG_SRC: the camera-sampling blur layer (canonical
 //     shaders/blur/composite-blur.frag).
-// The compositor still carries its blit, image, subject, and masked-composite
-// programs inline (intentionally hand-authored; small, stable, bespoke bindings).
+//   - COMPOSITE_IMAGE_FRAG_SRC: cover-fit image layer, also the scratch blit
+//     (canonical shaders/_shared/composite-image.frag).
+//   - COMPOSITE_SUBJECT_FRAG_SRC / COMPOSITE_MASKED_FRAG_SRC: the masked person
+//     and the masked-scratch stencil (canonical shaders/_shared/composite-*.frag).
 export {
   COMPOSITE_BLUR_FRAG_SRC,
   COMPOSITE_CAMERA_FRAG_SRC,
+  COMPOSITE_IMAGE_FRAG_SRC,
+  COMPOSITE_MASKED_FRAG_SRC,
+  COMPOSITE_SUBJECT_FRAG_SRC,
   PASSTHROUGH_VERT_SRC,
 } from './shaders.generated';

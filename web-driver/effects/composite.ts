@@ -25,80 +25,21 @@ import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
 import {
   COMPOSITE_BLUR_FRAG_SRC,
   COMPOSITE_CAMERA_FRAG_SRC,
+  COMPOSITE_IMAGE_FRAG_SRC,
+  COMPOSITE_MASKED_FRAG_SRC,
+  COMPOSITE_SUBJECT_FRAG_SRC,
   PASSTHROUGH_VERT_SRC,
 } from '../shaders';
 import { maskSmoothstepRange, tuning } from '../tuning';
 import { LAYER_SHADER_SOURCES } from './layer-shaders';
 
-// The remaining compositor primitives (blit/image, subject, masked-composite) are
-// intentionally hand-authored inline here and mirrored in LayerShaders.kt (Android)
-// and composite-*.metalsrc (iOS), rather than single-sourced through build:shaders
-// like camera and blur. They are small, stable, and carry bespoke host buffer
-// bindings, so the migration cost (and the iOS rebind it forces) is not worth it.
-// Keep the three platform copies in sync by hand.
-
-// Cover-fit blit: sample a texture (premultiplied) with a center-crop UV scale.
-// Used for image layers and to draw a finished scratch (cover scale 1,1) to output.
-const BLIT_FRAG_SRC = `#version 300 es
-precision highp float;
-uniform sampler2D uTex;
-uniform vec2 uCoverScale;
-in highp vec2 vUv;
-out vec4 oColor;
-void main() {
-  vec2 uv = (vUv - 0.5) * uCoverScale + 0.5;
-  vec4 c = texture(uTex, uv);
-  oColor = vec4(c.rgb * c.a, c.a);
-}
-`;
-
-// Raw camera fullscreen (direct/background), opaque. Now single-sourced via the
-// pipeline: COMPOSITE_CAMERA_FRAG_SRC (canonical shaders/_shared/composite-camera.frag).
-
-// Direct/subject fast path: the masked camera person, output PREMULTIPLIED so a
-// normal "over" blend composites the person onto the stack.
-const SUBJECT_FRAG_SRC = `#version 300 es
-precision highp float;
-uniform sampler2D uCamera;
-uniform sampler2D uMask;
-uniform vec2 uMaskUvScale;
-uniform vec2 uMaskUvOffset;
-uniform float uMaskLo;
-uniform float uMaskHi;
-in highp vec2 vUv;
-out vec4 oColor;
-void main() {
-  vec3 cam = texture(uCamera, vUv).rgb;
-  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
-  float a = clamp(smoothstep(uMaskLo, uMaskHi, raw), 0.0, 1.0);
-  oColor = vec4(cam * a, a);
-}
-`;
-
-// Camera-sampling blur layer: single-sourced via the pipeline as
-// COMPOSITE_BLUR_FRAG_SRC (canonical shaders/blur/composite-blur.frag); the
-// 13-tap + sigma-coupled spread kernel lives there.
-
-// Masked-composite: stencil a rendered layer (in uTex, treated as premultiplied)
-// to the subject by multiplying through the mask alpha. Keeps the result
-// premultiplied so the caller's "over"/"additive" blend composites it correctly.
-const MASKED_FRAG_SRC = `#version 300 es
-precision highp float;
-uniform sampler2D uTex;
-uniform sampler2D uMask;
-uniform vec2 uMaskUvScale;
-uniform vec2 uMaskUvOffset;
-uniform float uMaskLo;
-uniform float uMaskHi;
-in highp vec2 vUv;
-out vec4 oColor;
-void main() {
-  vec4 c = texture(uTex, vUv);
-  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
-  float a = clamp(smoothstep(uMaskLo, uMaskHi, raw), 0.0, 1.0);
-  oColor = c * a;
-}
-`;
+// The compositor primitives are single-sourced from catalog/shaders/_shared via
+// build:shaders, imported above: COMPOSITE_IMAGE_FRAG_SRC (cover-fit, also the
+// scratch blit at cover scale 1,1), COMPOSITE_SUBJECT_FRAG_SRC (the masked camera
+// person), COMPOSITE_MASKED_FRAG_SRC (stencil any layer to the subject), plus
+// COMPOSITE_CAMERA_FRAG_SRC and COMPOSITE_BLUR_FRAG_SRC. iOS carries one extra
+// blit variant (composite-blit) for its texture-origin parity; web reuses the
+// image shader for its blit.
 
 type Uniform = number | readonly number[];
 
@@ -363,7 +304,7 @@ const ensureState = (
   const hasGenericSubject = layers.some((l) => l.shader !== 'direct' && l.target === 'subject');
   const hasBlur = layers.some((l) => l.shader === 'blur');
 
-  const blitProg = linkProgram(gl, PASSTHROUGH_VERT_SRC, BLIT_FRAG_SRC);
+  const blitProg = linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_IMAGE_FRAG_SRC);
 
   const shaderPrograms = new Map<string, ShaderLayerGpu>();
   for (const layer of layers) {
@@ -396,7 +337,7 @@ const ensureState = (
 
   let directSubject: DirectSubjectGpu | null = null;
   if (hasDirectSubject) {
-    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, SUBJECT_FRAG_SRC);
+    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_SUBJECT_FRAG_SRC);
     directSubject = {
       prog,
       uCamera: gl.getUniformLocation(prog, 'uCamera'),
@@ -421,7 +362,7 @@ const ensureState = (
 
   let masked: MaskedGpu | null = null;
   if (hasGenericSubject) {
-    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, MASKED_FRAG_SRC);
+    const prog = linkProgram(gl, PASSTHROUGH_VERT_SRC, COMPOSITE_MASKED_FRAG_SRC);
     masked = {
       prog,
       uTex: gl.getUniformLocation(prog, 'uTex'),

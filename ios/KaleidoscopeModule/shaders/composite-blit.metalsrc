@@ -13,26 +13,10 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Composite compositor BLIT: draw a finished scratch texture (treated as PREMULTIPLIED)
-// into the output, with a content-UV transform that folds in the scratch's
-// per-pass V parity. Used for a blur/background layer (mirrors composite.ts blitting
-// scratchB into the output with cover scale 1,1). Unlike composite-image, this does
-// NOT re-premultiply: the scratch is already premultiplied (the blur preserves the
-// opaque camera's alpha=1; an image scratch came through composite-image which already
-// premultiplied), so it samples and emits the texel unchanged.
-//
-// uContentUvScale / uContentUvOffset carry the V parity: a blur scratch
-// (scratchB) is an EVEN number of render passes from the camera and blits with
-// (1,1)/(0,0); the host supplies the term so this stays one shader for any
-// scratch source. See CompositeProcessor for the parity reasoning.
-//
-// Hand-authored to match the spirv-cross idiom; ShaderLibrary loads it like the
-// transpiled .metalsrc. CompositeProcessor binds: buffer(0) uContentUvScale, buffer(1)
-// uContentUvOffset; texture(0) uTex; sampler(0) uTex's.
 fragment main0_out main0(main0_in in [[stage_in]], constant float2& uContentUvScale [[buffer(0)]], constant float2& uContentUvOffset [[buffer(1)]], texture2d<float> uTex [[texture(0)]], sampler uTexSmplr [[sampler(0)]])
 {
     main0_out out = {};
-    float2 uv = (in.vUv * uContentUvScale) + uContentUvOffset;
-    out.oColor = uTex.sample(uTexSmplr, uv);
+    out.oColor = uTex.sample(uTexSmplr, ((in.vUv * uContentUvScale) + uContentUvOffset));
     return out;
 }
+

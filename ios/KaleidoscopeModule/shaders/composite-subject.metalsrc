@@ -13,25 +13,11 @@ struct main0_in
     float2 vUv [[user(locn0)]];
 };
 
-// Composite compositor SUBJECT layer: the masked camera person, output PREMULTIPLIED
-// (rgb already scaled by the mask alpha) so a "normal" over-blend composites the
-// person onto the stack. Mirrors LayerShaders.SUBJECT_FRAG (Android) /
-// SUBJECT_FRAG_SRC (web). On iOS the mask round-trips through the Segmenter's
-// flip bracket and the composite path samples it with identity UVs, so the host
-// passes uMaskUvScale=(1,1)/uMaskUvOffset=(0,0) here (same as the iOS
-// background-image / blur composites), unlike web's V-flip.
-//
-// Hand-authored to match the spirv-cross idiom; ShaderLibrary loads it like the
-// transpiled .metalsrc. CompositeProcessor binds: buffer(0) uMaskUvScale, (1)
-// uMaskUvOffset, (2) uMaskLo, (3) uMaskHi; texture(0) uCamera, (1) uMask;
-// sampler(0) uCamera's, sampler(1) uMask's.
-fragment main0_out main0(main0_in in [[stage_in]], constant float2& uMaskUvScale [[buffer(0)]], constant float2& uMaskUvOffset [[buffer(1)]], constant float& uMaskLo [[buffer(2)]], constant float& uMaskHi [[buffer(3)]], texture2d<float> uCamera [[texture(0)]], texture2d<float> uMask [[texture(1)]], sampler uCameraSmplr [[sampler(0)]], sampler uMaskSmplr [[sampler(1)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uMaskUvScale [[buffer(0)]], constant float2& uMaskUvOffset [[buffer(1)]], constant float& uMaskHi [[buffer(2)]], constant float& uMaskLo [[buffer(3)]], texture2d<float> uCamera [[texture(0)]], texture2d<float> uMask [[texture(1)]], sampler uCameraSmplr [[sampler(0)]], sampler uMaskSmplr [[sampler(1)]])
 {
     main0_out out = {};
-    float3 cam = uCamera.sample(uCameraSmplr, in.vUv).xyz;
-    float raw = uMask.sample(uMaskSmplr, (in.vUv * uMaskUvScale) + uMaskUvOffset).x;
-    float safeHi = fast::max(uMaskHi, uMaskLo + 0.001);
-    float a = fast::clamp(smoothstep(uMaskLo, safeHi, raw), 0.0, 1.0);
-    out.oColor = float4(cam * a, a);
+    float _54 = fast::clamp(smoothstep(uMaskLo, fast::max(uMaskHi, uMaskLo + 0.001000000047497451305389404296875), uMask.sample(uMaskSmplr, ((in.vUv * uMaskUvScale) + uMaskUvOffset)).x), 0.0, 1.0);
+    out.oColor = float4(uCamera.sample(uCameraSmplr, in.vUv).xyz * _54, _54);
     return out;
 }
+
