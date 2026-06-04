@@ -66,7 +66,7 @@ Pick one fork. Installing both upstream `react-native-webrtc` and `@livekit/reac
 
 ```ts
 import { bindKaleidoscope } from 'react-native-webrtc-kaleidoscope';
-import { presets } from './kaleidoscope.presets';
+import { presets } from './kaleidoscope.preset-book';
 
 const { kaleidoscope } = bindKaleidoscope(localCameraTrack.mediaStreamTrack, { presets });
 kaleidoscope('blur-soft');
@@ -107,7 +107,7 @@ bunx expo prebuild
 First declare a **preset book** in your project: a flat catalog of **composites**, the only things you can command. A composite is `{ name, taxonomy, thumbnail?, layers }`, where `taxonomy` is the picker's grouping path, root first (`[group]` or `[group, category]`, e.g. `['Backgrounds', 'Office']`); everything is a layer stack, painted back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's fields: `image` takes a `source`; `direct` samples the ingest-normalized (upright, non-mirrored) camera frame for its target (`target: 'subject'` is the masked person, `target: 'background'` the full frame); `blur` and the generative shaders (`plasma`, `clouds`, …) take `uniforms`. `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer typing.
 
 ```ts
-// kaleidoscope.presets.ts
+// kaleidoscope.preset-book.ts
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 // Packaged composites ship ready to use; import and spread them in.
@@ -143,7 +143,7 @@ Then bind a track once and drive it with the three verbs:
 ```ts
 import { mediaDevices } from 'react-native-webrtc';
 import { bindKaleidoscope } from 'react-native-webrtc-kaleidoscope';
-import { presets } from './kaleidoscope.presets';
+import { presets } from './kaleidoscope.preset-book';
 
 const stream = await mediaDevices.getUserMedia({ video: true });
 const [track] = stream.getVideoTracks();
@@ -186,7 +186,7 @@ Build your own controls against the three verbs, or import a ready-made, headles
 ```tsx
 import { useEffect, useState } from 'react';
 import { KaleidoscopePicker } from 'react-native-webrtc-kaleidoscope/ui';
-import { presets } from './kaleidoscope.presets';
+import { presets } from './kaleidoscope.preset-book';
 
 // `kaleidoscope` is the verb returned by bindKaleidoscope(track, { presets }).
 function BackgroundControls({ kaleidoscope }) {

@@ -176,7 +176,7 @@ function patchPodfile(contents, pod) {
 //
 // iOS copy (Xcode resource membership) rides with the mobile pass; this mod
 // handles Android, which merges app assets into the build directly.
-const PRESET_BOOK_FILENAME = 'kaleidoscope.presets.ts';
+const PRESET_BOOK_FILENAME = 'kaleidoscope.preset-book.ts';
 
 // local binding -> import specifier, for single named imports. Handles both
 // `{ X }` and `{ X as Y }`; the LOCAL name (Y when aliased, else X) is what a

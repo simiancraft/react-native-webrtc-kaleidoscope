@@ -6,7 +6,7 @@
 //
 // The screen owns only selection state and re-issues the full command on every
 // change (transform and mask are absolute). bindKaleidoscope owns the composite
-// and surfaces the live track via onTrack. Presets come from ../kaleidoscope.presets.
+// and surfaces the live track via onTrack. Presets come from ../kaleidoscope.preset-book.
 
 import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
@@ -28,7 +28,7 @@ import {
   PresetTile,
   type RenderTile,
 } from 'react-native-webrtc-kaleidoscope/ui';
-import { type PresetId, presets } from '../kaleidoscope.presets';
+import { type PresetId, presets } from '../kaleidoscope.preset-book';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 

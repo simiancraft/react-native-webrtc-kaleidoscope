@@ -1,6 +1,6 @@
 // Prebuild asset-copy coverage for the config plugin (app.plugin.js).
 //
-// The plugin's precompiler reads the consumer's kaleidoscope.presets.ts as TEXT
+// The plugin's precompiler reads the consumer's kaleidoscope.preset-book.ts as TEXT
 // (no execution), discovers every `image` layer's plate, resolves each specifier
 // to an on-disk .webp, and copies the referenced plates into the native bundle.
 //
@@ -90,7 +90,7 @@ export const presets = {
 `;
 
 const writeBook = (root: string, book: string) =>
-  fs.writeFileSync(path.join(root, 'kaleidoscope.presets.ts'), book);
+  fs.writeFileSync(path.join(root, 'kaleidoscope.preset-book.ts'), book);
 
 // Lay down the BOOK plus the .webp plates it can resolve (missing.webp and the
 // package import are intentionally absent to drive the unresolvable branches).

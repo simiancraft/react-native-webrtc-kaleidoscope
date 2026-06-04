@@ -51,7 +51,7 @@ You declare a **preset book** in your own project: a flat catalog of composites,
 Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer type-checking and autocomplete.
 
 ```ts
-// kaleidoscope.presets.ts
+// kaleidoscope.preset-book.ts
 import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 // Packaged composites ship ready to use; import and spread them in.
@@ -84,14 +84,14 @@ export const presets = {
 
 ### Fastest bootstrap: copy the demo's book
 
-The repo's `demo/kaleidoscope.presets.ts` is a complete, working preset book covering every group (Effects/Blur, Worlds, Backgrounds, Shaders/Plasma). The quickest start is to copy that file into your own project and trim it to what you want, rather than authoring from scratch. Two demo-local references to adjust when you do: it imports `./src/demo-controls` and attaches a `controls` component to each entry (only needed if you also mount the live-controls editor — drop the `controls:` fields otherwise), and it references a demo-owned `./assets/backgrounds/wolf-cave.webp` (replace with your own asset or remove that entry). Everything else imports straight from the package and works as-is.
+The repo's `demo/kaleidoscope.preset-book.ts` is a complete, working preset book covering every group (Effects/Blur, Worlds, Backgrounds, Shaders/Plasma). The quickest start is to copy that file into your own project and trim it to what you want, rather than authoring from scratch. Two demo-local references to adjust when you do: it imports `./src/demo-controls` and attaches a `controls` component to each entry (only needed if you also mount the live-controls editor — drop the `controls:` fields otherwise), and it references a demo-owned `./assets/backgrounds/wolf-cave.webp` (replace with your own asset or remove that entry). Everything else imports straight from the package and works as-is.
 
 ## Use (bind a track, drive three verbs)
 
 ```ts
 import { mediaDevices } from 'react-native-webrtc';
 import { bindKaleidoscope } from 'react-native-webrtc-kaleidoscope';
-import { presets } from './kaleidoscope.presets';
+import { presets } from './kaleidoscope.preset-book';
 
 const stream = await mediaDevices.getUserMedia({ video: true });
 const [track] = stream.getVideoTracks();
@@ -130,7 +130,7 @@ A headless, preset-driven picker that reads your book directly. Import from the 
 ```tsx
 import { useEffect, useState } from 'react';
 import { KaleidoscopePicker } from 'react-native-webrtc-kaleidoscope/ui';
-import { presets } from './kaleidoscope.presets';
+import { presets } from './kaleidoscope.preset-book';
 
 function BackgroundControls({ kaleidoscope }) {
   const [art, setArt] = useState<keyof typeof presets | null>(null);
