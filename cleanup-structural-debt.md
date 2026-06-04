@@ -1,89 +1,153 @@
-# Clean Up v3 Structural Debt
+# Reorganize the Library Around Its Points of Entry
 
 **Status:** Draft
 **Scope:** cross-stack
 **Date:** 2026-06-03
 **Last reviewed:** 2026-06-03
-**Context:** The v3 unification branch (PR #31) accreted structural debt as features were appended rather than factored; we un-wreck it before the 3.0 release.
+**Context:** The v3 surface works, but its file-and-idea organization has no overriding spine, so it conceals defects; we rebuild it around its points of entry and a driver/contract split before 3.0.
 
 ## Goal
 
-The v3 branch grew by accretion: features were appended to whatever file was open instead of factored into the right shape. The result: a 725-line untyped CommonJS config plugin doing real asset-pipeline work outside the type system, copy routines duplicated four ways, a dead all-shaders aggregate shipped as public API, a platform-normalization resolver buried in the UI, and non-canonical vocabulary ("plate", "background") spread through code and docs. This plan systematically un-wrecks that before 3.0. Done looks like: all logic lives under TypeScript and is unit-tested; `app.plugin.js` is a one-line `require` shim; no duplicated copy routines; no orphan exports; cross-cutting utilities live in shared homes, not feature folders; and the code and docs speak only the canonical nouns (composite, layer, image). The codecov "island" dissolves because the plugin tests rejoin the normal suite.
+The v3 surface works, but its organization has no overriding spine, so it conceals defects: ectopic plugin logic, duplicated copy routines, orphan exports, vocabulary drift, force-bundled shaders, and disorderly components. Rebuild the library around its four natural **points of entry** — the **preset book** a consumer declares, the **runtime** that commands it, the **prebuild** that places its assets, and the convenience **components** — plus a ports-and-adapters **driver split** where `android/`, `ios/`, and `web-driver/` each implement one contract (the effect **spec**) behind their platform. Rename from the preset book down with a `Kaleidoscope`-prefixed vocabulary so the "spec" indirection collapses. Done: every file's location states what it is and when it runs; `catalog/` sits out of the build path; drivers are parallel peers behind the spec; tests segment per entry point; code and docs speak one vocabulary.
 
 ## Domain context
 
-The debt sorts into distinct diseases, each needing its own treatment (they are comorbid, not one disease with symptoms):
+**Four points of entry** (they are entry points because they fire at different times):
+1. **`kaleidoscope.preset-book.ts`** — what the developer *declares* to extend the library. The consumer's barrel; the tree prebuild walks. (Authoring time.)
+2. **`kaleidoscope/`** — the *runtime*: exactly three functions (`kaleidoscope` / `transform` / `mask`) plus `applyVideoEffects` / `bindKaleidoscope`. (Per-frame.)
+3. **`prebuild/`** — places assets and performs the natural tree-shake. (At `expo prebuild`.)
+4. **`components/`** — convenience UI built on the preset book; what the demo imports. (Authoring time, optional.)
 
-- **D1 — Structural rot (language-independent).** Duplicated/over-declared functions; the four near-identical copy routines in the plugin are the type case. iOS's extra work (pbxproj registration) should *call* a shared copy primitive, not reimplement it.
-- **D2 — Ectopic logic.** Real logic living in the wrong language/place: `app.plugin.js` is CommonJS outside typecheck/lint/knip/coverage. It must move to TypeScript and be unit-tested. (Moving to TS does NOT cure D1; the duplication rides along unless excised deliberately.)
-- **D3 — Orphans and wrong-shape placement.** Dead exports and files/utilities whose location disagrees with the project's shape: the consumer's `kaleidoscope.presets.ts` is the *only* intended barrel; internal aggregations and misfiled utilities are suspect.
-- **D4 — Vocabulary drift.** Non-canonical nouns ("plate", "background") spread through code and docs, including the glossary files themselves. Canonical nouns: **composite, layer, image** (same discipline that killed "scene").
+**Drivers and the contract (ports & adapters).** `android/` (Kotlin), `ios/` (Swift), and `web-driver/` (JS/WebGL) each render effects behind their platform. They conform to one **contract**: the effect **spec** (`CompositeSpec` — the ordered layer stack — plus the effect names). The service layer produces specs; each driver consumes them — native over the bridge (`serializeCompositeLayers` → `setCompositeLayers`), web in-process (`applyVideoEffects(track, [spec])`). The contract is conceptual (it can't be one typed interface across three languages); it's realized at each boundary and partly enforced by `registry-parity`. So the "spec" types are not indirection — they are the driver interface, and they live beside the runtime, not in the preset-book vocabulary.
 
-**Canonical vocabulary** (the code speaks ONLY these): `composite` (the one registered effect, a stack of layers), `layer` (one entry in the stack), `image` (a bundled WebP a `layer` resolves by id). "plate" and "background" are dead synonyms to normalize to "image".
+**Catalog.** `shaders/`, `images/`, `composites/` (future `materials/`, `sounds/`, `particles/`) are opt-in, almost entirely declarative assets. They move under `catalog/`, fully out of the build path. The preset book references into it; the types that *describe* an asset live beside it (shader-uniform types in `catalog/shaders/`).
 
-## Workstreams
+**The comorbid diseases this reorg cures** (named earlier; each needs its own treatment):
+- **D1** duplicated copy routines (collapse to one `copyRefs`; iOS adds only pbxproj registration).
+- **D2** ectopic plugin logic (CommonJS island → `prebuild/` TypeScript; `app.plugin.js` a one-line shim).
+- **D3** orphans / wrong-shape placement (dead exports, misfiled utilities).
+- **D4** vocabulary drift ("plate"/"background"/"scene" → composite/layer/image; spec-noise gone).
+- **D5** web force-bundle (per-shader subpaths so consumers pay only for shaders their presets use).
+- **D6** disorderly components (`controls/` + `ui/` are both UI with no `components/` spine; `ui/` is inverted; "controls" overloaded).
+- **C1** correctness, separate: the catalog types ten generative shaders but the codegen registers one natively (`GENERATIVE_SHADERS = ['plasma.frag']`).
 
-Status: ✅ complete · 🔶 in progress · ❌ not started · 🚫 descoped. Items graduate from **Open questions** into a numbered **Commit** below once their shape is settled.
+**Vocabulary spine** (from the preset book down, `Kaleidoscope`-prefixed): `KaleidoscopePresetBook` → `KaleidoscopePreset` → { `KaleidoscopeTaxonomy`, `KaleidoscopeLayer`, `KaleidoscopeLayerTarget`, `KaleidoscopeBlendMode`, `KaleidoscopeControls<T>` }. `RGB` stays general. Canonical asset nouns: composite / layer / image.
 
-### D2 — Move the config plugin into TypeScript
-- ❌ Move plugin logic to `src/plugin/*.ts`, compiled to `dist/plugin/` (CJS), with `app.plugin.js` reduced to `module.exports = require('./dist/plugin')`. Pattern is Expo's own (`expo-asset`/`expo-font`/`expo-file-system` ship one-line shims over `plugin/build/`).
-- Preserve: lazy `require(require.resolve('@expo/config-plugins', { paths: [projectRoot] }))` to use the *consumer's* SDK-matched version; `import type` for the types. CJS entry stays for old EAS Node loaders.
-- ❌ Unit-test the extracted pure functions directly (no tmp-project/mod-driving gymnastics). Make `resolveComposite*` take the library root as an argument so it is testable under bun.
+## File structure: before
 
-### D1 — Collapse the duplicated copy routines
-- ❌ One `copyRefs(refs, destDir)` primitive. Android = `copyRefs` over each ref-collector. iOS = `copyRefs` + a small `registerInPbxproj(ids, ...)` step (the only genuine platform difference; Xcode requires resource registration, Android auto-merges `assets/`).
-- ❌ Split the plugin's two responsibilities: iOS build patches (pods + deployment target) vs the asset precompiler. Separate modules.
+```
+react-native-webrtc-kaleidoscope/
+├── android/ · ios/             # native drivers (Kotlin / Swift)
+├── shaders/ · images/ · composites/   # asset source folders (out of src/)
+├── app.plugin.js               # 725-line CommonJS config plugin (logic island)
+├── test/                       # ALL JS tests, interleaved
+├── ios-tests/                  # some iOS tests
+└── src/
+    ├── index.ts · index.web.ts # platform-split runtime entry
+    ├── types.ts                # root "spec" types (+ a second type file below)
+    ├── livekit.ts · nativewind.ts · test-id.ts
+    ├── shaders/index.ts        # type-catalog barrel reaching ../../shaders
+    ├── kaleidoscope/           # controls.ts (command machine) · shader-to-spec.ts · types.ts
+    ├── controls/               # tuning UI kit + primitives/ + tuner.tsx + theme/
+    ├── ui/picker/              # picker feature (+ resolve-background-uri trio)
+    └── web/                    # the WEB rendering engine (effects/ · segmenter · streams · tuning · shaders.generated)
+```
 
-### D3 — Orphans and placement
-- ✅ Delete the dead `LAYER_CONTROLS` aggregate export (commit `3e6f22b`). Kept the per-shader `*_CONTROLS` and the `ShaderUniformsMap` type.
-- ❌ Relocate the `resolve-background-uri` trio out of `ui/picker/` to a shared util/lib home; rename off the dead `background` noun. It is a platform-normalization helper (the `cn` of image resolution): web passes through, native uses `expo-modules-core`. Any component can call it. Update `preset-grid` import AND the `package.json` `browser`-field remap (it selects the `.web` variant for non-Metro bundlers).
-- ❌ Rename `preset-grid.tsx` → `grid.tsx`, `preset-tile.tsx` → `tile.tsx`.
-- ❌ Extract `clamp` (currently local in `src/web/tuning.ts`) to a shared util.
-- ❌ `src/ui/picker/layout.tsx`: inline state-switching (lines ~37–44) violates the Zone Composer convention; review with the zone-composer skill (likely the switch collapses out).
+## File structure: after
 
-### D4 — Normalize vocabulary
-- ❌ De-plate: replace "plate" → "image" across code comments and docs (236 hits, incl. `AGENTS.md`/`CLAUDE.md`/`PATTERNS.md`/`llms.txt`). Same for stray "background".
+**Legend:** `+` new · `🔀` moved/renamed (`new ← old`) · `🪓` split-source · `␡` deleted
+
+```
+react-native-webrtc-kaleidoscope/
+├── android/          # Kotlin driver        + android/.../test/ (driver-local suite)
+├── ios/              # Swift driver         + ios-tests/ (driver-local suite, already segmented)
+├── web-driver/       # 🔀 ← src/web/  JS/WebGL driver: own index entry + own test/
+├── catalog/          # 🔀 out of build path; almost entirely declarative
+│   ├── shaders/<name>/   # 🔀 ← shaders/<name>/  <name>.frag + the shader's uniform/options types
+│   ├── images/<category>/    # 🔀 ← images/
+│   └── composites/<name>/    # 🔀 ← composites/
+├── app.plugin.js     # 🪓 one line: module.exports = require('./dist/prebuild')
+└── src/
+    ├── kaleidoscope.preset-book.types.ts   # + ENTRY #1 vocabulary (shared root, product-prefixed)
+    ├── kaleidoscope/        # ENTRY #2 runtime: index.ts (+ .web.ts) = the 3 functions;
+    │                        #   command machine; spec/contract types; test/
+    ├── prebuild/            # 🪓 ← app.plugin.js  ENTRY #4: index.ts + parse/copy/ios-pods + test/
+    ├── lib/                 # shared-by-everything: id-maker (🔀 ← test-id.ts), clamp, generic types; test/
+    ├── components/          # ENTRY #3: ui/ primitives (🔀 ← controls/primitives) + picker/ + tuner/ ; test/
+    ├── livekit.ts           # root-level adapter (specialty tech) — stays in src/
+    └── nativewind.ts        # root-level adapter (specialty tech) — stays in src/
+```
+Notes: `src/types.ts` and `src/shaders/index.ts` are `␡` (their contents redistribute to `kaleidoscope.preset-book.types.ts`, `catalog/shaders/`, and `kaleidoscope/`). The `controls/` + `ui/` split collapses into `components/`.
+
+## Build methodology (build right, then delete wrong)
+
+Migrate **from the preset book down**, one piece at a time, each a green step:
+1. **Name it and state what it does** (the Phase-1 ontology check, in writing).
+2. **Author it correctly** in its new home with its correct name.
+3. **Find the old thing it was, and delete it.**
+4. **Gate:** `bun run check` (and the relevant driver compile) stays green.
+
+Start with `KaleidoscopePresetBook` and walk the vocabulary down, deleting the "spec" types that don't survive the rename as we go. Never leave the old and new coexisting past a single step.
+
+## Test structure (segmented per entry point / driver / module)
+
+No central `test/`. Tests colocate with the thing they test, so the four+ areas don't interleave:
+- `android/` and `ios/` (and `ios-tests/`) — each driver's own native suite.
+- `web-driver/test/` — the web driver's suite.
+- `src/kaleidoscope/test/`, `src/prebuild/test/`, `src/components/test/`, `src/lib/test/` (or colocated `*.test.ts` per module).
+- `registry-parity` (the cross-driver contract test) is the one that spans drivers; it lives with the contract (beside `kaleidoscope/` runtime), not inside any single driver.
+
+## Workstreams (detailed per item during the file-by-file pass)
+
+- **W1 — Preset-book vocabulary.** Author `src/kaleidoscope.preset-book.types.ts` from the book down; rename `kaleidoscope.presets.ts → kaleidoscope.preset-book.ts` everywhere (the plugin's `PRESET_BOOK_FILENAME`, demo, tests, README/llms.txt); delete `src/types.ts`; collapse the spec types.
+- **W2 — Drivers.** Move `src/web/ → web-driver/` at the repo root (peer to `android/`/`ios/`); give it its own entry + test suite; extract shared source that was hiding in it (`clamp`, tuning ranges) to `src/lib/`.
+- **W3 — Prebuild.** Move `app.plugin.js` logic into `src/prebuild/` TypeScript (D2); collapse the duplicated copy routines (D1); `app.plugin.js` → one-line shim.
+- **W4 — Components.** Collapse `controls/` + `ui/` into `components/` (`ui/` primitives + `picker/`/`tuner/` features) per Zone Composer (D6); relocate `resolve-background-uri` (rename off `background`).
+- **W5 — Catalog.** Move `shaders/`, `images/`, `composites/` under `catalog/`; move the shader type-catalog beside the shaders; per-shader subpath exports (D5).
+- **W6 — Lib.** `test-id.ts → src/lib/` (it's an id-maker, not test-ids; consider renaming the concept); `clamp` and generic types (`RGB`) land here.
+- **W7 — Vocabulary + docs.** De-plate / de-background / de-scene across code and docs (D4); update `CLAUDE.md`/`AGENTS.md` glossary for the `preset` vs `composite` split.
 
 ## Answered questions (decision log)
 
-- **Is `app.plugin.js` source or built?** Source. Tracked, no generator, shipped as-is. So "ignore it because it's generated" is invalid.
-- **Why must `app.plugin.js` be JS?** Only the *entry* must be CJS (old EAS Node loaders). All logic can and should be TS; Expo's own modules prove the shim-over-build pattern.
-- **Must the plugin avoid `@expo/config-plugins`?** No; it must avoid *baking in the library's version*. Lazy-resolve from the consumer; that survives in TS.
-- **Should the `resolve-background-uri` platform split be removed?** No. The split is correct (web URL vs native runtime bundle lookup); the defect is its *location* (UI folder) and its *name* (`background`).
-- **Is "plate" a real distinction or drift?** Drift; normalize to "image".
-- **Is `LAYER_CONTROLS` used?** No. Orphan. Removed.
+- `app.plugin.js` is hand-authored source, not generated → its logic must be TS and tested; `app.plugin.js` becomes a one-line shim over `dist/prebuild`.
+- Only the plugin *entry* must be CJS (old EAS Node loaders); all logic can be TS (Expo's own modules ship one-line shims over built TS).
+- `LAYER_CONTROLS` was a dead orphan export → removed (commit `3e6f22b`).
+- The `resolve-background-uri` platform split is correct (web URL vs native runtime lookup); the defect is its UI-folder location and its `background` name.
+- `web/` does the same job as `android/`/`ios/` → it's a platform **driver**, moves to `web-driver/` at the root.
+- Don't wrap the three drivers in a `drivers/` folder: relocating `android/`/`ios/` fights default autolinking (Expo + RN CLI + CocoaPods, no override configured) for zero functional gain. Root-level peers + the `web-driver` name + a `PATTERNS.md` note capture the relationship instead.
+- The "spec" types are the **driver contract**, not indirection; they live beside the runtime, simplify when named from the preset book down.
+- `nativewind.ts` / `livekit.ts` stay in `src/` (root-level specialty-tech adapters).
+- `test-id.ts → src/lib/` (id-maker, not test-ids).
+- Tests segment per entry point / driver / module; no central `test/`.
 
-## Open questions
+## Open questions (to settle at the end of the file-by-file tour)
 
-1. **`app.plugin.js` module decomposition** — exact module split under `src/plugin/` (e.g. `ios-pods.ts`, `book.ts`/parse, `copy.ts`). Settle before drafting D1/D2 commits.
-2. **`resolve-background-uri` destination + new name** — which shared home (`src/lib/`? `src/utils/`?) and what name (`resolveImageUri`? `resolveImageSource`?).
-3. **`shaders.generated.ts`** (1203 lines, codegen) — keep committed, or gitignore and build? Open.
-4. **React Native Compiler** — adopt it to drop hand-written `useMemo` across the picker/controls? Jesse wants this if feasible; verify compatibility.
-5. **Coverage policy** — likely moot once the plugin is TS-tested; confirm the codecov gate passes on the new shape rather than deciding an ignore.
-
-## Verification philosophy
-
-Each deletion/move is verified by the full static gate (lint, typecheck, typecheck:test, test, knip, build) and, where it touches native or runtime wiring, `prebuild` + a run (web at minimum). "Delete a file → prebuild + run still works" is the loop. Nothing claimed working without running the relevant gate.
-
-## Commits
-
-Detailed per-item as each Open question is settled. Shipped so far:
-
-### Commit 1: Drop the unused LAYER_CONTROLS aggregate — ✅ `3e6f22b`
-
-### Commit N+1: Delete this plan
-- Delete `cleanup-structural-debt.md` once every workstream is ✅ and the verification checklist passes.
-- Extract any durable convention (e.g. the plugin-shim pattern, the de-plate vocabulary rule) into `PATTERNS.md`/`AGENTS.md` first.
+1. **`KaleidoscopeControls` collision** — the runtime three-verb handle vs the preset's tuning-component generic both want the name. Rename the handle (`KaleidoscopeBinding` / `KaleidoscopeSession` / `KaleidoscopeHandle`), freeing `KaleidoscopeControls<T>` for the preset's `controls`.
+2. **`preset` vs `composite` glossary split** — the consumer writes a `preset`; it projects into a runtime `composite`. Touches `CLAUDE.md`/`AGENTS.md` ("every preset is a composite").
+3. **How far the spec types collapse** once renamed from the preset book down.
+4. **`shaders.generated` placement** — `catalog/shaders/` (generated output beside source) vs `web-driver/` (web's compiled form).
+5. **`createControls` factory** — keep the shared-state factory or flatten to functions (it's a factory because the three verbs share mutable binding state).
+6. **C1 native generative-shader coverage** — register the rest natively or qualify the types.
 
 ## Verification checklist
-- [ ] D1: no duplicated copy routines; iOS calls the shared copy primitive.
-- [ ] D2: `app.plugin.js` is a one-line shim; plugin logic is TS and unit-tested.
-- [ ] D3: no orphan exports; cross-cutting utilities relocated; picker files renamed.
-- [ ] D4: "plate"/"background" purged from code and docs; glossary speaks composite/layer/image.
-- [ ] Full validation (`bun run check`) green; codecov gate green on the new shape.
+
+- [ ] Every file's location states what it is and when it runs (entry-point spine holds).
+- [ ] `catalog/` is out of the build path; drivers are root-level peers behind the spec.
+- [ ] No `src/types.ts`; vocabulary named preset-book-down; spec indirection collapsed.
+- [ ] `app.plugin.js` is a one-line shim; `prebuild/` is TS with no duplicated copy routines.
+- [ ] `components/` holds `ui/` primitives + features; no `controls/`+`ui/` split.
+- [ ] "plate"/"background"/"scene" purged from code and docs.
+- [ ] Tests segmented per entry point / driver / module.
+- [ ] `bun run check` green; codecov gate green on the new shape; native compiles.
 - [ ] Plan file deleted (Inspector Gadget Rule: no orphan plans).
 
+## Shipped
+
+- ✅ `3e6f22b` — drop the unused `LAYER_CONTROLS` aggregate.
+
 ## References
-- PR #31 (`feat/kaleidoscope-command-registry`), the v3 unification this cleans up after.
-- `CLAUDE.md` / `AGENTS.md` — canonical vocabulary + plugin constraints.
-- Expo shim pattern: `node_modules/expo-asset/app.plugin.js` and siblings.
+
+- PR #31 (`feat/kaleidoscope-command-registry`), the v3 unification this reorganizes.
+- `CLAUDE.md` / `AGENTS.md` — canonical vocabulary + plugin constraints (to be updated by W7).
+- Zone Composer skill — the `components/` organization recipe (W4).
+- Expo shim pattern: `node_modules/expo-asset/app.plugin.js` and siblings (W3).
