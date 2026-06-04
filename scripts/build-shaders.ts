@@ -47,7 +47,7 @@ const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 // and the transpile loop key on the bare filename (e.g. `composite.frag`), so
 // the tree is flattened to a filename -> absolute-path map up front; basenames
 // are unique across the tree.
-const GLSL_DIR = join(REPO_ROOT, 'shaders');
+const GLSL_DIR = join(REPO_ROOT, 'catalog', 'shaders');
 
 // Walk the shader tree and index every .frag/.vert by its basename. Throws if
 // two folders carry the same basename (the codegen lists address shaders by

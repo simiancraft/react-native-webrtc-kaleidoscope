@@ -2,9 +2,9 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/livekit.ts",
-    "shaders/**/*.ts",
-    "images/**/*.{ts,web.ts}",
-    "composites/**/*.ts",
+    "catalog/shaders/**/*.ts",
+    "catalog/images/**/*.{ts,web.ts}",
+    "catalog/composites/**/*.ts",
     "plugin/src/index.ts"
   ],
   "ignore": [

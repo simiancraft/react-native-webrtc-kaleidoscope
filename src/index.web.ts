@@ -38,7 +38,7 @@ import type { KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
 // old global set* exports are gone; effects are driven by kaleidoscope /
 // transform / mask, not loose setters.
 
-export type { BackgroundPresetName } from '../images';
+export type { BackgroundPresetName } from '../catalog/images';
 export type {
   AnamorphicLensFlareUniforms,
   BlurUniforms,
@@ -55,7 +55,7 @@ export type {
   ShaderUniformsMap,
   SimianlightsUniforms,
   UniformControl,
-} from '../shaders';
+} from '../catalog/shaders';
 export {
   ANAMORPHIC_LENSFLARE_CONTROLS,
   BLUR_CONTROLS,
@@ -68,7 +68,7 @@ export {
   NEBULA_CONTROLS,
   PLASMA_CONTROLS,
   SIMIANLIGHTS_CONTROLS,
-} from '../shaders';
+} from '../catalog/shaders';
 export type {
   CompositeSpec,
   EffectInput,

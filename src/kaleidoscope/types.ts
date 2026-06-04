@@ -14,7 +14,7 @@
 // normalized 0..1 where practical; ranges are documented in JSDoc as hints for
 // IntelliSense and tooling, not enforced at runtime (validation is userland).
 
-import type { PatchableShaderName, ShaderUniformsMap } from '../../shaders';
+import type { PatchableShaderName, ShaderUniformsMap } from '../../catalog/shaders';
 import type { KaleidoscopePresetBook } from '../kaleidoscope.preset-book.types';
 
 /**

@@ -31,7 +31,7 @@ function copyTree(tree: string): number {
   return copied;
 }
 
-for (const tree of ['images', 'composites']) {
+for (const tree of ['catalog/images', 'catalog/composites']) {
   const copied = copyTree(tree);
   console.log(`copy:assets  copied ${copied} webp asset(s) into dist/${tree}/`);
 }

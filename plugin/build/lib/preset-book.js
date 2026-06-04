@@ -109,6 +109,7 @@ function resolveCompositeSource(specifier, projectRoot) {
     });
     const ts = node_path_1.default.join(
       node_path_1.default.dirname(pkgJson),
+      'catalog',
       'composites',
       name,
       `${name}.ts`,

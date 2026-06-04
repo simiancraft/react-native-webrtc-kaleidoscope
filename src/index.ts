@@ -47,7 +47,7 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 // setCompositeLayers. The old global set* JS exports are gone; effects are driven by
 // kaleidoscope / transform / mask, not loose setters.
 
-export type { BackgroundPresetName } from '../images';
+export type { BackgroundPresetName } from '../catalog/images';
 export type {
   AnamorphicLensFlareUniforms,
   BlurUniforms,
@@ -64,7 +64,7 @@ export type {
   ShaderUniformsMap,
   SimianlightsUniforms,
   UniformControl,
-} from '../shaders';
+} from '../catalog/shaders';
 // Per-shader control descriptors (platform-agnostic data). Imported individually
 // per the shader a preset's layer uses; there is no all-shaders aggregate.
 export {
@@ -79,7 +79,7 @@ export {
   NEBULA_CONTROLS,
   PLASMA_CONTROLS,
   SIMIANLIGHTS_CONTROLS,
-} from '../shaders';
+} from '../catalog/shaders';
 export type {
   CompositeSpec,
   EffectInput,

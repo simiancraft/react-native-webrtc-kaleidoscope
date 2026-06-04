@@ -110,7 +110,7 @@ function resolveCompositeSource(specifier: string, projectRoot: string): string 
     const pkgJson = require.resolve('react-native-webrtc-kaleidoscope/package.json', {
       paths: [projectRoot],
     });
-    const ts = path.join(path.dirname(pkgJson), 'composites', name, `${name}.ts`);
+    const ts = path.join(path.dirname(pkgJson), 'catalog', 'composites', name, `${name}.ts`);
     return fs.existsSync(ts) ? ts : null;
   } catch {
     return null;
