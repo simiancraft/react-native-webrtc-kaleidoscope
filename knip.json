@@ -1,7 +1,18 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/livekit.ts", "shaders/**/*.ts", "images/**/*.{ts,web.ts}", "composites/**/*.ts"],
-  "ignore": ["demo/**", "src/web/shaders.generated.ts", "scripts/chroma-strip.ts"],
+  "entry": [
+    "src/livekit.ts",
+    "shaders/**/*.ts",
+    "images/**/*.{ts,web.ts}",
+    "composites/**/*.ts",
+    "plugin/src/index.ts"
+  ],
+  "ignore": [
+    "demo/**",
+    "src/web/shaders.generated.ts",
+    "scripts/chroma-strip.ts",
+    "plugin/build/**"
+  ],
   "ignoreDependencies": ["@semantic-release/.*", "react-native-webrtc"],
   "ignoreBinaries": ["which", "glslangValidator", "spirv-val", "spirv-opt", "spirv-cross"]
 }

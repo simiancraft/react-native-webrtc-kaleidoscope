@@ -1,0 +1,23 @@
+{
+  "//": "Standalone compile config for the Expo config plugin. The plugin is a SEPARATE buildable unit from the library's dist: plugin/src/*.ts compiles to plugin/build/*.js, which is COMMITTED to git (unlike dist/, which is gitignored). app.plugin.js requires ./plugin/build at load time, and on an EAS worker that realpath has no node_modules and no dist; a committed plugin/build is the only output guaranteed present there. Emit is node16 CommonJS so Expo can require() it across the Node versions EAS images run. This config is intentionally NOT referenced by the editor tsconfig (which excludes 'plugin') or the build tsconfig (whose include globs omit plugin/); `bun run build:plugin` drives it.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "node16",
+    "moduleResolution": "node16",
+    "lib": ["ES2022"],
+    "rootDir": "src",
+    "outDir": "build",
+    "declaration": false,
+    "sourceMap": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false,
+    "types": ["bun"]
+  },
+  "include": ["src/**/*"]
+}
