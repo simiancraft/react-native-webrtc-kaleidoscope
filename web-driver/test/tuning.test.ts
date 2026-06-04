@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { maskSmoothstepRange, tuning } from '../src/web/tuning';
+import { maskSmoothstepRange, tuning } from '../tuning';
 
 describe('maskSmoothstepRange', () => {
   test('centers the range on the threshold', () => {

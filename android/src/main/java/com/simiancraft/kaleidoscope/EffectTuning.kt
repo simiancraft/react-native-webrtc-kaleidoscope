@@ -6,7 +6,7 @@
 // This is the parameter-passing side-channel that lets us tune effect
 // uniforms without touching the upstream react-native-webrtc registry,
 // which only accepts flat-string effect names. The web side mirrors this
-// shape in src/web/tuning.ts; iOS mirrors it in
+// shape in web-driver/tuning.ts; iOS mirrors it in
 // ios/KaleidoscopeModule/EffectTuning.swift.
 
 package com.simiancraft.kaleidoscope

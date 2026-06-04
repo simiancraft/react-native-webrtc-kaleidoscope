@@ -1,6 +1,6 @@
 // Mutable runtime parameters for the GLSL effects on iOS. Mirrors the
 // Android side at android/.../EffectTuning.kt and the web side at
-// src/web/tuning.ts.
+// web-driver/tuning.ts.
 //
 // The Expo Module's setBlurSigma / setMaskHardness JS functions update
 // these values via the bridge; per-frame processors read them on every

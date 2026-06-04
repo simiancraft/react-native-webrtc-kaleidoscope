@@ -11,7 +11,7 @@
 // Alpha: PREMULTIPLIED. The front-to-back accumulation builds rgb already scaled
 // by coverage (gelColor * a), so oColor.rgb is premultiplied by oColor.a, same
 // convention as godrays. Kept byte-for-byte in sync with CORPORATE_BLOBS_FRAG_SRC
-// in src/web/effects/layer-shaders.ts (the web compositor's copy).
+// in web-driver/effects/layer-shaders.ts (the web compositor's copy).
 //
 // UV convention: matches passthrough.vert. vUv = (0, 0) bottom-left, (1, 1)
 // top-right; fragCoord is reconstructed as vUv * uResolution. The Shadertoy uv =

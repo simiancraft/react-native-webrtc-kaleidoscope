@@ -154,7 +154,7 @@ bun run demo:android        # ditto for Android
 bun run demo:web            # browser only; no native build needed
 ```
 
-The dev-client on the device scans the QR code shown in the terminal, opens a tunnel or LAN connection to Metro, and pulls the JS bundle. Edits to `src/`, `src/web/`, or `demo/app/` hot-reload without rebuilding.
+The dev-client on the device scans the QR code shown in the terminal, opens a tunnel or LAN connection to Metro, and pulls the JS bundle. Edits to `src/`, `web-driver/`, or `demo/app/` hot-reload without rebuilding.
 
 ### When to rebuild the dev client
 

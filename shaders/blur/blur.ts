@@ -16,7 +16,7 @@ export type BlurUniforms = {
  * The live kernel is a 13-tap separable gaussian whose tap spacing also scales
  * with sigma, so the top of the slider keeps softening (with a faint ghost) past
  * where a fixed-radius kernel saturates. The max of 10 keeps that spread subtle;
- * see the kernel in src/web/effects/composite.ts (mirrored on Android + iOS).
+ * see the kernel in web-driver/effects/composite.ts (mirrored on Android + iOS).
  */
 export const BLUR_CONTROLS: readonly UniformControl[] = [
   {

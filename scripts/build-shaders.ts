@@ -5,7 +5,7 @@
 //              glslangValidator -> spirv-opt -> spirv-cross. ShaderLibrary.swift
 //              compiles the .metalsrc at runtime.
 //   - Android: generate gpu/ShadersGenerated.kt (Kotlin const-val strings).
-//   - Web:     generate src/web/shaders.generated.ts (exported string consts).
+//   - Web:     generate web-driver/shaders.generated.ts (exported string consts).
 //
 // Only the CROSS-RUNTIME shared shaders are code-generated for Android/web (see
 // SHARED_CODEGEN). Platform-local shaders (Android's OES external-texture and
@@ -79,7 +79,7 @@ const ANDROID_OUT = join(
   REPO_ROOT,
   'android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt',
 );
-const WEB_OUT = join(REPO_ROOT, 'src/web/shaders.generated.ts');
+const WEB_OUT = join(REPO_ROOT, 'web-driver/shaders.generated.ts');
 const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 
 // Code-generation targets, in deterministic emit order. iOS transpiles

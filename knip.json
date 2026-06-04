@@ -9,7 +9,7 @@
   ],
   "ignore": [
     "demo/**",
-    "src/web/shaders.generated.ts",
+    "web-driver/shaders.generated.ts",
     "scripts/chroma-strip.ts",
     "plugin/build/**"
   ],

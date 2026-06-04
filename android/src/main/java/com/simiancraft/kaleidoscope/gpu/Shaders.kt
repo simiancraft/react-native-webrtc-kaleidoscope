@@ -3,7 +3,7 @@
 // assets/shaders/*.frag if the count grows past ~6 or if external tooling
 // (SPIRV-Cross, ShaderToy round-tripping) starts to matter.
 //
-// Shapes mirror the web GLSL in src/web/effects/*.ts. Keep in sync manually.
+// Shapes mirror the web GLSL in web-driver/effects/*.ts. Keep in sync manually.
 
 package com.simiancraft.kaleidoscope.gpu
 
@@ -71,7 +71,7 @@ void main() {
   val COMPOSITE_CAMERA_FRAG = ShadersGenerated.COMPOSITE_CAMERA_FRAG
 
   // Composite: mix(background, original, mask). One shader, byte-identical
-  // to src/web/shaders.ts's COMPOSITE_FRAG_SRC.
+  // to web-driver/shaders.ts's COMPOSITE_FRAG_SRC.
   //
   // uOriginal and uBackground are expected to land with semantic "top of
   // source image" at GL v=1; the shader samples both at vUv directly. On

@@ -11,6 +11,16 @@
 // `RTCRtpSender.replaceTrack(...)`.
 
 import {
+  applyEffectToTrack,
+  type DisposablePipeline,
+  type FrameTransform,
+  makeComposite,
+  makeTransform,
+  resetLayerUniforms as resetCompositeLayerUniforms,
+  setLayerUniforms as setCompositeLayerUniforms,
+  tuning,
+} from '../web-driver';
+import {
   createControls,
   type Reconcile,
   type ResetLayerUniforms,
@@ -21,18 +31,6 @@ import { toEffectSpec } from './kaleidoscope/effect';
 import type { EffectInput, EffectSpec } from './kaleidoscope/effect.types';
 import type { KaleidoscopeBinding, KaleidoscopeBindOptions } from './kaleidoscope/types';
 import type { KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
-import {
-  makeComposite,
-  resetLayerUniforms as resetCompositeLayerUniforms,
-  setLayerUniforms as setCompositeLayerUniforms,
-} from './web/effects/composite';
-import { makeTransform } from './web/effects/transform';
-import {
-  applyEffectToTrack,
-  type DisposablePipeline,
-  type FrameTransform,
-} from './web/insertable-streams';
-import { tuning } from './web/tuning';
 
 // The tuning channel (tuning.*) is internal: the mask edge flows from the mask()
 // verb (see bindKaleidoscope). Per-layer uniform tuning flows from the

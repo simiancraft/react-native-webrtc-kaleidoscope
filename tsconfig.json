@@ -26,10 +26,11 @@
   },
   "include": [
     "src/**/*",
+    "web-driver/**/*.ts",
     "shaders/**/*.ts",
     "images/**/*.ts",
     "composites/**/*.ts",
     "composites/**/*.tsx"
   ],
-  "exclude": ["node_modules", "dist", "plugin", "demo", "android", "ios"]
+  "exclude": ["node_modules", "dist", "plugin", "demo", "android", "ios", "web-driver/test"]
 }

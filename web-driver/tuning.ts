@@ -4,7 +4,7 @@
 // There are no global set* exports anymore; the mask edge (hardness/threshold)
 // is written here through the setMask closure that `bindKaleidoscope`
 // (src/index.web.ts) wires up, and the composite compositor in
-// `src/web/effects/*.ts` reads it when uploading uniforms. Writes take effect on
+// `web-driver/effects/*.ts` reads it when uploading uniforms. Writes take effect on
 // the next frame.
 
 const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.max(value, lo), hi);

@@ -58,7 +58,7 @@ background. So your `.frag`:
    - `src/shaders/index.ts`: import the `<Name>Uniforms` type, add
      `<name>: <Name>Uniforms` to `ShaderUniformsMap`, and re-export both
      `<Name>Uniforms` (type) and `<NAME>_CONTROLS` (value) for consumers.
-   - `src/web/effects/layer-shaders.ts`: map `<name>` to its generated
+   - `web-driver/effects/layer-shaders.ts`: map `<name>` to its generated
      `<NAME>_FRAG_SRC` const in `LAYER_SHADER_SOURCES` (the web compositor and the
      native compositors dispatch on the name; there is no per-effect file).
 4. **Codegen** — `bun run build:shaders`, then commit the regenerated web/Android

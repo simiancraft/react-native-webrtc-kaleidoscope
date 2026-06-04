@@ -4,7 +4,7 @@
 // from one stable path. Do not hand-edit the generated file.
 //
 // The compositor folds every effect into one layered stage (see
-// src/web/effects/composite.ts). The shared sources the runtime imports from here:
+// web-driver/effects/composite.ts). The shared sources the runtime imports from here:
 //   - PASSTHROUGH_VERT_SRC: full-screen quad via gl_VertexID (no VAO/VBO);
 //     caller does gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4).
 //   - COMPOSITE_CAMERA_FRAG_SRC: the camera/direct layer (canonical

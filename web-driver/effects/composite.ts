@@ -19,7 +19,7 @@
 // stencils it. The mask edge is the shared mask() tuning, so the demo sliders
 // drive composites.
 
-import type { KaleidoscopeLayer } from '../../kaleidoscope.preset-book.types';
+import type { KaleidoscopeLayer } from '../../src/kaleidoscope.preset-book.types';
 import type { FrameTransform } from '../insertable-streams';
 import { getLatestMask, loadSegmenter, requestMaskIfIdle } from '../segmenter';
 import {

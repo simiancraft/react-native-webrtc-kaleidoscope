@@ -1,6 +1,6 @@
 // Layer-shader GLSL for the native composite compositor, embedded as Kotlin string
 // constants. These mirror the canonical `shaders/<name>.frag` and their verbatim
-// web copies in `src/web/effects/layer-shaders.ts`. The generic shader codegen
+// web copies in `web-driver/effects/layer-shaders.ts`. The generic shader codegen
 // (`build:shaders`) only emits the GENERATIVE background channel today; layer
 // shaders (the additive/overlay/background stack the compositor composites) are a
 // distinct path, so they live here until the codegen grows a layer path. Keep

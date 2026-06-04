@@ -298,7 +298,7 @@ The canonical assets live in three root, folder-per-item directories, out of the
 The code lives across the platform surfaces:
 
 - `src/`: JS facade and shared types. `bindKaleidoscope` returns the `kaleidoscope` / `transform` / `mask` verbs; the preset-book types live in `src/kaleidoscope/`.
-- `src/web/`: WebGL2 pipeline. MediaPipe segmentation + the layered compositor (`src/web/effects/composite.ts`).
+- `web-driver/`: WebGL2 pipeline. MediaPipe segmentation + the layered compositor (`web-driver/effects/composite.ts`).
 - `android/`: OpenGL ES 3.0 pipeline. MediaPipe Tasks segmentation + the layered compositor (`effects/CompositeFactory.kt`); codegen lands in `gpu/ShadersGenerated.kt`, the hand-written layer GLSL in `effects/LayerShaders.kt`.
 - `ios/`: Metal pipeline (Swift) with MediaPipe Tasks segmentation (`selfie_segmenter.tflite`, the same model Android bundles); the canonical GLSL transpiles to Metal via `scripts/build-shaders.ts`.
 

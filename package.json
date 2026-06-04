@@ -455,7 +455,7 @@
     "prebuild:android": "bun run refresh:android && cd demo && bunx expo prebuild --platform android --no-install",
     "check:android": "cd demo/android && ./gradlew :react-native-webrtc-kaleidoscope:compileDebugKotlin",
     "build:shaders": "bun run scripts/build-shaders.ts",
-    "check:shaders": "bun run build:shaders && git diff --exit-code -- android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt src/web/shaders.generated.ts",
+    "check:shaders": "bun run build:shaders && git diff --exit-code -- android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt web-driver/shaders.generated.ts",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",

@@ -645,7 +645,7 @@ final class MetalRenderer {
 
 /// A linear-sampled separable Gaussian kernel: 5 entries (center + 4 bilinear
 /// pairs of dense texels). Mirrors BlurFactory.ensureKernel and
-/// src/web/blur-kernel.ts. Rebuilt only when sigma changes.
+/// web-driver/blur-kernel.ts. Rebuilt only when sigma changes.
 struct BlurKernel {
   private(set) var weights = [Float](repeating: 0, count: 5)
   private(set) var offsets = [Float](repeating: 0, count: 5)
@@ -656,7 +656,7 @@ struct BlurKernel {
     let s = Double(sigma)
     func g(_ t: Double) -> Double { exp(-(t * t) / (2.0 * s * s)) }
     // Linear-sampled: center + 4 bilinear pairs of dense texels (1,2)(3,4)
-    // (5,6)(7,8). See src/web/blur-kernel.ts for the shared derivation.
+    // (5,6)(7,8). See web-driver/blur-kernel.ts for the shared derivation.
     offsets[0] = 0
     weights[0] = Float(g(0))
     var sum = weights[0]

@@ -18,9 +18,10 @@
       "app.plugin.js",
       "plugin/src/**",
       "plugin/build/**",
+      "web-driver/**",
       "*.ts",
       "*.json",
-      "!src/web/shaders.generated.ts"
+      "!web-driver/shaders.generated.ts"
     ]
   },
   "overrides": [

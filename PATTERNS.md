@@ -104,8 +104,8 @@ not install the glslang/spirv toolchain locally.
 
 Per-platform outputs (generated from the canonical `shaders/*` files; do
 not hand-edit):
-- Web: `src/web/shaders.generated.ts` (`*_SRC` consts), re-exported by
-  `src/web/shaders.ts`.
+- Web: `web-driver/shaders.generated.ts` (`*_SRC` consts), re-exported by
+  `web-driver/shaders.ts`.
 - Android: `android/.../gpu/ShadersGenerated.kt` (`const val` strings),
   delegated by `Shaders.kt`. Platform-local shaders with no cross-runtime
   twin (OES external texture, 2D passthrough) stay hand-written in
@@ -223,7 +223,7 @@ is data plus a shader, with no `Registration.kt` / `Registration.swift` change:
    `*_FRAG_SRC` const, Android, iOS). Do not hand-edit the generated files. (See
    "Where a new GLSL shader goes" for the pipeline; that is its own subsystem.)
 3. **Web dispatch**: map the shader name to its generated `*_FRAG_SRC` const in
-   `LAYER_SHADER_SOURCES` (`src/web/effects/layer-shaders.ts`). The web
+   `LAYER_SHADER_SOURCES` (`web-driver/effects/layer-shaders.ts`). The web
    compositor (`composite.ts`) and the native compositors dispatch on the name;
    no new file per effect.
 
@@ -311,13 +311,13 @@ sigma, mask hardness, etc.) flow through a three-tier mirror:
    setters that clamp to valid ranges. Per-frame processors read these
    values each frame, so changes take effect on the next frame without
    re-registering processors.
-2. **Web state**: `src/web/tuning.ts` mirrors the same shape; per-frame
-   `FrameTransform`s in `src/web/effects/*.ts` read from it when uploading
+2. **Web state**: `web-driver/tuning.ts` mirrors the same shape; per-frame
+   `FrameTransform`s in `web-driver/effects/*.ts` read from it when uploading
    uniforms.
 3. **JS facade**: `src/index.ts` and `src/index.web.ts` export the same
    `set<Param>(value)` functions, native versions calling
    `requireNativeModule('RnWebrtcKaleidoscope').setX(value)`, web versions
-   mutating `src/web/tuning.ts` directly.
+   mutating `web-driver/tuning.ts` directly.
 
 The Expo Module's `Function("setX") { value -> EffectTuning.x = value }`
 declarations in `KaleidoscopeModule.{kt,swift}` provide the bridge between
