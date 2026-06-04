@@ -35,49 +35,49 @@ import Foundation
 import simd
 
 enum Orientation {
-  /// The four geometric reorientation ops, keyed by their registered effect
-  /// name. Screen-space semantics are documented on each case.
-  enum Op: String {
-    /// Screen-horizontal mirror (left<->right, head stays up).
-    case flipX = "flip-x"
-    /// Screen-vertical flip (upside down, left/right unchanged).
-    case flipY = "flip-y"
-    /// Whole frame rotated 90 degrees clockwise (output dims swap to h x w).
-    case rotateCW = "rotate-cw"
-    /// Whole frame rotated 90 degrees counter-clockwise (output dims swap).
-    case rotateCCW = "rotate-ccw"
+    /// The four geometric reorientation ops, keyed by their registered effect
+    /// name. Screen-space semantics are documented on each case.
+    enum Op: String {
+        /// Screen-horizontal mirror (left<->right, head stays up).
+        case flipX = "flip-x"
+        /// Screen-vertical flip (upside down, left/right unchanged).
+        case flipY = "flip-y"
+        /// Whole frame rotated 90 degrees clockwise (output dims swap to h x w).
+        case rotateCW = "rotate-cw"
+        /// Whole frame rotated 90 degrees counter-clockwise (output dims swap).
+        case rotateCCW = "rotate-ccw"
 
-    /// Whether this op swaps the output dimensions (w x h -> h x w). True for the
-    /// 90-degree rotations, false for the flips.
-    var swapsDimensions: Bool {
-      switch self {
-      case .flipX, .flipY: return false
-      case .rotateCW, .rotateCCW: return true
-      }
+        /// Whether this op swaps the output dimensions (w x h -> h x w). True for the
+        /// 90-degree rotations, false for the flips.
+        var swapsDimensions: Bool {
+            switch self {
+            case .flipX, .flipY: false
+            case .rotateCW, .rotateCCW: true
+            }
+        }
     }
-  }
 
-  /// The uUvTransform to bind at buffer(0) of transform.metalsrc for `op`. The
-  /// input frame is already display-upright (see Ingest), so this is pure screen
-  /// space and rotation-independent.
-  ///
-  /// flip-x:   negate U                       -> columns (-1, 0), ( 0,  1)
-  /// flip-y:   negate V                       -> columns ( 1, 0), ( 0, -1)
-  /// rotate-cw / rotate-ccw: screen 90-degree rotations. Shared with Android's
-  ///   mat2For. On the clean sampled space (both flips correct, so no transpose
-  ///   or residual reflection) columns (0,-1),(1,0) rendered COUNTER-clockwise,
-  ///   so clockwise is its inverse, columns (0,1),(-1,0). (Requires the ingest to
-  ///   deliver a display-upright, non-mirrored original; see Ingest.swift.)
-  static func uvTransform(op: Op) -> simd_float2x2 {
-    switch op {
-    case .flipX:
-      return simd_float2x2(columns: (SIMD2<Float>(-1, 0), SIMD2<Float>(0, 1)))
-    case .flipY:
-      return simd_float2x2(columns: (SIMD2<Float>(1, 0), SIMD2<Float>(0, -1)))
-    case .rotateCW:
-      return simd_float2x2(columns: (SIMD2<Float>(0, 1), SIMD2<Float>(-1, 0)))
-    case .rotateCCW:
-      return simd_float2x2(columns: (SIMD2<Float>(0, -1), SIMD2<Float>(1, 0)))
+    /// The uUvTransform to bind at buffer(0) of transform.metalsrc for `op`. The
+    /// input frame is already display-upright (see Ingest), so this is pure screen
+    /// space and rotation-independent.
+    ///
+    /// flip-x:   negate U                       -> columns (-1, 0), ( 0,  1)
+    /// flip-y:   negate V                       -> columns ( 1, 0), ( 0, -1)
+    /// rotate-cw / rotate-ccw: screen 90-degree rotations. Shared with Android's
+    ///   mat2For. On the clean sampled space (both flips correct, so no transpose
+    ///   or residual reflection) columns (0,-1),(1,0) rendered COUNTER-clockwise,
+    ///   so clockwise is its inverse, columns (0,1),(-1,0). (Requires the ingest to
+    ///   deliver a display-upright, non-mirrored original; see Ingest.swift.)
+    static func uvTransform(op: Op) -> simd_float2x2 {
+        switch op {
+        case .flipX:
+            simd_float2x2(columns: (SIMD2<Float>(-1, 0), SIMD2<Float>(0, 1)))
+        case .flipY:
+            simd_float2x2(columns: (SIMD2<Float>(1, 0), SIMD2<Float>(0, -1)))
+        case .rotateCW:
+            simd_float2x2(columns: (SIMD2<Float>(0, 1), SIMD2<Float>(-1, 0)))
+        case .rotateCCW:
+            simd_float2x2(columns: (SIMD2<Float>(0, -1), SIMD2<Float>(1, 0)))
+        }
     }
-  }
 }

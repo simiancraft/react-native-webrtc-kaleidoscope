@@ -32,34 +32,34 @@
 // types (RTCVideoFrame etc.) come from WebRTC.framework via `import WebRTC`.
 
 import Foundation
-import WebRTC
 import os.log
+import WebRTC
 #if canImport(livekit_react_native_webrtc)
-import livekit_react_native_webrtc
+    import livekit_react_native_webrtc
 #elseif canImport(react_native_webrtc)
-import react_native_webrtc
+    import react_native_webrtc
 #endif
 
 public enum Registration {
-  private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Registration")
+    private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Registration")
 
-  public static func registerAll() {
-    // Geometric reorientation ops. flip-x is the corrected screen-horizontal
-    // mirror that replaces the old "mirror" effect; the other three are new.
-    // All four share TransformProcessor + transform.metalsrc; the buffer-space
-    // rotation correction lives only in Orientation.swift. The registry-parity
-    // test pins these literals plus "composite".
-    ProcessorProvider.addProcessor(TransformProcessor(op: .flipX), forName: "flip-x")
-    ProcessorProvider.addProcessor(TransformProcessor(op: .flipY), forName: "flip-y")
-    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCW), forName: "rotate-cw")
-    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
+    public static func registerAll() {
+        // Geometric reorientation ops. flip-x is the corrected screen-horizontal
+        // mirror that replaces the old "mirror" effect; the other three are new.
+        // All four share TransformProcessor + transform.metalsrc; the buffer-space
+        // rotation correction lives only in Orientation.swift. The registry-parity
+        // test pins these literals plus "composite".
+        ProcessorProvider.addProcessor(TransformProcessor(op: .flipX), forName: "flip-x")
+        ProcessorProvider.addProcessor(TransformProcessor(op: .flipY), forName: "flip-y")
+        ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCW), forName: "rotate-cw")
+        ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
 
-    // One composite compositor serves EVERY art effect; the active layer stack is
-    // data, delivered out-of-band via setCompositeLayers (CompositeLayers) and read per
-    // frame. A single registered instance, like the transform processors. Mirrors
-    // android/.../Registration.kt registering CompositeFactory under "composite".
-    ProcessorProvider.addProcessor(CompositeProcessor(), forName: "composite")
+        // One composite compositor serves EVERY art effect; the active layer stack is
+        // data, delivered out-of-band via setCompositeLayers (CompositeLayers) and read per
+        // frame. A single registered instance, like the transform processors. Mirrors
+        // android/.../Registration.kt registering CompositeFactory under "composite".
+        ProcessorProvider.addProcessor(CompositeProcessor(), forName: "composite")
 
-    os_log("registered 4 transform op(s) + 1 composite compositor", log: log, type: .info)
-  }
+        os_log("registered 4 transform op(s) + 1 composite compositor", log: log, type: .info)
+    }
 }

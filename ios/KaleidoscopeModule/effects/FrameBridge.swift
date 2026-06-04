@@ -12,35 +12,35 @@
 //         rotation ._0 — the consumer must NOT re-rotate it. Only the source
 //         timestamp is preserved.
 
-import Foundation
 import CoreVideo
+import Foundation
 import WebRTC
 
 enum FrameBridge {
-  /// Extract the input CVPixelBuffer from a camera RTCVideoFrame, or nil if
-  /// the buffer is not a CVPixelBuffer-backed buffer (caller forwards
-  /// original).
-  static func inputPixelBuffer(_ frame: RTCVideoFrame) -> CVPixelBuffer? {
-    guard let cvBuffer = frame.buffer as? RTCCVPixelBuffer else {
-      return nil
+    /// Extract the input CVPixelBuffer from a camera RTCVideoFrame, or nil if
+    /// the buffer is not a CVPixelBuffer-backed buffer (caller forwards
+    /// original).
+    static func inputPixelBuffer(_ frame: RTCVideoFrame) -> CVPixelBuffer? {
+        guard let cvBuffer = frame.buffer as? RTCCVPixelBuffer else {
+            return nil
+        }
+        return cvBuffer.pixelBuffer
     }
-    return cvBuffer.pixelBuffer
-  }
 
-  /// Wrap a processed BGRA buffer back into an RTCVideoFrame with rotation ._0
-  /// and the source timestamp. The buffer holds DISPLAY-UPRIGHT pixels (the
-  /// camera rotation was folded into the ingest; see Ingest.swift), so the
-  /// emitted frame carries NO rotation and the consumer displays/encodes it
-  /// as-is. The single source of camera orientation is the ingest, not here.
-  static func makeOutputFrame(
-    pixelBuffer: CVPixelBuffer,
-    like source: RTCVideoFrame
-  ) -> RTCVideoFrame {
-    let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
-    return RTCVideoFrame(
-      buffer: rtcBuffer,
-      rotation: ._0,
-      timeStampNs: source.timeStampNs
-    )
-  }
+    /// Wrap a processed BGRA buffer back into an RTCVideoFrame with rotation ._0
+    /// and the source timestamp. The buffer holds DISPLAY-UPRIGHT pixels (the
+    /// camera rotation was folded into the ingest; see Ingest.swift), so the
+    /// emitted frame carries NO rotation and the consumer displays/encodes it
+    /// as-is. The single source of camera orientation is the ingest, not here.
+    static func makeOutputFrame(
+        pixelBuffer: CVPixelBuffer,
+        like source: RTCVideoFrame
+    ) -> RTCVideoFrame {
+        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+        return RTCVideoFrame(
+            buffer: rtcBuffer,
+            rotation: ._0,
+            timeStampNs: source.timeStampNs
+        )
+    }
 }

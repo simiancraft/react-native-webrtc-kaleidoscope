@@ -32,114 +32,115 @@ import Metal
 import os.log
 
 struct ShaderLibrary {
-  private let library: MTLLibrary
+    private let library: MTLLibrary
 
-  /// The raw MSL source text this library was compiled from. Retained so the
-  /// generic generative-shader path can parse the spirv-cross `[[buffer(n)]]`
-  /// decorations out of it (see uniformBufferIndices); the only tractable way
-  /// to bind arbitrary-named uniforms by index without per-shader Swift. The
-  /// fixed-binding shaders (passthrough/blur/composite/transform) ignore it.
-  let source: String
-
-  /// Compiles `<fileName>.metalsrc` (read from the Kaleidoscope bundle) into a
-  /// standalone MTLLibrary.
-  init(device: MTLDevice, bundle: Bundle, fileName: String) throws {
-    guard let url = ShaderLibrary.locate(fileName: fileName, bundle: bundle) else {
-      throw RendererError.libraryCompileFailed("\(fileName).metalsrc not found in bundle")
-    }
+    /// The raw MSL source text this library was compiled from. Retained so the
+    /// generic generative-shader path can parse the spirv-cross `[[buffer(n)]]`
+    /// decorations out of it (see uniformBufferIndices); the only tractable way
+    /// to bind arbitrary-named uniforms by index without per-shader Swift. The
+    /// fixed-binding shaders (passthrough/blur/composite/transform) ignore it.
     let source: String
-    do {
-      source = try String(contentsOf: url, encoding: .utf8)
-    } catch {
-      throw RendererError.libraryCompileFailed(
-        "read \(fileName).metalsrc failed: \(error.localizedDescription)"
-      )
-    }
-    self.source = source
-    do {
-      self.library = try device.makeLibrary(source: source, options: nil)
-    } catch {
-      throw RendererError.libraryCompileFailed(
-        "compile \(fileName).metalsrc failed: \(error.localizedDescription)"
-      )
-    }
-  }
 
-  /// Returns the `main0` function for this library's stage.
-  func function() throws -> MTLFunction {
-    guard let fn = library.makeFunction(name: "main0") else {
-      throw RendererError.missingFunction("main0")
+    /// Compiles `<fileName>.metalsrc` (read from the Kaleidoscope bundle) into a
+    /// standalone MTLLibrary.
+    init(device: MTLDevice, bundle: Bundle, fileName: String) throws {
+        guard let url = ShaderLibrary.locate(fileName: fileName, bundle: bundle) else {
+            throw RendererError.libraryCompileFailed("\(fileName).metalsrc not found in bundle")
+        }
+        let source: String
+        do {
+            source = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            throw RendererError.libraryCompileFailed(
+                "read \(fileName).metalsrc failed: \(error.localizedDescription)"
+            )
+        }
+        self.source = source
+        do {
+            library = try device.makeLibrary(source: source, options: nil)
+        } catch {
+            throw RendererError.libraryCompileFailed(
+                "compile \(fileName).metalsrc failed: \(error.localizedDescription)"
+            )
+        }
     }
-    return fn
-  }
 
-  /// Parse the fragment-stage uniform name -> Metal buffer index map from the
-  /// spirv-cross MSL source. This is the keystone of the GENERIC uniform binding
-  /// (no per-shader Swift): spirv-cross emits each scalar/vector uniform as a
-  /// `constant T& uName [[buffer(n)]]` argument on `main0`, and CRUCIALLY it does
-  /// NOT preserve GLSL declaration order; plasma.metalsrc binds
-  /// uResolution=0, uTime=1, uSpeed=2, uScale=3, uColorA=4, uColorB=5, which is
-  /// neither GLSL order nor alphabetical. So a host-side name->index map MUST be
-  /// derived from the actual decorations, not assumed. We match every
-  /// `& <name> [[buffer(<n>)]]` token (the `&` distinguishes a `constant T&`
-  /// uniform reference from a texture/sampler argument, which use `[[texture(n)]]`
-  /// / `[[sampler(n)]]`). The leading `&` may be glued to the type (`float&`) or
-  /// spaced; the regex tolerates optional whitespace. Texture and sampler
-  /// arguments are intentionally NOT matched (different decoration), so a
-  /// generative shader that also sampled a texture would not collide here.
-  ///
-  /// Returns e.g. ["uResolution": 0, "uTime": 1, "uSpeed": 2, ...] for plasma.
-  /// The host binds uTime/uResolution itself and looks up every JS-set uniform
-  /// by name in this map to find its buffer index. A uniform the shader does not
-  /// declare is simply absent from the map and skipped at bind time.
-  func uniformBufferIndices() -> [String: Int] {
-    var indices = [String: Int]()
-    // `& uName [[buffer(7)]]` with optional whitespace around the `&` and inside
-    // the attribute. \w covers the u-prefixed identifier; the index is decimal.
-    let pattern = #"&\s*([A-Za-z_][A-Za-z0-9_]*)\s*\[\[\s*buffer\s*\(\s*(\d+)\s*\)\s*\]\]"#
-    guard let regex = try? NSRegularExpression(pattern: pattern) else { return indices }
-    let ns = source as NSString
-    let matches = regex.matches(in: source, range: NSRange(location: 0, length: ns.length))
-    for match in matches where match.numberOfRanges == 3 {
-      let name = ns.substring(with: match.range(at: 1))
-      let idxStr = ns.substring(with: match.range(at: 2))
-      if let idx = Int(idxStr) {
-        indices[name] = idx
-      }
+    /// Returns the `main0` function for this library's stage.
+    func function() throws -> MTLFunction {
+        guard let fn = library.makeFunction(name: "main0") else {
+            throw RendererError.missingFunction("main0")
+        }
+        return fn
     }
-    return indices
-  }
 
-  /// Resolve `<fileName>.metalsrc`. Tries the nested Kaleidoscope resource bundle
-  /// first (the normal install layout for an autolinked pod), then the given
-  /// bundle directly, then `shaders/` subpaths under each. The breadth covers
-  /// both the resource_bundles install layout and a flattened test layout.
-  private static func locate(fileName: String, bundle: Bundle) -> URL? {
-    let candidateBundles = [Bundle.kaleidoscopeResources(relativeTo: bundle), bundle].compactMap { $0 }
-    for candidate in candidateBundles {
-      if let url = candidate.url(forResource: fileName, withExtension: "metalsrc") {
-        return url
-      }
-      if let url = candidate.url(forResource: fileName, withExtension: "metalsrc", subdirectory: "shaders") {
-        return url
-      }
+    /// Parse the fragment-stage uniform name -> Metal buffer index map from the
+    /// spirv-cross MSL source. This is the keystone of the GENERIC uniform binding
+    /// (no per-shader Swift): spirv-cross emits each scalar/vector uniform as a
+    /// `constant T& uName [[buffer(n)]]` argument on `main0`, and CRUCIALLY it does
+    /// NOT preserve GLSL declaration order; plasma.metalsrc binds
+    /// uResolution=0, uTime=1, uSpeed=2, uScale=3, uColorA=4, uColorB=5, which is
+    /// neither GLSL order nor alphabetical. So a host-side name->index map MUST be
+    /// derived from the actual decorations, not assumed. We match every
+    /// `& <name> [[buffer(<n>)]]` token (the `&` distinguishes a `constant T&`
+    /// uniform reference from a texture/sampler argument, which use `[[texture(n)]]`
+    /// / `[[sampler(n)]]`). The leading `&` may be glued to the type (`float&`) or
+    /// spaced; the regex tolerates optional whitespace. Texture and sampler
+    /// arguments are intentionally NOT matched (different decoration), so a
+    /// generative shader that also sampled a texture would not collide here.
+    ///
+    /// Returns e.g. ["uResolution": 0, "uTime": 1, "uSpeed": 2, ...] for plasma.
+    /// The host binds uTime/uResolution itself and looks up every JS-set uniform
+    /// by name in this map to find its buffer index. A uniform the shader does not
+    /// declare is simply absent from the map and skipped at bind time.
+    func uniformBufferIndices() -> [String: Int] {
+        var indices = [String: Int]()
+        // `& uName [[buffer(7)]]` with optional whitespace around the `&` and inside
+        // the attribute. \w covers the u-prefixed identifier; the index is decimal.
+        let pattern = #"&\s*([A-Za-z_][A-Za-z0-9_]*)\s*\[\[\s*buffer\s*\(\s*(\d+)\s*\)\s*\]\]"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return indices }
+        let ns = source as NSString
+        let matches = regex.matches(in: source, range: NSRange(location: 0, length: ns.length))
+        for match in matches where match.numberOfRanges == 3 {
+            let name = ns.substring(with: match.range(at: 1))
+            let idxStr = ns.substring(with: match.range(at: 2))
+            if let idx = Int(idxStr) {
+                indices[name] = idx
+            }
+        }
+        return indices
     }
-    return nil
-  }
+
+    /// Resolve `<fileName>.metalsrc`. Tries the nested Kaleidoscope resource bundle
+    /// first (the normal install layout for an autolinked pod), then the given
+    /// bundle directly, then `shaders/` subpaths under each. The breadth covers
+    /// both the resource_bundles install layout and a flattened test layout.
+    private static func locate(fileName: String, bundle: Bundle) -> URL? {
+        let candidateBundles = [Bundle.kaleidoscopeResources(relativeTo: bundle), bundle].compactMap { $0 }
+        for candidate in candidateBundles {
+            if let url = candidate.url(forResource: fileName, withExtension: "metalsrc") {
+                return url
+            }
+            if let url = candidate.url(forResource: fileName, withExtension: "metalsrc", subdirectory: "shaders") {
+                return url
+            }
+        }
+        return nil
+    }
 }
 
 extension Bundle {
-  /// Resolves the `Kaleidoscope.bundle` that the podspec's `resource_bundles`
-  /// produces. For an autolinked pod the resource bundle is nested inside the
-  /// framework/app bundle that contains the Swift code; `relativeTo` is that
-  /// containing bundle. Falls back to `Bundle(for:)` of a renderer type so a
-  /// statically linked layout (resources merged into the host app) still
-  /// resolves.
-  static func kaleidoscopeResources(relativeTo containing: Bundle) -> Bundle? {
-    if let url = containing.url(forResource: "Kaleidoscope", withExtension: "bundle"),
-       let nested = Bundle(url: url) {
-      return nested
+    /// Resolves the `Kaleidoscope.bundle` that the podspec's `resource_bundles`
+    /// produces. For an autolinked pod the resource bundle is nested inside the
+    /// framework/app bundle that contains the Swift code; `relativeTo` is that
+    /// containing bundle. Falls back to `Bundle(for:)` of a renderer type so a
+    /// statically linked layout (resources merged into the host app) still
+    /// resolves.
+    static func kaleidoscopeResources(relativeTo containing: Bundle) -> Bundle? {
+        if let url = containing.url(forResource: "Kaleidoscope", withExtension: "bundle"),
+           let nested = Bundle(url: url)
+        {
+            return nested
+        }
+        return nil
     }
-    return nil
-  }
 }
