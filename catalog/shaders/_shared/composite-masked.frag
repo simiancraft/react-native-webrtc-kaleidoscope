@@ -4,9 +4,9 @@
 // correctly. Lets a generative/blur/image layer target the subject instead of the
 // background. Mask UV and safeHi as in composite-subject.
 //
-// iOS binding contract (CompositeProcessor): uTex at texture(0), uMask at
-// texture(1); uMaskUvScale buffer(0), uMaskUvOffset buffer(1), uMaskLo buffer(2),
-// uMaskHi buffer(3).
+// iOS binding (CompositeProcessor): uTex at texture(0), uMask at texture(1); the
+// buffer uniforms (uMaskUvScale, uMaskUvOffset, uMaskHi, uMaskLo) bind by name via
+// ShaderLibrary.uniformBufferIndices, so the spirv-cross buffer order is not assumed.
 #version 300 es
 precision highp float;
 uniform sampler2D uTex;

@@ -88,6 +88,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     // hardcoded positions, so a spirv-cross re-order can't silently swap a uniform.
     // Populated alongside the fragment in the matching ensure*Fragment.
     private var subjectUniformIndices: [String: Int] = [:]
+    private var maskedUniformIndices: [String: Int] = [:]
 
     /// Pipeline-state cache keyed by "<fragment label>|<blend>". Image, subject, and
     /// each generative shader get one pipeline per blend mode used. Built lazily.
@@ -349,17 +350,17 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
                 commandBuffer: commandBuffer, renderer: renderer, layer: layer,
                 width: width, height: height, elapsed: elapsed, camera: camera
             ) else { return }
-            guard let fragment = ensureMaskedFragment(renderer: renderer),
+            guard let masked = ensureMaskedFragment(renderer: renderer),
                   let pipeline = ensurePipeline(
-                      fragment: fragment, fragmentLabel: "composite-masked", blend: blend, renderer: renderer
+                      fragment: masked.fragment, fragmentLabel: "composite-masked", blend: blend, renderer: renderer
                   ) else { return }
             withOutputEncoder(
                 commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
                 isFirstOutputDraw: &isFirstOutputDraw, label: "composite-masked"
             ) { encoder in
                 renderer.drawCompositeMaskedLayer(
-                    encoder: encoder, pipeline: pipeline, content: content.texture, mask: mask,
-                    contentUvScale: content.uvScale, contentUvOffset: content.uvOffset,
+                    encoder: encoder, pipeline: pipeline, indices: masked.indices,
+                    content: content.texture, mask: mask,
                     maskUvScale: SIMD2<Float>(1, 1), maskUvOffset: SIMD2<Float>(0, 0),
                     maskLo: maskLo, maskHi: maskHi
                 )
@@ -672,16 +673,27 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     }
 
     /// The masked-composite fragment (stencil any layer to the subject); compiled
-    /// once and cached on success/failure, same pattern as ensureCameraFragment.
-    private func ensureMaskedFragment(renderer: MetalRenderer) -> MTLFunction? {
-        if let fragment = maskedFragment { return fragment }
+    /// once and cached on success/failure, with its uniform-index map resolved from
+    /// the metalsrc so the mask buffers bind by name (same as ensureSubjectFragment).
+    private func ensureMaskedFragment(
+        renderer: MetalRenderer
+    ) -> (fragment: MTLFunction, indices: [String: Int])? {
+        if let fragment = maskedFragment { return (fragment, maskedUniformIndices) }
         if maskedFailed { return nil }
-        if let fragment = loadFixedFragment(fileName: "composite-masked", renderer: renderer) {
+        do {
+            let library = try ShaderLibrary(
+                device: renderer.device, bundle: Bundle(for: CompositeProcessor.self), fileName: "composite-masked"
+            )
+            let fragment = try library.function()
             maskedFragment = fragment
-            return fragment
+            maskedUniformIndices = library.uniformBufferIndices()
+            return (fragment, maskedUniformIndices)
+        } catch {
+            maskedFailed = true
+            os_log("composite-masked fragment build failed: %{public}@",
+                   log: CompositeProcessor.log, type: .error, error.localizedDescription)
+            return nil
         }
-        maskedFailed = true
-        return nil
     }
 
     private func ensureBlurFragment(renderer: MetalRenderer) -> MTLFunction? {

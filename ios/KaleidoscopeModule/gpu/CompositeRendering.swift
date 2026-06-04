@@ -249,38 +249,43 @@ extension MetalRenderer {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
 
-    /// Stencil a finished scratch texture (premultiplied) to the subject through
-    /// the mask alpha, into the open composite encoder. This is how ANY non-direct
-    /// layer (generative, image, blur) targets the subject. Binds, matching
-    /// composite-masked.metalsrc: buffer(0) uContentUvScale, (1) uContentUvOffset, (2)
-    /// uMaskUvScale, (3) uMaskUvOffset, (4) uMaskLo, (5) uMaskHi; texture(0) content,
-    /// (1) mask; sampler(0)/(1). Mirrors CompositeFactory.drawMaskedComposite (Android)
-    /// / the masked-composite pass in composite.ts.
+    /// Stencil a finished scratch texture (premultiplied) to the subject through the
+    /// mask alpha, into the open composite encoder. This is how ANY non-direct layer
+    /// (generative, image, blur) targets the subject. The content scratch is sampled
+    /// at vUv (the shader carries no content-UV transform); the mask UV transform and
+    /// the lo/hi matte thresholds bind by NAME via `indices` (resolved from
+    /// composite-masked.metalsrc by ShaderLibrary.uniformBufferIndices), so a
+    /// spirv-cross re-order can't swap uMaskHi/uMaskLo. uTex at texture(0), uMask at
+    /// texture(1); samplers(0)/(1). Mirrors CompositeFactory.drawMaskedComposite
+    /// (Android) / the masked-composite pass in composite.ts.
     func drawCompositeMaskedLayer(
         encoder: MTLRenderCommandEncoder,
         pipeline: MTLRenderPipelineState,
+        indices: [String: Int],
         content: MTLTexture,
         mask: MTLTexture,
-        contentUvScale: SIMD2<Float>,
-        contentUvOffset: SIMD2<Float>,
         maskUvScale: SIMD2<Float>,
         maskUvOffset: SIMD2<Float>,
         maskLo: Float,
         maskHi: Float
     ) {
         encoder.setRenderPipelineState(pipeline)
-        var contentUvScaleVar = contentUvScale
-        var contentUvOffsetVar = contentUvOffset
         var maskUvScaleVar = maskUvScale
         var maskUvOffsetVar = maskUvOffset
         var maskLoVar = maskLo
         var maskHiVar = maskHi
-        encoder.setFragmentBytes(&contentUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
-        encoder.setFragmentBytes(&contentUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
-        encoder.setFragmentBytes(&maskUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 2)
-        encoder.setFragmentBytes(&maskUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 3)
-        encoder.setFragmentBytes(&maskLoVar, length: MemoryLayout<Float>.stride, index: 4)
-        encoder.setFragmentBytes(&maskHiVar, length: MemoryLayout<Float>.stride, index: 5)
+        if let i = indices["uMaskUvScale"] {
+            encoder.setFragmentBytes(&maskUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: i)
+        }
+        if let i = indices["uMaskUvOffset"] {
+            encoder.setFragmentBytes(&maskUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: i)
+        }
+        if let i = indices["uMaskHi"] {
+            encoder.setFragmentBytes(&maskHiVar, length: MemoryLayout<Float>.stride, index: i)
+        }
+        if let i = indices["uMaskLo"] {
+            encoder.setFragmentBytes(&maskLoVar, length: MemoryLayout<Float>.stride, index: i)
+        }
         encoder.setFragmentTexture(content, index: 0)
         encoder.setFragmentTexture(mask, index: 1)
         encoder.setFragmentSamplerState(linearClampSampler, index: 0)
