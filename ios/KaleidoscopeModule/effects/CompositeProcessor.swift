@@ -633,9 +633,10 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         }
     }
 
-    /// Raw-camera (direct/background), blit (blur/background), and masked-composite
-    /// (any subject layer) fragments, each compiled once from its hand-authored
-    /// .metalsrc, cached on success/failure exactly like the image/subject fragments.
+    /// The raw-camera (direct/background) fragment, compiled once from its
+    /// hand-authored .metalsrc and cached on success/failure exactly like the
+    /// image/subject fragments. The blit and masked-composite fragments load
+    /// through ensureBlitFragment / ensureMaskedFragment below.
     private func ensureCameraFragment(renderer: MetalRenderer) -> MTLFunction? {
         if let fragment = cameraFragment { return fragment }
         if cameraFailed { return nil }
@@ -647,6 +648,8 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         return nil
     }
 
+    /// The scratch-blit fragment (blur/background); compiled once and cached on
+    /// success/failure, same pattern as ensureCameraFragment.
     private func ensureBlitFragment(renderer: MetalRenderer) -> MTLFunction? {
         if let fragment = blitFragment { return fragment }
         if blitFailed { return nil }
@@ -658,6 +661,8 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         return nil
     }
 
+    /// The masked-composite fragment (stencil any layer to the subject); compiled
+    /// once and cached on success/failure, same pattern as ensureCameraFragment.
     private func ensureMaskedFragment(renderer: MetalRenderer) -> MTLFunction? {
         if let fragment = maskedFragment { return fragment }
         if maskedFailed { return nil }
