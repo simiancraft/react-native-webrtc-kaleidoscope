@@ -3,7 +3,7 @@
 // Deadlights V2 backdrop so composites can color-grade and pace it (the bridge composite
 // runs it behind a cut-out viewport). Shader source is shaders/nebula.frag.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `nebula` layer shader. */

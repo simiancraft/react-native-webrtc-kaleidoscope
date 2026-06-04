@@ -4,7 +4,7 @@
 // `plasma` book presets (ocean/sunset/mint/fast) via ShaderOptionsMap; this file
 // is the layer-side type + control surface. Shader source is shaders/plasma.frag.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `plasma` layer shader. */

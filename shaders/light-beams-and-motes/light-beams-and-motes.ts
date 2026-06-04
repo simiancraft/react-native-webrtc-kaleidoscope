@@ -5,7 +5,7 @@
 // are fixed in the shader; the tunables below grade and pace the whole field.
 // Defaults reproduce the stock prototype look.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `light-beams-and-motes` layer shader. */

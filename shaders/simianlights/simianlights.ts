@@ -3,7 +3,7 @@
 // scale), same opaque BACKGROUND-layer role and same uniform surface. Shader
 // source is shaders/simianlights.frag.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `simianlights` layer shader. */

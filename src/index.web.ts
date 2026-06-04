@@ -17,9 +17,10 @@ import {
   type SetLayerUniforms,
   type SetMask,
 } from './kaleidoscope/controls';
+import { toEffectSpec } from './kaleidoscope/effect';
+import type { EffectInput, EffectSpec } from './kaleidoscope/effect.types';
 import type { KaleidoscopeBinding, KaleidoscopeBindOptions } from './kaleidoscope/types';
 import type { KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
-import { type EffectInput, type EffectSpec, toEffectSpec } from './types';
 import {
   makeComposite,
   resetLayerUniforms as resetCompositeLayerUniforms,
@@ -41,6 +42,14 @@ import { tuning } from './web/tuning';
 
 export type { BackgroundPresetName } from '../images';
 export type {
+  CompositeSpec,
+  EffectInput,
+  EffectName,
+  EffectSpec,
+  TransformName,
+  TransformSpec,
+} from './kaleidoscope/effect.types';
+export type {
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
   MaskInput,
@@ -49,12 +58,16 @@ export type {
   TransformInput,
 } from './kaleidoscope/types';
 export type {
+  KaleidoscopeBlendMode,
   KaleidoscopeControls,
+  KaleidoscopeLayer,
+  KaleidoscopeLayerTarget,
   KaleidoscopePreset,
   KaleidoscopePresetBook,
   KaleidoscopePresetEntry,
   KaleidoscopeTaxonomy,
 } from './kaleidoscope.preset-book.types';
+export type { RGB } from './lib/primitives.types';
 export type {
   AnamorphicLensFlareUniforms,
   BlurUniforms,
@@ -62,6 +75,8 @@ export type {
   CorporateBlobsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
+  LayerShaderName,
+  LayerShaderOptions,
   LightBeamsAndMotesUniforms,
   NebulaUniforms,
   PatchableShaderName,
@@ -83,20 +98,6 @@ export {
   PLASMA_CONTROLS,
   SIMIANLIGHTS_CONTROLS,
 } from './shaders';
-export type {
-  CompositeSpec,
-  EffectInput,
-  EffectName,
-  EffectSpec,
-  KaleidoscopeBlendMode,
-  KaleidoscopeLayer,
-  KaleidoscopeLayerTarget,
-  LayerShaderName,
-  LayerShaderOptions,
-  RGB,
-  TransformName,
-  TransformSpec,
-} from './types';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
   switch (spec.name) {

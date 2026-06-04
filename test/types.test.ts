@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { toEffectSpec } from '../src/types';
+import { toEffectSpec } from '../src/kaleidoscope/effect';
 
 describe('toEffectSpec', () => {
   test('wraps a bare transform name into a spec object', () => {

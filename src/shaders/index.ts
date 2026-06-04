@@ -57,3 +57,22 @@ export type ShaderUniformsMap = {
 
 /** A patchable (uniform-bearing) layer shader name. */
 export type PatchableShaderName = keyof ShaderUniformsMap;
+
+/**
+ * What each layer `shader` accepts in a preset, DERIVED from `ShaderUniformsMap`
+ * so adding a shader there flows through automatically (no hand-mirrored list):
+ * every uniform-bearing shader's options are a `Partial` of its uniforms, plus
+ * the two non-uniform layer kinds. The `KaleidoscopeLayer` discriminant narrows
+ * over this.
+ *   - `image`  replaces the target with a still image (needs `source`).
+ *   - `direct` passes the target through unchanged (a matrix passthrough).
+ */
+export type LayerShaderOptions = {
+  readonly image: { readonly source: string };
+  readonly direct: Record<never, never>;
+} & {
+  readonly [K in keyof ShaderUniformsMap]: { readonly uniforms: Partial<ShaderUniformsMap[K]> };
+};
+
+/** A layer shader name (the `KaleidoscopeLayer` discriminant). */
+export type LayerShaderName = keyof LayerShaderOptions;

@@ -24,7 +24,7 @@
 
 import type { ProcessorOptions, Track, TrackProcessor } from 'livekit-client';
 import { applyVideoEffectsDisposable } from './index.web';
-import type { EffectInput } from './types';
+import type { EffectInput } from './kaleidoscope/effect.types';
 
 /**
  * A LiveKit `TrackProcessor` that applies Kaleidoscope video effects to a local

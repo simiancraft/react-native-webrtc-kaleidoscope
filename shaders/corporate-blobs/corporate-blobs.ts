@@ -5,7 +5,7 @@
 // blobs' positions and colors are fixed in the shader; the tunables below grade,
 // scale, and pace the field. Defaults reproduce the stock prototype look.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `corporate-blobs` layer shader. */

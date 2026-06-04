@@ -2,7 +2,7 @@
 // `*_CONTROLS` list of these; the demo generates a control per entry, and the
 // list doubles as documentation (name, default, range, and a doc string).
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 
 /**
  * A single tunable uniform with enough metadata to render a control and seed a

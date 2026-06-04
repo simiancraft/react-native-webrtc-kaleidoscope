@@ -4,7 +4,7 @@
 // shows up in editors and for LLMs). This is the first of the per-shader type
 // files; the shader source is shaders/clouds.frag.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `clouds` layer shader. */

@@ -8,7 +8,7 @@
 // blend. Transforms are not book entries; the transform verb handles them.
 
 import type { KaleidoscopePreset } from '../kaleidoscope.preset-book.types';
-import type { EffectSpec } from '../types';
+import type { EffectSpec } from './effect.types';
 
 export const compositeToEffectSpec = (composite: KaleidoscopePreset): EffectSpec => ({
   name: 'composite',

@@ -2,7 +2,7 @@
 // transparent overlay of drifting glowing motes (use blend 'additive'). Shader
 // source is shaders/fireflies.frag.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `fireflies` layer shader. */

@@ -15,14 +15,10 @@ import {
   type SetLayerUniforms,
   type SetMask,
 } from './kaleidoscope/controls';
+import { toEffectSpec } from './kaleidoscope/effect';
+import type { ApplyVideoEffects, CompositeSpec } from './kaleidoscope/effect.types';
 import type { KaleidoscopeBinding, KaleidoscopeBindOptions } from './kaleidoscope/types';
-import type { KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
-import {
-  type ApplyVideoEffects,
-  type CompositeSpec,
-  type KaleidoscopeLayer,
-  toEffectSpec,
-} from './types';
+import type { KaleidoscopeLayer, KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
 
 // The native module's tuning functions. Only the three the JS layer drives are
 // declared: blur sigma (from a blur preset's options) and the mask edge (from
@@ -53,6 +49,14 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 
 export type { BackgroundPresetName } from '../images';
 export type {
+  CompositeSpec,
+  EffectInput,
+  EffectName,
+  EffectSpec,
+  TransformName,
+  TransformSpec,
+} from './kaleidoscope/effect.types';
+export type {
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
   MaskInput,
@@ -61,12 +65,16 @@ export type {
   TransformInput,
 } from './kaleidoscope/types';
 export type {
+  KaleidoscopeBlendMode,
   KaleidoscopeControls,
+  KaleidoscopeLayer,
+  KaleidoscopeLayerTarget,
   KaleidoscopePreset,
   KaleidoscopePresetBook,
   KaleidoscopePresetEntry,
   KaleidoscopeTaxonomy,
 } from './kaleidoscope.preset-book.types';
+export type { RGB } from './lib/primitives.types';
 export type {
   AnamorphicLensFlareUniforms,
   BlurUniforms,
@@ -74,6 +82,8 @@ export type {
   CorporateBlobsUniforms,
   FirefliesUniforms,
   GodraysUniforms,
+  LayerShaderName,
+  LayerShaderOptions,
   LightBeamsAndMotesUniforms,
   NebulaUniforms,
   PatchableShaderName,
@@ -97,20 +107,6 @@ export {
   PLASMA_CONTROLS,
   SIMIANLIGHTS_CONTROLS,
 } from './shaders';
-export type {
-  CompositeSpec,
-  EffectInput,
-  EffectName,
-  EffectSpec,
-  KaleidoscopeBlendMode,
-  KaleidoscopeLayer,
-  KaleidoscopeLayerTarget,
-  LayerShaderName,
-  LayerShaderOptions,
-  RGB,
-  TransformName,
-  TransformSpec,
-} from './types';
 
 interface WebRTCTrackExtensions {
   remote?: boolean;

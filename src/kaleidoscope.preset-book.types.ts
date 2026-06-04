@@ -1,17 +1,19 @@
-// Point of entry #1: the preset-book vocabulary.
+// Point of entry #1: the preset-book vocabulary. The base of the pyramid.
 //
-// The declarative types a consumer writes in their `kaleidoscope.preset-book.ts`.
-// This is the root of the type tree: a preset book is a record of named presets;
-// a preset is a name + taxonomy + (optional) thumbnail + (optional) controls + an
-// ordered stack of layers. Everything else in the library is either the runtime
-// that commands these, the prebuild that places their assets, or the components
-// that author them.
+// The complete, declarative lexicon a consumer writes in their
+// `kaleidoscope.preset-book.ts`, and the single source of truth for it: any file
+// that needs one of these types imports it from here. A preset book is a record
+// of named presets; a preset is a name + taxonomy + (optional) thumbnail +
+// (optional) controls + an ordered stack of layers; a layer names a `shader` from
+// the catalog and carries that shader's options.
 //
-// Per shader-world convention, numeric uniforms are normalized 0..1 where
-// practical; ranges are JSDoc hints for IntelliSense, not enforced at runtime.
+// What is NOT here: the runtime effect contract (`CompositeSpec` etc. live in
+// `kaleidoscope/effect.types`; the consumer never writes those), the shader
+// option catalog (`LayerShaderOptions` lives with the shaders it describes), and
+// generic primitives (`RGB` in `lib/primitives.types`).
 
 import type { ComponentType } from 'react';
-import type { KaleidoscopeLayer } from './types';
+import type { LayerShaderName, LayerShaderOptions } from './shaders';
 
 /**
  * A preset's place in the picker: an ordered path of group names, deepest last.
@@ -20,38 +22,6 @@ import type { KaleidoscopeLayer } from './types';
  * its parent. Extend to three levels by adding a member here when needed.
  */
 export type KaleidoscopeTaxonomy = readonly [string] | readonly [string, string];
-
-/**
- * One preset: an ordered painter's stack of layers under one book name, plus
- * display metadata (`name`, `taxonomy`, optional `thumbnail`). `kaleidoscope(id)`
- * runs the whole stack as one composite through the one compositor.
- */
-export type KaleidoscopePreset = {
-  /** Human-readable label for the picker. */
-  readonly name: string;
-  /** Grouping path for the picker, root first (e.g. `['Worlds', 'Wizard Tower']`). */
-  readonly taxonomy: KaleidoscopeTaxonomy;
-  /**
-   * Optional thumbnail source for the picker rail.
-   * - `string`: a resolved URL (web) or native preset name routed through the
-   *   image resolver.
-   * - `number`: a Metro asset module id (the result of `require('./foo.webp')`),
-   *   consumed directly by `<Image source={number}>` without a URI hop. The
-   *   library's packaged presets use this on native (their `.web.ts` siblings
-   *   use the string form via `Asset.fromModule(...).uri`).
-   */
-  readonly thumbnail?: string | number;
-  /** The painter's stack, back to front. Each layer's `id` is unique here. */
-  readonly layers: ReadonlyArray<KaleidoscopeLayer>;
-  /**
-   * Optional tuning component for this preset: a component the Tuner renders,
-   * which mounts a `ControlForm` + `ControlSection` per tunable layer. The Tuner
-   * supplies the chrome wrapper at the layer level, so this component composes
-   * shader fragments and must not add its own. `undefined` renders nothing. The
-   * `import type` keeps presets runtime-React-free.
-   */
-  readonly controls?: ComponentType<KaleidoscopeControls>;
-};
 
 /**
  * What the Tuner passes a preset's `controls` component: the per-layer baked
@@ -69,12 +39,67 @@ export type KaleidoscopeControls = {
   readonly disabled?: boolean;
 };
 
+/** How a layer blends over the layers beneath it (painter's order). */
+export type KaleidoscopeBlendMode = 'normal' | 'additive';
+
+/**
+ * Which part of the frame a layer applies to. Omit for `'background'` (the
+ * accumulated stack so far); `'subject'` stencils the layer to the segmented
+ * person. The same shader can run on either target.
+ */
+export type KaleidoscopeLayerTarget = 'background' | 'subject';
+
+/**
+ * One layer in a preset: a `shader` (from the catalog) applied to a `target`,
+ * with optional `blend`. The `shader` is the discriminant and carries that
+ * shader's required fields (a discriminated union over the catalog's
+ * `LayerShaderOptions`). `id` is required and unique within one preset; it is the
+ * address a patch resolves against, and for an `image` layer it doubles as the
+ * bundled-WebP basename the native facade sends as the image `source`.
+ */
+export type KaleidoscopeLayer = {
+  readonly [S in LayerShaderName]: {
+    readonly id: string;
+    readonly shader: S;
+    readonly target?: KaleidoscopeLayerTarget;
+    readonly blend?: KaleidoscopeBlendMode;
+  } & LayerShaderOptions[S];
+}[LayerShaderName];
+
+/**
+ * One preset: an ordered painter's stack of layers under one book name, plus
+ * display metadata. `kaleidoscope(id)` runs the whole stack as one composite
+ * through the one compositor.
+ */
+export type KaleidoscopePreset = {
+  /** Human-readable label for the picker. */
+  readonly name: string;
+  /** Grouping path for the picker, root first (e.g. `['Worlds', 'Wizard Tower']`). */
+  readonly taxonomy: KaleidoscopeTaxonomy;
+  /**
+   * Optional thumbnail for the picker rail.
+   * - `string`: a resolved URL (web) or native preset name routed through the
+   *   image resolver.
+   * - `number`: a Metro asset module id (`require('./foo.webp')`), consumed
+   *   directly by `<Image source={number}>`.
+   */
+  readonly thumbnail?: string | number;
+  /** The painter's stack, back to front. Each layer's `id` is unique here. */
+  readonly layers: ReadonlyArray<KaleidoscopeLayer>;
+  /**
+   * Optional tuning component the Tuner renders, mounting a `ControlForm` +
+   * `ControlSection` per tunable layer. `undefined` renders nothing. The
+   * `import type` keeps presets runtime-React-free.
+   */
+  readonly controls?: ComponentType<KaleidoscopeControls>;
+};
+
 /** The consumer's book: a flat record of presets keyed by id. */
 export type KaleidoscopePresetBook = Readonly<Record<string, KaleidoscopePreset>>;
 
 /**
  * A materialized book entry: a `KaleidoscopePreset` plus the `id` it was keyed
- * by. This is what the picker and the tuner iterate (the book is keyed; this
- * carries the key inline so a flattened list keeps its identity).
+ * by. What the picker and tuner iterate (the book is keyed; this carries the key
+ * inline so a flattened list keeps its identity).
  */
 export type KaleidoscopePresetEntry = { readonly id: string } & KaleidoscopePreset;

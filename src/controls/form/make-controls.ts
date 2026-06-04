@@ -7,7 +7,7 @@
 // self-wire through the nearest ControlForm at runtime.
 
 import type { ReactElement } from 'react';
-import type { RGB } from '../../types';
+import type { RGB } from '../../lib/primitives.types';
 import { ColorPicker, type ColorPickerProps } from '../primitives/color-picker';
 import { Slider, type SliderProps } from '../primitives/slider';
 

@@ -12,7 +12,7 @@
 // makeTransform closes over its own canvas (one per pipeline stage) so two
 // stacked transform stages never fight over a shared scratch buffer.
 
-import type { TransformName } from '../../types';
+import type { TransformName } from '../../kaleidoscope/effect.types';
 import type { FrameTransform } from '../insertable-streams';
 
 export const makeTransform = (op: TransformName): FrameTransform => {

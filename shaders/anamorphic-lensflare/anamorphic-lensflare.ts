@@ -4,7 +4,7 @@
 // be color-matched to whatever sits behind it (e.g. the nebula in the space
 // composite). Shader source is shaders/anamorphic-lensflare.frag.
 
-import type { RGB } from '../../src/types';
+import type { RGB } from '../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
 /** Typed uniforms for the `anamorphic-lensflare` layer shader. */

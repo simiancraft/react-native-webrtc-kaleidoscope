@@ -14,7 +14,7 @@
 // updates the running composite without a rebuild.
 
 import type { KaleidoscopePreset, KaleidoscopePresetBook } from '../kaleidoscope.preset-book.types';
-import type { EffectSpec, TransformName } from '../types';
+import type { EffectSpec, TransformName } from './effect.types';
 import { compositeToEffectSpec } from './shader-to-spec';
 import type { KaleidoscopeBinding, KaleidoscopeBindOptions, TransformInput } from './types';
 
