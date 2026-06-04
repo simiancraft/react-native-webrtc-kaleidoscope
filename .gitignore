@@ -38,3 +38,4 @@ android/app/build/
 
 # Automated integration-test snapshots (emulator/device screenshot artifacts)
 integration/snapshots/
+.tooling/

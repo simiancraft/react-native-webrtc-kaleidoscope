@@ -123,6 +123,22 @@ No central `test/`. Tests colocate with the thing they test, so the four+ areas 
 - **W6 — Lib.** `test-id.ts → src/lib/` (it's an id-maker, not test-ids; consider renaming the concept); `clamp` and generic types (`RGB`) land here.
 - **W7 — Vocabulary + docs.** De-plate / de-background / de-scene across code and docs (D4); update `CLAUDE.md`/`AGENTS.md` glossary for the `preset` vs `composite` split.
 
+## W8 — Tooling parity (lint / format / compiler-safety across all three languages)
+
+TS has compile (`tsgo`), lint + format (biome); the native sides lag. Target:
+
+| Layer | compile / typecheck | lint | format |
+|-------|---------------------|------|--------|
+| TypeScript | `tsgo --noEmit` ✅ CI | biome ✅ CI | biome ✅ CI |
+| React (compiler-safety) | — | `eslint react-compiler/react-compiler` ✅ CI | — |
+| Kotlin | `check:android` (gradle `compileDebugKotlin`) ⚠️ local-only | **detekt — TODO** | **ktlint — TODO** |
+| Swift | `ios-tests` `swift test` (one parser file) ⚠️ mac-only | **SwiftLint — TODO** | **SwiftFormat — TODO** |
+
+- ✅ **React-Compiler safety SHIPPED (`6cd141e`):** `eslint-plugin-react-compiler` (one rule) over `src/components` + the catalog composite controls; in CI; all 27 components Rules-of-React-compliant. The package is authored "off the compiler" (hand-rolled memo) but is also compiler-safe.
+- **Kotlin lint/format TODO:** ktlint reports ~2200 issues on first run (never formatted). Decision pending: auto-format (`ktlint -F`, large whitespace-only diff) vs a baseline. detekt config TBD. Opt-in posture like `check:android` (JVM 17 local; CI has no Android SDK).
+- **Swift lint/format TODO:** `.swiftlint.yml` + `.swiftformat`; can't run on Linux/WSL (no Swift toolchain) — mac-local, like `ios-tests`.
+- Open decision: gate mechanism — Gradle plugins vs a fetch-and-run script (like the shader toolchain). Neither reaches CI (no SDK / no mac).
+
 ## Answered questions (decision log)
 
 - `app.plugin.js` is hand-authored source, not generated → its logic must be TS and tested; `app.plugin.js` becomes a one-line shim over `dist/prebuild`.
