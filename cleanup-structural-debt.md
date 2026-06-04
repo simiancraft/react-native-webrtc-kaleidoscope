@@ -3,7 +3,8 @@
 **Status:** Draft
 **Scope:** cross-stack
 **Date:** 2026-06-03
-**Last reviewed:** 2026-06-03
+**Last reviewed:** 2026-06-03 <!-- W3 (prebuild) shipped as `plugin/` with a committed `plugin/build` -->
+
 **Context:** The v3 surface works, but its file-and-idea organization has no overriding spine, so it conceals defects; we rebuild it around its points of entry and a driver/contract split before 3.0.
 
 ## Goal
@@ -68,7 +69,8 @@ react-native-webrtc-kaleidoscope/
 │   ├── shaders/<name>/   # 🔀 ← shaders/<name>/  <name>.frag + the shader's uniform/options types
 │   ├── images/<category>/    # 🔀 ← images/
 │   └── composites/<name>/    # 🔀 ← composites/
-├── app.plugin.js     # 🪓 one line: module.exports = require('./dist/prebuild')
+├── plugin/           # ✅ W3 ENTRY #4 (shipped): plugin/src/{android,ios,lib} → committed plugin/build
+├── app.plugin.js     # 🪓 one line: module.exports = require('./plugin/build')
 └── src/
     ├── kaleidoscope.preset-book.types.ts   # + ENTRY #1 vocabulary (shared root, product-prefixed)
     ├── kaleidoscope/        # ENTRY #2 runtime: index.ts (+ .web.ts) = the 3 functions;
@@ -106,7 +108,8 @@ No central `test/`. Tests colocate with the thing they test, so the four+ areas 
 
 - **W1 — Preset-book vocabulary.** Author `src/kaleidoscope.preset-book.types.ts` from the book down; rename `kaleidoscope.presets.ts → kaleidoscope.preset-book.ts` everywhere (the plugin's `PRESET_BOOK_FILENAME`, demo, tests, README/llms.txt); delete `src/types.ts`; collapse the spec types.
 - **W2 — Drivers.** Move `src/web/ → web-driver/` at the repo root (peer to `android/`/`ios/`); give it its own entry + test suite; extract shared source that was hiding in it (`clamp`, tuning ranges) to `src/lib/`.
-- **W3 — Prebuild.** Move `app.plugin.js` logic into `src/prebuild/` TypeScript (D2), split `ios/` · `android/` · `lib/`; `app.plugin.js` → one-line shim. No `web`. The text parser is prebuild-only (runtime gets the book as an object). Function map (every `app.plugin.js` member → TS home; all testable):
+- **W3 — Prebuild. ✅ SHIPPED (`21f61f3`), but landed as a root `plugin/` subtree, NOT `src/prebuild/`.** The shim cannot point at `dist/` because `dist/` is gitignored and absent at the plugin's EAS realpath (the demo consumes the lib via `file:..`; on EAS the realpath is the repo root with no `node_modules` and no built `dist/`). So the plugin compiles `plugin/src` → a **committed** `plugin/build` (Expo's documented `plugin/` layout), and `app.plugin.js` = `module.exports = require('./plugin/build')`. Folders are `plugin/src/{android,ios,lib}` with `lib/{file-manipulation,preset-book,mods,constants,types}`. A `build:plugin` script (tsgo + `@generated` banner + biome) and a `check:plugin` git-diff drift gate keep the committed build honest. The entry-isolation invariant still holds (prebuild is its own built subtree, never imported by the runtime). Everything below in this bullet is the original `src/prebuild`/`dist/prebuild` plan, superseded by the above but kept for the function map.
+  Move `app.plugin.js` logic into `src/prebuild/` TypeScript (D2), split `ios/` · `android/` · `lib/`; `app.plugin.js` → one-line shim. No `web`. The text parser is prebuild-only (runtime gets the book as an object). Function map (every `app.plugin.js` member → TS home; all testable):
   - `prebuild/index.ts` — `withKaleidoscope` (thin; wires the two mods).
   - `prebuild/ios/index.ts` — the `ios.dangerous` mod (orchestration). `prebuild/ios/pods.ts` — `resolveWebrtcPod` + `patchPodfile` + `SENTINEL`. `prebuild/ios/deployment-target.ts` — `IOS_DEPLOYMENT_TARGET` + `isVersionLessThan` (private) + the props bump. `prebuild/ios/copy.ts` — `copyIosAssets` (folds `copyIosImages`+`copyIosThumbnails`; `copyRefs` + pbxproj registration).
   - `prebuild/android/index.ts` — the `android.dangerous` mod. `prebuild/android/copy.ts` — `copyAndroidAssets` (folds the two Android copiers over `copyRefs`).
@@ -124,6 +127,7 @@ No central `test/`. Tests colocate with the thing they test, so the four+ areas 
 
 - `app.plugin.js` is hand-authored source, not generated → its logic must be TS and tested; `app.plugin.js` becomes a one-line shim over `dist/prebuild`.
 - Only the plugin *entry* must be CJS (old EAS Node loaders); all logic can be TS (Expo's own modules ship one-line shims over built TS).
+- **The shim points at a committed `plugin/build`, NOT `dist/prebuild`.** `dist/` is gitignored, so it is absent at the plugin's EAS realpath (the demo's `file:..` dep makes the realpath the repo root, where EAS installs no `node_modules` and runs no library build). `expo-asset`'s `require('./build')` works only because it ships as a published tarball; our demo's EAS path has no tarball. A committed `plugin/build` is the one output guaranteed present there. The compiled output stays node-builtins-only at load (mods register by direct `config.mods` mutation; `@expo/config-plugins` is `require.resolve`'d lazily from the consumer).
 - `LAYER_CONTROLS` was a dead orphan export → removed (commit `3e6f22b`).
 - The `resolve-background-uri` platform split is correct (web URL vs native runtime lookup); the defect is its UI-folder location and its `background` name.
 - `web/` does the same job as `android/`/`ios/` → it's a platform **driver**, moves to `web-driver/` at the root.
@@ -157,6 +161,7 @@ No central `test/`. Tests colocate with the thing they test, so the four+ areas 
 ## Shipped
 
 - ✅ `3e6f22b` — drop the unused `LAYER_CONTROLS` aggregate.
+- ✅ `21f61f3` — **W3 prebuild**: `plugin/src` → committed `plugin/build`; `app.plugin.js` a one-line shim; `plugin/src/{android,ios,lib}`; `registerDangerousPatch` centralizes the chained-mod contract; shared `readTextOrNull`/`copyRefs`/`collectReferencedAssets`; delete `src/prebuild` and orphaned `src/lib/constants.ts`. Curing D1 (copy duplication) and D2 (ectopic plugin logic). Caveat: not yet proven on a real EAS prebuild.
 
 ## References
 
