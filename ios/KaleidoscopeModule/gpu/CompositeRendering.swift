@@ -142,12 +142,16 @@ extension MetalRenderer {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
 
-    /// Draw the masked-subject layer into the open composite encoder. Binds, matching
-    /// composite-subject.metalsrc: buffer(0) uMaskUvScale, (1) uMaskUvOffset, (2)
-    /// uMaskLo, (3) uMaskHi; texture(0) uCamera, (1) uMask; sampler(0)/(1).
+    /// Draw the masked-subject layer into the open composite encoder. The buffer
+    /// uniforms (uMaskUvScale, uMaskUvOffset, uMaskHi, uMaskLo) are bound by NAME via
+    /// `indices` (resolved from composite-subject.metalsrc by
+    /// ShaderLibrary.uniformBufferIndices), so a spirv-cross re-order of the buffer
+    /// decorations cannot silently swap uMaskHi/uMaskLo. uCamera at texture(0),
+    /// uMask at texture(1) are positional by declaration order; samplers(0)/(1).
     func drawCompositeSubjectLayer(
         encoder: MTLRenderCommandEncoder,
         pipeline: MTLRenderPipelineState,
+        indices: [String: Int],
         camera: MTLTexture,
         mask: MTLTexture,
         maskUvScale: SIMD2<Float>,
@@ -160,10 +164,18 @@ extension MetalRenderer {
         var maskUvOffsetVar = maskUvOffset
         var maskLoVar = maskLo
         var maskHiVar = maskHi
-        encoder.setFragmentBytes(&maskUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
-        encoder.setFragmentBytes(&maskUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
-        encoder.setFragmentBytes(&maskLoVar, length: MemoryLayout<Float>.stride, index: 2)
-        encoder.setFragmentBytes(&maskHiVar, length: MemoryLayout<Float>.stride, index: 3)
+        if let i = indices["uMaskUvScale"] {
+            encoder.setFragmentBytes(&maskUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: i)
+        }
+        if let i = indices["uMaskUvOffset"] {
+            encoder.setFragmentBytes(&maskUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: i)
+        }
+        if let i = indices["uMaskHi"] {
+            encoder.setFragmentBytes(&maskHiVar, length: MemoryLayout<Float>.stride, index: i)
+        }
+        if let i = indices["uMaskLo"] {
+            encoder.setFragmentBytes(&maskLoVar, length: MemoryLayout<Float>.stride, index: i)
+        }
         encoder.setFragmentTexture(camera, index: 0)
         encoder.setFragmentTexture(mask, index: 1)
         encoder.setFragmentSamplerState(linearClampSampler, index: 0)

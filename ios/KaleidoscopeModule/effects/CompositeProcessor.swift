@@ -83,6 +83,12 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     private var maskedFailed = false
     private var blurFailed = false
 
+    // Buffer-index maps for the fixed fragments that bind by NAME (resolved from the
+    // transpiled .metalsrc via ShaderLibrary.uniformBufferIndices) instead of
+    // hardcoded positions, so a spirv-cross re-order can't silently swap a uniform.
+    // Populated alongside the fragment in the matching ensure*Fragment.
+    private var subjectUniformIndices: [String: Int] = [:]
+
     /// Pipeline-state cache keyed by "<fragment label>|<blend>". Image, subject, and
     /// each generative shader get one pipeline per blend mode used. Built lazily.
     private var pipelineCache = [String: MTLRenderPipelineState]()
@@ -319,9 +325,9 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
             guard let mask else { return }
             if layer.shader == "direct" {
                 // One-pass fast path: cam x mask.
-                guard let fragment = ensureSubjectFragment(renderer: renderer),
+                guard let subject = ensureSubjectFragment(renderer: renderer),
                       let pipeline = ensurePipeline(
-                          fragment: fragment, fragmentLabel: "composite-subject", blend: blend, renderer: renderer
+                          fragment: subject.fragment, fragmentLabel: "composite-subject", blend: blend, renderer: renderer
                       ) else { return }
                 withOutputEncoder(
                     commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,
@@ -330,7 +336,8 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
                     // iOS mask is aligned with the camera (the Segmenter's flip bracket),
                     // so identity mask UV, unlike web's V-flip.
                     renderer.drawCompositeSubjectLayer(
-                        encoder: encoder, pipeline: pipeline, camera: camera, mask: mask,
+                        encoder: encoder, pipeline: pipeline, indices: subject.indices,
+                        camera: camera, mask: mask,
                         maskUvScale: SIMD2<Float>(1, 1), maskUvOffset: SIMD2<Float>(0, 0),
                         maskLo: maskLo, maskHi: maskHi
                     )
@@ -615,8 +622,10 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         }
     }
 
-    private func ensureSubjectFragment(renderer: MetalRenderer) -> MTLFunction? {
-        if let fragment = subjectFragment { return fragment }
+    private func ensureSubjectFragment(
+        renderer: MetalRenderer
+    ) -> (fragment: MTLFunction, indices: [String: Int])? {
+        if let fragment = subjectFragment { return (fragment, subjectUniformIndices) }
         if subjectFailed { return nil }
         do {
             let library = try ShaderLibrary(
@@ -624,7 +633,8 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
             )
             let fragment = try library.function()
             subjectFragment = fragment
-            return fragment
+            subjectUniformIndices = library.uniformBufferIndices()
+            return (fragment, subjectUniformIndices)
         } catch {
             subjectFailed = true
             os_log("composite-subject fragment build failed: %{public}@",
