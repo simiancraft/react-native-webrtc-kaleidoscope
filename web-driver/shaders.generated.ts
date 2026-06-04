@@ -1199,5 +1199,13 @@ void main() {
 // Generative background shaders, by name. The generic shader processor and the
 // dispatch iterate this; adding a generative .frag adds an entry here.
 export const SHADER_SOURCES: Readonly<Record<string, string>> = {
-  plasma: PLASMA_FRAG_SRC,
+  'plasma': PLASMA_FRAG_SRC,
+  'clouds': CLOUDS_FRAG_SRC,
+  'nebula': NEBULA_FRAG_SRC,
+  'godrays': GODRAYS_FRAG_SRC,
+  'fireflies': FIREFLIES_FRAG_SRC,
+  'simianlights': SIMIANLIGHTS_FRAG_SRC,
+  'anamorphic-lensflare': ANAMORPHIC_LENSFLARE_FRAG_SRC,
+  'light-beams-and-motes': LIGHT_BEAMS_AND_MOTES_FRAG_SRC,
+  'corporate-blobs': CORPORATE_BLOBS_FRAG_SRC,
 } as const;

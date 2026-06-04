@@ -101,15 +101,8 @@ void main() {
 """
 
     // Every generative background is single-sourced from shaders/<name>.frag via
-    // build:shaders; this map points each dispatch name at its generated const.
-    val GENERATIVE: Map<String, String> =
-        mapOf(
-            "godrays" to ShadersGenerated.GODRAYS_FRAG,
-            "clouds" to ShadersGenerated.CLOUDS_FRAG,
-            "fireflies" to ShadersGenerated.FIREFLIES_FRAG,
-            "nebula" to ShadersGenerated.NEBULA_FRAG,
-            "simianlights" to ShadersGenerated.SIMIANLIGHTS_FRAG,
-            "anamorphic-lensflare" to ShadersGenerated.ANAMORPHIC_LENSFLARE_FRAG,
-            "plasma" to ShadersGenerated.PLASMA_FRAG,
-        )
+    // build:shaders, which emits the name -> source map. The compositor reads
+    // this directly, so adding a generative to GENERATIVE_SHADERS registers it
+    // on Android with no edit here.
+    val GENERATIVE: Map<String, String> = ShadersGenerated.GENERATIVE
 }

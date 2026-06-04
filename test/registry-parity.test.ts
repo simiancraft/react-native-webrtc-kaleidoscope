@@ -13,7 +13,7 @@
 // below.
 
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 const read = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -27,8 +27,41 @@ const androidShaders = read(
   '../android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt',
 );
 const iosGenerative = read('../ios/KaleidoscopeModule/shaders/GENERATIVE.txt');
+const webShaderSources = read('../web-driver/shaders.generated.ts');
 
 const TRANSFORM_OPS = ['flip-x', 'flip-y', 'rotate-cw', 'rotate-ccw'] as const;
+
+// Layer shaders the compositor resolves intrinsically (not generative): the raw
+// camera, a bundled image, and the camera blur. Everything else a composite
+// names is a generative that must be registered on every platform.
+const BUILT_IN_SHADERS = new Set(['image', 'direct', 'blur']);
+
+// Keys in the web `SHADER_SOURCES: ... = { name: X, 'two-words': Y }`.
+const webGenerativeNames = (src: string): string[] => {
+  const block = src.match(/SHADER_SOURCES[^{]*\{([\s\S]*?)\}/)?.[1] ?? '';
+  return [...block.matchAll(/['"]?([\w-]+)['"]?\s*:/g)].map((m) => m[1] ?? '').sort();
+};
+
+// Every generative shader a native composite (.ts, what Metro resolves on
+// device) references. Built-ins are excluded; the rest must be registered.
+const compositeGenerativeRefs = (): string[] => {
+  const names = new Set<string>();
+  const dir = new URL('../catalog/composites/', import.meta.url);
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    let src: string;
+    try {
+      src = read(`../catalog/composites/${entry.name}/${entry.name}.ts`);
+    } catch {
+      continue;
+    }
+    for (const m of src.matchAll(/shader:\s*['"]([\w-]+)['"]/g)) {
+      const name = m[1] ?? '';
+      if (!BUILT_IN_SHADERS.has(name)) names.add(name);
+    }
+  }
+  return [...names];
+};
 
 const expoFunctionNames = (src: string): string[] =>
   [...src.matchAll(/Function\("([^"]+)"\)/g)].map((m) => m[1] ?? '').sort();
@@ -59,13 +92,28 @@ describe('native registry parity', () => {
     }
   });
 
-  test('the generative-shader catalog agrees across platforms', () => {
-    // Both the Android GENERATIVE map and the iOS GENERATIVE.txt are codegen
-    // from the same GENERATIVE_SHADERS list; the generic processor + directory-
-    // driven registration iterate them. If they drift, one platform silently
-    // lacks a shader the other registers.
-    expect(iosGenerativeNames(iosGenerative)).toEqual(androidGenerativeNames(androidShaders));
-    expect(androidGenerativeNames(androidShaders).length).toBeGreaterThan(0);
+  test('the generative-shader catalog agrees across the live consumers', () => {
+    // The Android GENERATIVE map (which LayerShaders.GENERATIVE reads directly),
+    // the iOS GENERATIVE.txt, and the web SHADER_SOURCES registry (which
+    // LAYER_SHADER_SOURCES re-exports) are all single-sourced from the same
+    // GENERATIVE_SHADERS list. If any drifts, a platform silently lacks a shader
+    // the others register.
+    const android = androidGenerativeNames(androidShaders);
+    expect(android.length).toBeGreaterThan(0);
+    expect(iosGenerativeNames(iosGenerative)).toEqual(android);
+    expect(webGenerativeNames(webShaderSources)).toEqual(android);
+  });
+
+  test('every generative a native composite references is registered', () => {
+    // Guards the corporate-blobs class of bug: a composite's .ts naming a shader
+    // that is not in the platform's generative set drops that layer silently at
+    // runtime (it does not type-check or fail the build).
+    const android = androidGenerativeNames(androidShaders);
+    for (const shader of compositeGenerativeRefs()) {
+      expect(android, `composite references generative "${shader}" not in the registry`).toContain(
+        shader,
+      );
+    }
   });
 
   test('the same Expo Module Functions exist on BOTH native modules (no half-wired bridge)', () => {
