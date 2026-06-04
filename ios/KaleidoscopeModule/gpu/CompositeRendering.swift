@@ -297,12 +297,15 @@ extension MetalRenderer {
     /// `target`) along `axis`, into its OWN render pass (blend off, `.dontCare`
     /// load: every texel overwritten). The host runs this twice (horizontal then
     /// vertical) into ping-pong scratch textures; see CompositeProcessor.
-    /// composite-blur.metalsrc bindings: buffer(0) uDir, buffer(1) uSigma; texture(0)
-    /// uTex; sampler(0). Reuses drawFullscreen, so it shares the dontCare-load
-    /// single-quad convention with the standalone blur/transform passes.
+    /// The buffer uniforms (uSigma, uDir) bind by NAME via `indices` (resolved from
+    /// composite-blur.metalsrc by ShaderLibrary.uniformBufferIndices), so the
+    /// spirv-cross buffer order is not assumed; uTex at texture(0); sampler(0).
+    /// Reuses drawFullscreen, so it shares the dontCare-load single-quad convention
+    /// with the standalone blur/transform passes.
     func encodeCompositeBlurPass(
         commandBuffer: MTLCommandBuffer,
         pipeline: MTLRenderPipelineState,
+        indices: [String: Int],
         source: MTLTexture,
         target: MTLTexture,
         dir: SIMD2<Float>,
@@ -317,10 +320,12 @@ extension MetalRenderer {
         ) { encoder in
             var dirVar = dir
             var sigmaVar = sigma
-            // Buffer indices match the transpiled composite-blur.metalsrc, which
-            // spirv-cross auto-maps as uSigma -> buffer(0), uDir -> buffer(1).
-            encoder.setFragmentBytes(&sigmaVar, length: MemoryLayout<Float>.stride, index: 0)
-            encoder.setFragmentBytes(&dirVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
+            if let i = indices["uSigma"] {
+                encoder.setFragmentBytes(&sigmaVar, length: MemoryLayout<Float>.stride, index: i)
+            }
+            if let i = indices["uDir"] {
+                encoder.setFragmentBytes(&dirVar, length: MemoryLayout<SIMD2<Float>>.stride, index: i)
+            }
             encoder.setFragmentTexture(source, index: 0)
             encoder.setFragmentSamplerState(linearClampSampler, index: 0)
         }

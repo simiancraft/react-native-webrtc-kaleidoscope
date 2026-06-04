@@ -89,6 +89,7 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
     // Populated alongside the fragment in the matching ensure*Fragment.
     private var subjectUniformIndices: [String: Int] = [:]
     private var maskedUniformIndices: [String: Int] = [:]
+    private var blurUniformIndices: [String: Int] = [:]
 
     /// Pipeline-state cache keyed by "<fragment label>|<blend>". Image, subject, and
     /// each generative shader get one pipeline per blend mode used. Built lazily.
@@ -507,8 +508,8 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         let (scratchA, scratchB) = scratch
 
         if layer.shader == "blur" {
-            guard let fragment = ensureBlurFragment(renderer: renderer),
-                  let pipeline = ensureBlurPipeline(fragment: fragment, renderer: renderer)
+            guard let blur = ensureBlurFragment(renderer: renderer),
+                  let pipeline = ensureBlurPipeline(fragment: blur.fragment, renderer: renderer)
             else {
                 return nil
             }
@@ -516,12 +517,14 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
             do {
                 // Horizontal pass: camera -> scratchA.
                 try renderer.encodeCompositeBlurPass(
-                    commandBuffer: commandBuffer, pipeline: pipeline, source: camera, target: scratchA,
+                    commandBuffer: commandBuffer, pipeline: pipeline, indices: blur.indices,
+                    source: camera, target: scratchA,
                     dir: SIMD2<Float>(1 / Float(width), 0), sigma: sigma, label: "composite-blur-h"
                 )
                 // Vertical pass: scratchA -> scratchB.
                 try renderer.encodeCompositeBlurPass(
-                    commandBuffer: commandBuffer, pipeline: pipeline, source: scratchA, target: scratchB,
+                    commandBuffer: commandBuffer, pipeline: pipeline, indices: blur.indices,
+                    source: scratchA, target: scratchB,
                     dir: SIMD2<Float>(0, 1 / Float(height)), sigma: sigma, label: "composite-blur-v"
                 )
             } catch {
@@ -696,15 +699,25 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
         }
     }
 
-    private func ensureBlurFragment(renderer: MetalRenderer) -> MTLFunction? {
-        if let fragment = blurFragment { return fragment }
+    private func ensureBlurFragment(
+        renderer: MetalRenderer
+    ) -> (fragment: MTLFunction, indices: [String: Int])? {
+        if let fragment = blurFragment { return (fragment, blurUniformIndices) }
         if blurFailed { return nil }
-        if let fragment = loadFixedFragment(fileName: "composite-blur", renderer: renderer) {
+        do {
+            let library = try ShaderLibrary(
+                device: renderer.device, bundle: Bundle(for: CompositeProcessor.self), fileName: "composite-blur"
+            )
+            let fragment = try library.function()
             blurFragment = fragment
-            return fragment
+            blurUniformIndices = library.uniformBufferIndices()
+            return (fragment, blurUniformIndices)
+        } catch {
+            blurFailed = true
+            os_log("composite-blur fragment build failed: %{public}@",
+                   log: CompositeProcessor.log, type: .error, error.localizedDescription)
+            return nil
         }
-        blurFailed = true
-        return nil
     }
 
     /// The blur pass runs into a scratch with blend OFF (a .dontCare pass via

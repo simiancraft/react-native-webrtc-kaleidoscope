@@ -13,9 +13,9 @@
 //
 // Canonical single source for all three runtimes (build:shaders): web
 // COMPOSITE_BLUR_FRAG_SRC, Android Shaders.COMPOSITE_BLUR_FRAG, iOS
-// composite-blur.metalsrc. The host supplies uDir + uSigma; on iOS the transpiled
-// MSL auto-maps uSigma -> buffer(0), uDir -> buffer(1) (CompositeRendering binds to
-// match). Do not hand-edit the generated copies.
+// composite-blur.metalsrc. The host supplies uDir + uSigma; on iOS CompositeRendering
+// binds them by name (ShaderLibrary.uniformBufferIndices), so the spirv-cross buffer
+// order is not assumed. Do not hand-edit the generated copies.
 #version 300 es
 precision highp float;
 uniform sampler2D uTex;
