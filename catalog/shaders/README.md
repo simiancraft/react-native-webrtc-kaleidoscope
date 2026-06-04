@@ -41,9 +41,9 @@ background. So your `.frag`:
 
 ## Adding a shader
 
-1. **GLSL** — `shaders/<name>/<name>.frag`. Write the fragment against the
+1. **GLSL** — `catalog/shaders/<name>/<name>.frag`. Write the fragment against the
    contract above.
-2. **Types + control descriptor** — `shaders/<name>/<name>.ts`:
+2. **Types + control descriptor** — `catalog/shaders/<name>/<name>.ts`:
    - `export type <Name>Uniforms = { … }` (each uniform; colors are `RGB`,
      scalars are `number`). This is the single source for the layer's view model.
    - `export const <NAME>_CONTROLS: readonly UniformControl[]` — one entry per
@@ -75,25 +75,25 @@ A shader's `<NAME>_CONTROLS` descriptor is all the editor needs. A composite's
 controls form renders it with one line:
 
 ```tsx
-import { UniformControls } from 'react-native-webrtc-kaleidoscope/controls';
+import { CompositeLayerControlPanel } from 'react-native-webrtc-kaleidoscope/preset-control-panel';
 import { CLOUDS_CONTROLS } from 'react-native-webrtc-kaleidoscope/composites/clouds';
 // inside a ControlForm + ControlSection for the layer:
-<UniformControls controls={CLOUDS_CONTROLS} />
+<CompositeLayerControlPanel controls={CLOUDS_CONTROLS} />
 ```
 
-`UniformControls` maps each descriptor entry to a themed `Slider` (float) or
+`CompositeLayerControlPanel` maps each descriptor entry to a themed `Slider` (float) or
 `ColorPicker` (color). To hide a knob, filter the array; to narrow a range for a
-scene, pass `overrides={{ uName: { min, max } }}`. **No per-shader UI file is
+preset, pass `overrides={{ uName: { min, max } }}`. **No per-shader UI file is
 needed** for the built-in `float`/`color` kinds.
 
 ### Custom widgets (a control beyond float/color)
 
 If a uniform deserves a bespoke control (an x/y pad, a polygon editor), add a
-`shaders/<name>/<name>.controls.tsx` and build it with the typed factory so the
+`catalog/catalog/shaders/<name>/<name>.controls.tsx` and build it with the typed factory so the
 `uniform` prop is checked against your shader's type:
 
 ```tsx
-import { makeControls } from 'react-native-webrtc-kaleidoscope/controls';
+import { makeControls } from 'react-native-webrtc-kaleidoscope/preset-control-panel';
 import type { <Name>Uniforms } from './<name>';
 
 const { Slider, ColorPicker } = makeControls<<Name>Uniforms>();
