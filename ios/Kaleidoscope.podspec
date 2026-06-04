@@ -38,7 +38,7 @@ Pod::Spec.new do |s|
   # transpiled Metal shader SOURCE. Both are loaded at runtime from the
   # Kaleidoscope.bundle:
   #   - BundledImage resolves "dark-office" -> dark-office.webp (shared by
-  #     resolveBackgroundUri and the composite's image layers).
+  #     resolveThumbnailUri and the composite's image layers).
   #   - ShaderLibrary reads passthrough/blur/composite.metalsrc as TEXT and
   #     compiles each into its own MTLLibrary via makeLibrary(source:). The
   #     `.metalsrc` extension (not `.metal`) is required so Xcode's

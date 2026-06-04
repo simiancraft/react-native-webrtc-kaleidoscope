@@ -46,7 +46,7 @@ public class KaleidoscopeModule: Module {
     // Returns nil when the asset isn't bundled, so the JS resolver falls back to
     // the source. Uses the same bundle lookup as an image layer, so
     // the thumbnail and the rendered background resolve to the same file.
-    Function("resolveBackgroundUri") { (id: String) -> String? in
+    Function("resolveThumbnailUri") { (id: String) -> String? in
       BundledImage.bundledURL(for: id)?.absoluteString
     }
 

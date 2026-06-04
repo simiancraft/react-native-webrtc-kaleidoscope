@@ -32,7 +32,7 @@
   "react-native": "./src/index.ts",
   "types": "./dist/src/index.d.ts",
   "browser": {
-    "./dist/src/components/preset-tile/resolve-background-uri.js": "./dist/src/components/preset-tile/resolve-background-uri.web.js"
+    "./dist/src/components/preset-tile/resolve-thumbnail-uri.js": "./dist/src/components/preset-tile/resolve-thumbnail-uri.web.js"
   },
   "exports": {
     ".": {

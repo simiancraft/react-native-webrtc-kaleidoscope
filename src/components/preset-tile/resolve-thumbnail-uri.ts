@@ -3,29 +3,29 @@
 // (Android `asset:///...` so Fresco's asset fetcher loads it, iOS the
 // `Bundle.main` file URL). No second copy of the image.
 //
-// The `resolveBackgroundUri` Expo function is optional here: a native build
+// The `resolveThumbnailUri` Expo function is optional here: a native build
 // predating it (or a non-background effect build) simply lacks it, so guard with
 // `?.` and fall back to the source (the preset name), which renders no thumbnail
 // rather than crashing.
 
 import { requireNativeModule } from 'expo-modules-core';
-import type { ResolveBackgroundUri } from './resolve-background-uri.types';
+import type { ResolveThumbnailUri } from './resolve-thumbnail-uri.types';
 
-interface BackgroundUriModule {
-  readonly resolveBackgroundUri?: (id: string) => string | null;
+interface ThumbnailUriModule {
+  readonly resolveThumbnailUri?: (id: string) => string | null;
 }
 
 // Resolve the module once, lazily — it is registered at the Expo module's
 // OnCreate, before any picker renders. Hoisted out of the per-call path so a
 // grid of N tiles does not perform N module lookups per render.
-let cachedModule: BackgroundUriModule | undefined;
-const nativeModule = (): BackgroundUriModule =>
-  (cachedModule ??= requireNativeModule<BackgroundUriModule>('RnWebrtcKaleidoscope'));
+let cachedModule: ThumbnailUriModule | undefined;
+const nativeModule = (): ThumbnailUriModule =>
+  (cachedModule ??= requireNativeModule<ThumbnailUriModule>('RnWebrtcKaleidoscope'));
 
-export const resolveBackgroundUri: ResolveBackgroundUri = (id, source) => {
+export const resolveThumbnailUri: ResolveThumbnailUri = (id, source) => {
   // A numeric source is a Metro asset module id (from `require('./foo.webp')`)
   // and is consumable directly by `<Image source={number}>`; the native module
   // resolves only string preset names, so pass numbers straight through.
   if (typeof source === 'number') return source;
-  return nativeModule().resolveBackgroundUri?.(id) ?? source;
+  return nativeModule().resolveThumbnailUri?.(id) ?? source;
 };

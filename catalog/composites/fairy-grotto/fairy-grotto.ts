@@ -9,7 +9,7 @@
 
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
-// `fairy-grotto.thumb.webp` as into the native app target; `resolveBackgroundUri`
+// `fairy-grotto.thumb.webp` as into the native app target; `resolveThumbnailUri`
 // looks it up in Bundle.main. The web sibling keeps the `Asset.fromModule` path.
 import { grotto } from '../../images/fairy-caves/grotto';
 

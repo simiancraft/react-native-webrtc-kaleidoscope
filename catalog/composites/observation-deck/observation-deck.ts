@@ -10,7 +10,7 @@
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `observation-deck.thumb.webp` as into the native app target;
-// `resolveBackgroundUri` looks it up in Bundle.main. The `-thumb` suffix
+// `resolveThumbnailUri` looks it up in Bundle.main. The `-thumb` suffix
 // disambiguates from the image plate of the same composite id. The web sibling
 // (observation-deck.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.

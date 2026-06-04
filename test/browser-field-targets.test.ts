@@ -1,6 +1,6 @@
 // Guard the package.json `browser`-field remap, which publint does not validate
 // and which is otherwise only enforced transitively by the demo web build: if
-// `resolve-background-uri.ts` (or any future remapped file) is moved/renamed and
+// `resolve-thumbnail-uri.ts` (or any future remapped file) is moved/renamed and
 // the browser key left stale, the type system and publint stay green while web
 // thumbnails silently break. Pin each browser key/value to an existing source
 // file (build-independent; tsgo emits dist/ from src/ 1:1).

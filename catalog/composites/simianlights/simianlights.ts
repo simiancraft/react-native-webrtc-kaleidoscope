@@ -6,7 +6,7 @@
 
 // Native variant. The thumbnail is the string id the prebuild plugin bundles
 // `simianlights.thumb.webp` as into the native app target;
-// `resolveBackgroundUri` looks it up in Bundle.main. The web sibling
+// `resolveThumbnailUri` looks it up in Bundle.main. The web sibling
 // (simianlights.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
