@@ -47,7 +47,7 @@ const nativeModule = (): KaleidoscopeNativeModule =>
 // setCompositeLayers. The old global set* JS exports are gone; effects are driven by
 // kaleidoscope / transform / mask, not loose setters.
 
-export type { BackgroundPresetName } from '../catalog/images';
+export type { CatalogImageId } from '../catalog/images';
 export type {
   AnamorphicLensFlareUniforms,
   BlurUniforms,

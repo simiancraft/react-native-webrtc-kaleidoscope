@@ -1,7 +1,7 @@
-// Barrel for the images feature: the platform-agnostic preset catalog. KaleidoscopePresetEntry
-// *sources* are not re-exported here; import them per preset so each pulls only
-// its own WebP, e.g.
+// Barrel for the catalog's images: the platform-agnostic image-id list. The
+// per-image WebP sources are not re-exported here; import them per image so each
+// pulls only its own WebP, e.g.
 // `import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`.
 
-export type { BackgroundPresetName } from './presets';
-export { BACKGROUND_PRESETS } from './presets';
+export type { CatalogImageId } from './image-ids';
+export { CATALOG_IMAGE_IDS } from './image-ids';

@@ -38,7 +38,7 @@ import type { KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
 // old global set* exports are gone; effects are driven by kaleidoscope /
 // transform / mask, not loose setters.
 
-export type { BackgroundPresetName } from '../catalog/images';
+export type { CatalogImageId } from '../catalog/images';
 export type {
   AnamorphicLensFlareUniforms,
   BlurUniforms,
