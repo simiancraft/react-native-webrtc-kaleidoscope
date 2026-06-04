@@ -7,7 +7,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { CORPORATE_BLOBS_CONTROLS } from '../../shaders/corporate-blobs/corporate-blobs';
 
 export function CorporateBlobsControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {

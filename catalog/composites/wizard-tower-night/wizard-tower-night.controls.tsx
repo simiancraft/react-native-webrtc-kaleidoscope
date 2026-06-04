@@ -8,7 +8,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { CLOUDS_CONTROLS } from '../../shaders/clouds/clouds';
 
 export function WizardTowerNightControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {

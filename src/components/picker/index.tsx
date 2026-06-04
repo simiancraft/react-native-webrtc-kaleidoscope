@@ -276,3 +276,19 @@ const styles = StyleSheet.create({
   categoryLabel: { color: '#9a9a9a', fontSize: 12, fontWeight: '500' },
   categoryLabelActive: { color: '#fff' },
 });
+
+// The `./picker` subpath barrel: the chassis above plus the composable parts and
+// types a consumer can use to build a BYO layout.
+export { PickerLayout } from './layout';
+export type {
+  Category,
+  Family,
+  PickerProps,
+  PickerSelection,
+  PickerStyleProps,
+  PresetItemState,
+  PresetView,
+  RenderTile,
+} from './picker.types';
+export { PresetGrid } from './presets/preset-grid';
+export { PresetTile } from './presets/preset-tile';

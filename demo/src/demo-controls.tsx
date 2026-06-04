@@ -9,7 +9,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from 'react-native-webrtc-kaleidoscope/controls';
+} from 'react-native-webrtc-kaleidoscope/tuner';
 
 export function PlasmaControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (

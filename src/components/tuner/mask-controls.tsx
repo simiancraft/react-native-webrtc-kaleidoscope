@@ -5,12 +5,12 @@
 
 import RNSlider from '@react-native-community/slider';
 import { StyleSheet, View } from 'react-native';
-import type { MaskInput } from '../kaleidoscope/types';
-import { MASK_TESTID_PREFIX } from '../lib/test-id';
+import type { MaskInput } from '../../kaleidoscope/types';
+import { MASK_TESTID_PREFIX } from '../../lib/test-id';
+import { Label } from '../ui/label';
+import { Readout } from '../ui/readout';
+import { SLIDER_TINTS } from '../ui/slider-value';
 import { ControlSection } from './control-section';
-import { Label } from './primitives/label';
-import { Readout } from './primitives/readout';
-import { SLIDER_TINTS } from './primitives/slider-value';
 
 export type KaleidoscopeMaskControlsProps = {
   readonly hardness: number;

@@ -1,8 +1,8 @@
-// Drift guard: every styleable component exported from src/ui/index.ts and the
-// control primitives (src/controls/primitives/index.ts) must be registered with
+// Drift guard: every styleable component exported from src/components/picker/index.tsx and the
+// control primitives (src/components/ui/index.ts) must be registered with
 // cssInterop in src/nativewind.ts, or it silently ignores `className` in
 // production while the rest honor it. Scope is the PRIMITIVES barrel, not the
-// whole ./controls barrel, so providers and shells (ControlForm, the Tuner,
+// whole ./tuner barrel, so providers and shells (ControlForm, the Tuner,
 // ControlSection, the theme provider) are not wrongly demanded into the list.
 // Nothing else enforces this (it compiles, typechecks, and registry-parity
 // covers native bridges, not this), so pin it by text.
@@ -12,13 +12,15 @@ import { readFileSync } from 'node:fs';
 
 const read = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
-const uiIndex = read('../src/ui/index.ts');
-const controlsPrimitives = read('../src/controls/primitives/index.ts');
+const uiIndex = read('../src/components/picker/index.tsx');
+const controlsPrimitives = read('../src/components/ui/index.ts');
 const nativewind = read('../src/nativewind.ts');
 
-// Value (non-type) named exports from a barrel; skips `export type { ... }`
-// blocks (the `export {` pattern won't match `export type {`) and inline
-// `type X` members.
+// Value (non-type) named exports from a barrel: both `export { ... } from`
+// re-export blocks (skipping `export type { ... }` and inline `type X` members)
+// AND inline `export function`/`export const` declarations (the picker feature's
+// index.tsx is its own chassis, so it inline-exports KaleidoscopePicker rather
+// than re-exporting it).
 const valueExports = (src: string): string[] => {
   const names: string[] = [];
   for (const m of src.matchAll(/export\s+\{([^}]*)\}\s+from/g)) {
@@ -27,6 +29,10 @@ const valueExports = (src: string): string[] => {
       if (!item || item.startsWith('type ')) continue;
       names.push((item.split(/\s+as\s+/)[0] ?? '').trim());
     }
+  }
+  for (const m of src.matchAll(/export\s+(?:function|const)\s+([A-Za-z0-9_]+)/g)) {
+    const name = (m[1] ?? '').trim();
+    if (name) names.push(name);
   }
   return names;
 };

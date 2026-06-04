@@ -7,7 +7,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { CLOUDS_CONTROLS } from '../../shaders/clouds/clouds';
 import { FIREFLIES_CONTROLS } from '../../shaders/fireflies/fireflies';
 

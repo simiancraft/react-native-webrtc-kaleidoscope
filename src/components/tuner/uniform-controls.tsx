@@ -8,9 +8,9 @@
 // `makeControls<U>()` remains the typed path for custom widgets that need a
 // hand-authored, type-checked `uniform`.
 
-import type { UniformControl } from '../../catalog/shaders';
-import { ColorPicker } from './primitives/color-picker';
-import { Slider } from './primitives/slider';
+import type { UniformControl } from '../../../catalog/shaders';
+import { ColorPicker } from '../ui/color-picker';
+import { Slider } from '../ui/slider';
 
 /** Per-uniform range/label override, keyed by uniform name. */
 export type ControlOverride = {

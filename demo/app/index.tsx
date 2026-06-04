@@ -18,16 +18,16 @@ import {
   type PatchesFor,
 } from 'react-native-webrtc-kaleidoscope';
 import {
+  KaleidoscopePicker,
+  PresetTile,
+  type RenderTile,
+} from 'react-native-webrtc-kaleidoscope/picker';
+import {
   KaleidoscopeMaskControls,
   KaleidoscopeThemeProvider,
   KaleidoscopeTransformControls,
   KaleidoscopeTuner,
-} from 'react-native-webrtc-kaleidoscope/controls';
-import {
-  KaleidoscopePicker,
-  PresetTile,
-  type RenderTile,
-} from 'react-native-webrtc-kaleidoscope/ui';
+} from 'react-native-webrtc-kaleidoscope/tuner';
 import { type PresetId, presets } from '../kaleidoscope.preset-book';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';

@@ -5,7 +5,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { NEBULA_CONTROLS } from '../../shaders/nebula/nebula';
 
 export function NebulaControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {

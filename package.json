@@ -32,7 +32,7 @@
   "react-native": "./src/index.ts",
   "types": "./dist/src/index.d.ts",
   "browser": {
-    "./dist/src/ui/picker/resolve-background-uri.js": "./dist/src/ui/picker/resolve-background-uri.web.js"
+    "./dist/src/components/picker/resolve-background-uri.js": "./dist/src/components/picker/resolve-background-uri.web.js"
   },
   "exports": {
     ".": {
@@ -42,19 +42,19 @@
       "import": "./dist/src/index.js",
       "default": "./dist/src/index.js"
     },
-    "./ui": {
-      "types": "./dist/src/ui/index.d.ts",
-      "react-native": "./src/ui/index.ts",
-      "browser": "./dist/src/ui/index.js",
-      "import": "./dist/src/ui/index.js",
-      "default": "./dist/src/ui/index.js"
+    "./picker": {
+      "types": "./dist/src/components/picker/index.d.ts",
+      "react-native": "./src/components/picker/index.tsx",
+      "browser": "./dist/src/components/picker/index.js",
+      "import": "./dist/src/components/picker/index.js",
+      "default": "./dist/src/components/picker/index.js"
     },
-    "./controls": {
-      "types": "./dist/src/controls/index.d.ts",
-      "react-native": "./src/controls/index.ts",
-      "browser": "./dist/src/controls/index.js",
-      "import": "./dist/src/controls/index.js",
-      "default": "./dist/src/controls/index.js"
+    "./tuner": {
+      "types": "./dist/src/components/tuner/index.d.ts",
+      "react-native": "./src/components/tuner/index.ts",
+      "browser": "./dist/src/components/tuner/index.js",
+      "import": "./dist/src/components/tuner/index.js",
+      "default": "./dist/src/components/tuner/index.js"
     },
     "./nativewind": {
       "types": "./dist/src/nativewind.d.ts",

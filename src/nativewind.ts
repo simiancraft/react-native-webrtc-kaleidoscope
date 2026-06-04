@@ -12,15 +12,15 @@
 // so the class string the consumer passes is resolved by their NativeWind setup.
 
 import { cssInterop } from 'nativewind';
-import { Button } from './controls/primitives/button';
-import { ColorPicker } from './controls/primitives/color-picker';
-import { Label } from './controls/primitives/label';
-import { Readout } from './controls/primitives/readout';
-import { Slider } from './controls/primitives/slider';
-import { KaleidoscopePicker } from './ui/picker';
-import { PickerLayout } from './ui/picker/layout';
-import { PresetGrid } from './ui/picker/presets/preset-grid';
-import { PresetTile } from './ui/picker/presets/preset-tile';
+import { KaleidoscopePicker } from './components/picker';
+import { PickerLayout } from './components/picker/layout';
+import { PresetGrid } from './components/picker/presets/preset-grid';
+import { PresetTile } from './components/picker/presets/preset-tile';
+import { Button } from './components/ui/button';
+import { ColorPicker } from './components/ui/color-picker';
+import { Label } from './components/ui/label';
+import { Readout } from './components/ui/readout';
+import { Slider } from './components/ui/slider';
 
 /**
  * Register the picker and control primitives with NativeWind so they accept

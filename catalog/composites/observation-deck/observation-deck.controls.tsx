@@ -6,7 +6,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { ANAMORPHIC_LENSFLARE_CONTROLS } from '../../shaders/anamorphic-lensflare/anamorphic-lensflare';
 import { SIMIANLIGHTS_CONTROLS } from '../../shaders/simianlights/simianlights';
 

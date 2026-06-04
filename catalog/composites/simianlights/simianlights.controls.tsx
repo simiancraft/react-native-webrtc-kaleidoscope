@@ -5,7 +5,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { SIMIANLIGHTS_CONTROLS } from '../../shaders/simianlights/simianlights';
 
 export function SimianlightsControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {

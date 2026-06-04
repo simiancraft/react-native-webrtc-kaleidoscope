@@ -8,8 +8,8 @@
 
 import type { ReactElement } from 'react';
 import type { RGB } from '../../lib/primitives.types';
-import { ColorPicker, type ColorPickerProps } from '../primitives/color-picker';
-import { Slider, type SliderProps } from '../primitives/slider';
+import { ColorPicker, type ColorPickerProps } from '../ui/color-picker';
+import { Slider, type SliderProps } from '../ui/slider';
 
 type NumericKeys<U> = { [K in keyof U]: U[K] extends number ? K : never }[keyof U];
 type RgbKeys<U> = { [K in keyof U]: U[K] extends RGB ? K : never }[keyof U];

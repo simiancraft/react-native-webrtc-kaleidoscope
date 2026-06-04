@@ -5,7 +5,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { CLOUDS_CONTROLS } from '../../shaders/clouds/clouds';
 
 export function CloudsControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {

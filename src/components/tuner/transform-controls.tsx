@@ -4,10 +4,10 @@
 
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { TransformInput } from '../kaleidoscope/types';
-import { flipTestId, rotateTestId, TRANSFORM_TESTID_PREFIX } from '../lib/test-id';
+import type { TransformInput } from '../../kaleidoscope/types';
+import { flipTestId, rotateTestId, TRANSFORM_TESTID_PREFIX } from '../../lib/test-id';
+import { useThemeSlot } from '../theme/provider';
 import { ControlSection } from './control-section';
-import { useThemeSlot } from './theme/provider';
 
 const ROTATIONS = [0, 90, 180, 270] as const;
 

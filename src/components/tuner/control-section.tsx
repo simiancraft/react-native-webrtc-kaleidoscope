@@ -10,9 +10,9 @@ import type { ReactNode } from 'react';
 import { useContext } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { ControlFormContext, type FieldValue } from './form/control-form';
-import { Button } from './primitives/button';
-import { useThemeSlot } from './theme/provider';
+import { ControlFormContext, type FieldValue } from '../form/control-form';
+import { useThemeSlot } from '../theme/provider';
+import { Button } from '../ui/button';
 
 type Values = Readonly<Record<string, FieldValue>>;
 

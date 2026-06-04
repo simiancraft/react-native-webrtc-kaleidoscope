@@ -5,7 +5,7 @@ import {
   ControlSection,
   type KaleidoscopeControls,
   UniformControls,
-} from '../../../src/controls';
+} from '../../../src/components/tuner';
 import { GODRAYS_CONTROLS } from '../../shaders/godrays/godrays';
 
 export function UnderwaterControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
