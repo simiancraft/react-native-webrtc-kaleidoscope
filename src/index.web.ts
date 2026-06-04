@@ -42,6 +42,36 @@ import { tuning } from './web/tuning';
 
 export type { BackgroundPresetName } from '../images';
 export type {
+  AnamorphicLensFlareUniforms,
+  BlurUniforms,
+  CloudsUniforms,
+  CorporateBlobsUniforms,
+  FirefliesUniforms,
+  GodraysUniforms,
+  LayerShaderName,
+  LayerShaderOptions,
+  LightBeamsAndMotesUniforms,
+  NebulaUniforms,
+  PatchableShaderName,
+  PlasmaUniforms,
+  ShaderUniformsMap,
+  SimianlightsUniforms,
+  UniformControl,
+} from '../shaders';
+export {
+  ANAMORPHIC_LENSFLARE_CONTROLS,
+  BLUR_CONTROLS,
+  CLOUDS_CONTROLS,
+  CORPORATE_BLOBS_CONTROLS,
+  defaultUniforms,
+  FIREFLIES_CONTROLS,
+  GODRAYS_CONTROLS,
+  LIGHT_BEAMS_AND_MOTES_CONTROLS,
+  NEBULA_CONTROLS,
+  PLASMA_CONTROLS,
+  SIMIANLIGHTS_CONTROLS,
+} from '../shaders';
+export type {
   CompositeSpec,
   EffectInput,
   EffectName,
@@ -68,36 +98,6 @@ export type {
   KaleidoscopeTaxonomy,
 } from './kaleidoscope.preset-book.types';
 export type { RGB } from './lib/primitives.types';
-export type {
-  AnamorphicLensFlareUniforms,
-  BlurUniforms,
-  CloudsUniforms,
-  CorporateBlobsUniforms,
-  FirefliesUniforms,
-  GodraysUniforms,
-  LayerShaderName,
-  LayerShaderOptions,
-  LightBeamsAndMotesUniforms,
-  NebulaUniforms,
-  PatchableShaderName,
-  PlasmaUniforms,
-  ShaderUniformsMap,
-  SimianlightsUniforms,
-  UniformControl,
-} from './shaders';
-export {
-  ANAMORPHIC_LENSFLARE_CONTROLS,
-  BLUR_CONTROLS,
-  CLOUDS_CONTROLS,
-  CORPORATE_BLOBS_CONTROLS,
-  defaultUniforms,
-  FIREFLIES_CONTROLS,
-  GODRAYS_CONTROLS,
-  LIGHT_BEAMS_AND_MOTES_CONTROLS,
-  NEBULA_CONTROLS,
-  PLASMA_CONTROLS,
-  SIMIANLIGHTS_CONTROLS,
-} from './shaders';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
   switch (spec.name) {

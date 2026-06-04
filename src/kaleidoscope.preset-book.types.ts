@@ -13,7 +13,7 @@
 // generic primitives (`RGB` in `lib/primitives.types`).
 
 import type { ComponentType } from 'react';
-import type { LayerShaderName, LayerShaderOptions } from './shaders';
+import type { LayerShaderName, LayerShaderOptions } from '../shaders';
 
 /**
  * A preset's place in the picker: an ordered path of group names, deepest last.
