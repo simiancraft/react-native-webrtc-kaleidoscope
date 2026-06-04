@@ -38,10 +38,13 @@ export type EffectSpec = CompositeSpec | TransformSpec;
 export type EffectName = EffectSpec['name'];
 
 /**
- * `applyVideoEffects` accepts either a bare effect name (the parameterless
- * transforms) or a full `EffectSpec` object (a composite or a transform).
+ * `applyVideoEffects` accepts either a bare transform name (the parameterless
+ * transforms) or a full `EffectSpec` object (a composite or a transform). The
+ * bare-string form is `TransformName`, NOT `EffectName`: a bare `'composite'`
+ * would normalize to a layerless spec and crash the compositor, so the type
+ * rejects it. A composite must always arrive as a full `CompositeSpec`.
  */
-export type EffectInput = EffectSpec | EffectName;
+export type EffectInput = EffectSpec | TransformName;
 
 /**
  * Apply zero or more effects to a local `MediaStreamTrack`.
