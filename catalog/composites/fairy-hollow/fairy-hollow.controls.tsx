@@ -3,11 +3,11 @@
 // fireflies form now exposes uColor (the firefly tint).
 
 import {
+  CompositeLayerControlPanel,
   ControlForm,
   ControlSection,
   type KaleidoscopeControls,
-  UniformControls,
-} from '../../../src/components/tuner';
+} from '../../../src/components/preset-control-panel';
 import { CLOUDS_CONTROLS } from '../../shaders/clouds/clouds';
 import { FIREFLIES_CONTROLS } from '../../shaders/fireflies/fireflies';
 
@@ -16,7 +16,7 @@ export function FairyHollowControls({ uniforms, onPatch, disabled }: Kaleidoscop
     <>
       <ControlForm id="sky" uniforms={uniforms.sky ?? {}} onPatch={onPatch} disabled={disabled}>
         <ControlSection title="sky">
-          <UniformControls controls={CLOUDS_CONTROLS} />
+          <CompositeLayerControlPanel controls={CLOUDS_CONTROLS} />
         </ControlSection>
       </ControlForm>
       <ControlForm
@@ -26,7 +26,7 @@ export function FairyHollowControls({ uniforms, onPatch, disabled }: Kaleidoscop
         disabled={disabled}
       >
         <ControlSection title="fireflies">
-          <UniformControls controls={FIREFLIES_CONTROLS} />
+          <CompositeLayerControlPanel controls={FIREFLIES_CONTROLS} />
         </ControlSection>
       </ControlForm>
     </>

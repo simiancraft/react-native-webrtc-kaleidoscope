@@ -1,8 +1,8 @@
 // Single demo screen, dogfooding the packaged consumable components:
 //   - KaleidoscopePicker (./ui)  the selector: pick a composite -> kaleidoscope.
-//   - KaleidoscopeTuner (./controls)  the editor: live-tune the active preset's
+//   - PresetControlPanel (./controls)  the editor: live-tune the active preset's
 //     layer uniforms, emitting patches the host routes into kaleidoscope.
-//   - KaleidoscopeMaskControls / KaleidoscopeTransformControls  the mask + geometry verbs.
+//   - MaskControlPanel / TransformControlPanel  the mask + geometry verbs.
 //
 // The screen owns only selection state and re-issues the full command on every
 // change (transform and mask are absolute). bindKaleidoscope owns the composite
@@ -23,10 +23,10 @@ import {
   type RenderTile,
 } from 'react-native-webrtc-kaleidoscope/picker';
 import {
-  KaleidoscopeMaskControls,
   KaleidoscopeThemeProvider,
-  KaleidoscopeTransformControls,
-  KaleidoscopeTuner,
+  MaskControlPanel,
+  PresetControlPanel,
+  TransformControlPanel,
 } from 'react-native-webrtc-kaleidoscope/tuner';
 import { type PresetId, presets } from '../kaleidoscope.preset-book';
 import { useLoopbackStream } from '../src/use-loopback-stream';
@@ -164,7 +164,7 @@ export default function DemoScreen() {
                 className="rounded-xl bg-neutral-900 p-3"
               />
               <View style={styles.tuner}>
-                <KaleidoscopeTuner
+                <PresetControlPanel
                   presets={presets}
                   value={art}
                   disabled={disabled}
@@ -178,7 +178,7 @@ export default function DemoScreen() {
             </Section>
 
             <View style={styles.rightColumn}>
-              <KaleidoscopeTransformControls
+              <TransformControlPanel
                 flip={{ x: flipX, y: flipY }}
                 rotate={rotate}
                 disabled={disabled}
@@ -188,7 +188,7 @@ export default function DemoScreen() {
                   setRotate(t.rotate ?? 0);
                 }}
               />
-              <KaleidoscopeMaskControls
+              <MaskControlPanel
                 hardness={hardness}
                 threshold={threshold}
                 disabled={disabled}

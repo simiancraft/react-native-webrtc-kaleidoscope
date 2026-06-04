@@ -4,18 +4,18 @@
 // `./controls` subpath.
 
 import {
+  CompositeLayerControlPanel,
   ControlForm,
   ControlSection,
   type KaleidoscopeControls,
-  UniformControls,
-} from '../../../src/components/tuner';
+} from '../../../src/components/preset-control-panel';
 import { CLOUDS_CONTROLS } from '../../shaders/clouds/clouds';
 
 export function WizardTowerNightControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
   return (
     <ControlForm id="sky" uniforms={uniforms.sky ?? {}} onPatch={onPatch} disabled={disabled}>
       <ControlSection title="sky">
-        <UniformControls controls={CLOUDS_CONTROLS} />
+        <CompositeLayerControlPanel controls={CLOUDS_CONTROLS} />
       </ControlSection>
     </ControlForm>
   );

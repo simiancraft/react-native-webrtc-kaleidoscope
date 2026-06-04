@@ -1,4 +1,4 @@
-// KaleidoscopeMaskControls: the segmentation-edge panel, themed and controlled.
+// MaskControlPanel: the segmentation-edge panel, themed and controlled.
 // Either slider emits the full MaskInput (the mask verb is absolute). Not a
 // layer form, so it has no ControlForm (and thus no copy button) and uses the
 // raw slider directly with the themed Label/Readout primitives.
@@ -12,7 +12,7 @@ import { Readout } from '../ui/readout';
 import { SLIDER_TINTS } from '../ui/slider-value';
 import { ControlSection } from './control-section';
 
-export type KaleidoscopeMaskControlsProps = {
+export type MaskControlPanelProps = {
   readonly hardness: number;
   readonly threshold: number;
   readonly onChange: (mask: MaskInput) => void;
@@ -59,13 +59,13 @@ function MaskRow({
   );
 }
 
-export function KaleidoscopeMaskControls({
+export function MaskControlPanel({
   hardness,
   threshold,
   onChange,
   disabled = false,
   testIDPrefix = MASK_TESTID_PREFIX,
-}: KaleidoscopeMaskControlsProps) {
+}: MaskControlPanelProps) {
   return (
     <ControlSection title="mask">
       <MaskRow

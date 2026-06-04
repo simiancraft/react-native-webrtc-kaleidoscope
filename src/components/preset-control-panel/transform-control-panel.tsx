@@ -1,4 +1,4 @@
-// KaleidoscopeTransformControls: absolute flip + 90-degree rotation, themed and
+// TransformControlPanel: absolute flip + 90-degree rotation, themed and
 // controlled. Every change emits the full TransformInput (the transform verb is
 // absolute). Toggles read the `active` theme slot for their on state.
 
@@ -11,7 +11,7 @@ import { ControlSection } from './control-section';
 
 const ROTATIONS = [0, 90, 180, 270] as const;
 
-export type KaleidoscopeTransformControlsProps = {
+export type TransformControlPanelProps = {
   readonly flip?: { readonly x?: boolean; readonly y?: boolean };
   readonly rotate?: number;
   readonly onChange: (transform: TransformInput) => void;
@@ -59,13 +59,13 @@ function FlipToggle({
   );
 }
 
-export function KaleidoscopeTransformControls({
+export function TransformControlPanel({
   flip,
   rotate = 0,
   onChange,
   disabled = false,
   testIDPrefix = TRANSFORM_TESTID_PREFIX,
-}: KaleidoscopeTransformControlsProps) {
+}: TransformControlPanelProps) {
   const x = flip?.x ?? false;
   const y = flip?.y ?? false;
   const { style: activeStyle } = useThemeSlot('active');

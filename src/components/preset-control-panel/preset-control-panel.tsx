@@ -1,4 +1,4 @@
-// KaleidoscopeTuner: the thin, controlled editor. For the active preset it
+// PresetControlPanel: the thin, controlled editor. For the active preset it
 // renders that preset's `controls` component (keyed by preset id, so a switch
 // remounts and the ControlForms re-seed), handing it the per-layer baked
 // uniforms and a single shared onPatch. It never calls `kaleidoscope` itself;
@@ -11,7 +11,7 @@ import type {
 } from '../../kaleidoscope.preset-book.types';
 import { ControlScopeContext } from '../form/scope';
 
-export type KaleidoscopeTunerProps<P extends KaleidoscopePresetBook> = {
+export type PresetControlPanelProps<P extends KaleidoscopePresetBook> = {
   readonly presets: P;
   /** The active preset id, or null when nothing is selected. */
   readonly value: (keyof P & string) | null;
@@ -20,12 +20,12 @@ export type KaleidoscopeTunerProps<P extends KaleidoscopePresetBook> = {
   readonly disabled?: boolean;
 };
 
-export function KaleidoscopeTuner<P extends KaleidoscopePresetBook>({
+export function PresetControlPanel<P extends KaleidoscopePresetBook>({
   presets,
   value,
   onPatch,
   disabled = false,
-}: KaleidoscopeTunerProps<P>): ReactElement | null {
+}: PresetControlPanelProps<P>): ReactElement | null {
   if (value === null) return null;
   const preset = presets[value];
   const Controls = preset?.controls;

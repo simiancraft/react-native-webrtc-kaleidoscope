@@ -50,11 +50,11 @@
       "default": "./dist/src/components/picker/index.js"
     },
     "./tuner": {
-      "types": "./dist/src/components/tuner/index.d.ts",
-      "react-native": "./src/components/tuner/index.ts",
-      "browser": "./dist/src/components/tuner/index.js",
-      "import": "./dist/src/components/tuner/index.js",
-      "default": "./dist/src/components/tuner/index.js"
+      "types": "./dist/src/components/preset-control-panel/index.d.ts",
+      "react-native": "./src/components/preset-control-panel/index.ts",
+      "browser": "./dist/src/components/preset-control-panel/index.js",
+      "import": "./dist/src/components/preset-control-panel/index.js",
+      "default": "./dist/src/components/preset-control-panel/index.js"
     },
     "./nativewind": {
       "types": "./dist/src/nativewind.d.ts",

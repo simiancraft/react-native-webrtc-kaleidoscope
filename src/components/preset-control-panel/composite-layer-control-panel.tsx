@@ -1,6 +1,6 @@
-// UniformControls: render a shader's `*_CONTROLS` descriptor list as fields,
+// CompositeLayerControlPanel: render a shader's `*_CONTROLS` descriptor list as fields,
 // data-driven. This is the built-in path a composite form uses per layer:
-// `<UniformControls controls={CLOUDS_CONTROLS} />`. The shader owns the control
+// `<CompositeLayerControlPanel controls={CLOUDS_CONTROLS} />`. The shader owns the control
 // description (its `*_CONTROLS`); this renders it with no per-shader file.
 //
 // KaleidoscopePreset-level customization is props: pass a filtered `controls` array to
@@ -20,12 +20,15 @@ export type ControlOverride = {
   readonly label?: string;
 };
 
-export type UniformControlsProps = {
+export type CompositeLayerControlPanelProps = {
   readonly controls: readonly UniformControl[];
   readonly overrides?: Readonly<Record<string, ControlOverride>>;
 };
 
-export function UniformControls({ controls, overrides }: UniformControlsProps) {
+export function CompositeLayerControlPanel({
+  controls,
+  overrides,
+}: CompositeLayerControlPanelProps) {
   return (
     <>
       {controls.map((c) => {

@@ -2,7 +2,7 @@
 //
 // A per-form `ControlForm` micro-provider with `useField`/`makeControls`, the
 // self-theming field primitives, the `ControlSection` chrome, and the
-// `KaleidoscopeTuner`, all themed via `KaleidoscopeThemeProvider`. This barrel
+// `PresetControlPanel`, all themed via `KaleidoscopeThemeProvider`. This barrel
 // grows commit by commit; the theme surface lands first so later primitives can
 // register against a real exported entry.
 
@@ -13,18 +13,18 @@ export { type Field, useField } from '../form/use-field';
 export { KaleidoscopeThemeProvider, useKaleidoscopeTheme, useThemeSlot } from '../theme/provider';
 export type { KaleidoscopeThemeSlots, SlotStyle, ThemeSlot } from '../theme/slots';
 export * from '../ui';
+export {
+  CompositeLayerControlPanel,
+  type CompositeLayerControlPanelProps,
+  type ControlOverride,
+} from './composite-layer-control-panel';
 export { ControlSection, type ControlSectionProps } from './control-section';
 export {
-  KaleidoscopeMaskControls,
-  type KaleidoscopeMaskControlsProps,
-} from './mask-controls';
+  MaskControlPanel,
+  type MaskControlPanelProps,
+} from './mask-control-panel';
+export { PresetControlPanel, type PresetControlPanelProps } from './preset-control-panel';
 export {
-  KaleidoscopeTransformControls,
-  type KaleidoscopeTransformControlsProps,
-} from './transform-controls';
-export { KaleidoscopeTuner, type KaleidoscopeTunerProps } from './tuner';
-export {
-  type ControlOverride,
-  UniformControls,
-  type UniformControlsProps,
-} from './uniform-controls';
+  TransformControlPanel,
+  type TransformControlPanelProps,
+} from './transform-control-panel';

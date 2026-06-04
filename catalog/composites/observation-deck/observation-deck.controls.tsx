@@ -2,11 +2,11 @@
 // plus an anamorphic-lensflare `flare`, each its own ControlForm.
 
 import {
+  CompositeLayerControlPanel,
   ControlForm,
   ControlSection,
   type KaleidoscopeControls,
-  UniformControls,
-} from '../../../src/components/tuner';
+} from '../../../src/components/preset-control-panel';
 import { ANAMORPHIC_LENSFLARE_CONTROLS } from '../../shaders/anamorphic-lensflare/anamorphic-lensflare';
 import { SIMIANLIGHTS_CONTROLS } from '../../shaders/simianlights/simianlights';
 
@@ -15,12 +15,12 @@ export function ObservationDeckControls({ uniforms, onPatch, disabled }: Kaleido
     <>
       <ControlForm id="field" uniforms={uniforms.field ?? {}} onPatch={onPatch} disabled={disabled}>
         <ControlSection title="field">
-          <UniformControls controls={SIMIANLIGHTS_CONTROLS} />
+          <CompositeLayerControlPanel controls={SIMIANLIGHTS_CONTROLS} />
         </ControlSection>
       </ControlForm>
       <ControlForm id="flare" uniforms={uniforms.flare ?? {}} onPatch={onPatch} disabled={disabled}>
         <ControlSection title="flare">
-          <UniformControls controls={ANAMORPHIC_LENSFLARE_CONTROLS} />
+          <CompositeLayerControlPanel controls={ANAMORPHIC_LENSFLARE_CONTROLS} />
         </ControlSection>
       </ControlForm>
     </>

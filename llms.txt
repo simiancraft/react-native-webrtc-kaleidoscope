@@ -157,19 +157,19 @@ registerKaleidoscopeNativeWind();
 ```tsx
 import {
   KaleidoscopeThemeProvider,
-  KaleidoscopeTuner,
-  KaleidoscopeMaskControls,
-  KaleidoscopeTransformControls,
+  PresetControlPanel,
+  MaskControlPanel,
+  TransformControlPanel,
 } from 'react-native-webrtc-kaleidoscope/controls';
 
 <KaleidoscopeThemeProvider>
-  <KaleidoscopeTuner presets={presets} value={art} onPatch={(p) => kaleidoscope(art, [p])} />
-  <KaleidoscopeMaskControls hardness={h} threshold={t} onChange={setMask} />
-  <KaleidoscopeTransformControls flip={flip} rotate={rotate} onChange={setTransform} />
+  <PresetControlPanel presets={presets} value={art} onPatch={(p) => kaleidoscope(art, [p])} />
+  <MaskControlPanel hardness={h} threshold={t} onChange={setMask} />
+  <TransformControlPanel flip={flip} rotate={rotate} onChange={setTransform} />
 </KaleidoscopeThemeProvider>
 ```
 
-Each preset supplies its editor as a `controls` component on the book entry. Packaged composites export theirs at `react-native-webrtc-kaleidoscope/composites/<name>/controls`; for your own presets, compose `UniformControls` over a shader's control descriptor (or `makeControls` for a custom widget). The sliders need `@react-native-community/slider` (optional peer; a native module, so installing it needs a dev-client rebuild). Live per-layer tuning runs on web today; on native the editor renders but the live per-layer uniform channel is in progress. Mask and transform are live on every platform.
+Each preset supplies its editor as a `controls` component on the book entry. Packaged composites export theirs at `react-native-webrtc-kaleidoscope/composites/<name>/controls`; for your own presets, compose `CompositeLayerControlPanel` over a shader's control descriptor (or `makeControls` for a custom widget). The sliders need `@react-native-community/slider` (optional peer; a native module, so installing it needs a dev-client rebuild). Live per-layer tuning runs on web today; on native the editor renders but the live per-layer uniform channel is in progress. Mask and transform are live on every platform.
 
 ## Bundled assets you can reference
 
