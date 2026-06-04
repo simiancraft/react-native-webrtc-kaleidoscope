@@ -6,7 +6,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
