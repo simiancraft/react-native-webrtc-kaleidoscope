@@ -7,8 +7,8 @@
 // projection: the layers already carry their own ids, sources, uniforms, and
 // blend. Transforms are not book entries; the transform verb handles them.
 
+import type { KaleidoscopePreset } from '../kaleidoscope.preset-book.types';
 import type { EffectSpec } from '../types';
-import type { KaleidoscopePreset } from './types';
 
 export const compositeToEffectSpec = (composite: KaleidoscopePreset): EffectSpec => ({
   name: 'composite',

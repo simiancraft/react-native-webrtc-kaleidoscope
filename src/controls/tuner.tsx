@@ -5,7 +5,10 @@
 // the host routes onPatch into `kaleidoscope(activeId, [patch])`.
 
 import type { ReactElement } from 'react';
-import type { KaleidoscopeControls, KaleidoscopePresetBook } from '../kaleidoscope/types';
+import type {
+  KaleidoscopeControls,
+  KaleidoscopePresetBook,
+} from '../kaleidoscope.preset-book.types';
 import { ControlScopeContext } from './form/scope';
 
 export type KaleidoscopeTunerProps<P extends KaleidoscopePresetBook> = {

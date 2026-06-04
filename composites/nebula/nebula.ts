@@ -12,7 +12,7 @@
 // The web sibling (nebula.web.ts) keeps the `Asset.fromModule(...).uri`
 // pattern; mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 
 export const nebula = {
   name: 'Nebula',

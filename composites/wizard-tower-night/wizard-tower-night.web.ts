@@ -3,7 +3,7 @@
 
 import { Asset } from 'expo-asset';
 import { wizardTowerNight as wizardTowerNightPlate } from '../../images/wizard-tower/wizard-tower-night';
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 import wizardTowerNightThumb from './wizard-tower-night.thumb.webp';
 
 export const wizardTowerNight = {

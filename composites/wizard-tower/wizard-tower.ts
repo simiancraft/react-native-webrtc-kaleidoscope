@@ -13,7 +13,7 @@
 // (wizard-tower.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { wizardTower1 } from '../../images/wizard-tower/wizard-tower-1';
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 
 export const wizardTower = {
   name: 'Wizard Tower',

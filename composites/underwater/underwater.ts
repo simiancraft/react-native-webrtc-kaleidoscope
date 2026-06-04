@@ -11,7 +11,7 @@
 // (underwater.web.ts) keeps the `Asset.fromModule(...).uri` pattern;
 // mirrors images/<id>/{<id>.ts,<id>.web.ts}.
 import { oceanscapeDark } from '../../images/underwater/oceanscape-dark';
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 
 export const underwater = {
   name: 'Underwater',

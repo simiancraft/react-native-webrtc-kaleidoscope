@@ -17,17 +17,6 @@
 import type { KaleidoscopePresetBook } from '../kaleidoscope.preset-book.types';
 import type { PatchableShaderName, ShaderUniformsMap } from '../shaders';
 
-// The declarative preset-book vocabulary (point of entry #1) is owned by
-// `../kaleidoscope.preset-book.types`; re-exported here for the runtime
-// consumers that pair it with the three verbs below.
-export type {
-  KaleidoscopeControls,
-  KaleidoscopePreset,
-  KaleidoscopePresetBook,
-  KaleidoscopePresetEntry,
-  KaleidoscopeTaxonomy,
-} from '../kaleidoscope.preset-book.types';
-
 /**
  * A live per-layer uniform override for ONE layer, derived from the layer's own
  * type: `id` is the layer's id, `uniforms` is `Partial` of the shader's uniform

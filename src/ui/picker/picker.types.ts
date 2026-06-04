@@ -12,7 +12,7 @@
 
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import type { KaleidoscopePresetBook } from '../../kaleidoscope/types';
+import type { KaleidoscopePresetBook } from '../../kaleidoscope.preset-book.types';
 
 /**
  * A composite's family; the grouping (tab) axis. This is the book entry's

@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import type { KaleidoscopePresetBook } from '../../kaleidoscope/types';
+import type { KaleidoscopePresetBook } from '../../kaleidoscope.preset-book.types';
 import { categoryTestId, familyTestId } from '../../test-id';
 import { PickerLayout } from './layout';
 import type { Category, Family, PickerProps, PresetView } from './picker.types';

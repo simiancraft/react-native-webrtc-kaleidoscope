@@ -15,11 +15,8 @@ import {
   type SetLayerUniforms,
   type SetMask,
 } from './kaleidoscope/controls';
-import type {
-  KaleidoscopeBinding,
-  KaleidoscopeBindOptions,
-  KaleidoscopePresetBook,
-} from './kaleidoscope/types';
+import type { KaleidoscopeBinding, KaleidoscopeBindOptions } from './kaleidoscope/types';
+import type { KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
 import {
   type ApplyVideoEffects,
   type CompositeSpec,
@@ -58,16 +55,18 @@ export type { BackgroundPresetName } from '../images';
 export type {
   KaleidoscopeBinding,
   KaleidoscopeBindOptions,
-  KaleidoscopeControls,
-  KaleidoscopePreset,
-  KaleidoscopePresetBook,
-  KaleidoscopePresetEntry,
-  KaleidoscopeTaxonomy,
   MaskInput,
   PatchesFor,
   PatchFor,
   TransformInput,
 } from './kaleidoscope/types';
+export type {
+  KaleidoscopeControls,
+  KaleidoscopePreset,
+  KaleidoscopePresetBook,
+  KaleidoscopePresetEntry,
+  KaleidoscopeTaxonomy,
+} from './kaleidoscope.preset-book.types';
 export type {
   AnamorphicLensFlareUniforms,
   BlurUniforms,

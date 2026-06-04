@@ -3,7 +3,7 @@
 
 import { Asset } from 'expo-asset';
 import { grotto } from '../../images/fairy-caves/grotto';
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 import fairyGrottoThumb from './fairy-grotto.thumb.webp';
 
 export const fairyGrotto = {

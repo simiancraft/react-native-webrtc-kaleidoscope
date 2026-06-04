@@ -12,7 +12,7 @@
 // `fairy-hollow.thumb.webp` as into the native app target; `resolveBackgroundUri`
 // looks it up in Bundle.main. The web sibling keeps the `Asset.fromModule` path.
 import { hollow } from '../../images/fairy-caves/hollow';
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 
 export const fairyHollow = {
   name: 'Hollow',

@@ -3,7 +3,7 @@
 //
 // A packaged composite consumers can list by importing this module.
 
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 
 export const clouds = {
   name: 'Daytime',

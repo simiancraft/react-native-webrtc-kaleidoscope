@@ -13,15 +13,10 @@
 // layer-uniform channel (`setLayerUniforms`, keyed by layer id) so a slider drag
 // updates the running composite without a rebuild.
 
+import type { KaleidoscopePreset, KaleidoscopePresetBook } from '../kaleidoscope.preset-book.types';
 import type { EffectSpec, TransformName } from '../types';
 import { compositeToEffectSpec } from './shader-to-spec';
-import type {
-  KaleidoscopeBinding,
-  KaleidoscopeBindOptions,
-  KaleidoscopePreset,
-  KaleidoscopePresetBook,
-  TransformInput,
-} from './types';
+import type { KaleidoscopeBinding, KaleidoscopeBindOptions, TransformInput } from './types';
 
 /** Apply the ordered specs to the base track and return the output. */
 export type Reconcile = {

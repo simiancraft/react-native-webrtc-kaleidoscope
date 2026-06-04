@@ -3,7 +3,7 @@
 
 import { Asset } from 'expo-asset';
 import { hollow } from '../../images/fairy-caves/hollow';
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 import fairyHollowThumb from './fairy-hollow.thumb.webp';
 
 export const fairyHollow = {

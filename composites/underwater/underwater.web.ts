@@ -4,7 +4,7 @@
 
 import { Asset } from 'expo-asset';
 import { oceanscapeDark } from '../../images/underwater/oceanscape-dark';
-import type { KaleidoscopePreset } from '../../src/kaleidoscope/types';
+import type { KaleidoscopePreset } from '../../src/kaleidoscope.preset-book.types';
 import underwaterThumb from './underwater.thumb.webp';
 
 export const underwater = {

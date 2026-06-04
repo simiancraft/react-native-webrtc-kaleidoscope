@@ -9,7 +9,10 @@
 
 import { describe, expect, test } from 'bun:test';
 import { createControls } from '../src/kaleidoscope/controls';
-import type { KaleidoscopePreset, KaleidoscopePresetBook } from '../src/kaleidoscope/types';
+import type {
+  KaleidoscopePreset,
+  KaleidoscopePresetBook,
+} from '../src/kaleidoscope.preset-book.types';
 import type { EffectSpec } from '../src/types';
 
 // --- Fixtures -------------------------------------------------------------
