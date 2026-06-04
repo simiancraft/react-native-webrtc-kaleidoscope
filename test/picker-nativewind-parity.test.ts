@@ -1,4 +1,4 @@
-// Drift guard: every styleable component exported from src/components/picker/index.tsx and the
+// Drift guard: every styleable component exported from src/components/preset-book-menu/index.tsx and the
 // control primitives (src/components/ui/index.ts) must be registered with
 // cssInterop in src/nativewind.ts, or it silently ignores `className` in
 // production while the rest honor it. Scope is the PRIMITIVES barrel, not the
@@ -12,14 +12,14 @@ import { readFileSync } from 'node:fs';
 
 const read = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
-const uiIndex = read('../src/components/picker/index.tsx');
+const uiIndex = read('../src/components/preset-book-menu/index.tsx');
 const controlsPrimitives = read('../src/components/ui/index.ts');
 const nativewind = read('../src/nativewind.ts');
 
 // Value (non-type) named exports from a barrel: both `export { ... } from`
 // re-export blocks (skipping `export type { ... }` and inline `type X` members)
 // AND inline `export function`/`export const` declarations (the picker feature's
-// index.tsx is its own chassis, so it inline-exports KaleidoscopePicker rather
+// index.tsx is its own chassis, so it inline-exports PresetBookMenu rather
 // than re-exporting it).
 const valueExports = (src: string): string[] => {
   const names: string[] = [];

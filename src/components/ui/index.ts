@@ -4,7 +4,7 @@
 // components that actually take a `className`).
 
 export { Button, type ButtonProps } from './button';
-export { ColorPicker, type ColorPickerProps } from './color-picker';
+export { ColorPicker, type ColorPresetBookMenuProps } from './color-picker';
 export { Label, type LabelProps } from './label';
 export { Readout, type ReadoutProps } from './readout';
 export { Slider, type SliderProps } from './slider';

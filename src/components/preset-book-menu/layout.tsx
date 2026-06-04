@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
-interface PickerLayoutProps {
+interface PresetBookMenuLayoutProps {
   /**
    * The family tab bar; conventionally a row of tab buttons, one per family.
    * The layout already wraps this in a `tablist`-role row with flex/gap, so the
@@ -28,7 +28,12 @@ interface PickerLayoutProps {
 
 // `className` is consumed by the ./nativewind cssInterop at the boundary and
 // arrives merged into `style`, so it is not destructured/read here.
-export function PickerLayout({ tabsZone, sidebarZone, bodyZone, style }: PickerLayoutProps) {
+export function PresetBookMenuLayout({
+  tabsZone,
+  sidebarZone,
+  bodyZone,
+  style,
+}: PresetBookMenuLayoutProps) {
   return (
     <View style={[styles.container, style]}>
       <View accessibilityRole="tablist" accessibilityLabel="Effect families" style={styles.tabs}>

@@ -1,7 +1,7 @@
 // The drop-in composite picker (#28): tabs over the consumer's preset families,
 // a left-hand category menu under the tabs, and a uniform tile grid filtered by
 // the active family and category. Controlled selection; emit the chosen id, the
-// host applies it. `usePicker` is the orchestration (group the book by
+// host applies it. `usePresetBookMenu` is the orchestration (group the book by
 // family/category, own the active tab and category) and is exported for BYO
 // layouts.
 
@@ -9,12 +9,12 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { KaleidoscopePresetBook } from '../../kaleidoscope.preset-book.types';
 import { categoryTestId, familyTestId } from '../../lib/test-id';
-import { PickerLayout } from './layout';
-import type { Category, Family, PickerProps, PresetView } from './picker.types';
-import { PresetGrid } from './presets/preset-grid';
+import { PresetBookMenuLayout } from './layout';
+import type { Category, Family, PresetBookMenuProps, PresetView } from './preset-book-menu.types';
+import { PresetGrid } from './preset-grid';
 
-/** The grouping usePicker returns; named so BYO-layout consumers can type it. */
-export interface PickerModel {
+/** The grouping usePresetBookMenu returns; named so BYO-layout consumers can type it. */
+export interface PresetBookMenuModel {
   /** Distinct families present in the book, in first-appearance order. */
   readonly families: ReadonlyArray<Family>;
   /** The reconciled active family (survives a changed book; falls back to the first). */
@@ -42,14 +42,14 @@ export interface PickerModel {
  * and the host applies it.
  *
  * @example
- * <KaleidoscopePicker
+ * <PresetBookMenu
  *   presets={presets}
  *   value={art}
  *   onSelect={setArt}
  * />
  */
-export function KaleidoscopePicker<P extends KaleidoscopePresetBook>(props: PickerProps<P>) {
-  // `className` (declared on PickerProps) is intentionally not destructured: the
+export function PresetBookMenu<P extends KaleidoscopePresetBook>(props: PresetBookMenuProps<P>) {
+  // `className` (declared on PresetBookMenuProps) is intentionally not destructured: the
   // ./nativewind cssInterop registration consumes it at the JSX boundary and
   // merges the resolved classes into `style` before this body runs.
   const {
@@ -71,7 +71,7 @@ export function KaleidoscopePicker<P extends KaleidoscopePresetBook>(props: Pick
     activeCategory,
     setActiveCategory,
     views,
-  } = usePicker(presets, labelFor);
+  } = usePresetBookMenu(presets, labelFor);
 
   if (!activeTab) return null;
   // The renderers speak string ids (PresetView.id); the public onSelect is
@@ -80,7 +80,7 @@ export function KaleidoscopePicker<P extends KaleidoscopePresetBook>(props: Pick
   const handleSelect = (id: string | null) => onSelect(id as (keyof P & string) | null);
 
   return (
-    <PickerLayout
+    <PresetBookMenuLayout
       style={style}
       tabsZone={families.map((family) => (
         <Tab
@@ -128,10 +128,10 @@ export function KaleidoscopePicker<P extends KaleidoscopePresetBook>(props: Pick
  * else it falls back to the first; so swapping `presets`, or switching to a
  * family that lacks the prior category, can't strand a dead selection.
  */
-export function usePicker<P extends KaleidoscopePresetBook>(
+export function usePresetBookMenu<P extends KaleidoscopePresetBook>(
   presets: P,
   labelFor?: (id: keyof P & string) => string,
-): PickerModel {
+): PresetBookMenuModel {
   const { families, viewsByFamily, categoriesByFamily, viewsByFamilyCategory } = useMemo(() => {
     const fams: Family[] = [];
     const byFamily = new Map<Family, PresetView[]>();
@@ -277,18 +277,18 @@ const styles = StyleSheet.create({
   categoryLabelActive: { color: '#fff' },
 });
 
+export { PresetTile } from '../preset-tile';
 // The `./picker` subpath barrel: the chassis above plus the composable parts and
 // types a consumer can use to build a BYO layout.
-export { PickerLayout } from './layout';
+export { PresetBookMenuLayout } from './layout';
 export type {
   Category,
   Family,
-  PickerProps,
-  PickerSelection,
-  PickerStyleProps,
+  PresetBookMenuProps,
+  PresetBookMenuSelection,
+  PresetBookMenuStyleProps,
   PresetItemState,
   PresetView,
   RenderTile,
-} from './picker.types';
-export { PresetGrid } from './presets/preset-grid';
-export { PresetTile } from './presets/preset-tile';
+} from './preset-book-menu.types';
+export { PresetGrid } from './preset-grid';

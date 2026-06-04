@@ -8,7 +8,7 @@
 
 import type { ReactElement } from 'react';
 import type { RGB } from '../../lib/primitives.types';
-import { ColorPicker, type ColorPickerProps } from '../ui/color-picker';
+import { ColorPicker, type ColorPresetBookMenuProps } from '../ui/color-picker';
 import { Slider, type SliderProps } from '../ui/slider';
 
 type NumericKeys<U> = { [K in keyof U]: U[K] extends number ? K : never }[keyof U];
@@ -19,7 +19,7 @@ type TypedSlider<U> = (
 ) => ReactElement;
 
 type TypedColorPicker<U> = (
-  props: Omit<ColorPickerProps, 'uniform'> & { readonly uniform: RgbKeys<U> & string },
+  props: Omit<ColorPresetBookMenuProps, 'uniform'> & { readonly uniform: RgbKeys<U> & string },
 ) => ReactElement;
 
 export function makeControls<U>(): {

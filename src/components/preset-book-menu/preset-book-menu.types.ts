@@ -76,7 +76,7 @@ export type RenderTile = (
  * the book's keys (no cast at the call site), matching how `kaleidoscope(cmd)`
  * narrows. Standalone primitives default `K` to `string`.
  */
-export interface PickerSelection<K extends string = string> {
+export interface PresetBookMenuSelection<K extends string = string> {
   /** The selected preset id, or null when nothing is selected. */
   readonly value: K | null;
   /**
@@ -87,7 +87,7 @@ export interface PickerSelection<K extends string = string> {
 }
 
 /** Props common to the picker surfaces; styling and templating hooks. */
-export interface PickerStyleProps {
+export interface PresetBookMenuStyleProps {
   readonly disabled?: boolean | undefined;
   /** Container class; resolved by NativeWind via the `./nativewind` interop. */
   readonly className?: string | undefined;
@@ -96,9 +96,9 @@ export interface PickerStyleProps {
 }
 
 /** Props for the drop-in composite picker (the tabbed kitchen sink). */
-export interface PickerProps<P extends KaleidoscopePresetBook = KaleidoscopePresetBook>
-  extends PickerSelection<keyof P & string>,
-    PickerStyleProps {
+export interface PresetBookMenuProps<P extends KaleidoscopePresetBook = KaleidoscopePresetBook>
+  extends PresetBookMenuSelection<keyof P & string>,
+    PresetBookMenuStyleProps {
   /** The consumer's preset book. */
   readonly presets: P;
   /** RN style override for the container; applied after the defaults. */

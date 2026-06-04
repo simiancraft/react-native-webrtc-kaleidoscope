@@ -12,10 +12,10 @@
 // so the class string the consumer passes is resolved by their NativeWind setup.
 
 import { cssInterop } from 'nativewind';
-import { KaleidoscopePicker } from './components/picker';
-import { PickerLayout } from './components/picker/layout';
-import { PresetGrid } from './components/picker/presets/preset-grid';
-import { PresetTile } from './components/picker/presets/preset-tile';
+import { PresetBookMenu } from './components/preset-book-menu';
+import { PresetBookMenuLayout } from './components/preset-book-menu/layout';
+import { PresetGrid } from './components/preset-book-menu/preset-grid';
+import { PresetTile } from './components/preset-tile';
 import { Button } from './components/ui/button';
 import { ColorPicker } from './components/ui/color-picker';
 import { Label } from './components/ui/label';
@@ -29,8 +29,8 @@ import { Slider } from './components/ui/slider';
  */
 export function registerKaleidoscopeNativeWind(): void {
   const mapping = { className: 'style' } as const;
-  cssInterop(KaleidoscopePicker, mapping);
-  cssInterop(PickerLayout, mapping);
+  cssInterop(PresetBookMenu, mapping);
+  cssInterop(PresetBookMenuLayout, mapping);
   cssInterop(PresetGrid, mapping);
   cssInterop(PresetTile, mapping);
   cssInterop(Label, mapping);

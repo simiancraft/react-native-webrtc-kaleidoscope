@@ -1,5 +1,5 @@
 // Single demo screen, dogfooding the packaged consumable components:
-//   - KaleidoscopePicker (./ui)  the selector: pick a composite -> kaleidoscope.
+//   - PresetBookMenu (./ui)  the selector: pick a composite -> kaleidoscope.
 //   - PresetControlPanel (./controls)  the editor: live-tune the active preset's
 //     layer uniforms, emitting patches the host routes into kaleidoscope.
 //   - MaskControlPanel / TransformControlPanel  the mask + geometry verbs.
@@ -18,7 +18,7 @@ import {
   type PatchesFor,
 } from 'react-native-webrtc-kaleidoscope';
 import {
-  KaleidoscopePicker,
+  PresetBookMenu,
   PresetTile,
   type RenderTile,
 } from 'react-native-webrtc-kaleidoscope/picker';
@@ -155,7 +155,7 @@ export default function DemoScreen() {
 
           <View style={styles.sections}>
             <Section title="kaleidoscope" flex={4}>
-              <KaleidoscopePicker
+              <PresetBookMenu
                 presets={presets}
                 value={art}
                 onSelect={setArt}

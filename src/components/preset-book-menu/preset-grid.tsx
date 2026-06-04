@@ -10,10 +10,10 @@
 
 import { Fragment, useMemo } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
-import { presetTileTestId } from '../../../lib/test-id';
-import type { PresetView, RenderTile } from '../picker.types';
-import { resolveBackgroundUri } from '../resolve-background-uri';
-import { PresetTile } from './preset-tile';
+import { presetTileTestId } from '../../lib/test-id';
+import { PresetTile } from '../preset-tile';
+import { resolveBackgroundUri } from '../preset-tile/resolve-background-uri';
+import type { PresetView, RenderTile } from './preset-book-menu.types';
 
 interface PresetGridProps {
   readonly presets: ReadonlyArray<PresetView>;

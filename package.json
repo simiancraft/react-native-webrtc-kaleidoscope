@@ -32,7 +32,7 @@
   "react-native": "./src/index.ts",
   "types": "./dist/src/index.d.ts",
   "browser": {
-    "./dist/src/components/picker/resolve-background-uri.js": "./dist/src/components/picker/resolve-background-uri.web.js"
+    "./dist/src/components/preset-tile/resolve-background-uri.js": "./dist/src/components/preset-tile/resolve-background-uri.web.js"
   },
   "exports": {
     ".": {
@@ -43,11 +43,11 @@
       "default": "./dist/src/index.js"
     },
     "./picker": {
-      "types": "./dist/src/components/picker/index.d.ts",
-      "react-native": "./src/components/picker/index.tsx",
-      "browser": "./dist/src/components/picker/index.js",
-      "import": "./dist/src/components/picker/index.js",
-      "default": "./dist/src/components/picker/index.js"
+      "types": "./dist/src/components/preset-book-menu/index.d.ts",
+      "react-native": "./src/components/preset-book-menu/index.tsx",
+      "browser": "./dist/src/components/preset-book-menu/index.js",
+      "import": "./dist/src/components/preset-book-menu/index.js",
+      "default": "./dist/src/components/preset-book-menu/index.js"
     },
     "./tuner": {
       "types": "./dist/src/components/preset-control-panel/index.d.ts",

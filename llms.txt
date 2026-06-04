@@ -129,7 +129,7 @@ A headless, preset-driven picker that reads your book directly. Import from the 
 
 ```tsx
 import { useEffect, useState } from 'react';
-import { KaleidoscopePicker } from 'react-native-webrtc-kaleidoscope/ui';
+import { PresetBookMenu } from 'react-native-webrtc-kaleidoscope/ui';
 import { presets } from './kaleidoscope.preset-book';
 
 function BackgroundControls({ kaleidoscope }) {
@@ -137,11 +137,11 @@ function BackgroundControls({ kaleidoscope }) {
   useEffect(() => {
     kaleidoscope(art ?? null);
   }, [art, kaleidoscope]);
-  return <KaleidoscopePicker presets={presets} value={art} onSelect={setArt} />;
+  return <PresetBookMenu presets={presets} value={art} onSelect={setArt} />;
 }
 ```
 
-`KaleidoscopePicker` is a two-level browser: a tab row across the top, one tab per **group** (`taxonomy[0]`, e.g. Effects, Worlds, Backgrounds, Shaders), and a left-hand menu of **categories** (`taxonomy[1]`) under the active group; the tile grid is filtered by both. A flat (depth-1) group shows no category menu. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the component is presentational, it emits the chosen id and you apply it via `kaleidoscope`. Standalone primitives (`PresetGrid`, `PresetTile`, the `usePicker` hook, `PickerLayout`) are exported for BYO layouts. Style three ways: defaults, an RN `style` prop, a `className` prop, or a `renderTile` slot.
+`PresetBookMenu` is a two-level browser: a tab row across the top, one tab per **group** (`taxonomy[0]`, e.g. Effects, Worlds, Backgrounds, Shaders), and a left-hand menu of **categories** (`taxonomy[1]`) under the active group; the tile grid is filtered by both. A flat (depth-1) group shows no category menu. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the component is presentational, it emits the chosen id and you apply it via `kaleidoscope`. Standalone primitives (`PresetGrid`, `PresetTile`, the `usePresetBookMenu` hook, `PresetBookMenuLayout`) are exported for BYO layouts. Style three ways: defaults, an RN `style` prop, a `className` prop, or a `renderTile` slot.
 
 **NativeWind (optional).** Components accept `className`. Turn it on by importing the opt-in registration once in your interop setup (`nativewind` stays out of the core `./ui` import):
 
