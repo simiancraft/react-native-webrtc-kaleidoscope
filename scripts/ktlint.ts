@@ -13,7 +13,13 @@ import { $ } from 'bun';
 const ROOT = path.resolve(import.meta.dir, '..');
 const KTLINT = path.join(ROOT, '.tooling', 'ktlint');
 const KTLINT_VERSION = '1.5.0';
-const GLOB = 'android/src/**/*.kt';
+// Generated sources are formatted by their generator (build:shaders) and pinned
+// verbatim by check:shaders, so ktlint must not touch them; the negated pattern
+// excludes the one generated .kt, mirroring biome's ignore of shaders.generated.ts.
+const PATTERNS = [
+  'android/src/**/*.kt',
+  '!android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt',
+];
 
 // ktlint runs on a JVM; force JDK 17 when the documented path exists (WSL's
 // default OpenJDK is 8, which ktlint's bytecode rejects), else trust PATH.
@@ -29,7 +35,7 @@ if (!existsSync(KTLINT)) {
 }
 
 const format = process.argv.includes('--format') || process.argv.includes('-F');
-const args = format ? ['-F', GLOB] : [GLOB];
+const args = format ? ['-F', ...PATTERNS] : [...PATTERNS];
 const proc = Bun.spawnSync([KTLINT, ...args], {
   cwd: ROOT,
   env,
