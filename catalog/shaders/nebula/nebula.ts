@@ -1,7 +1,8 @@
 // Nebula layer-shader interface: typed uniforms + control descriptor. A deep-
 // space starfield BACKGROUND layer (opaque), uniform-ized from the fixed
-// Deadlights V2 backdrop so composites can color-grade and pace it (the bridge composite
-// runs it behind a cut-out viewport). Shader source is shaders/nebula.frag.
+// Deadlights V2 backdrop so a composite can color-grade and pace it (the nebula
+// composite runs it full-frame behind the masked subject). Shader source is
+// ./nebula.frag.
 
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
