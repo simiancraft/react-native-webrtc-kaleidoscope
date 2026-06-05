@@ -1,7 +1,7 @@
 // Corporate-blobs layer-shader interface: typed uniforms + control descriptor. A
 // transparent overlay of large decorative edge/vignette blobs in flat brand
 // colors, drifting and morphing (premultiplied output; the blobs sit over
-// whatever is beneath). Shader source is shaders/corporate-blobs.frag. The eight
+// whatever is beneath). Shader source is ./corporate-blobs.frag. The eight
 // blobs' positions and colors are fixed in the shader; the tunables below grade,
 // scale, and pace the field. Defaults reproduce the stock prototype look.
 
