@@ -5,7 +5,7 @@
 // of position and time, mapped between two palette colors. No loops, no noise,
 // no hashing, so it stays comfortably within the per-frame budget the shader-
 // authoring guide sets. One plasma.frag fans out into many named presets
-// (ocean, sunset, mint, slow, fast) by varying its uniforms.
+// (ocean, sunset, mint, and fast) by varying its uniforms.
 //
 // UV convention: matches passthrough.vert. vUv = (0, 0) at bottom-left,
 // (1, 1) at top-right. fragCoord is reconstructed as vUv * uResolution so this
