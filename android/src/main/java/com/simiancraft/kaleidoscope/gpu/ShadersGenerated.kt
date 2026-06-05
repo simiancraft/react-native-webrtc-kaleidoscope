@@ -757,7 +757,6 @@ void main() {
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
-uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
 uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = untinted
 uniform float uSpeed;         // animation rate; 1.0 = stock, 0 freezes the field
 uniform float uBeamAlpha;     // beam fill strength (absolute); stock 0.18

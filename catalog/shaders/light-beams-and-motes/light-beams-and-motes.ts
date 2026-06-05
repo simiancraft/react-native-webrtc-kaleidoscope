@@ -1,7 +1,7 @@
 // Light-beams-and-motes layer-shader interface: typed uniforms + control
 // descriptor. A transparent overlay of dust motes drifting inside three
 // independently colored polygon light beams (use blend 'additive'). Shader
-// source is shaders/light-beams-and-motes.frag. Beam geometry and per-beam colors
+// source is ./light-beams-and-motes.frag. Beam geometry and per-beam colors
 // are fixed in the shader; the tunables below grade and pace the whole field.
 // Defaults reproduce the stock prototype look.
 

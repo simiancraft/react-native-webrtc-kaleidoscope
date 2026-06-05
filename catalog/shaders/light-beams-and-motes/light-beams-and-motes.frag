@@ -13,7 +13,7 @@
 // Precision: highp float is REQUIRED. The hash1/hash2 RNG and the fract() mote
 // scatter use a large sin() multiplier (43758.5453123); at mediump those
 // products collapse to banded garbage and the mote distribution dies. Same
-// reasoning as simianlights/blur.
+// reasoning as simianlights/composite-blur.
 //
 // Alpha: STRAIGHT (non-premultiplied); oColor.rgb is accumulated independently
 // of oColor.a, preserving the prototype's look. If the layer compositor expects
@@ -30,7 +30,6 @@
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
-uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
 uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = untinted
 uniform float uSpeed;         // animation rate; 1.0 = stock, 0 freezes the field
 uniform float uBeamAlpha;     // beam fill strength (absolute); stock 0.18
