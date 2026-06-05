@@ -11,8 +11,8 @@
 // gl_FragCoord is read.
 //
 // Precision: highp float (the rand()/hash() chain uses the 43758.5453123
-// multiplier; mediump bands it). This source is kept byte-for-byte in sync with
-// CLOUDS_FRAG_SRC in web-driver/effects/layer-shaders.ts (the web compositor's copy).
+// multiplier; mediump bands it). This source is codegen'd by build:shaders into
+// CLOUDS_FRAG_SRC in web-driver/shaders.generated.ts (the web compositor's copy).
 //
 // Working time-of-day palettes + shape looks live in shaders/clouds.presets.md.
 // Quick reference (uStepSize / uCloudSpeed): clear 0.20/0.6, billowy 0.10/0.2,
