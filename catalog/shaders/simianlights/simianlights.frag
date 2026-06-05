@@ -17,8 +17,8 @@
 // hash and the fract() size/color tricks use large multipliers (123.45,
 // 345.67, 1356.33, 2150.0, 3000.0, 3430.0). At mediump (10-bit mantissa on
 // mobile GPUs) fract() of those products collapses to banded garbage,
-// destroying the star distribution. Same reasoning blur.frag/composite.frag
-// give for keeping vUv highp, applied to the whole hash chain here.
+// destroying the star distribution. Same reasoning composite-blur.frag gives
+// for keeping vUv highp, applied to the whole hash chain here.
 
 #version 300 es
 precision highp float;

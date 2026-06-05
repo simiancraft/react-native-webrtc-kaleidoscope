@@ -44,7 +44,7 @@ import { $ } from 'bun';
 const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 // Canonical shader source tree: folder-per-shader (`shaders/<name>/<name>.frag`)
 // plus the cross-pipeline shared files in `shaders/_shared/`. The codegen lists
-// and the transpile loop key on the bare filename (e.g. `composite.frag`), so
+// and the transpile loop key on the bare filename (e.g. `composite-camera.frag`), so
 // the tree is flattened to a filename -> absolute-path map up front; basenames
 // are unique across the tree.
 const GLSL_DIR = join(REPO_ROOT, 'catalog', 'shaders');
@@ -94,7 +94,6 @@ const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 // registry directly.
 const UTILITY_ANDROID = [
   'passthrough.vert',
-  'composite.frag',
   'composite-camera.frag',
   'composite-blur.frag',
   'composite-image.frag',
@@ -104,7 +103,6 @@ const UTILITY_ANDROID = [
 ] as const;
 const UTILITY_WEB = [
   'passthrough.vert',
-  'composite.frag',
   'composite-camera.frag',
   'composite-blur.frag',
   'composite-image.frag',
@@ -164,8 +162,8 @@ function stripToVersion(raw: string): string {
   return raw.replace(/^[\s\S]*?(#version)/, '$1');
 }
 
-// passthrough.vert -> PASSTHROUGH_VERT, composite.frag -> COMPOSITE_FRAG,
-// composite-camera.frag -> COMPOSITE_CAMERA_FRAG. Hyphens in the basename map to
+// passthrough.vert -> PASSTHROUGH_VERT, composite-camera.frag ->
+// COMPOSITE_CAMERA_FRAG. Hyphens in the basename map to
 // underscores so the const stays a valid Kotlin/TS identifier; the transpiled
 // .metalsrc keeps the hyphenated filename.
 function constBase(filename: string): string {

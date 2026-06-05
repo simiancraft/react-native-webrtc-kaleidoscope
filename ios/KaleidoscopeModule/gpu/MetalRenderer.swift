@@ -1,11 +1,12 @@
 // Shared Metal renderer for the iOS Kaleidoscope effects. Owns the
 // MTLDevice, command queue, the CVMetalTextureCache used for both input
 // ingestion and output, the precompiled-at-runtime pipeline states for the
-// three transpiled shaders (passthrough, blur, composite), an output
-// CVPixelBufferPool, and the blur ping-pong intermediate textures.
+// passthrough vertex and the transform fragment, and an output
+// CVPixelBufferPool. The per-layer composite fragments and the generative
+// shaders compile lazily in CompositeProcessor.
 //
-// One instance is created per processor (BlurProcessor, BackgroundImage-
-// Processor); a processor's `capturer:didCaptureVideoFrame:` is the only
+// One instance is created per processor (CompositeProcessor, TransformProcessor);
+// a processor's `capturer:didCaptureVideoFrame:` is the only
 // caller, and the upstream rn-webrtc pipeline serializes per processor on a
 // single capture queue, so the renderer does not need its own lock. The
 // owning processor still wraps every call in its own try/catch and falls
@@ -90,8 +91,6 @@ final class MetalRenderer {
     // safe path here because renaming the entry points would be clobbered the
     // next time scripts/transpile-shaders.ts regenerates the MSL.
     let passthroughVertex: MTLFunction
-    let blurPipeline: MTLRenderPipelineState
-    let compositePipeline: MTLRenderPipelineState
     let transformPipeline: MTLRenderPipelineState
 
     /// Linear-clamp sampler shared by every pass (matches the Android GL_LINEAR
@@ -103,13 +102,6 @@ final class MetalRenderer {
     private var outputPool: CVPixelBufferPool?
     private var poolWidth = 0
     private var poolHeight = 0
-
-    // Blur ping-pong intermediate textures (BGRA, full input resolution).
-    // Recreated on resolution change. Only allocated when the blur path runs.
-    private var blurTexA: MTLTexture?
-    private var blurTexB: MTLTexture?
-    private var blurTexWidth = 0
-    private var blurTexHeight = 0
 
     // Composite compositor scratch render targets (BGRA, full output resolution).
     // scratchA holds a subject layer's rendered content and the blur's horizontal
@@ -159,28 +151,16 @@ final class MetalRenderer {
 
         // Compile each .metal as its own library and pull `main0`.
         let passthrough = try ShaderLibrary(device: dev, bundle: bundle, fileName: "passthrough")
-        let blur = try ShaderLibrary(device: dev, bundle: bundle, fileName: "blur")
-        let composite = try ShaderLibrary(device: dev, bundle: bundle, fileName: "composite")
         let transform = try ShaderLibrary(device: dev, bundle: bundle, fileName: "transform")
 
         passthroughVertex = try passthrough.function()
 
-        // Both fragment pipelines reuse the passthrough vertex (fullscreen
+        // The transform fragment pipeline reuses the passthrough vertex (fullscreen
         // quad generated from gl_VertexID via TRIANGLE_STRIP; no vertex buffer).
         // The shader is designed for FOUR vertices (see shaders/passthrough.vert);
-        // see drawFullscreen below for the matching drawPrimitives call.
-        blurPipeline = try MetalRenderer.makePipeline(
-            device: dev,
-            vertex: passthroughVertex,
-            fragment: blur.function(),
-            label: "blur"
-        )
-        compositePipeline = try MetalRenderer.makePipeline(
-            device: dev,
-            vertex: passthroughVertex,
-            fragment: composite.function(),
-            label: "composite"
-        )
+        // see drawFullscreen below for the matching drawPrimitives call. The
+        // per-layer composite fragments and the composite blur compile lazily in
+        // CompositeProcessor; the generative fragments via makeGenerativePipeline.
         transformPipeline = try MetalRenderer.makePipeline(
             device: dev,
             vertex: passthroughVertex,
@@ -403,21 +383,6 @@ final class MetalRenderer {
         return (buffer, texture, wrapper)
     }
 
-    /// Returns the two blur ping-pong textures, allocating on first use or on
-    /// resolution change.
-    func blurPingPong(width: Int, height: Int) throws -> (MTLTexture, MTLTexture) {
-        if let a = blurTexA, let b = blurTexB, blurTexWidth == width, blurTexHeight == height {
-            return (a, b)
-        }
-        let a = try makeRenderTargetTexture(width: width, height: height)
-        let b = try makeRenderTargetTexture(width: width, height: height)
-        blurTexA = a
-        blurTexB = b
-        blurTexWidth = width
-        blurTexHeight = height
-        return (a, b)
-    }
-
     private func makeRenderTargetTexture(width: Int, height: Int) throws -> MTLTexture {
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
@@ -465,88 +430,6 @@ final class MetalRenderer {
         // motivated this fix (half-black with diagonal staircase aliasing).
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
-    }
-
-    /// Encode one separable blur pass (`source` -> `target`) along `axis`.
-    /// Binds the 5-float weights at buffer(0), the float2 axis at buffer(5), and
-    /// the 5-float offsets at buffer(6), matching the regenerated blur.metalsrc.
-    /// spirv-cross numbers uAxis/uOffsets right after the uWeights array, so
-    /// these indices track the array size (was 0/9/10 at 9 entries). setFragment-
-    /// Bytes uses each array's contiguous byte layout (length: ptr.count), so the
-    /// byte count adapts on its own.
-    func encodeBlurPass(
-        commandBuffer: MTLCommandBuffer,
-        source: MTLTexture,
-        target: MTLTexture,
-        kernel: BlurKernel,
-        axis: SIMD2<Float>,
-        label: String
-    ) throws {
-        try drawFullscreen(
-            commandBuffer: commandBuffer,
-            pipeline: blurPipeline,
-            target: target,
-            label: label
-        ) { encoder in
-            // spvUnsafeArray<float,5> is 5 tightly packed floats (20 bytes). A Swift
-            // [Float] of 5 elements is contiguous with stride 4, so withUnsafeBytes
-            // hands setFragmentBytes the exact 20-byte layout the shader expects.
-            kernel.weights.withUnsafeBytes { ptr in
-                encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 0)
-            }
-            var axisVar = axis
-            encoder.setFragmentBytes(&axisVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 5)
-            kernel.offsets.withUnsafeBytes { ptr in
-                encoder.setFragmentBytes(ptr.baseAddress!, length: ptr.count, index: 6)
-            }
-            encoder.setFragmentTexture(source, index: 0)
-            encoder.setFragmentSamplerState(linearClampSampler, index: 0)
-        }
-    }
-
-    /// Encode the composite pass into `target`.
-    /// composite.metal bindings: buffer(0) uMaskUvScale, (1) uMaskUvOffset,
-    /// (2) uMaskHi, (3) uMaskLo, (4) uBgUvScale, (5) uBgUvOffset; texture(0)
-    /// uMask, (1) uOriginal, (2) uBackground; samplers 0/1/2.
-    func encodeComposite(
-        commandBuffer: MTLCommandBuffer,
-        target: MTLTexture,
-        original: MTLTexture,
-        background: MTLTexture,
-        mask: MTLTexture,
-        maskUvScale: SIMD2<Float>,
-        maskUvOffset: SIMD2<Float>,
-        maskHi: Float,
-        maskLo: Float,
-        bgUvScale: SIMD2<Float>,
-        bgUvOffset: SIMD2<Float>,
-        label: String
-    ) throws {
-        try drawFullscreen(
-            commandBuffer: commandBuffer,
-            pipeline: compositePipeline,
-            target: target,
-            label: label
-        ) { encoder in
-            var maskUvScaleVar = maskUvScale
-            var maskUvOffsetVar = maskUvOffset
-            var maskHiVar = maskHi
-            var maskLoVar = maskLo
-            var bgUvScaleVar = bgUvScale
-            var bgUvOffsetVar = bgUvOffset
-            encoder.setFragmentBytes(&maskUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
-            encoder.setFragmentBytes(&maskUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
-            encoder.setFragmentBytes(&maskHiVar, length: MemoryLayout<Float>.stride, index: 2)
-            encoder.setFragmentBytes(&maskLoVar, length: MemoryLayout<Float>.stride, index: 3)
-            encoder.setFragmentBytes(&bgUvScaleVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 4)
-            encoder.setFragmentBytes(&bgUvOffsetVar, length: MemoryLayout<SIMD2<Float>>.stride, index: 5)
-            encoder.setFragmentTexture(mask, index: 0)
-            encoder.setFragmentTexture(original, index: 1)
-            encoder.setFragmentTexture(background, index: 2)
-            encoder.setFragmentSamplerState(linearClampSampler, index: 0)
-            encoder.setFragmentSamplerState(linearClampSampler, index: 1)
-            encoder.setFragmentSamplerState(linearClampSampler, index: 2)
-        }
     }
 
     // MARK: - Generic generative shader
@@ -643,43 +526,5 @@ final class MetalRenderer {
             encoder.setFragmentTexture(source, index: 0)
             encoder.setFragmentSamplerState(linearClampSampler, index: 0)
         }
-    }
-}
-
-/// A linear-sampled separable Gaussian kernel: 5 entries (center + 4 bilinear
-/// pairs of dense texels). Mirrors BlurFactory.ensureKernel and
-/// web-driver/blur-kernel.ts. Rebuilt only when sigma changes.
-struct BlurKernel {
-    private(set) var weights = [Float](repeating: 0, count: 5)
-    private(set) var offsets = [Float](repeating: 0, count: 5)
-    private var cachedSigma: Float = .nan
-
-    mutating func ensure(sigma: Float) {
-        if sigma == cachedSigma { return }
-        let s = Double(sigma)
-        func g(_ t: Double) -> Double {
-            exp(-(t * t) / (2.0 * s * s))
-        }
-        // Linear-sampled: center + 4 bilinear pairs of dense texels (1,2)(3,4)
-        // (5,6)(7,8). See web-driver/blur-kernel.ts for the shared derivation.
-        offsets[0] = 0
-        weights[0] = Float(g(0))
-        var sum = weights[0]
-        for p in 1 ..< 5 {
-            let a = Double(2 * p - 1)
-            let b = Double(2 * p)
-            let wa = g(a)
-            let wb = g(b)
-            let w = wa + wb
-            offsets[p] = Float((a * wa + b * wb) / w)
-            weights[p] = Float(w)
-            sum += 2.0 * weights[p]
-        }
-        if sum > 0 {
-            for i in 0 ..< 5 {
-                weights[i] /= sum
-            }
-        }
-        cachedSigma = sigma
     }
 }

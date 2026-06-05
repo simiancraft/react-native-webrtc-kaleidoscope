@@ -19,10 +19,9 @@
 // base, premultiplied-over, premultiplied-add. They are cached by
 // (fragment label, blend mode) so a composite that reuses a shader does not rebuild.
 //
-// The render target is the output CVPixelBuffer's BGRA Metal texture directly
-// (same as encodeComposite writes its result into the output texture); CV-backed
-// BGRA IOSurface textures are render-capable, so no extra accumulator texture is
-// needed. All passes share the renderer's linear-clamp sampler.
+// The render target is the output CVPixelBuffer's BGRA Metal texture directly;
+// CV-backed BGRA IOSurface textures are render-capable, so no extra accumulator
+// texture is needed. All passes share the renderer's linear-clamp sampler.
 
 import Foundation
 import Metal
@@ -334,9 +333,8 @@ extension MetalRenderer {
     /// Two .private composite scratch render targets, BGRA at full output resolution,
     /// allocated on first use or resolution change. scratchA holds a subject
     /// layer's rendered content (and the blur's horizontal pass); scratchB holds
-    /// the blur's vertical pass. Mirrors CompositeFactory's scratchA/scratchB Fbos and
-    /// composite.ts's createFbo pair. Distinct from blurPingPong (the standalone blur
-    /// effect's intermediates) so the two paths never alias.
+    /// the blur's vertical pass. Mirrors CompositeFactory's scratchA/scratchB Fbos
+    /// and composite.ts's createFbo pair.
     func compositeScratch(width: Int, height: Int) throws -> (MTLTexture, MTLTexture) {
         if let a = compositeScratchA, let b = compositeScratchB,
            compositeScratchWidth == width, compositeScratchHeight == height

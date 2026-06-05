@@ -8,8 +8,8 @@ package com.simiancraft.kaleidoscope.segmentation
 internal object MaskTuning {
     /**
      * Map a user-facing maskHardness in [0, 1] and maskThreshold in
-     * [0.05, 0.95] to the (lo, hi) range a COMPOSITE_FRAG smoothstep should
-     * use over the raw confidence map.
+     * [0.05, 0.95] to the (lo, hi) range the composite-subject / composite-masked
+     * smoothstep should use over the raw confidence map.
      *
      * hardness controls width: 0.0 produces a soft halo (wide transition),
      * 1.0 produces a near-step edge (narrow transition).

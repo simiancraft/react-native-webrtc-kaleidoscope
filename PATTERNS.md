@@ -112,14 +112,17 @@ not hand-edit):
   `Shaders.kt` / `Mask.kt`.
 - iOS: `ios/KaleidoscopeModule/shaders/*.metalsrc`.
 
-The composite shader (`shaders/composite.frag`) is the canonical mix-with-
-mask shader; every layer kind (a blur layer, an image, a generative
-shader like Simianlights or Nebula) composites through it unchanged.
-Per-effect shaders (currently `shaders/blur.frag`, `shaders/transform.frag`)
-live as separate files under `shaders/`.
+Compositing is per-layer: a layer renders its content (an image, the blurred
+camera, or a generative shader like Simianlights or Nebula) into a scratch,
+then `composite-subject` / `composite-masked` stencil it to the person through
+the mask, or the over/additive blend lays a background layer down. The
+per-layer frags live under `shaders/_shared/` (`composite-camera`,
+`composite-image`, `composite-subject`, `composite-masked`, `composite-blit`)
+plus `shaders/blur/composite-blur.frag`; `shaders/_shared/transform.frag` is
+the geometric op.
 
-It is **background-source-agnostic**: `mix(background, original, mask)` does
-not care whether `uBackground` is a loaded image, the blurred camera, or a
+The compositor is **background-source-agnostic**: the mask stencil does not
+care whether a layer's texture is a loaded image, the blurred camera, or a
 generative shader's output; a new layer differs only in how it produces that
 texture. Because orientation is normalized upstream at the ingest (see
 "Orientation" below), a new shader composites correctly on every platform with
@@ -153,15 +156,17 @@ NOT orientation, and must not be "cleaned up" to identity: the composite's
 V-flip parity terms. The vertical flip some composite paths need (odd
 ping-pong pass count plus each platform's texture-origin convention) is
 render-pass/texture parity, not camera orientation, and it lands on a
-DIFFERENT uniform per platform: iOS blur uses `uBgUvScale=(1,-1)`; iOS background
-negates `uBgUvScale.y` and sets `uBgUvOffset.y = offset.y+scale.y` composed WITH
-the cover-fit (the MTKTextureLoader texture's V convention differs from the
-CoreImage "original" at sample time); web blur and web background use
+DIFFERENT uniform per platform: web blur and web background use
 `uMaskUvScale=(1,-1)`; Android uses identity for both (its GL pipeline does not
-accumulate the flip, and the background is pre-flipped on the bitmap instead).
-The authoritative per-platform table is
-in the `shaders/composite.frag` header. Do not cross-normalize these; zeroing
-web's mask flip or copying iOS's bg flip onto Android breaks that platform.
+accumulate the flip, and the background is pre-flipped on the bitmap instead);
+iOS composites per-layer (NOT via the monolithic composite shader, which is
+web/Android only) and carries the parity in CompositeProcessor's scratch-parity
+constants (`scratchOddParity` / `scratchEvenParity`) and the cover-scale's
+negated y.
+The per-platform values are documented in the `composite-subject`,
+`composite-masked`, `composite-image`, and `composite-blur` frag headers. Do not
+cross-normalize these; zeroing web's mask flip or copying iOS's bg flip onto
+Android breaks that platform.
 
 ### Segmentation mask buffer ownership
 

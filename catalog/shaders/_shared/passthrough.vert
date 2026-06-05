@@ -12,9 +12,9 @@
 // (scripts/build-shaders.ts) passes no --msl-invert-y flag, so the generated
 // passthrough.metalsrc emits gl_Position identical to this GLSL. Metal's
 // top-left framebuffer origin is reconciled per-render-pass at the iOS
-// composite (the background's UV is V-flipped to cancel the odd number of
-// ping-pong passes; see BlurProcessor.swift and the MetalRenderer header),
-// not by a vertex Y-inversion. Android's GL passes share the FBO origin and
+// composite (the per-layer scratch parity cancels the odd ping-pong pass
+// count; see CompositeProcessor's scratch-parity constants), not by a vertex
+// Y-inversion. Android's GL passes share the FBO origin and
 // need no such term.
 
 #version 300 es

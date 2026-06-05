@@ -70,39 +70,6 @@ void main() {
     // LayerShaders.CAMERA_FRAG.
     val COMPOSITE_CAMERA_FRAG = ShadersGenerated.COMPOSITE_CAMERA_FRAG
 
-    // Composite: mix(background, original, mask). One shader, byte-identical
-    // to web-driver/shaders.ts's COMPOSITE_FRAG_SRC.
-    //
-    // uOriginal and uBackground are expected to land with semantic "top of
-    // source image" at GL v=1; the shader samples both at vUv directly. On
-    // Android the OES->2D pass with transformMatrix lands the original at
-    // v=1, and the bg PNG is pre-flipped via Bitmap matrix before
-    // GLUtils.texImage2D since Android OpenGL ES has no flipY flag.
-    //
-    // uMask is sampled at vUv * uMaskUvScale + uMaskUvOffset. On Android,
-    // those are identity (1,1) and (0,0) because the readback round-trip
-    // (glReadPixels bottom-up plus Bitmap top-down plus GLUtils.texImage2D
-    // row-preserving) leaves the mask aligned with origFbo. On web they are
-    // (1,-1) and (0,1) to encode a V-flip on the mask sampling, because
-    // canvas-staging the mask there would mangle the soft confidence values
-    // in alpha (premultiplied-alpha math).
-    //
-    // uMaskLo / uMaskHi parameterize the smoothstep transition over the raw
-    // confidence map. The processor computes them from a maskHardness factor
-    // (0 = soft halo, 1 = hard edge) so callers do not have to think in lo/hi
-    // pairs.
-    //
-    // uBgUvScale and uBgUvOffset control how the background texture is mapped
-    // onto the output. For blur, they are (1,1) and (0,0); sample the full
-    // blurred copy. For an image layer, the caller computes them to perform
-    // a cover-fit center crop so an arbitrarily-shaped image fills the output
-    // without distortion.
-    // Canonical source: shaders/composite.frag. Generated into ShadersGenerated
-    // by `bun run build:shaders`; delegated here. The per-platform mask/bg
-    // orientation differences live in the uniforms the host sets (see above),
-    // not in the shader, so the same generated body serves every runtime.
-    val COMPOSITE_FRAG = ShadersGenerated.COMPOSITE_FRAG
-
     // Transform: a single-pass geometric reorientation (axis flip or 90-degree
     // rotation) driven by the uUvTransform mat2 the host computes from a pure
     // screen-space op via Orientation.mat2For. One shader serves all four ops

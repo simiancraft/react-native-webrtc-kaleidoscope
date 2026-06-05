@@ -291,7 +291,7 @@ The API surface is the same across platforms, but the runtimes differ in ways wo
 
 The canonical assets live in three root, folder-per-item directories, out of the TypeScript build path; the build and the prebuild copy read from them:
 
-- `catalog/shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `catalog/shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `catalog/shaders/_shared/` also holds the cross-cutting frags (`composite.frag`, `composite-camera.frag`, `transform.frag`). `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these. See [catalog/shaders/README.md](./catalog/shaders/README.md) to add or extend a shader.
+- `catalog/shaders/<name>/`: each shader's `.frag` plus its typed `.ts` (uniforms + control descriptor). All shaders share one vertex stage, `catalog/shaders/_shared/passthrough.vert`; there is no per-shader `.vert`. `catalog/shaders/_shared/` also holds the per-layer composite frags (`composite-camera.frag`, `composite-image.frag`, `composite-subject.frag`, `composite-masked.frag`, `composite-blit.frag`) and `transform.frag`. `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal from these. See [catalog/shaders/README.md](./catalog/shaders/README.md) to add or extend a shader.
 - `catalog/images/<category>/`: images filed by category, several per folder. Each image is a quad: `<leaf>.webp`, its `<leaf>.thumb.webp`, and the `<leaf>.ts` / `<leaf>.web.ts` loader pair, behind a `./images/<category>/<leaf>` subpath export.
 - `catalog/composites/<name>/`: each packaged composite (a `KaleidoscopePreset`), behind a `./composites/<name>` subpath export.
 

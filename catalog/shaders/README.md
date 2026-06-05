@@ -14,7 +14,7 @@ codegen/transpile pipeline, the native registry), see
 
 ```
 shaders/
-├── _shared/                 # cross-cutting: passthrough.vert, composite.frag, transform.frag, types.ts
+├── _shared/                 # cross-cutting: passthrough.vert, the composite-* layer frags, transform.frag, types.ts
 └── <name>/
     ├── <name>.frag          # the canonical GLSL ES 3.00 fragment (single source)
     ├── <name>.ts            # the typed uniforms + the <NAME>_CONTROLS descriptor

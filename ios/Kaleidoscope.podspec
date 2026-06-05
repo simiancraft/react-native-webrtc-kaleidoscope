@@ -17,9 +17,9 @@ Pod::Spec.new do |s|
   # source_files, AND they use a custom `.metalsrc` extension instead of
   # `.metal`. Both halves of that constraint are load-bearing:
   #
-  #   (a) All three transpiled shaders (passthrough, blur, composite) export
-  #       the entry point `main0` because spirv-cross emits `main0` for every
-  #       stage. Three identical symbols cannot coexist in one metallib.
+  #   (a) Every transpiled shader exports the entry point `main0` because
+  #       spirv-cross emits `main0` for every stage. Identical symbols cannot
+  #       coexist in one metallib.
   #   (b) Excluding them from source_files prevents the main target's default
   #       metallib from compiling and colliding on `main0`.
   #   (c) Renaming the extension from `.metal` to `.metalsrc` prevents Xcode's
@@ -39,8 +39,8 @@ Pod::Spec.new do |s|
   # Kaleidoscope.bundle:
   #   - BundledImage resolves "dark-office" -> dark-office.webp (shared by
   #     resolveImageUri and the composite's image layers).
-  #   - ShaderLibrary reads passthrough/blur/composite.metalsrc as TEXT and
-  #     compiles each into its own MTLLibrary via makeLibrary(source:). The
+  #   - ShaderLibrary reads each `.metalsrc` as TEXT and compiles it into its
+  #     own MTLLibrary via makeLibrary(source:). The
   #     `.metalsrc` extension (not `.metal`) is required so Xcode's
   #     MetalCompile build phase does not auto-compile them into a
   #     `default.metallib` inside the bundle and hit the same `main0`
