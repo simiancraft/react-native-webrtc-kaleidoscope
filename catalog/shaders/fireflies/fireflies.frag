@@ -1,4 +1,4 @@
-// Fireflies (alias: motes): drifting glowing dots on a TRANSPARENT background, an
+// Fireflies: drifting glowing dots on a TRANSPARENT background, an
 // overlay layer (use blend 'additive'). Ported from the Shadertoy prototype to
 // this repo's GLSL ES 3.00 multi-runtime convention: iTime/iResolution/mainImage
 // -> uTime/uResolution/main+oColor, and the GLOW/DOT/SPEED/TWINKLE #defines are

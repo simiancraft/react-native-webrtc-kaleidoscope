@@ -1,6 +1,6 @@
 // Fireflies layer-shader interface: typed uniforms + control descriptor. A
-// transparent overlay of drifting glowing motes (use blend 'additive'). Shader
-// source is shaders/fireflies.frag.
+// transparent overlay of drifting glowing dots (use blend 'additive'). Shader
+// source is ./fireflies.frag.
 
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
@@ -19,7 +19,7 @@ export type FirefliesUniforms = {
   readonly uColor: RGB;
 };
 
-/** The `fireflies` shader's tunable uniforms; defaults are the denser look. */
+/** The `fireflies` shader's tunable uniforms; defaults are the warm amber look. */
 export const FIREFLIES_CONTROLS: readonly UniformControl[] = [
   {
     name: 'uGlowSize',
