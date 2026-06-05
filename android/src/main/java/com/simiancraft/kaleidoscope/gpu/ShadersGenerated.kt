@@ -648,7 +648,6 @@ void main() {
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
-uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
 uniform float uFlareX;        // flare X position, 0..1 (drifts slowly around this)
 uniform float uFlareY;        // flare Y position, 0..1 (0 = bottom)
 uniform float uIntensity;     // overall brightness multiplier

@@ -1,7 +1,7 @@
 // Space observation deck: a simianlights field seen through the deck's panoramic
 // window (a cut-out image), you standing in the room, an anamorphic lens flare
 // across the glass. Back-to-front: simianlights, deck image, you, flare. The
-// full "space composite".
+// full observation-deck composite.
 //
 // A packaged composite: within the library it imports its image layers
 // relatively; a consumer would import from

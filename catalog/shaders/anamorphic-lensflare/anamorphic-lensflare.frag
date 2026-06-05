@@ -1,6 +1,7 @@
 // Animated cinematic anamorphic lens flare. A transparent OVERLAY layer (use
 // blend 'additive'); intended to sit in front of the layers beneath as a camera-lens
-// artifact (the space composite runs it over the nebula + bridge image).
+// artifact (the observation-deck composite runs it over the simianlights field
+// plus the deck image).
 //
 // Ported from a ShaderToy prototype (mainImage/iTime/iResolution) to this repo's
 // GLSL ES 3.00 multi-runtime convention. The #define knobs and the three palette
@@ -16,7 +17,6 @@
 precision highp float;
 
 uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
-uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
 uniform float uFlareX;        // flare X position, 0..1 (drifts slowly around this)
 uniform float uFlareY;        // flare Y position, 0..1 (0 = bottom)
 uniform float uIntensity;     // overall brightness multiplier

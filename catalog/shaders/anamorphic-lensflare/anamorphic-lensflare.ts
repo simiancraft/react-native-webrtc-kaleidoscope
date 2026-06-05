@@ -1,8 +1,8 @@
 // Anamorphic lens-flare layer-shader interface: typed uniforms + control
 // descriptor. A cinematic camera-lens artifact, a transparent OVERLAY layer
 // (use blend 'additive'). All three palette colors are exposed so the flare can
-// be color-matched to whatever sits behind it (e.g. the nebula in the space
-// composite). Shader source is shaders/anamorphic-lensflare.frag.
+// be color-matched to whatever sits behind it (e.g. the simianlights field in the
+// observation-deck composite). Shader source is ./anamorphic-lensflare.frag.
 
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
