@@ -5,8 +5,8 @@
 // TOP-RIGHT. Fragment shaders sample textures with this same orientation,
 // expecting each input texture to land with its semantic top of source
 // image at v=1 (head at top, sky at top). Per-platform host code enforces
-// that convention at the upload boundary; see PATTERNS.md "Texture
-// orientation convention."
+// that convention at the upload boundary; see PATTERNS.md
+// "Texture-orientation convention."
 //
 // MSL behavior: spirv-cross does NOT negate gl_Position.y here. The build
 // (scripts/build-shaders.ts) passes no --msl-invert-y flag, so the generated
