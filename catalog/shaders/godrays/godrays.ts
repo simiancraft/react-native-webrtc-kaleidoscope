@@ -1,6 +1,6 @@
 // God rays layer-shader interface: typed uniforms + control descriptor. An
 // additive overlay (premultiplied), reusable on any target. Shader source is
-// shaders/godrays.frag.
+// ./godrays.frag.
 
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';

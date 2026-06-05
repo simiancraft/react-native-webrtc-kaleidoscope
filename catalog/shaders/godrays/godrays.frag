@@ -6,7 +6,8 @@
 //
 // Every knob is a uniform, so a composite preset commands the full look (tint, speed,
 // count, intensity, ...). uTime/uResolution follow the project convention; UV is
-// vUv (bottom-left origin), so rays-from-top survives the port. No loops, so no
+// vUv (bottom-left origin), and "top" is derived explicitly as 1.0 - uv.y, so the
+// rays read from the top regardless of texture-origin convention. No loops, so no
 // compile-time-constant constraints.
 
 #version 300 es
