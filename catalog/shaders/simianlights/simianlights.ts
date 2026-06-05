@@ -1,7 +1,7 @@
 // Simianlights layer-shader interface: typed uniforms + control descriptor. The
 // calmer sibling of the nebula (fewer starfield layers, larger near-field
 // scale), same opaque BACKGROUND-layer role and same uniform surface. Shader
-// source is shaders/simianlights.frag.
+// source is ./simianlights.frag.
 
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
