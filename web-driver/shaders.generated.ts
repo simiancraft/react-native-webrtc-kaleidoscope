@@ -155,7 +155,7 @@ in highp vec2 vUv;
 out vec4 oColor;
 
 // STEPS must stay a compile-time constant (GLSL ES loop bound).
-#define STEPS 64
+#define STEPS 48
 
 float hash(vec3 p) {
     p = fract(p * 0.3183099 + 0.1);
@@ -196,6 +196,8 @@ float fbm(vec3 p) {
 
 float cloudDensity(vec3 p) {
     p += vec3(uTime * uCloudSpeed, 0.0, uTime * uCloudSpeed * 0.35);
+    // Outside the slab the height mask is 0, so the sample is 0; bail before fbm.
+    if (p.y <= 0.0 || p.y >= 3.0) return 0.0;
     float n = fbm(p * uCloudScale);
     float bottom = smoothstep(0.0, 0.7, p.y);
     float top = smoothstep(3.0, 1.2, p.y);
@@ -216,6 +218,9 @@ void main() {
     float t = rand(fragCoord) * uStepSize;
     for (int i = 0; i < STEPS; i++) {
         vec3 p = ro + rd * t;
+        // The slab is crossed monotonically in t; once past it, all samples are 0.
+        if (rd.y > 0.0 && p.y >= 3.0) break;
+        if (rd.y < 0.0 && p.y <= 0.0) break;
         float d = cloudDensity(p);
         if (d > 0.01) {
             float light = smoothstep(0.4, 2.8, p.y);

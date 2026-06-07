@@ -88,7 +88,7 @@ export const CLOUDS_CONTROLS: readonly UniformControl[] = [
   {
     name: 'uCloudScale',
     kind: 'float',
-    default: 0.65,
+    default: 0.45,
     min: 0.2,
     max: 2.0,
     step: 0.01,
