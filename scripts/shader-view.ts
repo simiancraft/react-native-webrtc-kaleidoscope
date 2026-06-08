@@ -207,7 +207,17 @@ function html(
   for (const side of sides)
     for (const c of side.controls) if (!byName.has(c.name)) byName.set(c.name, c);
   const controls = [...byName.values()];
-  const data = JSON.stringify({ vert, sides, controls, costs });
+  // Same control set on both sides -> one shared panel (tune both at once).
+  // Different shaders -> two independent panels, one per side.
+  const namesA = sides[0].controls
+    .map((c) => c.name)
+    .sort()
+    .join(',');
+  const namesB = sides[1].controls
+    .map((c) => c.name)
+    .sort()
+    .join(',');
+  const data = JSON.stringify({ vert, sides, controls, costs, split: namesA !== namesB });
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>shader A/B</title>
 <style>
@@ -218,9 +228,11 @@ function html(
   details.uni { border-bottom: 1px solid #23262d; }
   details.uni > summary { padding: 6px 12px; cursor: pointer; color: #9aa0aa; user-select: none; }
   .upanel { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 4px 12px 10px; }
+  .ucol { display: flex; flex-direction: column; gap: 4px; flex: 1 1 44%; min-width: 280px; }
+  .uhead { color: #cfd3da; font-weight: bold; margin: 2px 0; }
   .uctl { display: flex; gap: 6px; align-items: center; }
   .uctl label { color: #9aa0aa; min-width: 0; }
-  .uctl .uval { color: #8b909a; width: 48px; text-align: right; }
+  .uctl .uval { width: 58px; background: #1b1e25; color: #d7dae0; border: 1px solid #2c313a; border-radius: 3px; padding: 1px 4px; font: inherit; text-align: right; }
   .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #23262d; }
   .pane { background: #0c0d10; padding: 8px; }
   canvas { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; border-radius: 4px; }
@@ -256,34 +268,62 @@ function html(
 <script>
 const DATA = ${data};
 const VERT = DATA.vert;
-// Shared live uniform values, seeded from the .ts control defaults; sliders mutate this.
-const VALUES = {};
-for (const c of DATA.controls) VALUES[c.name] = Array.isArray(c.default) ? c.default.slice() : c.default;
+// Per-side live uniform values, seeded from each side's .ts control defaults.
+// Shared-panel mode writes both stores; split mode writes one each.
+const VALUES_A = {}, VALUES_B = {};
+function seedStore(store, controls) { for (const c of controls) store[c.name] = Array.isArray(c.default) ? c.default.slice() : c.default; }
+seedStore(VALUES_A, DATA.sides[0].controls);
+seedStore(VALUES_B, DATA.sides[1].controls);
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 function toHex(v){ const h=(x)=>('0'+Math.round(clamp01(x)*255).toString(16)).slice(-2); return '#'+h(v[0])+h(v[1])+h(v[2]); }
 function fromHex(s){ return [parseInt(s.slice(1,3),16)/255, parseInt(s.slice(3,5),16)/255, parseInt(s.slice(5,7),16)/255]; }
 
+// One control row. 'stores' is the list of value stores this control writes to:
+// [VALUES_A, VALUES_B] in shared mode, [VALUES_A] or [VALUES_B] in split mode.
+function buildControl(c, stores) {
+  const wrap = document.createElement('div'); wrap.className = 'uctl';
+  const lab = document.createElement('label'); lab.textContent = c.label || c.name; lab.title = c.doc || '';
+  wrap.appendChild(lab);
+  const seed = stores[0][c.name];
+  if (c.kind === 'color') {
+    const inp = document.createElement('input'); inp.type = 'color'; inp.value = toHex(seed);
+    inp.oninput = () => { const v = fromHex(inp.value); for (const s of stores) if (c.name in s) s[c.name] = v.slice(); };
+    wrap.appendChild(inp);
+  } else {
+    // Compound control: a slider and a typed number input bound to the same
+    // value, so you can drag OR type an exact figure (e.g. match A and B).
+    const lo = c.min ?? 0, hi = c.max ?? 1, st = c.step ?? 0.01;
+    const inp = document.createElement('input'); inp.type = 'range';
+    inp.min = lo; inp.max = hi; inp.step = st; inp.value = seed;
+    const num = document.createElement('input'); num.type = 'number'; num.className = 'uval';
+    num.min = lo; num.max = hi; num.step = st; num.value = seed;
+    const commit = (v) => { for (const s of stores) if (c.name in s) s[c.name] = v; };
+    inp.oninput = () => { const v = +inp.value; num.value = String(v); commit(v); };
+    num.oninput = () => { const v = +num.value; inp.value = String(v); commit(v); };
+    wrap.appendChild(inp); wrap.appendChild(num);
+  }
+  return wrap;
+}
+function buildColumn(title, controls, store) {
+  const col = document.createElement('div'); col.className = 'ucol';
+  const head = document.createElement('div'); head.className = 'uhead'; head.textContent = title; col.appendChild(head);
+  for (const c of controls) col.appendChild(buildControl(c, [store]));
+  return col;
+}
 function buildUniformPanel() {
   const panel = document.getElementById('uniforms');
-  if (DATA.controls.length === 0) { document.querySelector('details.uni').open = false; document.getElementById('usum').textContent = 'shader uniforms (none — ShaderToy snippet)'; return; }
-  document.getElementById('usum').textContent = 'shader uniforms (shared A/B) — ' + DATA.controls.length;
-  for (const c of DATA.controls) {
-    const wrap = document.createElement('div'); wrap.className = 'uctl';
-    const lab = document.createElement('label'); lab.textContent = c.label || c.name; lab.title = c.doc || '';
-    wrap.appendChild(lab);
-    if (c.kind === 'color') {
-      const inp = document.createElement('input'); inp.type = 'color'; inp.value = toHex(VALUES[c.name]);
-      inp.oninput = () => { VALUES[c.name] = fromHex(inp.value); };
-      wrap.appendChild(inp);
-    } else {
-      const inp = document.createElement('input'); inp.type = 'range';
-      inp.min = c.min ?? 0; inp.max = c.max ?? 1; inp.step = c.step ?? 0.01; inp.value = VALUES[c.name];
-      const out = document.createElement('span'); out.className = 'uval'; out.textContent = (+VALUES[c.name]).toFixed(3);
-      inp.oninput = () => { VALUES[c.name] = +inp.value; out.textContent = (+inp.value).toFixed(3); };
-      wrap.appendChild(inp); wrap.appendChild(out);
-    }
-    panel.appendChild(wrap);
+  const sum = document.getElementById('usum');
+  if (DATA.sides[0].controls.length === 0 && DATA.sides[1].controls.length === 0) {
+    document.querySelector('details.uni').open = false; sum.textContent = 'shader uniforms (none — ShaderToy snippet)'; return;
+  }
+  if (DATA.split) {
+    sum.textContent = 'shader uniforms (A and B — independent, different shaders)';
+    panel.appendChild(buildColumn('A · ' + DATA.sides[0].label, DATA.sides[0].controls, VALUES_A));
+    panel.appendChild(buildColumn('B · ' + DATA.sides[1].label, DATA.sides[1].controls, VALUES_B));
+  } else {
+    sum.textContent = 'shader uniforms (shared A/B) — ' + DATA.controls.length;
+    for (const c of DATA.controls) panel.appendChild(buildControl(c, [VALUES_A, VALUES_B]));
   }
 }
 
@@ -321,7 +361,7 @@ function makeFbo(gl, w, h) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   return { fbo, tex, w, h };
 }
-function setUniforms(gl, locs, uniforms, time, W, H) {
+function setUniforms(gl, locs, uniforms, time, W, H, vals) {
   for (const u of uniforms) {
     const loc = locs[u.name];
     if (!loc) continue;
@@ -329,7 +369,7 @@ function setUniforms(gl, locs, uniforms, time, W, H) {
     else if (u.role === 'res2') gl.uniform2f(loc, W, H);
     else if (u.role === 'res3') gl.uniform3f(loc, W, H, 1);
     else {
-      const v = (u.name in VALUES) ? VALUES[u.name] : u.value;  // live slider value, else baked
+      const v = (u.name in vals) ? vals[u.name] : u.value;  // live slider value, else baked
       if (u.glType === 'float' || u.glType === 'int') gl.uniform1f(loc, Array.isArray(v) ? v[0] : v);
       else if (u.glType === 'vec2') gl.uniform2f(loc, v[0], v[1]);
       else if (u.glType === 'vec4') gl.uniform4f(loc, v[0], v[1], v[2], v[3]);
@@ -337,7 +377,7 @@ function setUniforms(gl, locs, uniforms, time, W, H) {
     }
   }
 }
-function makeSide(canvas, side, errPanel) {
+function makeSide(canvas, side, errPanel, vals) {
   const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
   if (!gl) { errPanel.textContent = 'WebGL2 unavailable'; return null; }
   let prog;
@@ -359,7 +399,7 @@ function makeSide(canvas, side, errPanel) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, w, h);
       gl.useProgram(prog);
-      setUniforms(gl, locs, side.uniforms, time, w, h);
+      setUniforms(gl, locs, side.uniforms, time, w, h, vals);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     },
     measure(time, k) {
@@ -367,7 +407,7 @@ function makeSide(canvas, side, errPanel) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, m.fbo);
       gl.viewport(0, 0, m.w, m.h);
       gl.useProgram(prog);
-      setUniforms(gl, locs, side.uniforms, time, m.w, m.h);
+      setUniforms(gl, locs, side.uniforms, time, m.w, m.h, vals);
       gl.drawArrays(gl.TRIANGLES, 0, 3);            // warm
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
       const t0 = performance.now();
@@ -384,8 +424,8 @@ document.getElementById('la').textContent = 'A · ' + DATA.sides[0].label;
 document.getElementById('lb').textContent = 'B · ' + DATA.sides[1].label;
 document.getElementById('na').textContent = DATA.sides[0].notes.join('; ');
 document.getElementById('nb').textContent = DATA.sides[1].notes.join('; ');
-const A = makeSide(ca, DATA.sides[0], document.getElementById('ea'));
-const B = makeSide(cb, DATA.sides[1], document.getElementById('eb'));
+const A = makeSide(ca, DATA.sides[0], document.getElementById('ea'), VALUES_A);
+const B = makeSide(cb, DATA.sides[1], document.getElementById('eb'), VALUES_B);
 try {
   const gl = (A || B).gl, ext = gl.getExtension('WEBGL_debug_renderer_info');
   if (ext) document.getElementById('gpu').textContent = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
