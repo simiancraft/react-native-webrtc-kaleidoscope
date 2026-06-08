@@ -389,7 +389,7 @@ it never calls `kaleidoscope` itself.
 Every interactive control and picker leaf carries a deterministic, semantic
 `accessibilityIdentifier` so a Maestro flow can address it by a stable id
 (`tapOn: { id: "kld.transform.rotate-90" }`) instead of brittle visible text. The
-builders are one pure module, `src/test-id.ts`; nothing hand-authors an id string.
+builders are one pure module, `src/lib/test-id.ts`; nothing hand-authors an id string.
 
 - **Field ids are generated, not written.** The preset id flows from the Tuner
   through `ControlScopeContext`; `ControlForm` composes `kld.<preset>.<layer>` into
