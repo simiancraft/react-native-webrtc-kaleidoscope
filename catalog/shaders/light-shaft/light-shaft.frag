@@ -40,6 +40,7 @@ uniform float uMoteAlpha;       // mote brightness (absolute)
 uniform float uGlowSize;        // mote glow radius, in mote-size multiples
 uniform float uBeamSoftness;    // beam polygon edge softness
 uniform float uOverlayAlpha;    // overall overlay opacity, applied to the final alpha
+uniform float uMoteCount;       // active motes (<= MOTE_COUNT); a coherent break trims the loop
 
 in highp vec2 vUv;
 out vec4 oColor;
@@ -117,6 +118,7 @@ void main() {
     alpha += beam * uBeamAlpha * 0.45;
 
     for (int n = 0; n < MOTE_COUNT; n++) {
+        if (float(n) >= uMoteCount) break;  // runtime-tunable mote count (coherent break)
         float i = float(n);
         float seed = i * 91.73;
 

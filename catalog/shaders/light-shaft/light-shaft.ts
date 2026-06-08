@@ -33,6 +33,8 @@ export type LightShaftUniforms = {
   readonly uBeamSoftness: number;
   /** Overall overlay opacity, applied to the final alpha. */
   readonly uOverlayAlpha: number;
+  /** Active motes (<= MOTE_COUNT, 48); fewer = cheaper. */
+  readonly uMoteCount: number;
 };
 
 /** The `light-shaft` shader's tunable uniforms; defaults are a warm upper-left shaft. */
@@ -132,5 +134,14 @@ export const LIGHT_SHAFT_CONTROLS: readonly UniformControl[] = [
     max: 1,
     step: 0.01,
     doc: 'Overall overlay opacity.',
+  },
+  {
+    name: 'uMoteCount',
+    kind: 'float',
+    default: 48,
+    min: 0,
+    max: 48,
+    step: 1,
+    doc: 'Active motes (fewer = cheaper).',
   },
 ];

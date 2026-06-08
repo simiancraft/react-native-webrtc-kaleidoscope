@@ -24,6 +24,14 @@ export type LightBeamsAndMotesUniforms = {
   readonly uBeamSoftness: number;
   /** Overall overlay opacity, applied to the final alpha. */
   readonly uOverlayAlpha: number;
+  /** Beam 1 on/off; 0 skips it entirely, 1 = on. */
+  readonly uBeam1On: number;
+  /** Beam 2 on/off; 0 skips it entirely, 1 = on. */
+  readonly uBeam2On: number;
+  /** Beam 3 on/off; 0 skips it entirely, 1 = on. */
+  readonly uBeam3On: number;
+  /** Active motes (<= 128); fewer = cheaper. */
+  readonly uMoteCount: number;
 };
 
 /** The `light-beams-and-motes` shader's tunable uniforms; defaults reproduce the stock look. */
@@ -82,5 +90,41 @@ export const LIGHT_BEAMS_AND_MOTES_CONTROLS: readonly UniformControl[] = [
     max: 1,
     step: 0.01,
     doc: 'Overall overlay opacity.',
+  },
+  {
+    name: 'uBeam1On',
+    kind: 'float',
+    default: 1,
+    min: 0,
+    max: 1,
+    step: 1,
+    doc: 'Beam 1 on/off (0 skips it).',
+  },
+  {
+    name: 'uBeam2On',
+    kind: 'float',
+    default: 1,
+    min: 0,
+    max: 1,
+    step: 1,
+    doc: 'Beam 2 on/off (0 skips it).',
+  },
+  {
+    name: 'uBeam3On',
+    kind: 'float',
+    default: 1,
+    min: 0,
+    max: 1,
+    step: 1,
+    doc: 'Beam 3 on/off (0 skips it).',
+  },
+  {
+    name: 'uMoteCount',
+    kind: 'float',
+    default: 128,
+    min: 0,
+    max: 128,
+    step: 1,
+    doc: 'Active motes (fewer = cheaper).',
   },
 ];

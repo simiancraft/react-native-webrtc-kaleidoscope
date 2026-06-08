@@ -751,6 +751,10 @@ uniform float uMoteAlpha;     // mote brightness (absolute); stock 0.48
 uniform float uGlowSize;      // mote glow radius, in mote-size multiples
 uniform float uBeamSoftness;  // beam polygon edge softness
 uniform float uOverlayAlpha;  // overall overlay opacity, applied to final alpha
+uniform float uBeam1On;       // 1 = beam enabled, 0 = skipped entirely (coherent branch)
+uniform float uBeam2On;       // 1 = beam enabled, 0 = skipped entirely
+uniform float uBeam3On;       // 1 = beam enabled, 0 = skipped entirely
+uniform float uMoteCount;     // active motes (<= MOTE_COUNT); a coherent break trims the loop
 
 in highp vec2 vUv;
 out vec4 oColor;
@@ -890,23 +894,33 @@ float beamAmount(
 // beam set twice per call site (the optimizer does not dedupe across the two,
 // and each fragment plus each of the 128 motes paid for both).
 vec4 evalBeams(vec2 uv) {
-    float beam1 = beamAmount(
-        uv,
-        BEAM_1_SOURCE_LEFT, BEAM_1_SOURCE_RIGHT, BEAM_1_SPREAD_RIGHT, BEAM_1_SPREAD_LEFT,
-        BEAM_1_STRENGTH, 1.0
-    );
-
-    float beam2 = beamAmount(
-        uv,
-        BEAM_2_SOURCE_LEFT, BEAM_2_SOURCE_RIGHT, BEAM_2_SPREAD_RIGHT, BEAM_2_SPREAD_LEFT,
-        BEAM_2_STRENGTH, 8.0
-    );
-
-    float beam3 = beamAmount(
-        uv,
-        BEAM_3_SOURCE_LEFT, BEAM_3_SOURCE_RIGHT, BEAM_3_SPREAD_RIGHT, BEAM_3_SPREAD_LEFT,
-        BEAM_3_STRENGTH, 14.0
-    );
+    // Each beam is gated by a uniform on/off flag. The flag is uniform (coherent
+    // across every fragment), so a disabled beam's quadMask + sins do not execute
+    // at all -- this is how you stop paying for beams you are not using.
+    float beam1 = 0.0;
+    float beam2 = 0.0;
+    float beam3 = 0.0;
+    if (uBeam1On > 0.5) {
+        beam1 = beamAmount(
+            uv,
+            BEAM_1_SOURCE_LEFT, BEAM_1_SOURCE_RIGHT, BEAM_1_SPREAD_RIGHT, BEAM_1_SPREAD_LEFT,
+            BEAM_1_STRENGTH, 1.0
+        );
+    }
+    if (uBeam2On > 0.5) {
+        beam2 = beamAmount(
+            uv,
+            BEAM_2_SOURCE_LEFT, BEAM_2_SOURCE_RIGHT, BEAM_2_SPREAD_RIGHT, BEAM_2_SPREAD_LEFT,
+            BEAM_2_STRENGTH, 8.0
+        );
+    }
+    if (uBeam3On > 0.5) {
+        beam3 = beamAmount(
+            uv,
+            BEAM_3_SOURCE_LEFT, BEAM_3_SOURCE_RIGHT, BEAM_3_SPREAD_RIGHT, BEAM_3_SPREAD_LEFT,
+            BEAM_3_STRENGTH, 14.0
+        );
+    }
 
     vec3 weightedColor =
         BEAM_1_COLOR * beam1 +
@@ -936,6 +950,7 @@ void main() {
     // reconstructed as float(n), so the per-mote seeds and motion are
     // bit-identical to the prototype; only the loop form changes.
     for (int n = 0; n < MOTE_COUNT; n++) {
+        if (float(n) >= uMoteCount) break;  // runtime-tunable mote count (coherent break)
         float i = float(n);
         float seed = i * 91.73;
 
@@ -1019,6 +1034,7 @@ uniform float uMoteAlpha;       // mote brightness (absolute)
 uniform float uGlowSize;        // mote glow radius, in mote-size multiples
 uniform float uBeamSoftness;    // beam polygon edge softness
 uniform float uOverlayAlpha;    // overall overlay opacity, applied to the final alpha
+uniform float uMoteCount;       // active motes (<= MOTE_COUNT); a coherent break trims the loop
 
 in highp vec2 vUv;
 out vec4 oColor;
@@ -1096,6 +1112,7 @@ void main() {
     alpha += beam * uBeamAlpha * 0.45;
 
     for (int n = 0; n < MOTE_COUNT; n++) {
+        if (float(n) >= uMoteCount) break;  // runtime-tunable mote count (coherent break)
         float i = float(n);
         float seed = i * 91.73;
 
