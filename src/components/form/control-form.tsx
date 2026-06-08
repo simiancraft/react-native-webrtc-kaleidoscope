@@ -10,6 +10,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useReducer, useRef } from 'react';
+import type { UniformControl } from '../../../catalog/shaders';
 import { controlScope } from '../../lib/test-id';
 import { ControlScopeContext } from './scope';
 
@@ -25,6 +26,8 @@ export type ControlFormContextValue = {
   readonly disabled: boolean;
   /** The form's test-id scope (`kld.<preset>.<layer>`); fields append their uniform. */
   readonly path: string;
+  /** The control descriptors, so `<Control uniform>` can resolve one by name. */
+  readonly controls?: readonly UniformControl[];
 };
 
 export const ControlFormContext = createContext<ControlFormContextValue | null>(null);
@@ -46,6 +49,8 @@ export type ControlFormProps = {
   readonly disabled?: boolean;
   /** Trailing-edge debounce for the emit, in ms. 0 (default) emits per change. */
   readonly debounceMs?: number;
+  /** The shader's control descriptors; lets children use `<Control uniform>`. */
+  readonly controls?: readonly UniformControl[];
   readonly children: ReactNode;
 };
 
@@ -55,6 +60,7 @@ export function ControlForm({
   onPatch,
   disabled = false,
   debounceMs = 0,
+  controls,
   children,
 }: ControlFormProps) {
   const [values, dispatch] = useReducer(reducer, uniforms);
@@ -99,6 +105,7 @@ export function ControlForm({
     setField: (key, value) => dispatch({ key, value }),
     disabled,
     path: controlScope(presetId, id),
+    controls,
   };
 
   return <ControlFormContext.Provider value={ctx}>{children}</ControlFormContext.Provider>;

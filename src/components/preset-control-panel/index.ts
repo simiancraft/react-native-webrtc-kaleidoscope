@@ -18,6 +18,7 @@ export {
   type CompositeLayerControlPanelProps,
   type ControlOverride,
 } from './composite-layer-control-panel';
+export { Control, type ControlProps, dispatchControl } from './control';
 export { ControlSection, type ControlSectionProps } from './control-section';
 export {
   MaskControlPanel,

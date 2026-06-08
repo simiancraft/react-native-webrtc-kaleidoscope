@@ -13,6 +13,9 @@ import type { RGB } from '../../../src/lib/primitives.types';
 // `uniforms` record). `label` is the optional display string for the generated
 // control; when present the UI shows it instead of `name`, so a control can read
 // "blur" while still writing the `sigma` uniform. Defaults to `name`.
+// Every variant carries the shared META (name, label?, kind, default, doc); the
+// remaining fields are the PROPS that spread into the kind's control component
+// (min/max/step for float, points for polygon). `kind` narrows which props apply.
 export type UniformControl =
   | {
       readonly name: string;
@@ -29,6 +32,24 @@ export type UniformControl =
       readonly min: number;
       readonly max: number;
       readonly step: number;
+      readonly doc: string;
+    }
+  | {
+      readonly name: string;
+      readonly label?: string;
+      readonly kind: 'switch';
+      readonly default: number; // 0 (off) | 1 (on)
+      readonly doc: string;
+    }
+  | {
+      // The uniform is a vec2 array `vec2 uX[points]`; `default` is the flat
+      // [x0,y0, x1,y1, ...] of length 2*points. The prototype editor renders
+      // x/y sliders per point on one row; a drag editor replaces it later.
+      readonly name: string;
+      readonly label?: string;
+      readonly kind: 'polygon';
+      readonly default: readonly number[];
+      readonly points: number;
       readonly doc: string;
     };
 
