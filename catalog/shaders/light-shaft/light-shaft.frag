@@ -64,8 +64,11 @@ float softMote(vec2 uv, vec2 center, float radius) {
     return exp(-q * q);
 }
 
-// Soft convex quad mask, DOUBLE-winding so it is correct for either authored
-// winding (the shaft points come from tunable uniforms, not fixed const geometry).
+// Soft convex quad mask. main() builds the quad in a fixed clockwise perimeter
+// (top-left, top-right, bottom-right, bottom-left) with positive widths and the
+// top always above the bottom, so the winding never flips and only the negative
+// branch is ever live -- single-winding, four smoothsteps, like the #38 light-
+// beams path. (An earlier double-winding form here was pure overhead.)
 float quadMask(vec2 p, vec2 a, vec2 b, vec2 c, vec2 d, float softness) {
     vec2 e0 = b - a;
     vec2 e1 = c - b;
@@ -75,17 +78,11 @@ float quadMask(vec2 p, vec2 a, vec2 b, vec2 c, vec2 d, float softness) {
     float s1 = e1.x * (p.y - b.y) - e1.y * (p.x - b.x);
     float s2 = e2.x * (p.y - c.y) - e2.y * (p.x - c.x);
     float s3 = e3.x * (p.y - d.y) - e3.y * (p.x - d.x);
-    float insidePositive =
-        smoothstep(-softness, softness, s0) *
-        smoothstep(-softness, softness, s1) *
-        smoothstep(-softness, softness, s2) *
-        smoothstep(-softness, softness, s3);
-    float insideNegative =
+    return
         smoothstep(-softness, softness, -s0) *
         smoothstep(-softness, softness, -s1) *
         smoothstep(-softness, softness, -s2) *
         smoothstep(-softness, softness, -s3);
-    return max(insidePositive, insideNegative);
 }
 
 // Subtle animated variation inside the beam.
