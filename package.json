@@ -461,6 +461,7 @@
     "build:shaders": "bun run scripts/build-shaders.ts",
     "check:shaders": "bun run build:shaders && git diff --exit-code -- android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt web-driver/shaders.generated.ts",
     "bench:shader": "bun run scripts/shader-cost.ts",
+    "shader:view": "bun run scripts/shader-view.ts",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",
