@@ -53,6 +53,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { $ } from 'bun';
+import { type ShaderCost, shaderCost } from './shader-cost';
 
 const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 
@@ -195,14 +196,18 @@ async function gitHeadVersion(path: string): Promise<string> {
   return r.stdout.toString();
 }
 
-function html(sides: [Side, Side], vert: string): string {
+function html(
+  sides: [Side, Side],
+  vert: string,
+  costs: [ShaderCost | null, ShaderCost | null],
+): string {
   // Union the two sides' controls by name (first wins) into one shared panel,
   // so the same uniform values drive both renders and the A/B stays fair.
   const byName = new Map<string, ControlMeta>();
   for (const side of sides)
     for (const c of side.controls) if (!byName.has(c.name)) byName.set(c.name, c);
   const controls = [...byName.values()];
-  const data = JSON.stringify({ vert, sides, controls });
+  const data = JSON.stringify({ vert, sides, controls, costs });
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>shader A/B</title>
 <style>
@@ -222,7 +227,9 @@ function html(sides: [Side, Side], vert: string): string {
   .label { color: #9aa0aa; margin: 6px 2px 2px; word-break: break-all; }
   .ms { font-size: 22px; color: #eaecef; }
   .ms small { font-size: 12px; color: #8b909a; }
-  .verdict { text-align: center; padding: 6px; font-size: 14px; color: #cfd3da; }
+  .sc { color: #8b909a; font-size: 12px; margin-top: 2px; }
+  .verdict { text-align: center; padding: 6px 6px 0; font-size: 14px; color: #cfd3da; }
+  .sverdict { text-align: center; padding: 2px 6px 6px; font-size: 12px; color: #9aa0aa; }
   .err { color: #ff7b72; white-space: pre-wrap; font-size: 11px; }
   .note { color: #b58900; font-size: 11px; }
   footer { padding: 8px 12px; color: #6f757f; font-size: 11px; border-top: 1px solid #23262d; }
@@ -240,9 +247,10 @@ function html(sides: [Side, Side], vert: string): string {
 </header>
 <details class="uni" open><summary id="usum">shader uniforms (shared A/B)</summary><div class="upanel" id="uniforms"></div></details>
 <div class="verdict" id="verdict">measuring…</div>
+<div class="sverdict" id="sverdict"></div>
 <div class="stage">
-  <div class="pane"><canvas id="ca"></canvas><div class="label" id="la"></div><div class="ms" id="ma">—</div><div class="note" id="na"></div><div class="err" id="ea"></div></div>
-  <div class="pane"><canvas id="cb"></canvas><div class="label" id="lb"></div><div class="ms" id="mb">—</div><div class="note" id="nb"></div><div class="err" id="eb"></div></div>
+  <div class="pane"><canvas id="ca"></canvas><div class="label" id="la"></div><div class="ms" id="ma">—</div><div class="sc" id="sca"></div><div class="note" id="na"></div><div class="err" id="ea"></div></div>
+  <div class="pane"><canvas id="cb"></canvas><div class="label" id="lb"></div><div class="ms" id="mb">—</div><div class="sc" id="scb"></div><div class="note" id="nb"></div><div class="err" id="eb"></div></div>
 </div>
 <footer id="foot"></footer>
 <script>
@@ -384,7 +392,23 @@ try {
 } catch {}
 document.getElementById('foot').textContent =
   'Meter = GPU time per render: K overdraws at meter-res, readPixels-synced. Draw-call count is 1; GPU time is what differs. ' +
-  'Absolute ms is THIS GPU, not a phone — the A/B ratio is the transferable signal. Crank meter-res / overdraw until the slower side drops below your refresh.';
+  'Absolute ms is THIS GPU, not a phone — the A/B ratio is the transferable signal. Crank meter-res / overdraw until the slower side drops below your refresh. ' +
+  'Static op cost (below each render) is GPU-independent: a deterministic count of SPIR-V ops after spirv-opt -O, weighted (transcendentals ~8x). It does not move with the sliders or your GPU.';
+// Static op cost: deterministic, GPU-independent "how much better" number.
+const COSTS = DATA.costs;
+function sgn(n) { return n > 0 ? '+' + n : '' + n; }
+(function showStatic() {
+  const setSC = (id, c) => { document.getElementById(id).textContent = c ? ('static cost: ' + c.weighted + ' wt ops · ' + c.expensive + ' transcendental') : 'static cost: n/a'; };
+  setSC('sca', COSTS[0]); setSC('scb', COSTS[1]);
+  const sv = document.getElementById('sverdict');
+  if (COSTS[0] && COSTS[1]) {
+    const dw = COSTS[1].weighted - COSTS[0].weighted;
+    const de = COSTS[1].expensive - COSTS[0].expensive;
+    const pct = COSTS[0].weighted ? (dw / COSTS[0].weighted * 100) : 0;
+    if (dw === 0 && de === 0) sv.textContent = 'static op cost: identical (no straight-line ALU change)';
+    else sv.textContent = 'static op cost (GPU-independent): B ' + sgn(dw) + ' weighted ops (' + pct.toFixed(1) + '%), ' + sgn(de) + ' transcendental';
+  } else sv.textContent = 'static op cost unavailable (compile skipped)';
+})();
 let paused = false, speed = 1, mres = 1280, mk = 24, t = 0, last = performance.now();
 let emaA = 0, emaB = 0, lastMeter = 0;
 const bind = (id, fn) => document.getElementById(id).addEventListener('input', fn);
@@ -445,10 +469,30 @@ async function main(): Promise<void> {
     b = await resolveSide(readFileSync(path, 'utf8'), path, `${path} (working tree)`);
   }
 
+  // Sliders are shared by uniform NAME, so a uniform the OTHER side documents in
+  // its .ts is still controllable here; drop the redundant per-uniform notes.
+  const controlled = new Set([...a.controls, ...b.controls].map((c) => c.name));
+  const keep = (n: string) =>
+    !(/ not in \.ts; defaulted$/.test(n) && controlled.has(n.split(' ')[0]));
+  a.notes = a.notes.filter(keep);
+  b.notes = b.notes.filter(keep);
+
+  // Static op cost per side (GPU-independent, deterministic). Best-effort: a
+  // compile failure here must not block the visual viewer.
+  const [costA, costB] = await Promise.all([
+    shaderCost(a.fragSrc, 'frag').catch(() => null),
+    shaderCost(b.fragSrc, 'frag').catch(() => null),
+  ]);
+
   const dir = mkdtempSync(join(tmpdir(), 'shader-view-'));
   const out = join(dir, 'shader-ab.html');
-  writeFileSync(out, html([a, b], FULLSCREEN_VERT));
+  writeFileSync(out, html([a, b], FULLSCREEN_VERT, [costA, costB]));
   console.log(`wrote ${out}`);
+  if (costA && costB) {
+    console.log(
+      `  static cost: A ${costA.weighted} wt / ${costA.expensive} transcendental, B ${costB.weighted} wt / ${costB.expensive} transcendental (Δ ${costB.weighted - costA.weighted} wt)`,
+    );
+  }
   for (const note of [...a.notes, ...b.notes]) console.log(`  note: ${note}`);
   await openInBrowser(out);
   console.log('opened in browser (re-run after edits to refresh).');

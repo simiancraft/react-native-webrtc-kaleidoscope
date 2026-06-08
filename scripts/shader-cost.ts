@@ -38,7 +38,7 @@ function stripToVersion(raw: string): string {
   return raw.replace(/^[\s\S]*?(#version)/, '$1');
 }
 
-type Stage = 'frag' | 'vert';
+export type Stage = 'frag' | 'vert';
 
 // Normalize either input form to a compilable GLSL ES 3.10 fragment/vertex unit.
 function prepareSource(raw: string, label: string): string {
@@ -362,6 +362,23 @@ async function tally(optSpv: string): Promise<Tally> {
   return t;
 }
 
+export type ShaderCost = { total: number; weighted: number; expensive: number };
+
+// Compile GLSL (300 or 310 es) through the build:shaders pipeline and return the
+// weighted op cost. Reused by scripts/shader-view.ts to show a static, ms-free
+// number alongside the GPU-time meter.
+export async function shaderCost(glsl: string, stage: Stage): Promise<ShaderCost> {
+  const prepared = glsl.replace('#version 300 es', '#version 310 es');
+  const dir = mkdtempSync(join(tmpdir(), 'shader-cost-'));
+  try {
+    const opt = await compileOptimized(prepared, stage, dir, 'x');
+    const t = await tally(opt);
+    return { total: t.total, weighted: t.weighted, expensive: t.buckets['expensive math'] };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // --- input resolution ------------------------------------------------------
 
 function stageOf(path: string): Stage {
@@ -504,7 +521,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(String(err instanceof Error ? err.message : err));
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(String(err instanceof Error ? err.message : err));
+    process.exit(1);
+  });
+}
