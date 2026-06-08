@@ -10,6 +10,7 @@ corporate-blobs.frag
 fireflies.frag
 godrays.frag
 light-beams-and-motes.frag
+light-shaft.frag
 nebula.frag
 passthrough.vert
 plasma.frag
