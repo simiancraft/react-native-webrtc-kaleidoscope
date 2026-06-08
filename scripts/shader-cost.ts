@@ -316,7 +316,12 @@ function emptyTally(): Tally {
 // treating a transcendental and an add as equal. Not cycle-accurate (that is
 // malioc's job); enough to stop raw op-count from hiding a pow->mul win.
 function weightOf(bucket: Bucket, key: string): number {
-  if (bucket === 'expensive math') return /Div|Mod|Rem/.test(key) ? 4 : 8;
+  if (bucket === 'expensive math') {
+    // A non-integer pow lowers to log2 + exp2 on mobile GPUs: two transcendentals,
+    // not one. Weighting it like sin/sqrt under-credits pow->mul strength reductions.
+    if (key === 'Pow') return 16;
+    return /Div|Mod|Rem/.test(key) ? 4 : 8;
+  }
   if (bucket === 'texture') return 4;
   return 1;
 }
