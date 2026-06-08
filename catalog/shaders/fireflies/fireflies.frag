@@ -55,7 +55,7 @@ void main() {
         float d = length(p - pos);
         float phase = hash(id * 17.1) * 6.28318;
         float pulse = 0.5 + 0.5 * sin(uTime * uTwinkle + phase);
-        pulse = pow(pulse, 2.5);
+        pulse = pulse * pulse * sqrt(pulse);  // pow(pulse, 2.5): a non-integer pow is ~2 transcendentals on mobile; this is 1 sqrt + 2 muls
         float glow = exp(-d * d / (uGlowSize * uGlowSize));
         float core = smoothstep(uDotSize, 0.0, d);
         float intensity = pulse * (glow * 0.55 + core * 1.4);

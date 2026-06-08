@@ -505,7 +505,7 @@ void main() {
         float d = length(p - pos);
         float phase = hash(id * 17.1) * 6.28318;
         float pulse = 0.5 + 0.5 * sin(uTime * uTwinkle + phase);
-        pulse = pow(pulse, 2.5);
+        pulse = pulse * pulse * sqrt(pulse);  // pow(pulse, 2.5): a non-integer pow is ~2 transcendentals on mobile; this is 1 sqrt + 2 muls
         float glow = exp(-d * d / (uGlowSize * uGlowSize));
         float core = smoothstep(uDotSize, 0.0, d);
         float intensity = pulse * (glow * 0.55 + core * 1.4);
@@ -668,7 +668,8 @@ out vec4 oColor;
 
 float softOrb(vec2 uv, vec2 center, float radius) {
   float d = length(uv - center);
-  return exp(-pow(d / radius, 2.0));
+  float q = d / radius;  // pow(q, 2.0) -> q*q; spirv-opt does not strength-reduce it
+  return exp(-q * q);
 }
 
 float softStreak(vec2 uv, vec2 center, float width, float length) {
@@ -829,7 +830,8 @@ vec2 hash2(float n) {
 
 float softMote(vec2 uv, vec2 center, float radius) {
     float d = length(uv - center);
-    return exp(-pow(d / radius, 2.0));
+    float q = d / radius;  // pow(q, 2.0) -> q*q; spirv-opt does not strength-reduce it
+    return exp(-q * q);
 }
 
 // Soft convex quad mask. Order follows the polygon perimeter:
@@ -857,19 +859,14 @@ float quadMask(
     float s2 = e2.x * (p.y - c.y) - e2.y * (p.x - c.x);
     float s3 = e3.x * (p.y - d.y) - e3.y * (p.x - d.x);
 
-    float insidePositive =
-        smoothstep(-softness, softness, s0) *
-        smoothstep(-softness, softness, s1) *
-        smoothstep(-softness, softness, s2) *
-        smoothstep(-softness, softness, s3);
-
-    float insideNegative =
+    // #38: the beam quads are fixed clockwise const geometry (verified: shoelace
+    // area < 0 for all three), so interior s_i < 0 and only the negative-winding
+    // branch is ever non-zero. One winding, four smoothsteps, not eight.
+    return
         smoothstep(-softness, softness, -s0) *
         smoothstep(-softness, softness, -s1) *
         smoothstep(-softness, softness, -s2) *
         smoothstep(-softness, softness, -s3);
-
-    return max(insidePositive, insideNegative);
 }
 
 // Subtle animated variation inside each beam.
@@ -907,29 +904,11 @@ float beamAmount(
         beamTexture(uv, seed);
 }
 
-float totalBeamAmount(vec2 uv) {
-    float beam1 = beamAmount(
-        uv,
-        BEAM_1_SOURCE_LEFT, BEAM_1_SOURCE_RIGHT, BEAM_1_SPREAD_RIGHT, BEAM_1_SPREAD_LEFT,
-        BEAM_1_STRENGTH, 1.0
-    );
-
-    float beam2 = beamAmount(
-        uv,
-        BEAM_2_SOURCE_LEFT, BEAM_2_SOURCE_RIGHT, BEAM_2_SPREAD_RIGHT, BEAM_2_SPREAD_LEFT,
-        BEAM_2_STRENGTH, 8.0
-    );
-
-    float beam3 = beamAmount(
-        uv,
-        BEAM_3_SOURCE_LEFT, BEAM_3_SOURCE_RIGHT, BEAM_3_SPREAD_RIGHT, BEAM_3_SPREAD_LEFT,
-        BEAM_3_STRENGTH, 14.0
-    );
-
-    return clamp(beam1 + beam2 + beam3, 0.0, 1.0);
-}
-
-vec3 beamColorAt(vec2 uv) {
+// #38: evaluate the three beams ONCE; .a = total amount, .rgb = weighted color.
+// Replaces the old totalBeamAmount() / beamColorAt() pair, which computed the
+// beam set twice per call site (the optimizer does not dedupe across the two,
+// and each fragment plus each of the 128 motes paid for both).
+vec4 evalBeams(vec2 uv) {
     float beam1 = beamAmount(
         uv,
         BEAM_1_SOURCE_LEFT, BEAM_1_SOURCE_RIGHT, BEAM_1_SPREAD_RIGHT, BEAM_1_SPREAD_LEFT,
@@ -953,9 +932,8 @@ vec3 beamColorAt(vec2 uv) {
         BEAM_2_COLOR * beam2 +
         BEAM_3_COLOR * beam3;
 
-    float total = max(beam1 + beam2 + beam3, 0.0001);
-
-    return weightedColor / total;
+    float sum = beam1 + beam2 + beam3;
+    return vec4(weightedColor / max(sum, 0.0001), clamp(sum, 0.0, 1.0));
 }
 
 void main() {
@@ -965,8 +943,9 @@ void main() {
     vec3 col = vec3(0.0);
     float alpha = 0.0;
 
-    float beams = totalBeamAmount(uv);
-    vec3 beamColor = beamColorAt(uv);
+    vec4 bg = evalBeams(uv);
+    float beams = bg.a;
+    vec3 beamColor = bg.rgb;
 
     col += beamColor * beams * uBeamAlpha;
     alpha += beams * uBeamAlpha * 0.45;
@@ -997,12 +976,12 @@ void main() {
 
         pos = fract(pos);
 
-        float moteBeamAmount = totalBeamAmount(pos);
+        vec4 mb = evalBeams(pos);
+        float moteBeamAmount = mb.a;
         if (moteBeamAmount <= 0.001) {
             continue;
         }
-
-        vec3 moteColor = beamColorAt(pos);
+        vec3 moteColor = mb.rgb;
 
         float mote = softMote(uv, pos, size);
         float core = softMote(uv, pos, size * 0.42);

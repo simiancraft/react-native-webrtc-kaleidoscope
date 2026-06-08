@@ -32,7 +32,8 @@ out vec4 oColor;
 
 float softOrb(vec2 uv, vec2 center, float radius) {
   float d = length(uv - center);
-  return exp(-pow(d / radius, 2.0));
+  float q = d / radius;  // pow(q, 2.0) -> q*q; spirv-opt does not strength-reduce it
+  return exp(-q * q);
 }
 
 float softStreak(vec2 uv, vec2 center, float width, float length) {
