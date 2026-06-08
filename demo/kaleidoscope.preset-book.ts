@@ -47,7 +47,7 @@ import { wizardTowerNight } from 'react-native-webrtc-kaleidoscope/composites/wi
 import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower-night/controls';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
-import { BlurControls, PlasmaControls } from './src/demo-controls';
+import { BlurControls, LightBeamsControls, LightShaftControls, PlasmaControls } from './src/demo-controls';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug/debug-resolutions';
 import { homeDark } from 'react-native-webrtc-kaleidoscope/images/home/home-dark';
@@ -240,6 +240,96 @@ export const presets = {
   },
   nebula: { ...nebula, controls: NebulaControls },
   simianlights: { ...simianlights, controls: SimianlightsControls },
+
+  // --- Worlds: Interior. A still room + a volumetric light-shaft overlay aimed
+  // at the room's real light, to make a static interior feel alive. The two A/B
+  // entries are the same single beam done two ways -- the lean light-shaft vs the
+  // 3-beam shader toggled down to one -- for the on-device perf comparison. ---
+  'interior-home': {
+    name: 'Home',
+    taxonomy: ['Worlds', 'Interior'],
+    thumbnail: homeLight,
+    controls: LightShaftControls,
+    layers: [
+      { id: 'home-light', shader: 'image', source: homeLight },
+      { id: 'you', shader: 'direct', target: 'subject' },
+      {
+        id: 'shaft',
+        shader: 'light-shaft',
+        blend: 'additive',
+        uniforms: {
+          uShaftColor: [1.0, 0.92, 0.78],
+          uShaftTopX: 0.12,
+          uShaftTopWidth: 0.22,
+          uShaftBottomX: 0.4,
+          uShaftBottomWidth: 0.55,
+          uMoteCount: 40,
+        },
+      },
+    ],
+  },
+  'interior-office': {
+    name: 'Office',
+    taxonomy: ['Worlds', 'Interior'],
+    thumbnail: officeLight,
+    controls: LightShaftControls,
+    layers: [
+      { id: 'office-light', shader: 'image', source: officeLight },
+      { id: 'you', shader: 'direct', target: 'subject' },
+      {
+        id: 'shaft',
+        shader: 'light-shaft',
+        blend: 'additive',
+        uniforms: {
+          uShaftColor: [1.0, 0.95, 0.85],
+          uShaftTopX: 0.08,
+          uShaftTopWidth: 0.18,
+          uShaftBottomX: 0.32,
+          uShaftBottomWidth: 0.45,
+          uMoteCount: 40,
+        },
+      },
+    ],
+  },
+  'interior-ab-shaft': {
+    name: 'A/B 1-shaft',
+    taxonomy: ['Worlds', 'Interior'],
+    thumbnail: officeDark,
+    controls: LightShaftControls,
+    layers: [
+      { id: 'office-dark', shader: 'image', source: officeDark },
+      { id: 'you', shader: 'direct', target: 'subject' },
+      {
+        id: 'shaft',
+        shader: 'light-shaft',
+        blend: 'additive',
+        uniforms: {
+          uShaftColor: [1.0, 0.42, 0.32],
+          uShaftTopX: 0.095,
+          uShaftTopWidth: 0.15,
+          uShaftBottomX: 0.52,
+          uShaftBottomWidth: 0.32,
+          uMoteCount: 48,
+        },
+      },
+    ],
+  },
+  'interior-ab-3beam': {
+    name: 'A/B 3-beam',
+    taxonomy: ['Worlds', 'Interior'],
+    thumbnail: officeDark,
+    controls: LightBeamsControls,
+    layers: [
+      { id: 'office-dark', shader: 'image', source: officeDark },
+      { id: 'you', shader: 'direct', target: 'subject' },
+      {
+        id: 'beams',
+        shader: 'light-beams-and-motes',
+        blend: 'additive',
+        uniforms: { uBeam2On: 0, uBeam3On: 0, uMoteCount: 48 },
+      },
+    ],
+  },
 
   // Transforms are NOT book presets: they're driven by the transform() verb
   // (flip/rotate), not curated art. The book is the art catalog only.

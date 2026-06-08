@@ -3,7 +3,12 @@
 // CompositeLayerControlPanel over the shader's exported *_CONTROLS. Referenced by id from
 // the preset book (which stays .ts), so it lives in a .tsx sibling.
 
-import { BLUR_CONTROLS, PLASMA_CONTROLS } from 'react-native-webrtc-kaleidoscope';
+import {
+  BLUR_CONTROLS,
+  LIGHT_BEAMS_AND_MOTES_CONTROLS,
+  LIGHT_SHAFT_CONTROLS,
+  PLASMA_CONTROLS,
+} from 'react-native-webrtc-kaleidoscope';
 import {
   CompositeLayerControlPanel,
   ControlForm,
@@ -26,6 +31,26 @@ export function BlurControls({ uniforms, onPatch, disabled }: KaleidoscopeContro
     <ControlForm id="blur" uniforms={uniforms.blur ?? {}} onPatch={onPatch} disabled={disabled}>
       <ControlSection title="blur">
         <CompositeLayerControlPanel controls={BLUR_CONTROLS} />
+      </ControlSection>
+    </ControlForm>
+  );
+}
+
+export function LightShaftControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
+  return (
+    <ControlForm id="shaft" uniforms={uniforms.shaft ?? {}} onPatch={onPatch} disabled={disabled}>
+      <ControlSection title="light shaft">
+        <CompositeLayerControlPanel controls={LIGHT_SHAFT_CONTROLS} />
+      </ControlSection>
+    </ControlForm>
+  );
+}
+
+export function LightBeamsControls({ uniforms, onPatch, disabled }: KaleidoscopeControls) {
+  return (
+    <ControlForm id="beams" uniforms={uniforms.beams ?? {}} onPatch={onPatch} disabled={disabled}>
+      <ControlSection title="light beams">
+        <CompositeLayerControlPanel controls={LIGHT_BEAMS_AND_MOTES_CONTROLS} />
       </ControlSection>
     </ControlForm>
   );
