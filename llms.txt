@@ -2,7 +2,7 @@
 
 > Live, on-device video effects for `react-native-webrtc`, packaged as a managed-Expo-friendly Expo Module. Works on web, Android, and iOS behind one JS facade. Every effect is a **composite**: a back-to-front stack of layers (a bundled image, the masked person, a camera blur, or a generative GLSL shader) rendered into the output frame. You drive it with three verbs: `kaleidoscope` (the background/art), `transform` (flip/rotate), and `mask` (the segmentation edge).
 
-This file is written for an LLM integrating the library into a consumer app. Follow it top to bottom and you can install it, provision presets, and get a working effect on screen.
+This file is written for an LLM integrating the library into a consumer app. Follow it top to bottom and you can install it, configure the native build, provision a working preset book, and get an effect on screen. The repo's `demo/` directory is the canonical working example; every file in the [Starting fileset](#starting-fileset-six-files-that-run) below is a trimmed copy of a demo file that runs on all three platforms.
 
 ## What this package is
 
@@ -10,57 +10,163 @@ A thin layer over `react-native-webrtc`'s public-but-non-standard `track._setVid
 
 It is **not** a fork of `react-native-webrtc`, **not** a managed-cloud SaaS, and **not** a face-filter/AR SDK. It is a small module you install alongside `react-native-webrtc` to get background blur, background replacement, generative backgrounds, and geometric transforms on a local video track. Effects run on-device; the track stays peer-to-peer.
 
-Requires a native dev build (or EAS build); **Expo Go is not supported** (it ships native frame processors). Package version 2.x.
+**Workflow:** this ships native frame processors, so **Expo Go is not supported**. You need a development build (`expo-dev-client` via EAS Build, or `npx expo run:android` / `run:ios` with local toolchains). Web needs no native build at all. Tested against Expo SDK 51 / React Native 0.74; the peer ranges are open-ended above that. Package version 2.x.
 
 ## Install
 
 ```sh
 bun add react-native-webrtc react-native-webrtc-kaleidoscope
-# or: npm install / yarn add / pnpm add
+bunx expo install expo-build-properties expo-dev-client
+# or npm install / yarn add / pnpm add
 ```
 
-Peer dependencies: `expo` (>=51), `expo-asset` (>=10), `react` (>=18.2), `react-native` (>=0.74). `react-native-webrtc` (>=124) is an **optional** peer you supply (or `@livekit/react-native-webrtc` + `livekit-client` if you use the `/livekit` adapter). `nativewind` (>=4) and `@react-native-community/slider` (>=4.5) are **optional** peers, only needed for the styled UI / live-controls extras.
+Peer dependencies: `expo` (>=51), `expo-asset` (>=10, already a dependency of `expo`), `react` (>=18.2), `react-native` (>=0.74). `react-native-webrtc` (>=124) is an **optional** peer you supply (or `@livekit/react-native-webrtc` + `livekit-client` if you use the `/livekit` adapter; pick ONE fork, never both). `nativewind` (>=4) and `@react-native-community/slider` (>=4.5) are **optional** peers, only needed for the styled UI / live-controls extras.
 
-Add the config plugin to `app.config.ts` / `app.json` (after `react-native-webrtc`):
+## Configure (copy-paste; every entry here is load-bearing)
+
+In `app.config.ts` / `app.config.js` / `app.json`:
 
 ```ts
-plugins: ['react-native-webrtc', 'react-native-webrtc-kaleidoscope'];
+export default {
+  expo: {
+    plugins: [
+      [
+        'expo-build-properties',
+        {
+          // react-native-webrtc requires Android API 24+; at Expo's default
+          // minSdkVersion (23) the manifest merger rejects the WebRTC AAR and
+          // the Android build fails.
+          android: { minSdkVersion: 24 },
+          // The kaleidoscope plugin raises the Pods platform to 15.0, but the
+          // app target's IPHONEOS_DEPLOYMENT_TARGET is set by Expo prebuild
+          // independently; without this entry the iOS link step fails with
+          // "compiling for iOS 13.4, but module 'Kaleidoscope' has a minimum
+          // deployment target of iOS 15.0".
+          ios: { deploymentTarget: '15.0' },
+        },
+      ],
+      'react-native-webrtc-kaleidoscope',
+    ],
+    ios: {
+      infoPlist: {
+        // Without this key iOS kills the app at the first getUserMedia call.
+        NSCameraUsageDescription: 'The camera is used for video calls; effects are applied on-device.',
+        // Required by react-native-webrtc even if you never record audio.
+        NSMicrophoneUsageDescription: 'Required by react-native-webrtc for call audio.',
+      },
+    },
+    android: {
+      permissions: ['CAMERA', 'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS'],
+    },
+  },
+};
 ```
 
-Then generate the native projects:
+Do **not** add `'react-native-webrtc'` to `plugins`: upstream 124.x ships no config plugin and prebuild fails to resolve it. (If you are on a fork that adds one, add it explicitly, before the kaleidoscope plugin.)
+
+The kaleidoscope plugin itself handles the rest at prebuild: it patches the iOS Podfile so `react-native-webrtc` builds with modular headers, raises the Pods deployment target, and copies the images your preset book references into the native bundle.
+
+Then generate native projects and build a dev client:
 
 ```sh
-bunx expo prebuild        # materializes native registration; copies referenced images/shaders
+bunx expo prebuild
+bunx eas-cli build -p android --profile development   # or: bunx expo run:android
+bunx eas-cli build -p ios --profile development       # or: bunx expo run:ios
 ```
 
-The plugin statically parses your preset book at prebuild time and copies **only** the image/shader sources your presets reference into the native bundle. Web needs no prebuild.
+Web (Chromium only) runs with no prebuild: `bunx expo start --web`.
 
-## Provision presets (the preset book)
+## The preset-book contract (read this before creating the file)
 
-You declare a **preset book** in your own project: a flat catalog of composites, the only things you can command. Each entry is a `Composite`:
+The plugin statically analyzes ONE file to decide which image assets ship in your native bundle. The contract:
 
-- `name`: human label shown in the picker.
-- `taxonomy`: the picker's grouping path, root first: `[group]` or `[group, category]` (e.g. `['Backgrounds', 'Office']`). Group is the tab; category is the second-level menu. (This field is named `taxonomy`, NOT `category`.)
-- `thumbnail?`: optional preview source for the picker tile.
-- `layers`: the painter's stack, rendered back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's own fields:
-  - `shader: 'image'` takes a `source` (a bundled image id on native; a URL/data-URI also allowed on web).
-  - `shader: 'direct'` samples the ingest-normalized (upright, non-mirrored) camera frame. `target: 'subject'` = the masked person; `target: 'background'` = the full frame.
-  - `shader: 'blur'` (camera-sampling) and the generative shaders (`plasma`, `clouds`, `nebula`, `godrays`, `fireflies`, …) take `uniforms`.
-  - `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. `blend` is opaque base / `'normal'` / `'additive'`.
+1. **Exact filename, exact location:** `kaleidoscope.preset-book.ts` at the **project root** (the directory containing `package.json` and your app config). A book named or placed differently still typechecks and still works on web, but at prebuild NO assets are copied and every image background silently renders nothing on native. This is the most common integration mistake; the failure is silent.
+2. **The book is parsed as text, never executed.** Keep every `image` layer's `source` statically analyzable: a single named import from `react-native-webrtc-kaleidoscope/images/<category>/<leaf>`, a `require('./local.webp')` literal, or a `const X = Asset.fromModule(require('./local.webp')).uri` binding. Do not compute sources, build layers in helper functions, or re-export the book through a barrel; the parser will not follow them and the assets will be skipped (with at most a prebuild warning).
+3. **An `image` layer's `id` doubles as its native plate id**: keep it equal to the image file's basename (`office-dark`, `my-bg`). Your own background images must be `.webp` (native resolves `assets/images/<id>.webp`).
+4. **Re-run `bunx expo prebuild` after editing the book** (adding/deleting presets changes the native asset set). JS-only uniform tweaks hot-reload without it.
 
-Each layer's `id` is unique within its composite. Declare the book `as const satisfies PresetBook` for per-layer type-checking and autocomplete.
+## Starting fileset (six files that run)
+
+These are trimmed copies of the demo's working files (`demo/kaleidoscope.preset-book.ts`, `demo/src/`, `demo/app/index.tsx` in the repo). Create all six, run a dev build once, and you have the full catalog on screen behind a picker. The end user then opts out by DELETING preset entries (and their now-unused imports) from the book; nothing else references them.
+
+### 1. `kaleidoscope.preset-book.ts` (project root; exact name; see contract above)
 
 ```ts
-// kaleidoscope.preset-book.ts
-import type { PresetBook } from 'react-native-webrtc-kaleidoscope';
-import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
-// Packaged composites ship ready to use; import and spread them in.
+import type { KaleidoscopePresetBook } from 'react-native-webrtc-kaleidoscope';
+// Packaged multi-layer scenes. Each carries its own taxonomy and thumbnail;
+// delete the import + the entry to opt out of one.
+import { clouds } from 'react-native-webrtc-kaleidoscope/composites/clouds';
+import { corporateBlobs } from 'react-native-webrtc-kaleidoscope/composites/corporate-blobs';
+import { fairyCave } from 'react-native-webrtc-kaleidoscope/composites/fairy-cave';
+import { fairyGrotto } from 'react-native-webrtc-kaleidoscope/composites/fairy-grotto';
+import { fairyHollow } from 'react-native-webrtc-kaleidoscope/composites/fairy-hollow';
+import { nebula } from 'react-native-webrtc-kaleidoscope/composites/nebula';
+import { observationDeck } from 'react-native-webrtc-kaleidoscope/composites/observation-deck';
+import { simianlights } from 'react-native-webrtc-kaleidoscope/composites/simianlights';
+import { underwater } from 'react-native-webrtc-kaleidoscope/composites/underwater';
 import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower';
+import { wizardTowerNight } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower-night';
+// Bundled background images, one subpath per image. An unused import is dead
+// weight at most: web tree-shakes it, native never copies it.
+import { homeDark } from 'react-native-webrtc-kaleidoscope/images/home/home-dark';
+import { homeLight } from 'react-native-webrtc-kaleidoscope/images/home/home-light';
+import { landscapeDark } from 'react-native-webrtc-kaleidoscope/images/nature/landscape-dark';
+import { landscapeLight } from 'react-native-webrtc-kaleidoscope/images/nature/landscape-light';
+import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
+import { officeLight } from 'react-native-webrtc-kaleidoscope/images/office/office-light';
+import { sciFiLight } from 'react-native-webrtc-kaleidoscope/images/sci-fi/sci-fi-light';
+import { oceanscapeDark } from 'react-native-webrtc-kaleidoscope/images/underwater/oceanscape-dark';
+
+// To add YOUR OWN background, use an analyzable require literal on a local WebP
+// and give the image layer an id equal to the file basename:
+//   import { Asset } from 'expo-asset';
+//   const myBg = Asset.fromModule(require('./assets/my-bg.webp')).uri;
+//   ...then an entry shaped exactly like the image presets below.
 
 export const presets = {
-  // Replace your background with an image, you composited over it.
+  // --- Effects / Blur: the camera blurred behind you, you sharp on top. ---
+  'blur-low': {
+    name: 'Low',
+    taxonomy: ['Effects', 'Blur'],
+    layers: [
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 1.5 } },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'blur-medium': {
+    name: 'Medium',
+    taxonomy: ['Effects', 'Blur'],
+    layers: [
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'blur-high': {
+    name: 'High',
+    taxonomy: ['Effects', 'Blur'],
+    layers: [
+      { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+
+  // --- Worlds: packaged scenes, spread in as-is. One line each; delete freely. ---
+  'wizard-tower': wizardTower,
+  'wizard-tower-night': wizardTowerNight,
+  'observation-deck': observationDeck,
+  'fairy-cave': fairyCave,
+  'fairy-grotto': fairyGrotto,
+  'fairy-hollow': fairyHollow,
+  underwater: underwater,
+  'corporate-blobs': corporateBlobs,
+  clouds: clouds,
+  nebula: nebula,
+  simianlights: simianlights,
+
+  // --- Backgrounds: one image (cover-fit), you composited over it. The image
+  // layer's id MUST stay the image basename. ---
   'office-dark': {
-    name: 'Dark Office',
+    name: 'Office (Dark)',
     taxonomy: ['Backgrounds', 'Office'],
     thumbnail: officeDark,
     layers: [
@@ -68,23 +174,272 @@ export const presets = {
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
-  // Blur the background, stay sharp.
-  'blur-heavy': {
-    name: 'Heavy',
-    taxonomy: ['Effects', 'Blur'],
+  'office-light': {
+    name: 'Office (Light)',
+    taxonomy: ['Backgrounds', 'Office'],
+    thumbnail: officeLight,
     layers: [
-      { id: 'bg', shader: 'blur', target: 'background', uniforms: { sigma: 7 } },
+      { id: 'office-light', shader: 'image', source: officeLight },
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
   },
-  // A packaged multi-layer composite (clouds + a cut-out image + you).
-  'wizard-tower': wizardTower,
-} as const satisfies PresetBook;
+  'home-dark': {
+    name: 'Home (Dark)',
+    taxonomy: ['Backgrounds', 'Home'],
+    thumbnail: homeDark,
+    layers: [
+      { id: 'home-dark', shader: 'image', source: homeDark },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'home-light': {
+    name: 'Home (Light)',
+    taxonomy: ['Backgrounds', 'Home'],
+    thumbnail: homeLight,
+    layers: [
+      { id: 'home-light', shader: 'image', source: homeLight },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'landscape-dark': {
+    name: 'Landscape (Dark)',
+    taxonomy: ['Backgrounds', 'Nature'],
+    thumbnail: landscapeDark,
+    layers: [
+      { id: 'landscape-dark', shader: 'image', source: landscapeDark },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'landscape-light': {
+    name: 'Landscape (Light)',
+    taxonomy: ['Backgrounds', 'Nature'],
+    thumbnail: landscapeLight,
+    layers: [
+      { id: 'landscape-light', shader: 'image', source: landscapeLight },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'sci-fi-light': {
+    name: 'Sci-Fi',
+    taxonomy: ['Backgrounds', 'Sci-Fi'],
+    thumbnail: sciFiLight,
+    layers: [
+      { id: 'sci-fi-light', shader: 'image', source: sciFiLight },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'oceanscape-dark': {
+    name: 'Oceanscape',
+    taxonomy: ['Backgrounds', 'Underwater'],
+    thumbnail: oceanscapeDark,
+    layers: [
+      { id: 'oceanscape-dark', shader: 'image', source: oceanscapeDark },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+
+  // --- Shaders: a generative GLSL field behind you; the inline-authoring
+  // pattern for any shader in the catalog. ---
+  'plasma-ocean': {
+    name: 'Ocean',
+    taxonomy: ['Shaders', 'Plasma'],
+    layers: [
+      {
+        id: 'plasma',
+        shader: 'plasma',
+        uniforms: { uColorA: [0.0, 0.3, 0.6], uColorB: [0.0, 0.6, 0.6], uSpeed: 0.3, uScale: 8 },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'plasma-sunset': {
+    name: 'Sunset',
+    taxonomy: ['Shaders', 'Plasma'],
+    layers: [
+      {
+        id: 'plasma',
+        shader: 'plasma',
+        uniforms: { uColorA: [0.9, 0.3, 0.1], uColorB: [0.8, 0.1, 0.5], uSpeed: 0.3, uScale: 8 },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+} as const satisfies KaleidoscopePresetBook;
+
+export type PresetId = keyof typeof presets;
 ```
 
-### Fastest bootstrap: copy the demo's book
+### 2 + 3. `src/use-loopback-stream.ts` and `src/use-loopback-stream.web.ts`
 
-The repo's `demo/kaleidoscope.preset-book.ts` is a complete, working preset book covering every group (Effects/Blur, Worlds, Backgrounds, Shaders/Plasma). The quickest start is to copy that file into your own project and trim it to what you want, rather than authoring from scratch. Two demo-local references to adjust when you do: it imports `./src/demo-controls` and attaches a `controls` component to each entry (only needed if you also mount the live-controls editor; drop the `controls:` fields otherwise), and it references a demo-owned `./assets/backgrounds/wolf-cave.webp` (replace with your own asset or remove that entry). Everything else imports straight from the package and works as-is.
+Platform split by file extension (Metro picks `.web.ts` for web); the pair shares one shape. Native:
+
+```ts
+// src/use-loopback-stream.ts
+import { useEffect, useState } from 'react';
+import { type MediaStream, mediaDevices } from 'react-native-webrtc';
+
+type StreamState =
+  | { status: 'idle' }
+  | { status: 'pending' }
+  | { status: 'ready'; stream: MediaStream }
+  | { status: 'error'; error: Error };
+
+export const useLoopbackStream = (): StreamState => {
+  const [state, setState] = useState<StreamState>({ status: 'idle' });
+  useEffect(() => {
+    let cancelled = false;
+    let acquired: MediaStream | null = null;
+    setState({ status: 'pending' });
+    mediaDevices
+      .getUserMedia({ video: { facingMode: 'user' }, audio: false })
+      .then((raw) => {
+        const stream = raw as unknown as MediaStream;
+        if (cancelled) {
+          for (const t of stream.getTracks()) t.stop();
+          return;
+        }
+        acquired = stream;
+        setState({ status: 'ready', stream });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setState({ status: 'error', error: err instanceof Error ? err : new Error(String(err)) });
+      });
+    return () => {
+      cancelled = true;
+      if (acquired) for (const t of acquired.getTracks()) t.stop();
+    };
+  }, []);
+  return state;
+};
+```
+
+Web is identical except the import line goes away and the call is `navigator.mediaDevices.getUserMedia({ video: true, audio: false })` on the browser's own `MediaStream` type (no cast needed).
+
+### 4 + 5. `src/video-preview.tsx` and `src/video-preview.web.tsx`
+
+```tsx
+// src/video-preview.tsx (native): RTCView over a wrapping MediaStream.
+import { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import {
+  MediaStream,
+  type MediaStreamTrack as RNWebRTCMediaStreamTrack,
+  RTCView,
+} from 'react-native-webrtc';
+
+export const VideoPreview = ({ track }: { track: MediaStreamTrack | null }) => {
+  const streamUrl = useMemo(() => {
+    if (!track) return null;
+    return new MediaStream([track as unknown as RNWebRTCMediaStreamTrack]).toURL();
+  }, [track]);
+  if (!streamUrl) return <View style={styles.box} />;
+  return <RTCView streamURL={streamUrl} objectFit="contain" style={styles.box} />;
+};
+
+const styles = StyleSheet.create({
+  box: { aspectRatio: 4 / 3, backgroundColor: '#1a1a1a', borderRadius: 8 },
+});
+```
+
+```tsx
+// src/video-preview.web.tsx: an HTML <video> with srcObject.
+import { useEffect, useMemo, useRef } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+export const VideoPreview = ({ track }: { track: MediaStreamTrack | null }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const previewStream = useMemo(() => (track ? new MediaStream([track]) : null), [track]);
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.srcObject = previewStream;
+  }, [previewStream]);
+  return (
+    <View style={styles.box}>
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  box: { aspectRatio: 4 / 3, backgroundColor: '#1a1a1a', borderRadius: 8, overflow: 'hidden' },
+});
+```
+
+### 6. The screen (e.g. `app/index.tsx` under expo-router, or any screen component)
+
+```tsx
+import { useEffect, useMemo, useState } from 'react';
+import { SafeAreaView, StyleSheet } from 'react-native';
+import { bindKaleidoscope, type KaleidoscopeBinding } from 'react-native-webrtc-kaleidoscope';
+import { PresetBookMenu } from 'react-native-webrtc-kaleidoscope/preset-book-menu';
+import { type PresetId, presets } from '../kaleidoscope.preset-book';
+import { useLoopbackStream } from '../src/use-loopback-stream';
+import { VideoPreview } from '../src/video-preview';
+
+export default function KaleidoscopeScreen() {
+  const stream = useLoopbackStream();
+  const [controls, setControls] = useState<KaleidoscopeBinding<typeof presets> | null>(null);
+  const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
+  const [art, setArt] = useState<PresetId | null>(null);
+
+  const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
+    if (stream.status !== 'ready') return null;
+    return (stream.stream.getVideoTracks()[0] ?? null) as unknown as MediaStreamTrack | null;
+  }, [stream]);
+
+  // Bind once per source track; dispose on teardown. onTrack matters on web,
+  // where each command yields a NEW track; native mutates the track in place.
+  useEffect(() => {
+    if (!sourceTrack) {
+      setControls(null);
+      return;
+    }
+    const c = bindKaleidoscope(sourceTrack, { presets, onTrack: setDisplayTrack });
+    setControls(c);
+    return () => {
+      c.dispose();
+      setDisplayTrack(null);
+    };
+  }, [sourceTrack]);
+
+  // Re-issue the art command on selection change. Split the null case so each
+  // call matches a kaleidoscope() overload.
+  useEffect(() => {
+    if (!controls) return;
+    if (art) controls.kaleidoscope(art);
+    else controls.kaleidoscope(null);
+  }, [controls, art]);
+
+  return (
+    <SafeAreaView style={styles.root}>
+      <VideoPreview track={displayTrack ?? sourceTrack} />
+      <PresetBookMenu presets={presets} value={art} onSelect={setArt} />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, padding: 12, gap: 12 },
+});
+```
+
+That is the whole starting state: camera in, composite out, every bundled preset selectable. In a real call you'd hand `displayTrack ?? sourceTrack` to your `RTCPeerConnection` / LiveKit publish path instead of (or in addition to) the local preview.
+
+## Deleting presets (how an end user opts out)
+
+A preset is one entry in `kaleidoscope.preset-book.ts` plus its imports; nothing else references it.
+
+1. Delete the entry from the `presets` object.
+2. Delete the now-unused imports (your linter/TS will flag them).
+3. Re-run `bunx expo prebuild` so the native bundle drops the entry's assets. On web the bundler tree-shakes them on the next build automatically.
+
+The picker, the verbs, and the types all derive from the book, so nothing else needs updating; group tabs and category menus disappear automatically when their last preset goes.
 
 ## Use (bind a track, drive three verbs)
 
@@ -96,7 +451,7 @@ import { presets } from './kaleidoscope.preset-book';
 const stream = await mediaDevices.getUserMedia({ video: true });
 const [track] = stream.getVideoTracks();
 
-const { kaleidoscope, transform, mask } = bindKaleidoscope(track, {
+const { kaleidoscope, transform, mask, dispose } = bindKaleidoscope(track, {
   presets,
   // Web rebuilds the pipeline per command and yields a NEW track; read it here
   // (attach to <video> or RTCRtpSender.replaceTrack). Native mutates in place.
@@ -109,7 +464,7 @@ const { kaleidoscope, transform, mask } = bindKaleidoscope(track, {
 kaleidoscope('wizard-tower');
 // Override a layer's uniforms live (addressed by layer id) while that preset is active,
 // merged with no pipeline rebuild. `shader` types the uniforms:
-kaleidoscope('blur-heavy', [{ id: 'bg', shader: 'blur', uniforms: { sigma: 5 } }]);
+kaleidoscope('blur-high', [{ id: 'blur', shader: 'blur', uniforms: { sigma: 5 } }]);
 kaleidoscope(null); // clear the art
 
 // transform = absolute geometry. Every call is the full state from identity; re-pass
@@ -121,29 +476,31 @@ transform(); // reset to identity
 mask({ hardness: 0.5, threshold: 0.5 }); // defaults 0.5 / 0.5; nudge per camera/lighting
 ```
 
-That is the whole runtime surface: `kaleidoscope`, `transform`, `mask`. `applyVideoEffects(track, effects[])` and `applyVideoEffectsDisposable` remain as lower-level primitives.
+That is the whole runtime surface: `kaleidoscope`, `transform`, `mask`, and `dispose` (tear the binding down when the track goes away). The key exported types: `KaleidoscopePresetBook` (the book), `KaleidoscopePreset` (one entry), `KaleidoscopeBinding<P>` (what `bindKaleidoscope` returns), `PatchesFor<P>` (live uniform patches).
+
+## Preset-book vocabulary
+
+Each book entry is a `KaleidoscopePreset`:
+
+- `name`: human label shown in the picker.
+- `taxonomy`: the picker's grouping path, root first: `[group]` or `[group, category]` (e.g. `['Backgrounds', 'Office']`). Group is the tab; category is the second-level menu. (This field is named `taxonomy`, NOT `category`.)
+- `thumbnail?`: optional preview source for the picker tile.
+- `controls?`: optional editor component for the live-controls panel (see below).
+- `layers`: the painter's stack, rendered back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's own fields:
+  - `shader: 'image'` takes a `source` (a bundled image id on native; a URL/data-URI also allowed on web).
+  - `shader: 'direct'` samples the ingest-normalized (upright, non-mirrored) camera frame. `target: 'subject'` = the masked person; `target: 'background'` = the full frame.
+  - `shader: 'blur'` (camera-sampling) and the generative shaders (`plasma`, `clouds`, `nebula`, `godrays`, `fireflies`, `simianlights`, `anamorphic-lensflare`, `light-beams-and-motes`, `corporate-blobs`) take `uniforms`.
+  - `target` defaults to `'background'` (fullscreen); `'subject'` stencils to the segmented person. `blend` is opaque base / `'normal'` / `'additive'`.
+
+Each layer's `id` is unique within its composite. Declare the book `as const satisfies KaleidoscopePresetBook` for per-layer type-checking and autocomplete.
 
 ## Drop-in UI (optional): the picker
 
-A headless, preset-driven picker that reads your book directly. Import from the `./ui` subpath.
+A headless, preset-driven picker that reads your book directly. Import from the `/preset-book-menu` subpath (shown wired in the starting screen above).
 
-```tsx
-import { useEffect, useState } from 'react';
-import { PresetBookMenu } from 'react-native-webrtc-kaleidoscope/ui';
-import { presets } from './kaleidoscope.preset-book';
+`PresetBookMenu` is a two-level browser: a tab row across the top, one tab per **group** (`taxonomy[0]`, e.g. Effects, Worlds, Backgrounds, Shaders), and a left-hand menu of **categories** (`taxonomy[1]`) under the active group; the tile grid is filtered by both. A flat (depth-1) group shows no category menu. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the component is presentational, it emits the chosen id and you apply it via `kaleidoscope`. Standalone primitives (`PresetGrid`, `PresetTile`, the `usePresetBookMenu` hook, `PresetBookMenuLayout`, a `renderTile` slot) are exported for BYO layouts. Style three ways: defaults, an RN `style` prop, or a `className` prop.
 
-function BackgroundControls({ kaleidoscope }) {
-  const [art, setArt] = useState<keyof typeof presets | null>(null);
-  useEffect(() => {
-    kaleidoscope(art ?? null);
-  }, [art, kaleidoscope]);
-  return <PresetBookMenu presets={presets} value={art} onSelect={setArt} />;
-}
-```
-
-`PresetBookMenu` is a two-level browser: a tab row across the top, one tab per **group** (`taxonomy[0]`, e.g. Effects, Worlds, Backgrounds, Shaders), and a left-hand menu of **categories** (`taxonomy[1]`) under the active group; the tile grid is filtered by both. A flat (depth-1) group shows no category menu. Selection is controlled (`value` + `onSelect(id)`, narrowed to your book's keys); the component is presentational, it emits the chosen id and you apply it via `kaleidoscope`. Standalone primitives (`PresetGrid`, `PresetTile`, the `usePresetBookMenu` hook, `PresetBookMenuLayout`) are exported for BYO layouts. Style three ways: defaults, an RN `style` prop, a `className` prop, or a `renderTile` slot.
-
-**NativeWind (optional).** Components accept `className`. Turn it on by importing the opt-in registration once in your interop setup (`nativewind` stays out of the core `./ui` import):
+**NativeWind (optional).** Components accept `className`. Turn it on by importing the opt-in registration once in your interop setup (`nativewind` stays out of the core import):
 
 ```ts
 import { registerKaleidoscopeNativeWind } from 'react-native-webrtc-kaleidoscope/nativewind';
@@ -152,7 +509,7 @@ registerKaleidoscopeNativeWind();
 
 ## Live controls (optional): the editor
 
-`./controls` ships a headless editor that reads the active preset and renders one control per tunable uniform, plus mask and transform panels. Controlled and presentational: it emits patches, you apply them.
+`/preset-control-panel` ships a headless editor that reads the active preset and renders one control per tunable uniform, plus mask and transform panels. Controlled and presentational: it emits patches, you apply them.
 
 ```tsx
 import {
@@ -160,7 +517,7 @@ import {
   PresetControlPanel,
   MaskControlPanel,
   TransformControlPanel,
-} from 'react-native-webrtc-kaleidoscope/controls';
+} from 'react-native-webrtc-kaleidoscope/preset-control-panel';
 
 <KaleidoscopeThemeProvider>
   <PresetControlPanel presets={presets} value={art} onPatch={(p) => kaleidoscope(art, [p])} />
@@ -169,12 +526,12 @@ import {
 </KaleidoscopeThemeProvider>
 ```
 
-Each preset supplies its editor as a `controls` component on the book entry. Packaged composites export theirs at `react-native-webrtc-kaleidoscope/composites/<name>/controls`; for your own presets, compose `CompositeLayerControlPanel` over a shader's control descriptor (or `makeControls` for a custom widget). The sliders need `@react-native-community/slider` (optional peer; a native module, so installing it needs a dev-client rebuild). Live per-layer tuning runs on web today; on native the editor renders but the live per-layer uniform channel is in progress. Mask and transform are live on every platform.
+Each preset supplies its editor as a `controls` component on the book entry: packaged composites export theirs at `react-native-webrtc-kaleidoscope/composites/<name>/controls`, the catalog shaders at `react-native-webrtc-kaleidoscope/shaders/<name>/form` (e.g. `BlurForm`, `PlasmaForm`); attach them like `'blur-high': { ..., controls: BlurForm }`. For custom widgets, compose `CompositeLayerControlPanel` over a shader's control descriptor (or `makeControls`). The sliders need `@react-native-community/slider` (optional peer; a native module, so installing it needs a dev-client rebuild; the starting fileset above deliberately omits `controls` so no slider is required). Live per-layer tuning runs on web today; on native the editor renders but the live per-layer uniform channel is in progress. Mask and transform are live on every platform.
 
 ## Bundled assets you can reference
 
 - **Packaged composites** (multi-layer scenes), each behind `react-native-webrtc-kaleidoscope/composites/<name>`: `wizard-tower`, `wizard-tower-night`, `observation-deck`, `fairy-cave`, `fairy-grotto`, `fairy-hollow`, `underwater`, `nebula`, `simianlights`, `corporate-blobs`, `clouds`. Import the export and spread it into your book.
-- **Background images**, filed by category, each behind `react-native-webrtc-kaleidoscope/images/<category>/<leaf>`: e.g. `images/office/office-dark`, `images/home/home-light`, `images/nature/landscape-light`, `images/sci-fi/sci-fi-light`, `images/underwater/oceanscape-dark`, `images/simiancraft/simiancraft-light`, plus a `debug-resolutions` calibration grid. On web an image `source` can also be any image URL or data URI; native resolves bundled image ids only.
+- **Background images**, each behind `react-native-webrtc-kaleidoscope/images/<category>/<leaf>`: `office/office-dark`, `office/office-light`, `home/home-dark`, `home/home-light`, `nature/landscape-dark`, `nature/landscape-light`, `sci-fi/sci-fi-light`, `underwater/oceanscape-dark`, `simiancraft/simiancraft-light`, `simiancraft/simiancraft-dark`, `simiancraft/simiancraft-light-transparency`, `simiancraft/simiancraft-dark-transparency`, `corporate/corporate-logo`, `fairy-caves/grotto`, `fairy-caves/hollow`, `fairy-caves/treehouse`, `fairy-caves/treehouse-2`, `fairy-caves/treehouse-3`, `spaceship/observation-deck`, `wizard-tower/wizard-tower-1`, `wizard-tower/wizard-tower-2`, `wizard-tower/wizard-tower-night`, plus `debug/debug-resolutions` (a viewport calibration grid for verifying cover-fit). On web an image `source` can also be any image URL or data URI; native resolves bundled image ids only.
 
 ## Web vs native differences
 
@@ -182,7 +539,22 @@ Each preset supplies its editor as a `controls` component on the book entry. Pac
 - **Image source.** Native accepts a bundled image id only (the upstream `_setVideoEffects` registry is keyed by flat strings); web accepts an image id, a URL, or a data URI.
 - **Web model fetch.** The web compositor loads MediaPipe Selfie Segmentation from `cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation` on first use; a strict CSP must allow that origin (`script-src`/`connect-src`/WASM), and effects do not work offline. `transform` needs no model.
 - **Web browser support.** Insertable Streams ship in Chromium (Chrome, Edge); Safari and Firefox lack the API and throw a clear capability error, so feature-detect before binding.
-- **Tree-shaking.** Plates are per-file subpath exports and the package is `sideEffects: false`, so web bundlers drop unused ones; Metro (native) simply never imports them.
+- **Tree-shaking.** Images are per-file subpath exports and the package is `sideEffects: false`, so web bundlers drop unused ones; Metro (native) simply never imports them, and the prebuild plugin only copies what the preset book references.
+
+## LiveKit
+
+`@livekit/react-native` pulls in `@livekit/react-native-webrtc`, a fork that preserves the same `videoEffects` native classes; kaleidoscope works against either fork (pick one, never both). On native, bind to the local track's underlying `MediaStreamTrack`:
+
+```ts
+const { kaleidoscope } = bindKaleidoscope(localCameraTrack.mediaStreamTrack, { presets });
+```
+
+On web, LiveKit owns the `RTCRtpSender`, so go through its processor API via the opt-in `/livekit` subpath (needs `livekit-client`):
+
+```ts
+import { KaleidoscopeProcessor } from 'react-native-webrtc-kaleidoscope/livekit';
+await localVideoTrack.setProcessor(new KaleidoscopeProcessor(['blur']), true);
+```
 
 ## Platform support
 
@@ -190,9 +562,14 @@ Each preset supplies its editor as a `controls` component on the book entry. Pac
 - **Android** native >= API 24; OpenGL ES 3.0 pipeline; MediaPipe Tasks segmentation.
 - **Web** Chromium browsers with `MediaStreamTrackProcessor`; WebGL2 compositor; MediaPipe Selfie Segmentation (WASM).
 
+## The demo is the canonical working example
+
+The repo's `demo/` is a complete consuming app exercising everything above on all three platforms: `demo/app.config.js` (the config-plugin + build-properties + permissions wiring, with comments explaining each entry), `demo/kaleidoscope.preset-book.ts` (a full book including a consumer-owned `wolf-cave.webp` background and per-preset `controls`), `demo/src/use-loopback-stream{,.web}.ts` and `demo/src/video-preview{,.web}.tsx` (the platform-split wiring), and `demo/app/index.tsx` (picker + editor + verbs on one screen). When this file and the demo disagree, trust the demo and file an issue: https://github.com/simiancraft/react-native-webrtc-kaleidoscope
+
 ## Reference
 
 - README.md: the same integration story with previews of the bundled composites and images.
 - PATTERNS.md: file-layout conventions, the texture-orientation contract, and recipes for adding effects/shaders/presets/tunable parameters.
-- shaders/README.md: authoring and extending shaders and their control descriptors.
+- catalog/shaders/README.md: authoring and extending shaders and their control descriptors.
+- catalog/images/README.md: the image folder layout and how to add one.
 - Sibling projects [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge) share this project's OSS-hygiene template.
