@@ -17,7 +17,11 @@ import reactCompiler from 'eslint-plugin-react-compiler';
 
 export default [
   {
-    files: ['src/components/**/*.{ts,tsx}', 'catalog/composites/**/*.controls.tsx'],
+    files: [
+      'src/components/**/*.{ts,tsx}',
+      'catalog/composites/**/*.controls.tsx',
+      'catalog/shaders/**/*.form.tsx',
+    ],
     languageOptions: {
       parser: tsParser,
       parserOptions: { ecmaFeatures: { jsx: true }, sourceType: 'module' },

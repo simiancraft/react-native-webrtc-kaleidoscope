@@ -411,6 +411,76 @@
       "import": "./dist/catalog/composites/underwater/underwater.controls.js",
       "default": "./dist/catalog/composites/underwater/underwater.controls.js"
     },
+    "./shaders/light-beams-and-motes/form": {
+      "types": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.d.ts",
+      "react-native": "./catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.tsx",
+      "browser": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.js",
+      "import": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.js",
+      "default": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.js"
+    },
+    "./shaders/plasma/form": {
+      "types": "./dist/catalog/shaders/plasma/plasma.form.d.ts",
+      "react-native": "./catalog/shaders/plasma/plasma.form.tsx",
+      "browser": "./dist/catalog/shaders/plasma/plasma.form.js",
+      "import": "./dist/catalog/shaders/plasma/plasma.form.js",
+      "default": "./dist/catalog/shaders/plasma/plasma.form.js"
+    },
+    "./shaders/blur/form": {
+      "types": "./dist/catalog/shaders/blur/blur.form.d.ts",
+      "react-native": "./catalog/shaders/blur/blur.form.tsx",
+      "browser": "./dist/catalog/shaders/blur/blur.form.js",
+      "import": "./dist/catalog/shaders/blur/blur.form.js",
+      "default": "./dist/catalog/shaders/blur/blur.form.js"
+    },
+    "./shaders/clouds/form": {
+      "types": "./dist/catalog/shaders/clouds/clouds.form.d.ts",
+      "react-native": "./catalog/shaders/clouds/clouds.form.tsx",
+      "browser": "./dist/catalog/shaders/clouds/clouds.form.js",
+      "import": "./dist/catalog/shaders/clouds/clouds.form.js",
+      "default": "./dist/catalog/shaders/clouds/clouds.form.js"
+    },
+    "./shaders/nebula/form": {
+      "types": "./dist/catalog/shaders/nebula/nebula.form.d.ts",
+      "react-native": "./catalog/shaders/nebula/nebula.form.tsx",
+      "browser": "./dist/catalog/shaders/nebula/nebula.form.js",
+      "import": "./dist/catalog/shaders/nebula/nebula.form.js",
+      "default": "./dist/catalog/shaders/nebula/nebula.form.js"
+    },
+    "./shaders/simianlights/form": {
+      "types": "./dist/catalog/shaders/simianlights/simianlights.form.d.ts",
+      "react-native": "./catalog/shaders/simianlights/simianlights.form.tsx",
+      "browser": "./dist/catalog/shaders/simianlights/simianlights.form.js",
+      "import": "./dist/catalog/shaders/simianlights/simianlights.form.js",
+      "default": "./dist/catalog/shaders/simianlights/simianlights.form.js"
+    },
+    "./shaders/fireflies/form": {
+      "types": "./dist/catalog/shaders/fireflies/fireflies.form.d.ts",
+      "react-native": "./catalog/shaders/fireflies/fireflies.form.tsx",
+      "browser": "./dist/catalog/shaders/fireflies/fireflies.form.js",
+      "import": "./dist/catalog/shaders/fireflies/fireflies.form.js",
+      "default": "./dist/catalog/shaders/fireflies/fireflies.form.js"
+    },
+    "./shaders/godrays/form": {
+      "types": "./dist/catalog/shaders/godrays/godrays.form.d.ts",
+      "react-native": "./catalog/shaders/godrays/godrays.form.tsx",
+      "browser": "./dist/catalog/shaders/godrays/godrays.form.js",
+      "import": "./dist/catalog/shaders/godrays/godrays.form.js",
+      "default": "./dist/catalog/shaders/godrays/godrays.form.js"
+    },
+    "./shaders/anamorphic-lensflare/form": {
+      "types": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.d.ts",
+      "react-native": "./catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.tsx",
+      "browser": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.js",
+      "import": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.js",
+      "default": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.js"
+    },
+    "./shaders/corporate-blobs/form": {
+      "types": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.d.ts",
+      "react-native": "./catalog/shaders/corporate-blobs/corporate-blobs.form.tsx",
+      "browser": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js",
+      "import": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js",
+      "default": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js"
+    },
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
       "require": "./app.plugin.js",
@@ -448,7 +518,7 @@
     "check": "bun run lint:fix && bun run typecheck && bun run typecheck:test && bun run typecheck:demo && bun run check:react-compiler && bun run check:plugin && bun run build && (cd demo && bun run build) && bun run test && bun run check:knip && bun run check:package && bun run check:kotlin && bun run check:swift",
     "check:package": "publint --strict",
     "check:knip": "knip",
-    "check:react-compiler": "eslint src/components 'catalog/composites/**/*.controls.tsx'",
+    "check:react-compiler": "eslint src/components 'catalog/composites/**/*.controls.tsx' 'catalog/shaders/**/*.form.tsx'",
     "check:kotlin": "bun run scripts/ktlint.ts",
     "format:kotlin": "bun run scripts/ktlint.ts --format",
     "check:swift": "bun run scripts/swift.ts",

@@ -88,6 +88,8 @@ const bindUniform = (
   else if (value.length === 2) gl.uniform2fv(loc, new Float32Array(value));
   else if (value.length === 3) gl.uniform3fv(loc, new Float32Array(value));
   else if (value.length === 4) gl.uniform4fv(loc, new Float32Array(value));
+  // An even length > 4 is a vec2 array (a polygon: flat [x0,y0, ...]).
+  else if (value.length % 2 === 0) gl.uniform2fv(loc, new Float32Array(value));
 };
 
 const createTexture = (gl: WebGL2RenderingContext): WebGLTexture => {

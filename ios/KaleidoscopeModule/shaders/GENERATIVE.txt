@@ -4,7 +4,6 @@ corporate-blobs
 fireflies
 godrays
 light-beams-and-motes
-light-shaft
 nebula
 plasma
 simianlights

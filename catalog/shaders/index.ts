@@ -10,7 +10,6 @@ import type { CorporateBlobsUniforms } from './corporate-blobs/corporate-blobs';
 import type { FirefliesUniforms } from './fireflies/fireflies';
 import type { GodraysUniforms } from './godrays/godrays';
 import type { LightBeamsAndMotesUniforms } from './light-beams-and-motes/light-beams-and-motes';
-import type { LightShaftUniforms } from './light-shaft/light-shaft';
 import type { NebulaUniforms } from './nebula/nebula';
 import type { PlasmaUniforms } from './plasma/plasma';
 import type { SimianlightsUniforms } from './simianlights/simianlights';
@@ -30,8 +29,6 @@ export type { GodraysUniforms } from './godrays/godrays';
 export { GODRAYS_CONTROLS } from './godrays/godrays';
 export type { LightBeamsAndMotesUniforms } from './light-beams-and-motes/light-beams-and-motes';
 export { LIGHT_BEAMS_AND_MOTES_CONTROLS } from './light-beams-and-motes/light-beams-and-motes';
-export type { LightShaftUniforms } from './light-shaft/light-shaft';
-export { LIGHT_SHAFT_CONTROLS } from './light-shaft/light-shaft';
 export type { NebulaUniforms } from './nebula/nebula';
 export { NEBULA_CONTROLS } from './nebula/nebula';
 export type { PlasmaUniforms } from './plasma/plasma';
@@ -55,7 +52,6 @@ export type ShaderUniformsMap = {
   readonly simianlights: SimianlightsUniforms;
   readonly 'anamorphic-lensflare': AnamorphicLensFlareUniforms;
   readonly 'light-beams-and-motes': LightBeamsAndMotesUniforms;
-  readonly 'light-shaft': LightShaftUniforms;
   readonly 'corporate-blobs': CorporateBlobsUniforms;
 };
 

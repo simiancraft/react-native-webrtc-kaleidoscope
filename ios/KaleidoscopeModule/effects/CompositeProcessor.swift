@@ -329,7 +329,10 @@ public final class CompositeProcessor: NSObject, VideoFrameProcessorDelegate {
                 // One-pass fast path: cam x mask.
                 guard let subject = ensureSubjectFragment(renderer: renderer),
                       let pipeline = ensurePipeline(
-                          fragment: subject.fragment, fragmentLabel: "composite-subject", blend: blend, renderer: renderer
+                          fragment: subject.fragment,
+                          fragmentLabel: "composite-subject",
+                          blend: blend,
+                          renderer: renderer
                       ) else { return }
                 withOutputEncoder(
                     commandBuffer: commandBuffer, renderer: renderer, outputTexture: outputTexture,

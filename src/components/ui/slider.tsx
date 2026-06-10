@@ -1,15 +1,18 @@
 // Slider: a self-wiring scalar field. Reads/writes its uniform via `useField`
 // (so the thumb tracks the drag synchronously; only the ControlForm's emit
-// debounces), renders its own label + readout, and themes via the `slider` slot.
+// debounces), and pairs the slider with a typed number input so you can drag OR
+// type/paste an exact value. Renders its own label, themes via the `slider` slot.
 
 import RNSlider from '@react-native-community/slider';
+import { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import { useField } from '../form/use-field';
 import { useThemeSlot } from '../theme/provider';
 import { Label } from './label';
-import { Readout } from './readout';
 import { SLIDER_TINTS, safeSliderValue } from './slider-value';
+
+const fmt = (v: number) => (Number.isFinite(v) ? String(Math.round(v * 1000) / 1000) : '0');
 
 export type SliderProps = {
   /** The uniform key this slider drives (a scalar). */
@@ -29,11 +32,36 @@ export function Slider({ uniform, min, max, step = 0.01, label, style }: SliderP
   const { style: themeStyle } = useThemeSlot('slider');
   const value = typeof field.value === 'number' ? field.value : 0;
   const name = label ?? uniform;
+
+  // The number input holds its own draft text so partial entries ("0.", "-") and
+  // pastes survive; the slider writes the draft too, so dragging keeps it in sync.
+  // A preset switch remounts the form, so the draft re-seeds from the new value.
+  const [draft, setDraft] = useState(() => fmt(value));
+
+  const fromSlider = (v: number) => {
+    setDraft(fmt(v));
+    field.onChange(v);
+  };
+  const fromText = (t: string) => {
+    setDraft(t);
+    const v = Number.parseFloat(t);
+    if (Number.isFinite(v)) field.onChange(Math.min(max, Math.max(min, v)));
+  };
+
   return (
     <View style={[styles.row, themeStyle as StyleProp<ViewStyle>, style]}>
       <View style={styles.line}>
         <Label>{name}</Label>
-        <Readout>{(Number.isFinite(value) ? value : 0).toFixed(2)}</Readout>
+        <TextInput
+          style={styles.num}
+          testID={field.testID ? `${field.testID}.num` : undefined}
+          accessibilityLabel={`${name} value`}
+          value={draft}
+          keyboardType="numeric"
+          editable={!field.disabled}
+          selectTextOnFocus
+          onChangeText={fromText}
+        />
       </View>
       <RNSlider
         style={styles.slider}
@@ -44,7 +72,7 @@ export function Slider({ uniform, min, max, step = 0.01, label, style }: SliderP
         step={step}
         value={safeSliderValue(value)}
         disabled={field.disabled}
-        onValueChange={(v) => field.onChange(v)}
+        onValueChange={fromSlider}
         {...SLIDER_TINTS}
       />
     </View>
@@ -54,5 +82,17 @@ export function Slider({ uniform, min, max, step = 0.01, label, style }: SliderP
 const styles = StyleSheet.create({
   row: { gap: 2 },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  num: {
+    minWidth: 56,
+    color: '#8888ff',
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+    paddingVertical: 0,
+    paddingHorizontal: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(136,136,255,0.4)',
+    borderRadius: 3,
+  },
   slider: { width: '100%', height: 32 },
 });

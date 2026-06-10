@@ -73,15 +73,24 @@ void main() {
 
 type GlType = 'float' | 'int' | 'vec2' | 'vec3' | 'vec4';
 type UniformRole = 'time' | 'res2' | 'res3' | 'static';
-type UniformSpec = { name: string; role: UniformRole; glType: GlType; value?: number | number[] };
+type UniformSpec = {
+  name: string;
+  role: UniformRole;
+  glType: GlType;
+  value?: number | number[];
+  /** Set when the declaration was `type name[N]` (a vec array, e.g. a polygon). */
+  arrayLen?: number;
+};
 type ControlMeta = {
   name: string;
   label?: string;
-  kind: 'color' | 'float';
+  kind: 'color' | 'float' | 'switch' | 'polygon';
   default: number | number[];
   min?: number;
   max?: number;
   step?: number;
+  /** Vertex count for `kind: 'polygon'` (the value is a flat 2*points array). */
+  points?: number;
 };
 type Side = {
   label: string;
@@ -90,6 +99,10 @@ type Side = {
   controls: ControlMeta[];
   notes: string[];
 };
+// Per-side starting overrides (a `--seed` file), merged over each shader's .ts
+// defaults so two different shaders can be launched in an identical configuration
+// (e.g. one beam, same color/position/motes) without hand-copying numeric inputs.
+type Seed = { a: Record<string, number | number[]>; b: Record<string, number | number[]> };
 
 function defaultForType(t: GlType): number | number[] {
   if (t === 'float' || t === 'int') return 1;
@@ -160,20 +173,22 @@ async function resolveSide(raw: string, path: string, label: string): Promise<Si
     }
     const defaults = new Map(controls.map((c) => [c.name, c.default]));
     const uniforms: UniformSpec[] = [];
-    const re = /uniform\s+(?:highp\s+|mediump\s+|lowp\s+)?(\w+)\s+(\w+)\s*;/g;
+    const re =
+      /uniform\s+(?:highp\s+|mediump\s+|lowp\s+)?(\w+)\s+(\w+)\s*(?:\[\s*(\d+)\s*\])?\s*;/g;
     let m: RegExpExecArray | null = re.exec(fragSrc);
     while (m !== null) {
       const glType = m[1] as GlType;
       const name = m[2];
+      const arrayLen = m[3] ? Number(m[3]) : undefined;
       if (name === 'uTime' || name === 'iTime') {
         uniforms.push({ name, role: 'time', glType: 'float' });
       } else if (name === 'uResolution' || name === 'iResolution') {
         uniforms.push({ name, role: glType === 'vec3' ? 'res3' : 'res2', glType });
       } else if (defaults.has(name)) {
-        uniforms.push({ name, role: 'static', glType, value: defaults.get(name) });
+        uniforms.push({ name, role: 'static', glType, value: defaults.get(name), arrayLen });
       } else {
         notes.push(`${name} not in .ts; defaulted`);
-        uniforms.push({ name, role: 'static', glType, value: defaultForType(glType) });
+        uniforms.push({ name, role: 'static', glType, value: defaultForType(glType), arrayLen });
       }
       m = re.exec(fragSrc);
     }
@@ -200,6 +215,7 @@ function html(
   sides: [Side, Side],
   vert: string,
   costs: [ShaderCost | null, ShaderCost | null],
+  seed: Seed,
 ): string {
   // Union the two sides' controls by name (first wins) into one shared panel,
   // so the same uniform values drive both renders and the A/B stays fair.
@@ -217,7 +233,15 @@ function html(
     .map((c) => c.name)
     .sort()
     .join(',');
-  const data = JSON.stringify({ vert, sides, controls, costs, split: namesA !== namesB });
+  const data = JSON.stringify({
+    vert,
+    sides,
+    controls,
+    costs,
+    split: namesA !== namesB,
+    seedA: seed.a,
+    seedB: seed.b,
+  });
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>shader A/B</title>
 <style>
@@ -233,6 +257,7 @@ function html(
   .uctl { display: flex; gap: 6px; align-items: center; }
   .uctl label { color: #9aa0aa; min-width: 0; }
   .uctl .uval { width: 58px; background: #1b1e25; color: #d7dae0; border: 1px solid #2c313a; border-radius: 3px; padding: 1px 4px; font: inherit; text-align: right; }
+  .uctl .poly { display: flex; flex-wrap: wrap; gap: 3px; }
   .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #23262d; }
   .pane { background: #0c0d10; padding: 8px; }
   canvas { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; border-radius: 4px; }
@@ -274,6 +299,13 @@ const VALUES_A = {}, VALUES_B = {};
 function seedStore(store, controls) { for (const c of controls) store[c.name] = Array.isArray(c.default) ? c.default.slice() : c.default; }
 seedStore(VALUES_A, DATA.sides[0].controls);
 seedStore(VALUES_B, DATA.sides[1].controls);
+// Apply per-side --seed overrides over the defaults so both sides can start in an
+// identical configuration. Runs before the panel builds, so the inputs show them.
+function applySeed(store, seed) {
+  for (const k in (seed || {})) { const v = seed[k]; store[k] = Array.isArray(v) ? v.slice() : v; }
+}
+applySeed(VALUES_A, DATA.seedA);
+applySeed(VALUES_B, DATA.seedB);
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 function toHex(v){ const h=(x)=>('0'+Math.round(clamp01(x)*255).toString(16)).slice(-2); return '#'+h(v[0])+h(v[1])+h(v[2]); }
@@ -290,6 +322,24 @@ function buildControl(c, stores) {
     const inp = document.createElement('input'); inp.type = 'color'; inp.value = toHex(seed);
     inp.oninput = () => { const v = fromHex(inp.value); for (const s of stores) if (c.name in s) s[c.name] = v.slice(); };
     wrap.appendChild(inp);
+  } else if (c.kind === 'switch') {
+    const inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!seed;
+    inp.oninput = () => { const v = inp.checked ? 1 : 0; for (const s of stores) if (c.name in s) s[c.name] = v; };
+    wrap.appendChild(inp);
+  } else if (c.kind === 'polygon') {
+    // One number input per component (x0,y0, x1,y1, ...), writing into the flat
+    // array in each store. Enough to confirm the array uniform reads; the rich
+    // box-and-dot Point editor lives in the app's PolygonField, not here.
+    const pts = c.points || (Array.isArray(seed) ? seed.length / 2 : 0);
+    const grid = document.createElement('div'); grid.className = 'poly';
+    for (let i = 0; i < pts * 2; i++) {
+      const num = document.createElement('input'); num.type = 'number'; num.className = 'uval';
+      num.step = '0.01'; num.value = String(Array.isArray(seed) ? seed[i] : 0);
+      num.title = (i % 2 === 0 ? 'x' : 'y') + Math.floor(i / 2);
+      num.oninput = () => { const v = +num.value; for (const s of stores) if (Array.isArray(s[c.name])) s[c.name][i] = v; };
+      grid.appendChild(num);
+    }
+    wrap.appendChild(grid);
   } else {
     // Compound control: a slider and a typed number input bound to the same
     // value, so you can drag OR type an exact figure (e.g. match A and B).
@@ -370,7 +420,14 @@ function setUniforms(gl, locs, uniforms, time, W, H, vals) {
     else if (u.role === 'res3') gl.uniform3f(loc, W, H, 1);
     else {
       const v = (u.name in vals) ? vals[u.name] : u.value;  // live slider value, else baked
-      if (u.glType === 'float' || u.glType === 'int') gl.uniform1f(loc, Array.isArray(v) ? v[0] : v);
+      if (u.arrayLen) {
+        const flat = new Float32Array(v);  // a vec array (polygon): bind every element at once
+        if (u.glType === 'vec2') gl.uniform2fv(loc, flat);
+        else if (u.glType === 'vec3') gl.uniform3fv(loc, flat);
+        else if (u.glType === 'vec4') gl.uniform4fv(loc, flat);
+        else gl.uniform1fv(loc, flat);
+      }
+      else if (u.glType === 'float' || u.glType === 'int') gl.uniform1f(loc, Array.isArray(v) ? v[0] : v);
       else if (u.glType === 'vec2') gl.uniform2f(loc, v[0], v[1]);
       else if (u.glType === 'vec4') gl.uniform4f(loc, v[0], v[1], v[2], v[3]);
       else gl.uniform3f(loc, v[0], v[1], v[2]);
@@ -383,7 +440,12 @@ function makeSide(canvas, side, errPanel, vals) {
   let prog;
   try { prog = makeProgram(gl, side.fragSrc, errPanel); } catch { return null; }
   const locs = {};
-  for (const u of side.uniforms) locs[u.name] = gl.getUniformLocation(prog, u.name);
+  // Array uniforms (a polygon's vec2[N]) need the '[0]' form on some drivers;
+  // fall back to it so the array actually binds and live edits take.
+  for (const u of side.uniforms) {
+    locs[u.name] = gl.getUniformLocation(prog, u.name)
+      || (u.arrayLen ? gl.getUniformLocation(prog, u.name + '[0]') : null);
+  }
   const scratch = new Uint8Array(4);
   let meter = makeFbo(gl, 1280, Math.round(1280 * 9 / 16));
   return {
@@ -490,12 +552,27 @@ async function openInBrowser(file: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+  const raw = process.argv.slice(2);
+  const args: string[] = [];
+  let seedPath: string | null = null;
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] === '--seed') {
+      seedPath = raw[++i] ?? null;
+    } else if (!raw[i].startsWith('-')) {
+      args.push(raw[i]);
+    }
+  }
   if (args.length < 1 || args.length > 2) {
-    console.error('usage: bun run scripts/shader-view.ts <A> <B>');
+    console.error('usage: bun run scripts/shader-view.ts <A> <B> [--seed <a-b.json>]');
     console.error('       bun run scripts/shader-view.ts <shader>   # vs git HEAD');
+    console.error(
+      '  --seed: { "a": {uniform: value}, "b": {uniform: value} } merged over defaults',
+    );
     process.exit(2);
   }
+  const seed: Seed = seedPath
+    ? (JSON.parse(readFileSync(seedPath, 'utf8')) as Seed)
+    : { a: {}, b: {} };
 
   let a: Side;
   let b: Side;
@@ -526,7 +603,7 @@ async function main(): Promise<void> {
 
   const dir = mkdtempSync(join(tmpdir(), 'shader-view-'));
   const out = join(dir, 'shader-ab.html');
-  writeFileSync(out, html([a, b], FULLSCREEN_VERT, [costA, costB]));
+  writeFileSync(out, html([a, b], FULLSCREEN_VERT, [costA, costB], seed));
   console.log(`wrote ${out}`);
   if (costA && costB) {
     console.log(

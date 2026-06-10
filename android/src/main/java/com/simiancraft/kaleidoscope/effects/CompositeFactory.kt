@@ -553,7 +553,13 @@ private class CompositeProcessor(
                 2 -> GLES30.glUniform2fv(loc, 1, values, 0)
                 3 -> GLES30.glUniform3fv(loc, 1, values, 0)
                 4 -> GLES30.glUniform4fv(loc, 1, values, 0)
-                else -> Log.w(TAG, "uniform '$name' has unsupported length ${values.size}; skipping")
+                // An even length > 4 is a vec2 array (a polygon: flat [x0,y0, ...]).
+                else ->
+                    if (values.size % 2 == 0) {
+                        GLES30.glUniform2fv(loc, values.size / 2, values, 0)
+                    } else {
+                        Log.w(TAG, "uniform '$name' has unsupported length ${values.size}; skipping")
+                    }
             }
         }
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)

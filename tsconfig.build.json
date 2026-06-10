@@ -12,6 +12,7 @@
     "src/**/*",
     "web-driver/**/*.ts",
     "catalog/shaders/**/*.ts",
+    "catalog/shaders/**/*.tsx",
     "catalog/images/**/*.ts",
     "catalog/composites/**/*.ts",
     "catalog/composites/**/*.tsx"

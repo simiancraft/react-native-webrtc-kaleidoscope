@@ -126,7 +126,6 @@ const GENERATIVE_SHADERS = [
   'simianlights.frag',
   'anamorphic-lensflare.frag',
   'light-beams-and-motes.frag',
-  'light-shaft.frag',
   'corporate-blobs.frag',
 ] as const;
 

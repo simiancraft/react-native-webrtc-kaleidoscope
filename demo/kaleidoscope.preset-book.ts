@@ -47,7 +47,9 @@ import { wizardTowerNight } from 'react-native-webrtc-kaleidoscope/composites/wi
 import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower-night/controls';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
-import { BlurControls, LightBeamsControls, LightShaftControls, PlasmaControls } from './src/demo-controls';
+import { BlurForm } from 'react-native-webrtc-kaleidoscope/shaders/blur/form';
+import { LightBeamsAndMotesForm } from 'react-native-webrtc-kaleidoscope/shaders/light-beams-and-motes/form';
+import { PlasmaForm } from 'react-native-webrtc-kaleidoscope/shaders/plasma/form';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug/debug-resolutions';
 import { homeDark } from 'react-native-webrtc-kaleidoscope/images/home/home-dark';
@@ -68,7 +70,7 @@ export const presets = {
   'blur-low': {
     name: 'Low',
     taxonomy: ['Effects', 'Blur'],
-    controls: BlurControls,
+    controls: BlurForm,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 1.5 } },
       { id: 'you', shader: 'direct', target: 'subject' },
@@ -77,7 +79,7 @@ export const presets = {
   'blur-medium': {
     name: 'Medium',
     taxonomy: ['Effects', 'Blur'],
-    controls: BlurControls,
+    controls: BlurForm,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
       { id: 'you', shader: 'direct', target: 'subject' },
@@ -86,7 +88,7 @@ export const presets = {
   'blur-high': {
     name: 'High',
     taxonomy: ['Effects', 'Blur'],
-    controls: BlurControls,
+    controls: BlurForm,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
       { id: 'you', shader: 'direct', target: 'subject' },
@@ -189,7 +191,7 @@ export const presets = {
   'plasma-ocean': {
     name: 'Ocean',
     taxonomy: ['Shaders', 'Plasma'],
-    controls: PlasmaControls,
+    controls: PlasmaForm,
     layers: [
       {
         id: 'plasma',
@@ -202,7 +204,7 @@ export const presets = {
   'plasma-sunset': {
     name: 'Sunset',
     taxonomy: ['Shaders', 'Plasma'],
-    controls: PlasmaControls,
+    controls: PlasmaForm,
     layers: [
       {
         id: 'plasma',
@@ -215,7 +217,7 @@ export const presets = {
   'plasma-mint': {
     name: 'Mint',
     taxonomy: ['Shaders', 'Plasma'],
-    controls: PlasmaControls,
+    controls: PlasmaForm,
     layers: [
       {
         id: 'plasma',
@@ -228,7 +230,7 @@ export const presets = {
   'plasma-fast': {
     name: 'Fast',
     taxonomy: ['Shaders', 'Plasma'],
-    controls: PlasmaControls,
+    controls: PlasmaForm,
     layers: [
       {
         id: 'plasma',
@@ -241,35 +243,41 @@ export const presets = {
   nebula: { ...nebula, controls: NebulaControls },
   simianlights: { ...simianlights, controls: SimianlightsControls },
 
-  // --- Worlds: Interior. A still room + a volumetric light-shaft overlay aimed
-  // at the room's real light, to make a static interior feel alive. The two A/B
-  // entries are the same single beam done two ways -- the lean light-shaft vs the
-  // 3-beam shader toggled down to one -- for the on-device perf comparison. ---
+  // --- Worlds: Interior. A still room + a volumetric light-beams overlay (one
+  // beam, the other two off) aimed at the room's real light, to make a static
+  // interior feel alive. The `interior-ab-3beam` entry is the same shader with all
+  // three beams shown. ---
   'interior-home': {
     name: 'Home',
     taxonomy: ['Worlds', 'Interior'],
     thumbnail: homeLight,
-    controls: LightShaftControls,
+    controls: LightBeamsAndMotesForm,
     layers: [
       { id: 'home-light', shader: 'image', source: homeLight },
       { id: 'you', shader: 'direct', target: 'subject' },
       {
-        id: 'shaft',
-        shader: 'light-shaft',
+        id: 'beams',
+        shader: 'light-beams-and-motes',
         blend: 'additive',
         uniforms: {
-          uShaftColor: [1.0, 0.92, 0.78],
-          uShaftTopX: 0.12,
-          uShaftTopWidth: 0.22,
-          uShaftBottomX: 0.4,
-          uShaftBottomWidth: 0.55,
           uSpeed: 1,
-          uBeamAlpha: 0.22,
-          uMoteAlpha: 0.55,
-          uGlowSize: 3.2,
-          uBeamSoftness: 0.07,
+          uBeamSoftness: 0.03,
           uOverlayAlpha: 0.85,
-          uMoteCount: 40,
+          uBeam1On: 1,
+          uBeam1Color: [0.93, 0.68, 0.2],
+          uBeam1Alpha: 0.22,
+          uBeam1Poly: [-0.2, 1.05, -0.04, 0.96, -0.14, -0.19, 1.2, 0.03],
+          uBeam2On: 0,
+          uBeam2Color: [0.54, 1, 0.62],
+          uBeam2Alpha: 0.086,
+          uBeam2Poly: [0.45, 1.05, 0.57, 1.05, 0.33, 0, 0.73, 0],
+          uBeam3On: 0,
+          uBeam3Color: [0.55, 0.66, 1],
+          uBeam3Alpha: 0.104,
+          uBeam3Poly: [0.82, 1.05, 0.99, 1.05, 0.38, 0, 0.7, 0],
+          uMoteCount: 15,
+          uMoteAlpha: 1,
+          uGlowSize: 5.9,
         },
       },
     ],
@@ -278,27 +286,33 @@ export const presets = {
     name: 'Office',
     taxonomy: ['Worlds', 'Interior'],
     thumbnail: officeLight,
-    controls: LightShaftControls,
+    controls: LightBeamsAndMotesForm,
     layers: [
       { id: 'office-light', shader: 'image', source: officeLight },
       { id: 'you', shader: 'direct', target: 'subject' },
       {
-        id: 'shaft',
-        shader: 'light-shaft',
+        id: 'beams',
+        shader: 'light-beams-and-motes',
         blend: 'additive',
         uniforms: {
-          uShaftColor: [1.0, 0.95, 0.85],
-          uShaftTopX: 0.08,
-          uShaftTopWidth: 0.18,
-          uShaftBottomX: 0.32,
-          uShaftBottomWidth: 0.45,
           uSpeed: 1,
-          uBeamAlpha: 0.22,
-          uMoteAlpha: 0.55,
-          uGlowSize: 3.2,
-          uBeamSoftness: 0.07,
+          uBeamSoftness: 0.06,
           uOverlayAlpha: 0.85,
-          uMoteCount: 40,
+          uBeam1On: 1,
+          uBeam1Color: [1, 0.52, 0.37],
+          uBeam1Alpha: 0.22,
+          uBeam1Poly: [-0.2, 0.84, -0.1, 0.96, -0.12, -0.05, 0.65, -0.05],
+          uBeam2On: 0,
+          uBeam2Color: [0.54, 1, 0.62],
+          uBeam2Alpha: 0.086,
+          uBeam2Poly: [0.45, 1.05, 0.57, 1.05, 0.33, 0, 0.73, 0],
+          uBeam3On: 0,
+          uBeam3Color: [0.55, 0.66, 1],
+          uBeam3Alpha: 0.104,
+          uBeam3Poly: [0.82, 1.05, 0.99, 1.05, 0.38, 0, 0.7, 0],
+          uMoteCount: 13,
+          uMoteAlpha: 1,
+          uGlowSize: 1,
         },
       },
     ],
@@ -307,36 +321,7 @@ export const presets = {
     name: 'A/B 1-shaft',
     taxonomy: ['Worlds', 'Interior'],
     thumbnail: officeDark,
-    controls: LightShaftControls,
-    layers: [
-      { id: 'office-dark', shader: 'image', source: officeDark },
-      { id: 'you', shader: 'direct', target: 'subject' },
-      {
-        id: 'shaft',
-        shader: 'light-shaft',
-        blend: 'additive',
-        uniforms: {
-          uShaftColor: [1.0, 0.42, 0.32],
-          uShaftTopX: 0.095,
-          uShaftTopWidth: 0.15,
-          uShaftBottomX: 0.52,
-          uShaftBottomWidth: 0.32,
-          uSpeed: 1,
-          uBeamAlpha: 0.22,
-          uMoteAlpha: 0.55,
-          uGlowSize: 3.2,
-          uBeamSoftness: 0.055,
-          uOverlayAlpha: 0.85,
-          uMoteCount: 48,
-        },
-      },
-    ],
-  },
-  'interior-ab-3beam': {
-    name: 'A/B 3-beam',
-    taxonomy: ['Worlds', 'Interior'],
-    thumbnail: officeDark,
-    controls: LightBeamsControls,
+    controls: LightBeamsAndMotesForm,
     layers: [
       { id: 'office-dark', shader: 'image', source: officeDark },
       { id: 'you', shader: 'direct', target: 'subject' },
@@ -345,17 +330,59 @@ export const presets = {
         shader: 'light-beams-and-motes',
         blend: 'additive',
         uniforms: {
-          uColor: [1, 1, 1],
           uSpeed: 1,
-          uBeamAlpha: 0.22,
-          uMoteAlpha: 0.55,
-          uGlowSize: 3.2,
-          uBeamSoftness: 0.055,
+          uBeamSoftness: 0.045,
           uOverlayAlpha: 0.85,
           uBeam1On: 1,
+          uBeam1Color: [0.95, 0.79, 0.56],
+          uBeam1Alpha: 0.44,
+          uBeam1Poly: [0.44, 0.87, 0.56, 0.85, 0.21, 0, 0.8, 0],
           uBeam2On: 0,
+          uBeam2Color: [0.54, 1, 0.62],
+          uBeam2Alpha: 0.086,
+          uBeam2Poly: [0.45, 1.05, 0.57, 1.05, 0.33, 0, 0.73, 0],
           uBeam3On: 0,
+          uBeam3Color: [0.55, 0.66, 1],
+          uBeam3Alpha: 0.104,
+          uBeam3Poly: [0.82, 1.05, 0.99, 1.05, 0.38, 0, 0.7, 0],
+          uMoteCount: 16,
+          uMoteAlpha: 1.6,
+          uGlowSize: 3.2,
+        },
+      },
+    ],
+  },
+  'interior-ab-3beam': {
+    name: 'A/B 3-beam',
+    taxonomy: ['Worlds', 'Interior'],
+    thumbnail: officeDark,
+    controls: LightBeamsAndMotesForm,
+    layers: [
+      { id: 'office-dark', shader: 'image', source: officeDark },
+      { id: 'you', shader: 'direct', target: 'subject' },
+      {
+        id: 'beams',
+        shader: 'light-beams-and-motes',
+        blend: 'additive',
+        uniforms: {
+          uSpeed: 1,
+          uBeamSoftness: 0.045,
+          uOverlayAlpha: 0.85,
+          uBeam1On: 1,
+          uBeam1Color: [0.95, 0.79, 0.56],
+          uBeam1Alpha: 0.44,
+          uBeam1Poly: [0.44, 0.87, 0.56, 0.85, 0.21, 0, 0.8, 0],
+          uBeam2On: 0,
+          uBeam2Color: [0.54, 1, 0.62],
+          uBeam2Alpha: 0.086,
+          uBeam2Poly: [0.45, 1.05, 0.57, 1.05, 0.33, 0, 0.73, 0],
+          uBeam3On: 0,
+          uBeam3Color: [0.55, 0.66, 1],
+          uBeam3Alpha: 0.104,
+          uBeam3Poly: [0.82, 1.05, 0.99, 1.05, 0.38, 0, 0.7, 0],
           uMoteCount: 48,
+          uMoteAlpha: 1.6,
+          uGlowSize: 3.2,
         },
       },
     ],
