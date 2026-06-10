@@ -502,7 +502,8 @@
     "expo-module.config.json",
     "README.md",
     "LICENSE",
-    "NOTICE.md"
+    "NOTICE.md",
+    "llms.txt"
   ],
   "scripts": {
     "clean": "rm -rf dist",
