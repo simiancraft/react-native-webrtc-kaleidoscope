@@ -5,7 +5,7 @@
 //              glslangValidator -> spirv-opt -> spirv-cross. ShaderLibrary.swift
 //              compiles the .metalsrc at runtime.
 //   - Android: generate gpu/ShadersGenerated.kt (Kotlin const-val strings).
-//   - Web:     generate src/web/shaders.generated.ts (exported string consts).
+//   - Web:     generate web-driver/shaders.generated.ts (exported string consts).
 //
 // Only the CROSS-RUNTIME shared shaders are code-generated for Android/web (see
 // SHARED_CODEGEN). Platform-local shaders (Android's OES external-texture and
@@ -29,32 +29,108 @@
 //   sudo apt install -y glslang-tools spirv-tools spirv-cross   # Debian/Ubuntu/WSL
 //   brew install glslang spirv-tools spirv-cross                # macOS
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, parse } from 'node:path';
 import { $ } from 'bun';
 
 const REPO_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-const GLSL_DIR = join(REPO_ROOT, 'shaders');
+// Canonical shader source tree: folder-per-shader (`shaders/<name>/<name>.frag`)
+// plus the cross-pipeline shared files in `shaders/_shared/`. The codegen lists
+// and the transpile loop key on the bare filename (e.g. `composite-camera.frag`), so
+// the tree is flattened to a filename -> absolute-path map up front; basenames
+// are unique across the tree.
+const GLSL_DIR = join(REPO_ROOT, 'catalog', 'shaders');
+
+// Walk the shader tree and index every .frag/.vert by its basename. Throws if
+// two folders carry the same basename (the codegen lists address shaders by
+// basename, so a collision would make resolution ambiguous).
+function indexShaderSources(dir: string): Map<string, string> {
+  const byName = new Map<string, string>();
+  const walk = (current: string): void => {
+    for (const entry of readdirSync(current)) {
+      const full = join(current, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!entry.endsWith('.frag') && !entry.endsWith('.vert')) continue;
+      const existing = byName.get(entry);
+      if (existing) {
+        throw new Error(
+          `Duplicate shader basename '${entry}' at ${existing} and ${full}; basenames must be unique.`,
+        );
+      }
+      byName.set(entry, full);
+    }
+  };
+  walk(dir);
+  return byName;
+}
 const METAL_OUT_DIR = join(REPO_ROOT, 'ios/KaleidoscopeModule/shaders');
 const ANDROID_OUT = join(
   REPO_ROOT,
   'android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt',
 );
-const WEB_OUT = join(REPO_ROOT, 'src/web/shaders.generated.ts');
+const WEB_OUT = join(REPO_ROOT, 'web-driver/shaders.generated.ts');
 const TMP_DIR = join(REPO_ROOT, '.shader-tmp');
 
 // Code-generation targets, in deterministic emit order. iOS transpiles
 // everything in shaders/ regardless; these lists pick which shaders also get
-// code-generated into the Android Kotlin and web TS layers. They differ because
-// transform.frag is used by the native pipelines only — web reorients in
-// display space via canvas, so emitting its const to web would be dead code.
-const ANDROID_CODEGEN = [
+// code-generated into the Android Kotlin and web TS layers.
+//
+// Utility shaders differ per platform: transform.frag is native-only (web
+// reorients in display space via canvas, so its const would be dead code on
+// web). The generative set is SHARED: every generative is single-sourced into
+// both platforms, because the live per-platform consumers (Android
+// LayerShaders.GENERATIVE, web LAYER_SHADER_SOURCES) read the generated
+// registry directly.
+const UTILITY_ANDROID = [
   'passthrough.vert',
-  'composite.frag',
-  'blur.frag',
+  'composite-camera.frag',
+  'composite-blur.frag',
+  'composite-image.frag',
+  'composite-subject.frag',
+  'composite-masked.frag',
   'transform.frag',
 ] as const;
-const WEB_CODEGEN = ['passthrough.vert', 'composite.frag', 'blur.frag'] as const;
+const UTILITY_WEB = [
+  'passthrough.vert',
+  'composite-camera.frag',
+  'composite-blur.frag',
+  'composite-image.frag',
+  'composite-subject.frag',
+  'composite-masked.frag',
+] as const;
+
+// Generative background shaders: the ones the generic shader processor runs
+// (animated, no input sampling). This is the ONE list. Adding a generative
+// .frag here single-sources it into the Android GENERATIVE map, the web
+// SHADER_SOURCES registry, and iOS GENERATIVE.txt; the live per-platform
+// consumers read those, so no hand edit per platform is needed (plus the .frag
+// and its option contract). Utility shaders (blur, composite, transform) are
+// not generative and stay out.
+const GENERATIVE_SHADERS = [
+  'plasma.frag',
+  'clouds.frag',
+  'nebula.frag',
+  'godrays.frag',
+  'fireflies.frag',
+  'simianlights.frag',
+  'anamorphic-lensflare.frag',
+  'light-beams-and-motes.frag',
+  'corporate-blobs.frag',
+] as const;
+
+const ANDROID_CODEGEN = [...UTILITY_ANDROID, ...GENERATIVE_SHADERS] as const;
+const WEB_CODEGEN = [...UTILITY_WEB, ...GENERATIVE_SHADERS] as const;
 const ALL_CODEGEN = Array.from(new Set<string>([...ANDROID_CODEGEN, ...WEB_CODEGEN]));
 
 const REQUIRED_TOOLS = ['glslangValidator', 'spirv-val', 'spirv-opt', 'spirv-cross'] as const;
@@ -86,21 +162,23 @@ function stripToVersion(raw: string): string {
   return raw.replace(/^[\s\S]*?(#version)/, '$1');
 }
 
-// passthrough.vert -> PASSTHROUGH_VERT, composite.frag -> COMPOSITE_FRAG.
+// passthrough.vert -> PASSTHROUGH_VERT, composite-camera.frag ->
+// COMPOSITE_CAMERA_FRAG. Hyphens in the basename map to
+// underscores so the const stays a valid Kotlin/TS identifier; the transpiled
+// .metalsrc keeps the hyphenated filename.
 function constBase(filename: string): string {
   const { name, ext } = parse(filename);
   const stage = ext === '.vert' ? 'VERT' : 'FRAG';
-  return `${name.toUpperCase()}_${stage}`;
+  return `${name.toUpperCase().replace(/-/g, '_')}_${stage}`;
 }
 
-async function transpileOne(filename: string): Promise<void> {
+async function transpileOne(filename: string, inputPath: string): Promise<void> {
   const { name, ext } = parse(filename);
   const stage = ext === '.frag' ? 'frag' : ext === '.vert' ? 'vert' : null;
   if (!stage) {
     console.warn(`  skip: ${filename} (unknown extension ${ext})`);
     return;
   }
-  const inputPath = join(GLSL_DIR, filename);
   const preprocessedPath = join(TMP_DIR, filename);
   const spvPath = join(TMP_DIR, `${name}.spv`);
   const optSpvPath = join(TMP_DIR, `${name}.opt.spv`);
@@ -135,6 +213,10 @@ function emitAndroid(sources: Map<string, string>): void {
     return `  const val ${constBase(file)} = """${body}"""`;
   }).join('\n\n');
 
+  const generative = GENERATIVE_SHADERS.map(
+    (file) => `    "${parse(file).name}" to ${constBase(file)},`,
+  ).join('\n');
+
   const out = `// @generated by scripts/build-shaders.ts from shaders/. DO NOT EDIT.
 // Run \`bun run build:shaders\` to regenerate.
 //
@@ -146,6 +228,13 @@ package com.simiancraft.kaleidoscope.gpu
 
 internal object ShadersGenerated {
 ${consts}
+
+  // Generative background shaders, by name. The generic shader processor and
+  // directory-driven registration iterate this; adding a generative .frag adds
+  // an entry here automatically.
+  val GENERATIVE: Map<String, String> = mapOf(
+${generative}
+  )
 }
 `;
   writeFileSync(ANDROID_OUT, out);
@@ -163,10 +252,22 @@ function emitWeb(sources: Map<string, string>): void {
     return `export const ${constBase(file)}_SRC = \`${body}\`;`;
   }).join('\n\n');
 
+  const registry = GENERATIVE_SHADERS.map(
+    // Quote the key: hyphenated names (anamorphic-lensflare) are not valid bare
+    // object keys.
+    (file) => `  '${parse(file).name}': ${constBase(file)}_SRC,`,
+  ).join('\n');
+
   const out = `// @generated by scripts/build-shaders.ts from shaders/. DO NOT EDIT.
 // Run \`bun run build:shaders\` to regenerate.
 
 ${consts}
+
+// Generative background shaders, by name. The generic shader processor and the
+// dispatch iterate this; adding a generative .frag adds an entry here.
+export const SHADER_SOURCES: Readonly<Record<string, string>> = {
+${registry}
+} as const;
 `;
   writeFileSync(WEB_OUT, out);
   console.log(`  gen:  web      ->  ${WEB_OUT.replace(REPO_ROOT, '.')}`);
@@ -184,7 +285,8 @@ async function main(): Promise<void> {
   rmSync(TMP_DIR, { recursive: true, force: true });
   mkdirSync(TMP_DIR, { recursive: true });
 
-  const files = readdirSync(GLSL_DIR).filter((f) => f.endsWith('.frag') || f.endsWith('.vert'));
+  const sourceIndex = indexShaderSources(GLSL_DIR);
+  const files = Array.from(sourceIndex.keys());
   if (files.length === 0) {
     console.error(`No .frag or .vert files found under ${GLSL_DIR}`);
     process.exit(2);
@@ -194,7 +296,7 @@ async function main(): Promise<void> {
   console.log(`Transpiling ${files.length} shader(s) GLSL -> SPIR-V -> MSL`);
   for (const file of files) {
     try {
-      await transpileOne(file);
+      await transpileOne(file, sourceIndex.get(file) as string);
     } catch (err) {
       console.error(`  fail: ${file}`);
       console.error(err);
@@ -205,9 +307,9 @@ async function main(): Promise<void> {
   // 2. Android + web: code-generate the shared set.
   const sources = new Map<string, string>();
   for (const file of ALL_CODEGEN) {
-    const path = join(GLSL_DIR, file);
-    if (!existsSync(path)) {
-      console.error(`codegen lists ${file} but ${path} does not exist`);
+    const path = sourceIndex.get(file);
+    if (!path) {
+      console.error(`codegen lists ${file} but it was not found under ${GLSL_DIR}`);
       process.exit(2);
     }
     sources.set(file, stripToVersion(readFileSync(path, 'utf8')));
@@ -215,8 +317,17 @@ async function main(): Promise<void> {
   emitAndroid(sources);
   emitWeb(sources);
 
-  // 3. Stamp the iOS bundle with the shader list (PR-diff aid).
+  // 3. Stamp the iOS bundle with the shader list (PR-diff aid), and emit the
+  // generative-shader names so iOS registration is data-driven (reads this at
+  // runtime and registers one generic processor per name); the iOS analogue of
+  // the Android GENERATIVE map. Adding a generative .frag updates this list.
   writeFileSync(join(METAL_OUT_DIR, 'SHADERS.txt'), `${files.sort().join('\n')}\n`);
+  writeFileSync(
+    join(METAL_OUT_DIR, 'GENERATIVE.txt'),
+    `${GENERATIVE_SHADERS.map((f) => parse(f).name)
+      .sort()
+      .join('\n')}\n`,
+  );
 
   rmSync(TMP_DIR, { recursive: true, force: true });
   console.log('Done.');

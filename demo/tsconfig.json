@@ -1,18 +1,18 @@
 {
   "extends": "expo/tsconfig.base",
+  "//": "bundler resolution so the library's package.json `exports` map governs subpath resolution. The nested `images/<category>/<leaf>` and folder-per-item `composites/<name>` subpaths cannot be expressed as a single-star tsconfig path substitution (TS5062: at most one '*'), so they (and `ui`/`nativewind`) resolve through `exports` (types condition -> dist/.../*.d.ts); `check` builds dist before this typecheck runs. Only the bare package is pinned to source so the editor resolves the public API without a build.",
   "compilerOptions": {
     "strict": true,
+    "moduleResolution": "bundler",
     "paths": {
       "react-native-webrtc-kaleidoscope": [
         "../src/index"
-      ],
-      "react-native-webrtc-kaleidoscope/*": [
-        "../src/*"
       ]
     }
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    "nativewind-env.d.ts"
   ]
 }

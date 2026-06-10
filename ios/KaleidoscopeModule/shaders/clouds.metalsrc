@@ -1,0 +1,185 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float& uTime [[buffer(0)]], constant float& uCloudSpeed [[buffer(1)]], constant float& uCloudScale [[buffer(2)]], constant float& uCoverage [[buffer(3)]], constant float& uSoftness [[buffer(4)]], constant float2& uResolution [[buffer(5)]], constant float3& uSkyLowColor [[buffer(6)]], constant float3& uSkyHighColor [[buffer(7)]], constant float& uStepSize [[buffer(8)]], constant float3& uCloudDarkColor [[buffer(9)]], constant float3& uCloudLightColor [[buffer(10)]], constant float& uDensity [[buffer(11)]], constant float& uExposure [[buffer(12)]])
+{
+    main0_out out = {};
+    float2 _258 = in.vUv * uResolution;
+    float3 _277 = normalize(float3((_258 - (uResolution * 0.5)) / float2(uResolution.y), 1.5));
+    float _280 = _277.y;
+    int _864;
+    float _865;
+    float _877;
+    float3 _883;
+    _883 = float3(0.0);
+    _877 = 0.0;
+    _865 = fract(sin(dot(_258, float2(127.09999847412109375, 311.70001220703125))) * 43758.546875) * uStepSize;
+    _864 = 0;
+    float _385;
+    float _891;
+    float3 _898;
+    float3 _899;
+    float _900;
+    for (;;)
+    {
+        if (_864 < 48)
+        {
+            float3 _316 = float3(0.0, 1.2000000476837158203125, -4.0) + (_277 * _865);
+            bool _319 = _280 > 0.0;
+            bool _325;
+            if (_319)
+            {
+                _325 = _316.y >= 3.0;
+            }
+            else
+            {
+                _325 = _319;
+            }
+            if (_325)
+            {
+                _900 = _877;
+                _898 = _883;
+                break;
+            }
+            bool _331 = _280 < 0.0;
+            bool _337;
+            if (_331)
+            {
+                _337 = _316.y <= 0.0;
+            }
+            else
+            {
+                _337 = _331;
+            }
+            if (_337)
+            {
+                _900 = _877;
+                _898 = _883;
+                break;
+            }
+            float _872;
+            do
+            {
+                float _444 = uTime * uCloudSpeed;
+                float3 _451 = _316 + float3(_444, 0.0, _444 * 0.3499999940395355224609375);
+                float _453 = _451.y;
+                bool _454 = _453 <= 0.0;
+                bool _461;
+                if (!_454)
+                {
+                    _461 = _453 >= 3.0;
+                }
+                else
+                {
+                    _461 = _454;
+                }
+                if (_461)
+                {
+                    _872 = 0.0;
+                    break;
+                }
+                int _867;
+                float _868;
+                float _870;
+                float3 _871;
+                _871 = _451 * uCloudScale;
+                _870 = 0.5;
+                _868 = 0.0;
+                _867 = 0;
+                for (; _867 < 5; )
+                {
+                    float3 _527 = floor(_871);
+                    float3 _529 = fract(_871);
+                    float3 _537 = (_529 * _529) * (float3(3.0) - (_529 * 2.0));
+                    float3 _591 = fract((_527 * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _593 = _591.x;
+                    float _595 = _591.y;
+                    float _598 = _591.z;
+                    float3 _618 = fract(((_527 + float3(1.0, 0.0, 0.0)) * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _620 = _618.x;
+                    float _622 = _618.y;
+                    float _625 = _618.z;
+                    float _545 = _537.x;
+                    float3 _645 = fract(((_527 + float3(0.0, 1.0, 0.0)) * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _647 = _645.x;
+                    float _649 = _645.y;
+                    float _652 = _645.z;
+                    float3 _672 = fract(((_527 + float3(1.0, 1.0, 0.0)) * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _674 = _672.x;
+                    float _676 = _672.y;
+                    float _679 = _672.z;
+                    float _557 = _537.y;
+                    float3 _699 = fract(((_527 + float3(0.0, 0.0, 1.0)) * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _701 = _699.x;
+                    float _703 = _699.y;
+                    float _706 = _699.z;
+                    float3 _726 = fract(((_527 + float3(1.0, 0.0, 1.0)) * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _728 = _726.x;
+                    float _730 = _726.y;
+                    float _733 = _726.z;
+                    float3 _753 = fract(((_527 + float3(0.0, 1.0, 1.0)) * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _755 = _753.x;
+                    float _757 = _753.y;
+                    float _760 = _753.z;
+                    float3 _780 = fract(((_527 + float3(1.0)) * 0.31830990314483642578125) + float3(0.100000001490116119384765625)) * 17.0;
+                    float _782 = _780.x;
+                    float _784 = _780.y;
+                    float _787 = _780.z;
+                    float _502 = _870 * mix(mix(mix(fract(((_593 * _595) * _598) * ((_593 + _595) + _598)), fract(((_620 * _622) * _625) * ((_620 + _622) + _625)), _545), mix(fract(((_647 * _649) * _652) * ((_647 + _649) + _652)), fract(((_674 * _676) * _679) * ((_674 + _676) + _679)), _545), _557), mix(mix(fract(((_701 * _703) * _706) * ((_701 + _703) + _706)), fract(((_728 * _730) * _733) * ((_728 + _730) + _733)), _545), mix(fract(((_755 * _757) * _760) * ((_755 + _757) + _760)), fract(((_782 * _784) * _787) * ((_782 + _784) + _787)), _545), _557), _537.z);
+                    _871 *= 2.0299999713897705078125;
+                    _870 *= 0.5;
+                    _868 += _502;
+                    _867++;
+                    continue;
+                }
+                _872 = smoothstep(uCoverage, uCoverage + uSoftness, _868) * (smoothstep(0.0, 0.699999988079071044921875, _453) * smoothstep(3.0, 1.2000000476837158203125, _453));
+                break;
+            } while(false);
+            if (_872 > 0.00999999977648258209228515625)
+            {
+                float _368 = _872 * uDensity;
+                float _370 = 1.0 - _877;
+                _899 = _883 + ((mix(uCloudDarkColor, uCloudLightColor, float3(smoothstep(0.4000000059604644775390625, 2.7999999523162841796875, _316.y))) * _370) * _368);
+                _891 = _877 + (_370 * _368);
+            }
+            else
+            {
+                _899 = _883;
+                _891 = _877;
+            }
+            _385 = _865 + uStepSize;
+            if (_891 > 0.949999988079071044921875)
+            {
+                _900 = _891;
+                _898 = _899;
+                break;
+            }
+            _883 = _899;
+            _877 = _891;
+            _865 = _385;
+            _864++;
+            continue;
+        }
+        else
+        {
+            _900 = _877;
+            _898 = _883;
+            break;
+        }
+    }
+    out.oColor = float4(pow(mix(mix(uSkyLowColor, uSkyHighColor, float3(fast::clamp((_280 * 0.5) + 0.5, 0.0, 1.0))), _898, float3(_900)) * uExposure, float3(0.89999997615814208984375)), 1.0);
+    return out;
+}
+

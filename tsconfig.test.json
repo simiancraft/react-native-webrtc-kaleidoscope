@@ -4,6 +4,6 @@
     "noEmit": true,
     "rootDir": "."
   },
-  "include": ["src/**/*", "test/**/*"],
+  "include": ["src/**/*", "web-driver/**/*", "test/**/*"],
   "exclude": ["node_modules", "dist"]
 }

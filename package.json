@@ -1,7 +1,7 @@
 {
   "name": "react-native-webrtc-kaleidoscope",
   "version": "2.0.0",
-  "description": "Live video effects (mirror, blur, background replacement) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Working on web, Android, and iOS. Active development.",
+  "description": "Live video effects (blur, background replacement, generative backgrounds, flip/rotate) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Working on web, Android, and iOS. Active development.",
   "keywords": [
     "react-native",
     "react-native-webrtc",
@@ -13,7 +13,7 @@
     "video-frame-processor",
     "blur",
     "background-blur",
-    "mirror",
+    "background-replacement",
     "kaleidoscope"
   ],
   "author": "the-simian <info@simiancraft.com>",
@@ -29,117 +29,458 @@
   "type": "commonjs",
   "sideEffects": false,
   "main": "./src/index.ts",
-  "module": "./dist/index.js",
   "react-native": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/src/index.d.ts",
+  "browser": {
+    "./dist/src/components/preset-book-menu/resolve-image-uri.js": "./dist/src/components/preset-book-menu/resolve-image-uri.web.js"
+  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/src/index.d.ts",
       "react-native": "./src/index.ts",
-      "browser": "./dist/index.web.js",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "browser": "./dist/src/index.web.js",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./preset-book-menu": {
+      "types": "./dist/src/components/preset-book-menu/index.d.ts",
+      "react-native": "./src/components/preset-book-menu/index.tsx",
+      "browser": "./dist/src/components/preset-book-menu/index.js",
+      "import": "./dist/src/components/preset-book-menu/index.js",
+      "default": "./dist/src/components/preset-book-menu/index.js"
+    },
+    "./preset-control-panel": {
+      "types": "./dist/src/components/preset-control-panel/index.d.ts",
+      "react-native": "./src/components/preset-control-panel/index.ts",
+      "browser": "./dist/src/components/preset-control-panel/index.js",
+      "import": "./dist/src/components/preset-control-panel/index.js",
+      "default": "./dist/src/components/preset-control-panel/index.js"
+    },
+    "./nativewind": {
+      "types": "./dist/src/nativewind.d.ts",
+      "react-native": "./src/nativewind.ts",
+      "import": "./dist/src/nativewind.js",
+      "default": "./dist/src/nativewind.js"
     },
     "./livekit": {
-      "types": "./dist/livekit.d.ts",
-      "browser": "./dist/livekit.js",
-      "import": "./dist/livekit.js",
-      "default": "./dist/livekit.js"
+      "types": "./dist/src/livekit.d.ts",
+      "browser": "./dist/src/livekit.js",
+      "import": "./dist/src/livekit.js",
+      "default": "./dist/src/livekit.js"
     },
-    "./backgrounds": {
-      "types": "./dist/backgrounds/index.d.ts",
-      "react-native": "./src/backgrounds/index.ts",
-      "import": "./dist/backgrounds/index.js",
-      "default": "./dist/backgrounds/index.js"
+    "./images": {
+      "types": "./dist/catalog/images/index.d.ts",
+      "react-native": "./catalog/images/index.ts",
+      "import": "./dist/catalog/images/index.js",
+      "default": "./dist/catalog/images/index.js"
     },
-    "./backgrounds/debug-resolutions": {
-      "types": "./dist/backgrounds/debug-resolutions.d.ts",
-      "react-native": "./src/backgrounds/debug-resolutions.ts",
-      "browser": "./dist/backgrounds/debug-resolutions.web.js",
-      "import": "./dist/backgrounds/debug-resolutions.js",
-      "default": "./dist/backgrounds/debug-resolutions.js"
+    "./images/debug/debug-resolutions": {
+      "types": "./dist/catalog/images/debug/debug-resolutions.d.ts",
+      "react-native": "./catalog/images/debug/debug-resolutions.ts",
+      "browser": "./dist/catalog/images/debug/debug-resolutions.web.js",
+      "import": "./dist/catalog/images/debug/debug-resolutions.js",
+      "default": "./dist/catalog/images/debug/debug-resolutions.js"
     },
-    "./backgrounds/dark-office": {
-      "types": "./dist/backgrounds/dark-office.d.ts",
-      "react-native": "./src/backgrounds/dark-office.ts",
-      "browser": "./dist/backgrounds/dark-office.web.js",
-      "import": "./dist/backgrounds/dark-office.js",
-      "default": "./dist/backgrounds/dark-office.js"
+    "./images/office/office-dark": {
+      "types": "./dist/catalog/images/office/office-dark.d.ts",
+      "react-native": "./catalog/images/office/office-dark.ts",
+      "browser": "./dist/catalog/images/office/office-dark.web.js",
+      "import": "./dist/catalog/images/office/office-dark.js",
+      "default": "./dist/catalog/images/office/office-dark.js"
     },
-    "./backgrounds/light-office": {
-      "types": "./dist/backgrounds/light-office.d.ts",
-      "react-native": "./src/backgrounds/light-office.ts",
-      "browser": "./dist/backgrounds/light-office.web.js",
-      "import": "./dist/backgrounds/light-office.js",
-      "default": "./dist/backgrounds/light-office.js"
+    "./images/office/office-light": {
+      "types": "./dist/catalog/images/office/office-light.d.ts",
+      "react-native": "./catalog/images/office/office-light.ts",
+      "browser": "./dist/catalog/images/office/office-light.web.js",
+      "import": "./dist/catalog/images/office/office-light.js",
+      "default": "./dist/catalog/images/office/office-light.js"
     },
-    "./backgrounds/home-light": {
-      "types": "./dist/backgrounds/home-light.d.ts",
-      "react-native": "./src/backgrounds/home-light.ts",
-      "browser": "./dist/backgrounds/home-light.web.js",
-      "import": "./dist/backgrounds/home-light.js",
-      "default": "./dist/backgrounds/home-light.js"
+    "./images/home/home-dark": {
+      "types": "./dist/catalog/images/home/home-dark.d.ts",
+      "react-native": "./catalog/images/home/home-dark.ts",
+      "browser": "./dist/catalog/images/home/home-dark.web.js",
+      "import": "./dist/catalog/images/home/home-dark.js",
+      "default": "./dist/catalog/images/home/home-dark.js"
     },
-    "./backgrounds/home-dark": {
-      "types": "./dist/backgrounds/home-dark.d.ts",
-      "react-native": "./src/backgrounds/home-dark.ts",
-      "browser": "./dist/backgrounds/home-dark.web.js",
-      "import": "./dist/backgrounds/home-dark.js",
-      "default": "./dist/backgrounds/home-dark.js"
+    "./images/home/home-light": {
+      "types": "./dist/catalog/images/home/home-light.d.ts",
+      "react-native": "./catalog/images/home/home-light.ts",
+      "browser": "./dist/catalog/images/home/home-light.web.js",
+      "import": "./dist/catalog/images/home/home-light.js",
+      "default": "./dist/catalog/images/home/home-light.js"
     },
-    "./backgrounds/nature-light": {
-      "types": "./dist/backgrounds/nature-light.d.ts",
-      "react-native": "./src/backgrounds/nature-light.ts",
-      "browser": "./dist/backgrounds/nature-light.web.js",
-      "import": "./dist/backgrounds/nature-light.js",
-      "default": "./dist/backgrounds/nature-light.js"
+    "./images/nature/landscape-dark": {
+      "types": "./dist/catalog/images/nature/landscape-dark.d.ts",
+      "react-native": "./catalog/images/nature/landscape-dark.ts",
+      "browser": "./dist/catalog/images/nature/landscape-dark.web.js",
+      "import": "./dist/catalog/images/nature/landscape-dark.js",
+      "default": "./dist/catalog/images/nature/landscape-dark.js"
     },
-    "./backgrounds/nature-dark": {
-      "types": "./dist/backgrounds/nature-dark.d.ts",
-      "react-native": "./src/backgrounds/nature-dark.ts",
-      "browser": "./dist/backgrounds/nature-dark.web.js",
-      "import": "./dist/backgrounds/nature-dark.js",
-      "default": "./dist/backgrounds/nature-dark.js"
+    "./images/nature/landscape-light": {
+      "types": "./dist/catalog/images/nature/landscape-light.d.ts",
+      "react-native": "./catalog/images/nature/landscape-light.ts",
+      "browser": "./dist/catalog/images/nature/landscape-light.web.js",
+      "import": "./dist/catalog/images/nature/landscape-light.js",
+      "default": "./dist/catalog/images/nature/landscape-light.js"
     },
-    "./backgrounds/stylized-light": {
-      "types": "./dist/backgrounds/stylized-light.d.ts",
-      "react-native": "./src/backgrounds/stylized-light.ts",
-      "browser": "./dist/backgrounds/stylized-light.web.js",
-      "import": "./dist/backgrounds/stylized-light.js",
-      "default": "./dist/backgrounds/stylized-light.js"
+    "./images/sci-fi/sci-fi-light": {
+      "types": "./dist/catalog/images/sci-fi/sci-fi-light.d.ts",
+      "react-native": "./catalog/images/sci-fi/sci-fi-light.ts",
+      "browser": "./dist/catalog/images/sci-fi/sci-fi-light.web.js",
+      "import": "./dist/catalog/images/sci-fi/sci-fi-light.js",
+      "default": "./dist/catalog/images/sci-fi/sci-fi-light.js"
     },
-    "./backgrounds/stylized-dark": {
-      "types": "./dist/backgrounds/stylized-dark.d.ts",
-      "react-native": "./src/backgrounds/stylized-dark.ts",
-      "browser": "./dist/backgrounds/stylized-dark.web.js",
-      "import": "./dist/backgrounds/stylized-dark.js",
-      "default": "./dist/backgrounds/stylized-dark.js"
+    "./images/underwater/oceanscape-dark": {
+      "types": "./dist/catalog/images/underwater/oceanscape-dark.d.ts",
+      "react-native": "./catalog/images/underwater/oceanscape-dark.ts",
+      "browser": "./dist/catalog/images/underwater/oceanscape-dark.web.js",
+      "import": "./dist/catalog/images/underwater/oceanscape-dark.js",
+      "default": "./dist/catalog/images/underwater/oceanscape-dark.js"
     },
-    "./backgrounds/simiancraft-light": {
-      "types": "./dist/backgrounds/simiancraft-light.d.ts",
-      "react-native": "./src/backgrounds/simiancraft-light.ts",
-      "browser": "./dist/backgrounds/simiancraft-light.web.js",
-      "import": "./dist/backgrounds/simiancraft-light.js",
-      "default": "./dist/backgrounds/simiancraft-light.js"
+    "./images/simiancraft/simiancraft-light": {
+      "types": "./dist/catalog/images/simiancraft/simiancraft-light.d.ts",
+      "react-native": "./catalog/images/simiancraft/simiancraft-light.ts",
+      "browser": "./dist/catalog/images/simiancraft/simiancraft-light.web.js",
+      "import": "./dist/catalog/images/simiancraft/simiancraft-light.js",
+      "default": "./dist/catalog/images/simiancraft/simiancraft-light.js"
     },
-    "./backgrounds/simiancraft-dark": {
-      "types": "./dist/backgrounds/simiancraft-dark.d.ts",
-      "react-native": "./src/backgrounds/simiancraft-dark.ts",
-      "browser": "./dist/backgrounds/simiancraft-dark.web.js",
-      "import": "./dist/backgrounds/simiancraft-dark.js",
-      "default": "./dist/backgrounds/simiancraft-dark.js"
+    "./images/simiancraft/simiancraft-dark": {
+      "types": "./dist/catalog/images/simiancraft/simiancraft-dark.d.ts",
+      "react-native": "./catalog/images/simiancraft/simiancraft-dark.ts",
+      "browser": "./dist/catalog/images/simiancraft/simiancraft-dark.web.js",
+      "import": "./dist/catalog/images/simiancraft/simiancraft-dark.js",
+      "default": "./dist/catalog/images/simiancraft/simiancraft-dark.js"
     },
-    "./backgrounds/debug-resolutions.webp": "./src/backgrounds/debug-resolutions.webp",
-    "./backgrounds/dark-office.webp": "./src/backgrounds/dark-office.webp",
-    "./backgrounds/light-office.webp": "./src/backgrounds/light-office.webp",
-    "./backgrounds/home-light.webp": "./src/backgrounds/home-light.webp",
-    "./backgrounds/home-dark.webp": "./src/backgrounds/home-dark.webp",
-    "./backgrounds/nature-light.webp": "./src/backgrounds/nature-light.webp",
-    "./backgrounds/nature-dark.webp": "./src/backgrounds/nature-dark.webp",
-    "./backgrounds/stylized-light.webp": "./src/backgrounds/stylized-light.webp",
-    "./backgrounds/stylized-dark.webp": "./src/backgrounds/stylized-dark.webp",
-    "./backgrounds/simiancraft-light.webp": "./src/backgrounds/simiancraft-light.webp",
-    "./backgrounds/simiancraft-dark.webp": "./src/backgrounds/simiancraft-dark.webp",
+    "./images/simiancraft/simiancraft-light-transparency": {
+      "types": "./dist/catalog/images/simiancraft/simiancraft-light-transparency.d.ts",
+      "react-native": "./catalog/images/simiancraft/simiancraft-light-transparency.ts",
+      "browser": "./dist/catalog/images/simiancraft/simiancraft-light-transparency.web.js",
+      "import": "./dist/catalog/images/simiancraft/simiancraft-light-transparency.js",
+      "default": "./dist/catalog/images/simiancraft/simiancraft-light-transparency.js"
+    },
+    "./images/simiancraft/simiancraft-dark-transparency": {
+      "types": "./dist/catalog/images/simiancraft/simiancraft-dark-transparency.d.ts",
+      "react-native": "./catalog/images/simiancraft/simiancraft-dark-transparency.ts",
+      "browser": "./dist/catalog/images/simiancraft/simiancraft-dark-transparency.web.js",
+      "import": "./dist/catalog/images/simiancraft/simiancraft-dark-transparency.js",
+      "default": "./dist/catalog/images/simiancraft/simiancraft-dark-transparency.js"
+    },
+    "./images/corporate/corporate-logo": {
+      "types": "./dist/catalog/images/corporate/corporate-logo.d.ts",
+      "react-native": "./catalog/images/corporate/corporate-logo.ts",
+      "browser": "./dist/catalog/images/corporate/corporate-logo.web.js",
+      "import": "./dist/catalog/images/corporate/corporate-logo.js",
+      "default": "./dist/catalog/images/corporate/corporate-logo.js"
+    },
+    "./images/fairy-caves/grotto": {
+      "types": "./dist/catalog/images/fairy-caves/grotto.d.ts",
+      "react-native": "./catalog/images/fairy-caves/grotto.ts",
+      "browser": "./dist/catalog/images/fairy-caves/grotto.web.js",
+      "import": "./dist/catalog/images/fairy-caves/grotto.js",
+      "default": "./dist/catalog/images/fairy-caves/grotto.js"
+    },
+    "./images/fairy-caves/hollow": {
+      "types": "./dist/catalog/images/fairy-caves/hollow.d.ts",
+      "react-native": "./catalog/images/fairy-caves/hollow.ts",
+      "browser": "./dist/catalog/images/fairy-caves/hollow.web.js",
+      "import": "./dist/catalog/images/fairy-caves/hollow.js",
+      "default": "./dist/catalog/images/fairy-caves/hollow.js"
+    },
+    "./images/fairy-caves/treehouse": {
+      "types": "./dist/catalog/images/fairy-caves/treehouse.d.ts",
+      "react-native": "./catalog/images/fairy-caves/treehouse.ts",
+      "browser": "./dist/catalog/images/fairy-caves/treehouse.web.js",
+      "import": "./dist/catalog/images/fairy-caves/treehouse.js",
+      "default": "./dist/catalog/images/fairy-caves/treehouse.js"
+    },
+    "./images/fairy-caves/treehouse-2": {
+      "types": "./dist/catalog/images/fairy-caves/treehouse-2.d.ts",
+      "react-native": "./catalog/images/fairy-caves/treehouse-2.ts",
+      "browser": "./dist/catalog/images/fairy-caves/treehouse-2.web.js",
+      "import": "./dist/catalog/images/fairy-caves/treehouse-2.js",
+      "default": "./dist/catalog/images/fairy-caves/treehouse-2.js"
+    },
+    "./images/fairy-caves/treehouse-3": {
+      "types": "./dist/catalog/images/fairy-caves/treehouse-3.d.ts",
+      "react-native": "./catalog/images/fairy-caves/treehouse-3.ts",
+      "browser": "./dist/catalog/images/fairy-caves/treehouse-3.web.js",
+      "import": "./dist/catalog/images/fairy-caves/treehouse-3.js",
+      "default": "./dist/catalog/images/fairy-caves/treehouse-3.js"
+    },
+    "./images/spaceship/observation-deck": {
+      "types": "./dist/catalog/images/spaceship/observation-deck.d.ts",
+      "react-native": "./catalog/images/spaceship/observation-deck.ts",
+      "browser": "./dist/catalog/images/spaceship/observation-deck.web.js",
+      "import": "./dist/catalog/images/spaceship/observation-deck.js",
+      "default": "./dist/catalog/images/spaceship/observation-deck.js"
+    },
+    "./images/wizard-tower/wizard-tower-1": {
+      "types": "./dist/catalog/images/wizard-tower/wizard-tower-1.d.ts",
+      "react-native": "./catalog/images/wizard-tower/wizard-tower-1.ts",
+      "browser": "./dist/catalog/images/wizard-tower/wizard-tower-1.web.js",
+      "import": "./dist/catalog/images/wizard-tower/wizard-tower-1.js",
+      "default": "./dist/catalog/images/wizard-tower/wizard-tower-1.js"
+    },
+    "./images/wizard-tower/wizard-tower-2": {
+      "types": "./dist/catalog/images/wizard-tower/wizard-tower-2.d.ts",
+      "react-native": "./catalog/images/wizard-tower/wizard-tower-2.ts",
+      "browser": "./dist/catalog/images/wizard-tower/wizard-tower-2.web.js",
+      "import": "./dist/catalog/images/wizard-tower/wizard-tower-2.js",
+      "default": "./dist/catalog/images/wizard-tower/wizard-tower-2.js"
+    },
+    "./images/wizard-tower/wizard-tower-night": {
+      "types": "./dist/catalog/images/wizard-tower/wizard-tower-night.d.ts",
+      "react-native": "./catalog/images/wizard-tower/wizard-tower-night.ts",
+      "browser": "./dist/catalog/images/wizard-tower/wizard-tower-night.web.js",
+      "import": "./dist/catalog/images/wizard-tower/wizard-tower-night.js",
+      "default": "./dist/catalog/images/wizard-tower/wizard-tower-night.js"
+    },
+    "./images/debug/debug-resolutions.webp": "./catalog/images/debug/debug-resolutions.webp",
+    "./images/office/office-dark.webp": "./catalog/images/office/office-dark.webp",
+    "./images/office/office-light.webp": "./catalog/images/office/office-light.webp",
+    "./images/home/home-dark.webp": "./catalog/images/home/home-dark.webp",
+    "./images/home/home-light.webp": "./catalog/images/home/home-light.webp",
+    "./images/nature/landscape-dark.webp": "./catalog/images/nature/landscape-dark.webp",
+    "./images/nature/landscape-light.webp": "./catalog/images/nature/landscape-light.webp",
+    "./images/sci-fi/sci-fi-light.webp": "./catalog/images/sci-fi/sci-fi-light.webp",
+    "./images/underwater/oceanscape-dark.webp": "./catalog/images/underwater/oceanscape-dark.webp",
+    "./images/simiancraft/simiancraft-light.webp": "./catalog/images/simiancraft/simiancraft-light.webp",
+    "./images/simiancraft/simiancraft-dark.webp": "./catalog/images/simiancraft/simiancraft-dark.webp",
+    "./images/simiancraft/simiancraft-light-transparency.webp": "./catalog/images/simiancraft/simiancraft-light-transparency.webp",
+    "./images/simiancraft/simiancraft-dark-transparency.webp": "./catalog/images/simiancraft/simiancraft-dark-transparency.webp",
+    "./images/corporate/corporate-logo.webp": "./catalog/images/corporate/corporate-logo.webp",
+    "./images/fairy-caves/grotto.webp": "./catalog/images/fairy-caves/grotto.webp",
+    "./images/fairy-caves/hollow.webp": "./catalog/images/fairy-caves/hollow.webp",
+    "./images/fairy-caves/treehouse.webp": "./catalog/images/fairy-caves/treehouse.webp",
+    "./images/fairy-caves/treehouse-2.webp": "./catalog/images/fairy-caves/treehouse-2.webp",
+    "./images/fairy-caves/treehouse-3.webp": "./catalog/images/fairy-caves/treehouse-3.webp",
+    "./images/spaceship/observation-deck.webp": "./catalog/images/spaceship/observation-deck.webp",
+    "./images/wizard-tower/wizard-tower-1.webp": "./catalog/images/wizard-tower/wizard-tower-1.webp",
+    "./images/wizard-tower/wizard-tower-2.webp": "./catalog/images/wizard-tower/wizard-tower-2.webp",
+    "./images/wizard-tower/wizard-tower-night.webp": "./catalog/images/wizard-tower/wizard-tower-night.webp",
+    "./composites/wizard-tower": {
+      "types": "./dist/catalog/composites/wizard-tower/wizard-tower.d.ts",
+      "react-native": "./catalog/composites/wizard-tower/wizard-tower.ts",
+      "browser": "./dist/catalog/composites/wizard-tower/wizard-tower.web.js",
+      "import": "./dist/catalog/composites/wizard-tower/wizard-tower.js",
+      "default": "./dist/catalog/composites/wizard-tower/wizard-tower.js"
+    },
+    "./composites/wizard-tower-night": {
+      "types": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.d.ts",
+      "react-native": "./catalog/composites/wizard-tower-night/wizard-tower-night.ts",
+      "browser": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.web.js",
+      "import": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.js",
+      "default": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.js"
+    },
+    "./composites/fairy-grotto": {
+      "types": "./dist/catalog/composites/fairy-grotto/fairy-grotto.d.ts",
+      "react-native": "./catalog/composites/fairy-grotto/fairy-grotto.ts",
+      "browser": "./dist/catalog/composites/fairy-grotto/fairy-grotto.web.js",
+      "import": "./dist/catalog/composites/fairy-grotto/fairy-grotto.js",
+      "default": "./dist/catalog/composites/fairy-grotto/fairy-grotto.js"
+    },
+    "./composites/fairy-hollow": {
+      "types": "./dist/catalog/composites/fairy-hollow/fairy-hollow.d.ts",
+      "react-native": "./catalog/composites/fairy-hollow/fairy-hollow.ts",
+      "browser": "./dist/catalog/composites/fairy-hollow/fairy-hollow.web.js",
+      "import": "./dist/catalog/composites/fairy-hollow/fairy-hollow.js",
+      "default": "./dist/catalog/composites/fairy-hollow/fairy-hollow.js"
+    },
+    "./composites/observation-deck": {
+      "types": "./dist/catalog/composites/observation-deck/observation-deck.d.ts",
+      "react-native": "./catalog/composites/observation-deck/observation-deck.ts",
+      "browser": "./dist/catalog/composites/observation-deck/observation-deck.web.js",
+      "import": "./dist/catalog/composites/observation-deck/observation-deck.js",
+      "default": "./dist/catalog/composites/observation-deck/observation-deck.js"
+    },
+    "./composites/fairy-cave": {
+      "types": "./dist/catalog/composites/fairy-cave/fairy-cave.d.ts",
+      "react-native": "./catalog/composites/fairy-cave/fairy-cave.ts",
+      "browser": "./dist/catalog/composites/fairy-cave/fairy-cave.web.js",
+      "import": "./dist/catalog/composites/fairy-cave/fairy-cave.js",
+      "default": "./dist/catalog/composites/fairy-cave/fairy-cave.js"
+    },
+    "./composites/underwater": {
+      "types": "./dist/catalog/composites/underwater/underwater.d.ts",
+      "react-native": "./catalog/composites/underwater/underwater.ts",
+      "browser": "./dist/catalog/composites/underwater/underwater.web.js",
+      "import": "./dist/catalog/composites/underwater/underwater.js",
+      "default": "./dist/catalog/composites/underwater/underwater.js"
+    },
+    "./composites/nebula": {
+      "types": "./dist/catalog/composites/nebula/nebula.d.ts",
+      "react-native": "./catalog/composites/nebula/nebula.ts",
+      "browser": "./dist/catalog/composites/nebula/nebula.web.js",
+      "import": "./dist/catalog/composites/nebula/nebula.js",
+      "default": "./dist/catalog/composites/nebula/nebula.js"
+    },
+    "./composites/simianlights": {
+      "types": "./dist/catalog/composites/simianlights/simianlights.d.ts",
+      "react-native": "./catalog/composites/simianlights/simianlights.ts",
+      "browser": "./dist/catalog/composites/simianlights/simianlights.web.js",
+      "import": "./dist/catalog/composites/simianlights/simianlights.js",
+      "default": "./dist/catalog/composites/simianlights/simianlights.js"
+    },
+    "./composites/clouds": {
+      "types": "./dist/catalog/composites/clouds/clouds.d.ts",
+      "react-native": "./catalog/composites/clouds/clouds.ts",
+      "import": "./dist/catalog/composites/clouds/clouds.js",
+      "default": "./dist/catalog/composites/clouds/clouds.js"
+    },
+    "./composites/corporate-blobs": {
+      "types": "./dist/catalog/composites/corporate-blobs/corporate-blobs.d.ts",
+      "react-native": "./catalog/composites/corporate-blobs/corporate-blobs.ts",
+      "browser": "./dist/catalog/composites/corporate-blobs/corporate-blobs.web.js",
+      "import": "./dist/catalog/composites/corporate-blobs/corporate-blobs.js",
+      "default": "./dist/catalog/composites/corporate-blobs/corporate-blobs.js"
+    },
+    "./composites/wizard-tower/controls": {
+      "types": "./dist/catalog/composites/wizard-tower/wizard-tower.controls.d.ts",
+      "react-native": "./catalog/composites/wizard-tower/wizard-tower.controls.tsx",
+      "browser": "./dist/catalog/composites/wizard-tower/wizard-tower.controls.js",
+      "import": "./dist/catalog/composites/wizard-tower/wizard-tower.controls.js",
+      "default": "./dist/catalog/composites/wizard-tower/wizard-tower.controls.js"
+    },
+    "./composites/wizard-tower-night/controls": {
+      "types": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.controls.d.ts",
+      "react-native": "./catalog/composites/wizard-tower-night/wizard-tower-night.controls.tsx",
+      "browser": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.controls.js",
+      "import": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.controls.js",
+      "default": "./dist/catalog/composites/wizard-tower-night/wizard-tower-night.controls.js"
+    },
+    "./composites/fairy-grotto/controls": {
+      "types": "./dist/catalog/composites/fairy-grotto/fairy-grotto.controls.d.ts",
+      "react-native": "./catalog/composites/fairy-grotto/fairy-grotto.controls.tsx",
+      "browser": "./dist/catalog/composites/fairy-grotto/fairy-grotto.controls.js",
+      "import": "./dist/catalog/composites/fairy-grotto/fairy-grotto.controls.js",
+      "default": "./dist/catalog/composites/fairy-grotto/fairy-grotto.controls.js"
+    },
+    "./composites/fairy-hollow/controls": {
+      "types": "./dist/catalog/composites/fairy-hollow/fairy-hollow.controls.d.ts",
+      "react-native": "./catalog/composites/fairy-hollow/fairy-hollow.controls.tsx",
+      "browser": "./dist/catalog/composites/fairy-hollow/fairy-hollow.controls.js",
+      "import": "./dist/catalog/composites/fairy-hollow/fairy-hollow.controls.js",
+      "default": "./dist/catalog/composites/fairy-hollow/fairy-hollow.controls.js"
+    },
+    "./composites/clouds/controls": {
+      "types": "./dist/catalog/composites/clouds/clouds.controls.d.ts",
+      "react-native": "./catalog/composites/clouds/clouds.controls.tsx",
+      "browser": "./dist/catalog/composites/clouds/clouds.controls.js",
+      "import": "./dist/catalog/composites/clouds/clouds.controls.js",
+      "default": "./dist/catalog/composites/clouds/clouds.controls.js"
+    },
+    "./composites/corporate-blobs/controls": {
+      "types": "./dist/catalog/composites/corporate-blobs/corporate-blobs.controls.d.ts",
+      "react-native": "./catalog/composites/corporate-blobs/corporate-blobs.controls.tsx",
+      "browser": "./dist/catalog/composites/corporate-blobs/corporate-blobs.controls.js",
+      "import": "./dist/catalog/composites/corporate-blobs/corporate-blobs.controls.js",
+      "default": "./dist/catalog/composites/corporate-blobs/corporate-blobs.controls.js"
+    },
+    "./composites/fairy-cave/controls": {
+      "types": "./dist/catalog/composites/fairy-cave/fairy-cave.controls.d.ts",
+      "react-native": "./catalog/composites/fairy-cave/fairy-cave.controls.tsx",
+      "browser": "./dist/catalog/composites/fairy-cave/fairy-cave.controls.js",
+      "import": "./dist/catalog/composites/fairy-cave/fairy-cave.controls.js",
+      "default": "./dist/catalog/composites/fairy-cave/fairy-cave.controls.js"
+    },
+    "./composites/nebula/controls": {
+      "types": "./dist/catalog/composites/nebula/nebula.controls.d.ts",
+      "react-native": "./catalog/composites/nebula/nebula.controls.tsx",
+      "browser": "./dist/catalog/composites/nebula/nebula.controls.js",
+      "import": "./dist/catalog/composites/nebula/nebula.controls.js",
+      "default": "./dist/catalog/composites/nebula/nebula.controls.js"
+    },
+    "./composites/observation-deck/controls": {
+      "types": "./dist/catalog/composites/observation-deck/observation-deck.controls.d.ts",
+      "react-native": "./catalog/composites/observation-deck/observation-deck.controls.tsx",
+      "browser": "./dist/catalog/composites/observation-deck/observation-deck.controls.js",
+      "import": "./dist/catalog/composites/observation-deck/observation-deck.controls.js",
+      "default": "./dist/catalog/composites/observation-deck/observation-deck.controls.js"
+    },
+    "./composites/simianlights/controls": {
+      "types": "./dist/catalog/composites/simianlights/simianlights.controls.d.ts",
+      "react-native": "./catalog/composites/simianlights/simianlights.controls.tsx",
+      "browser": "./dist/catalog/composites/simianlights/simianlights.controls.js",
+      "import": "./dist/catalog/composites/simianlights/simianlights.controls.js",
+      "default": "./dist/catalog/composites/simianlights/simianlights.controls.js"
+    },
+    "./composites/underwater/controls": {
+      "types": "./dist/catalog/composites/underwater/underwater.controls.d.ts",
+      "react-native": "./catalog/composites/underwater/underwater.controls.tsx",
+      "browser": "./dist/catalog/composites/underwater/underwater.controls.js",
+      "import": "./dist/catalog/composites/underwater/underwater.controls.js",
+      "default": "./dist/catalog/composites/underwater/underwater.controls.js"
+    },
+    "./shaders/light-beams-and-motes/form": {
+      "types": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.d.ts",
+      "react-native": "./catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.tsx",
+      "browser": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.js",
+      "import": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.js",
+      "default": "./dist/catalog/shaders/light-beams-and-motes/light-beams-and-motes.form.js"
+    },
+    "./shaders/plasma/form": {
+      "types": "./dist/catalog/shaders/plasma/plasma.form.d.ts",
+      "react-native": "./catalog/shaders/plasma/plasma.form.tsx",
+      "browser": "./dist/catalog/shaders/plasma/plasma.form.js",
+      "import": "./dist/catalog/shaders/plasma/plasma.form.js",
+      "default": "./dist/catalog/shaders/plasma/plasma.form.js"
+    },
+    "./shaders/blur/form": {
+      "types": "./dist/catalog/shaders/blur/blur.form.d.ts",
+      "react-native": "./catalog/shaders/blur/blur.form.tsx",
+      "browser": "./dist/catalog/shaders/blur/blur.form.js",
+      "import": "./dist/catalog/shaders/blur/blur.form.js",
+      "default": "./dist/catalog/shaders/blur/blur.form.js"
+    },
+    "./shaders/clouds/form": {
+      "types": "./dist/catalog/shaders/clouds/clouds.form.d.ts",
+      "react-native": "./catalog/shaders/clouds/clouds.form.tsx",
+      "browser": "./dist/catalog/shaders/clouds/clouds.form.js",
+      "import": "./dist/catalog/shaders/clouds/clouds.form.js",
+      "default": "./dist/catalog/shaders/clouds/clouds.form.js"
+    },
+    "./shaders/nebula/form": {
+      "types": "./dist/catalog/shaders/nebula/nebula.form.d.ts",
+      "react-native": "./catalog/shaders/nebula/nebula.form.tsx",
+      "browser": "./dist/catalog/shaders/nebula/nebula.form.js",
+      "import": "./dist/catalog/shaders/nebula/nebula.form.js",
+      "default": "./dist/catalog/shaders/nebula/nebula.form.js"
+    },
+    "./shaders/simianlights/form": {
+      "types": "./dist/catalog/shaders/simianlights/simianlights.form.d.ts",
+      "react-native": "./catalog/shaders/simianlights/simianlights.form.tsx",
+      "browser": "./dist/catalog/shaders/simianlights/simianlights.form.js",
+      "import": "./dist/catalog/shaders/simianlights/simianlights.form.js",
+      "default": "./dist/catalog/shaders/simianlights/simianlights.form.js"
+    },
+    "./shaders/fireflies/form": {
+      "types": "./dist/catalog/shaders/fireflies/fireflies.form.d.ts",
+      "react-native": "./catalog/shaders/fireflies/fireflies.form.tsx",
+      "browser": "./dist/catalog/shaders/fireflies/fireflies.form.js",
+      "import": "./dist/catalog/shaders/fireflies/fireflies.form.js",
+      "default": "./dist/catalog/shaders/fireflies/fireflies.form.js"
+    },
+    "./shaders/godrays/form": {
+      "types": "./dist/catalog/shaders/godrays/godrays.form.d.ts",
+      "react-native": "./catalog/shaders/godrays/godrays.form.tsx",
+      "browser": "./dist/catalog/shaders/godrays/godrays.form.js",
+      "import": "./dist/catalog/shaders/godrays/godrays.form.js",
+      "default": "./dist/catalog/shaders/godrays/godrays.form.js"
+    },
+    "./shaders/anamorphic-lensflare/form": {
+      "types": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.d.ts",
+      "react-native": "./catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.tsx",
+      "browser": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.js",
+      "import": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.js",
+      "default": "./dist/catalog/shaders/anamorphic-lensflare/anamorphic-lensflare.form.js"
+    },
+    "./shaders/corporate-blobs/form": {
+      "types": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.d.ts",
+      "react-native": "./catalog/shaders/corporate-blobs/corporate-blobs.form.tsx",
+      "browser": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js",
+      "import": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js",
+      "default": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js"
+    },
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
       "require": "./app.plugin.js",
@@ -150,12 +491,14 @@
   },
   "files": [
     "src",
+    "catalog",
     "dist",
     "android/src",
     "android/build.gradle",
     "ios",
     "app.plugin.js",
     "app.plugin.d.ts",
+    "plugin/build",
     "expo-module.config.json",
     "README.md",
     "LICENSE",
@@ -163,30 +506,42 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "bun run clean && tsgo && mkdir -p dist/backgrounds && cp src/backgrounds/*.webp dist/backgrounds/",
+    "build": "bun run clean && tsgo -p tsconfig.build.json && bun run copy:assets",
     "typecheck": "tsgo --noEmit",
     "typecheck:test": "tsgo --noEmit --project tsconfig.test.json",
     "typecheck:demo": "cd demo && bunx tsc --noEmit",
+    "prepare": "lefthook install",
     "lint": "biome check",
     "lint:fix": "biome check --write",
     "format": "biome format --write .",
     "test": "bun test",
-    "check": "bun run lint:fix && bun run typecheck && bun run typecheck:test && bun run typecheck:demo && bun run build && (cd demo && bun run build) && bun run test && bun run check:knip && bun run check:package",
-    "check:package": "publint",
+    "check": "bun run lint:fix && bun run typecheck && bun run typecheck:test && bun run typecheck:demo && bun run check:react-compiler && bun run check:plugin && bun run build && (cd demo && bun run build) && bun run test && bun run check:knip && bun run check:package && bun run check:kotlin && bun run check:swift",
+    "check:package": "publint --strict",
     "check:knip": "knip",
+    "check:react-compiler": "eslint src/components 'catalog/composites/**/*.controls.tsx' 'catalog/shaders/**/*.form.tsx'",
+    "check:kotlin": "bun run scripts/ktlint.ts",
+    "format:kotlin": "bun run scripts/ktlint.ts --format",
+    "check:swift": "bun run scripts/swift.ts",
+    "format:swift": "bun run scripts/swift.ts --format",
+    "build:plugin": "bun run scripts/build-plugin.ts",
+    "check:plugin": "bun run build:plugin && git diff --exit-code -- plugin/build",
     "refresh:android": "cd demo && npm install",
     "prebuild:android": "bun run refresh:android && cd demo && bunx expo prebuild --platform android --no-install",
     "check:android": "cd demo/android && ./gradlew :react-native-webrtc-kaleidoscope:compileDebugKotlin",
     "build:shaders": "bun run scripts/build-shaders.ts",
-    "check:shaders": "bun run build:shaders && git diff --exit-code -- android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt src/web/shaders.generated.ts",
+    "check:shaders": "bun run build:shaders && git diff --exit-code -- android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt web-driver/shaders.generated.ts",
+    "bench:shader": "bun run scripts/shader-cost.ts",
+    "shader:view": "bun run scripts/shader-view.ts",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",
     "demo:android": "bun run build && cd demo && bun run android",
     "demo:web": "bun run build && cd demo && bun run web",
     "build:web": "bun run build && cd demo && bunx expo export -p web",
-    "prepack": "bun run build",
-    "prepublishOnly": "bun run build && bun run check:package"
+    "prepack": "bun run build:plugin && bun run build",
+    "prepublishOnly": "bun run build:plugin && bun run build && bun run check:package",
+    "copy:assets": "bun run scripts/copy-assets.ts",
+    "verify:web": "(cd demo && bunx expo export -p web) && bun run scripts/verify-web-presets.ts"
   },
   "peerDependencies": {
     "expo": ">=51.0.0",
@@ -195,9 +550,17 @@
     "react-native": ">=0.74.0",
     "react-native-webrtc": ">=124.0.0",
     "@livekit/react-native-webrtc": ">=144.0.0",
-    "livekit-client": ">=2.0.0"
+    "livekit-client": ">=2.0.0",
+    "nativewind": ">=4.0.0",
+    "@react-native-community/slider": ">=4.5.0"
   },
   "peerDependenciesMeta": {
+    "@react-native-community/slider": {
+      "optional": true
+    },
+    "nativewind": {
+      "optional": true
+    },
     "react-native-webrtc": {
       "optional": true
     },
@@ -214,16 +577,23 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
     "@expo/config-plugins": "~8.0.8",
+    "@react-native-community/slider": "4.5.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/npm": "^13.1.5",
     "@types/bun": "^1.3.12",
     "@types/react": "~18.2.79",
+    "@typescript-eslint/parser": "^8.60.1",
     "@typescript/native-preview": "7.0.0-dev.20260508.1",
+    "eslint": "^10.4.1",
+    "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "expo": "^51.0.0",
     "expo-modules-core": "^1.12.0",
     "knip": "^6.5.0",
+    "lefthook": "^2.1.9",
     "livekit-client": "^2.0.0",
+    "nativewind": "4.1.x",
+    "playwright": "^1.60.0",
     "publint": "^0.3.18",
     "react": "18.2.0",
     "react-native": "0.74.5",

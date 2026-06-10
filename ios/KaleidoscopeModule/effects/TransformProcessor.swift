@@ -27,147 +27,148 @@
 // transform shader so the same shader serves all four ops and the rotation
 // correction is centralized.
 
-import Foundation
 import CoreVideo
+import Foundation
 import Metal
-import simd
 import os.log
+import simd
 import WebRTC
+
 // Import whichever react-native-webrtc fork is present; both expose the same
 // VideoFrameProcessorDelegate / ProcessorProvider symbols. See Registration.swift.
 #if canImport(livekit_react_native_webrtc)
-import livekit_react_native_webrtc
+    import livekit_react_native_webrtc
 #elseif canImport(react_native_webrtc)
-import react_native_webrtc
+    import react_native_webrtc
 #endif
 
 @objc(KaleidoscopeTransformProcessor)
 public final class TransformProcessor: NSObject, VideoFrameProcessorDelegate {
-  private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Transform")
+    private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Transform")
 
-  private let op: Orientation.Op
+    private let op: Orientation.Op
 
-  private var unsafeLock = os_unfair_lock_s()
-  // Lazily constructed on the first frame so a Metal/library failure degrades
-  // to passthrough rather than crashing at registration time.
-  private var renderer: MetalRenderer?
-  private var rendererFailed = false
+    private var unsafeLock = os_unfair_lock_s()
+    // Lazily constructed on the first frame so a Metal/library failure degrades
+    // to passthrough rather than crashing at registration time.
+    private var renderer: MetalRenderer?
+    private var rendererFailed = false
 
-  /// `op` selects which geometric reorientation this instance applies. One
-  /// instance is registered per Orientation.Op (see Registration.swift).
-  init(op: Orientation.Op) {
-    self.op = op
-    super.init()
-  }
-
-  // Two-name bridge for VideoFrameProcessorDelegate; see MirrorProcessor's
-  // (removed) note and BlurProcessor. The Obj-C selector stays
-  // `capturer:didCaptureVideoFrame:` while Swift's importer requires the
-  // `capturer(_:didCapture:)` label; the @objc(...) pins the emitted selector
-  // back so runtime dispatch from VideoEffectProcessor finds this method.
-  @objc(capturer:didCaptureVideoFrame:)
-  public func capturer(
-    _ capturer: RTCVideoCapturer,
-    didCapture frame: RTCVideoFrame
-  ) -> RTCVideoFrame {
-    os_unfair_lock_lock(&unsafeLock)
-    defer { os_unfair_lock_unlock(&unsafeLock) }
-    do {
-      return try process(frame)
-    } catch {
-      os_log("transform (%{public}@) failed; forwarding original. %{public}@",
-             log: TransformProcessor.log, type: .error,
-             op.rawValue, error.localizedDescription)
-      return frame
-    }
-  }
-
-  private func ensureRenderer() throws -> MetalRenderer {
-    if let renderer = renderer { return renderer }
-    if rendererFailed { throw RendererError.noMetalDevice }
-    do {
-      let created = try MetalRenderer(bundle: Bundle(for: TransformProcessor.self))
-      renderer = created
-      return created
-    } catch {
-      rendererFailed = true
-      throw error
-    }
-  }
-
-  private func process(_ frame: RTCVideoFrame) throws -> RTCVideoFrame {
-    guard let input = FrameBridge.inputPixelBuffer(frame) else {
-      // Not a CVPixelBuffer-backed frame; nothing to reorient on the GPU path.
-      return frame
-    }
-    let bufferW = CVPixelBufferGetWidth(input)
-    let bufferH = CVPixelBufferGetHeight(input)
-    guard bufferW > 0, bufferH > 0 else { return frame }
-
-    let renderer = try ensureRenderer()
-
-    // Step 1: ingest NV12 -> DISPLAY-UPRIGHT "original" BGRA texture. The display
-    // rotation is folded in here (Ingest.swift); `width`/`height` are the DISPLAY
-    // dims (buffer dims swapped on a 90/270 frame). The op then operates in plain
-    // upright screen space.
-    let rotation = frame.rotation.rawValue
-    let width = Ingest.displayWidth(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
-    let height = Ingest.displayHeight(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
-    let (originalBuffer, originalTexture, originalWrapper) = try renderer.originalIngestTarget(
-      width: width, height: height
-    )
-    try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
-
-    // Step 2: the reorientation matrix. The original is already display-upright,
-    // so this is PLAIN screen space (no frame.rotation dependence).
-    let uvTransform = Orientation.uvTransform(op: op)
-
-    // Step 3: output dims. The 90-degree rotations swap the (display) dims to
-    // h x w; the flips keep w x h. The transform pass reads the upright source
-    // into the (possibly swapped) output target.
-    let outWidth = op.swapsDimensions ? height : width
-    let outHeight = op.swapsDimensions ? width : height
-
-    let output = try renderer.dequeueOutputBuffer(width: outWidth, height: outHeight)
-    let (outputTexture, outputWrapper) = try TextureBridge.makeTexture(
-      from: output,
-      cache: renderer.textureCache,
-      pixelFormat: .bgra8Unorm,
-      planeIndex: 0
-    )
-
-    let commandBuffer = try renderer.makeCommandBuffer()
-    commandBuffer.label = "Kaleidoscope.Transform"
-    try renderer.encodeTransform(
-      commandBuffer: commandBuffer,
-      source: originalTexture,
-      target: outputTexture,
-      uvTransform: uvTransform,
-      label: "transform-\(op.rawValue)"
-    )
-
-    // R3 frame-pipelining: commit asynchronously and return the PREVIOUS
-    // frame's completed output (one frame of latency); see BlurProcessor and
-    // MetalRenderer.commitPipelined. The held buffer matches the current dims
-    // except for a single frame across a device-orientation change (display
-    // dims swap on 90<->0), which WebRTC tolerates as a normal per-frame dim
-    // change. Before any frame has completed, forward the original frame.
-    // Keep the output CVMetalTexture wrapper alive until the command buffer
-    // completes; it pins the output IOSurface for the cache and would otherwise
-    // be released when process() returns while the GPU is still writing under R3.
-    // The original ingest buffer + wrapper are pool-dequeued per frame, so they
-    // ride the completion handler to keep the pool from recycling a buffer the
-    // GPU is still sampling.
-    guard let ready = renderer.commitPipelined(
-      commandBuffer,
-      currentOutput: output,
-      keepAlive: [outputWrapper, originalBuffer, originalWrapper],
-      debugTiming: EffectTuning.debugTiming,
-      timingLabel: "transform-\(op.rawValue)"
-    ) else {
-      return frame
+    /// `op` selects which geometric reorientation this instance applies. One
+    /// instance is registered per Orientation.Op (see Registration.swift).
+    init(op: Orientation.Op) {
+        self.op = op
+        super.init()
     }
 
-    return FrameBridge.makeOutputFrame(pixelBuffer: ready, like: frame)
-  }
+    // Two-name bridge for VideoFrameProcessorDelegate; see MirrorProcessor's
+    // (removed) note and CompositeProcessor. The Obj-C selector stays
+    // `capturer:didCaptureVideoFrame:` while Swift's importer requires the
+    // `capturer(_:didCapture:)` label; the @objc(...) pins the emitted selector
+    // back so runtime dispatch from VideoEffectProcessor finds this method.
+    @objc(capturer:didCaptureVideoFrame:)
+    public func capturer(
+        _: RTCVideoCapturer,
+        didCapture frame: RTCVideoFrame
+    ) -> RTCVideoFrame {
+        os_unfair_lock_lock(&unsafeLock)
+        defer { os_unfair_lock_unlock(&unsafeLock) }
+        do {
+            return try process(frame)
+        } catch {
+            os_log("transform (%{public}@) failed; forwarding original. %{public}@",
+                   log: TransformProcessor.log, type: .error,
+                   op.rawValue, error.localizedDescription)
+            return frame
+        }
+    }
+
+    private func ensureRenderer() throws -> MetalRenderer {
+        if let renderer { return renderer }
+        if rendererFailed { throw RendererError.noMetalDevice }
+        do {
+            let created = try MetalRenderer(bundle: Bundle(for: TransformProcessor.self))
+            renderer = created
+            return created
+        } catch {
+            rendererFailed = true
+            throw error
+        }
+    }
+
+    private func process(_ frame: RTCVideoFrame) throws -> RTCVideoFrame {
+        guard let input = FrameBridge.inputPixelBuffer(frame) else {
+            // Not a CVPixelBuffer-backed frame; nothing to reorient on the GPU path.
+            return frame
+        }
+        let bufferW = CVPixelBufferGetWidth(input)
+        let bufferH = CVPixelBufferGetHeight(input)
+        guard bufferW > 0, bufferH > 0 else { return frame }
+
+        let renderer = try ensureRenderer()
+
+        // Step 1: ingest NV12 -> DISPLAY-UPRIGHT "original" BGRA texture. The display
+        // rotation is folded in here (Ingest.swift); `width`/`height` are the DISPLAY
+        // dims (buffer dims swapped on a 90/270 frame). The op then operates in plain
+        // upright screen space.
+        let rotation = frame.rotation.rawValue
+        let width = Ingest.displayWidth(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
+        let height = Ingest.displayHeight(bufferWidth: bufferW, bufferHeight: bufferH, rotation: rotation)
+        let (originalBuffer, originalTexture, originalWrapper) = try renderer.originalIngestTarget(
+            width: width, height: height
+        )
+        try TextureBridge.ingest(input: input, into: originalBuffer, frameRotation: rotation)
+
+        // Step 2: the reorientation matrix. The original is already display-upright,
+        // so this is PLAIN screen space (no frame.rotation dependence).
+        let uvTransform = Orientation.uvTransform(op: op)
+
+        // Step 3: output dims. The 90-degree rotations swap the (display) dims to
+        // h x w; the flips keep w x h. The transform pass reads the upright source
+        // into the (possibly swapped) output target.
+        let outWidth = op.swapsDimensions ? height : width
+        let outHeight = op.swapsDimensions ? width : height
+
+        let output = try renderer.dequeueOutputBuffer(width: outWidth, height: outHeight)
+        let (outputTexture, outputWrapper) = try TextureBridge.makeTexture(
+            from: output,
+            cache: renderer.textureCache,
+            pixelFormat: .bgra8Unorm,
+            planeIndex: 0
+        )
+
+        let commandBuffer = try renderer.makeCommandBuffer()
+        commandBuffer.label = "Kaleidoscope.Transform"
+        try renderer.encodeTransform(
+            commandBuffer: commandBuffer,
+            source: originalTexture,
+            target: outputTexture,
+            uvTransform: uvTransform,
+            label: "transform-\(op.rawValue)"
+        )
+
+        // R3 frame-pipelining: commit asynchronously and return the PREVIOUS
+        // frame's completed output (one frame of latency); see CompositeProcessor and
+        // MetalRenderer.commitPipelined. The held buffer matches the current dims
+        // except for a single frame across a device-orientation change (display
+        // dims swap on 90<->0), which WebRTC tolerates as a normal per-frame dim
+        // change. Before any frame has completed, forward the original frame.
+        // Keep the output CVMetalTexture wrapper alive until the command buffer
+        // completes; it pins the output IOSurface for the cache and would otherwise
+        // be released when process() returns while the GPU is still writing under R3.
+        // The original ingest buffer + wrapper are pool-dequeued per frame, so they
+        // ride the completion handler to keep the pool from recycling a buffer the
+        // GPU is still sampling.
+        guard let ready = renderer.commitPipelined(
+            commandBuffer,
+            currentOutput: output,
+            keepAlive: [outputWrapper, originalBuffer, originalWrapper],
+            debugTiming: EffectTuning.debugTiming,
+            timingLabel: "transform-\(op.rawValue)"
+        ) else {
+            return frame
+        }
+
+        return FrameBridge.makeOutputFrame(pixelBuffer: ready, like: frame)
+    }
 }

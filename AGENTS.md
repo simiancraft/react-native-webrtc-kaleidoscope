@@ -1,46 +1,67 @@
-# react-native-webrtc-kaleidoscope — Agent Instructions
+# react-native-webrtc-kaleidoscope: Agent Instructions
 
-A managed-Expo-friendly Expo Module that registers named video frame processors with `react-native-webrtc` and exposes a typed JS facade. Ships transform (flip-x/flip-y/rotate-cw/rotate-ccw), `blur`, and `background-image` effects; the background is source-agnostic and a procedural-shader background is the next effect.
+A managed-Expo-friendly Expo Module that registers a video frame processor with `react-native-webrtc` and exposes a typed JS facade. Every effect is one shape: a **composite** of layers (see Vocabulary). The geometric transforms (flip-x/flip-y/rotate-cw/rotate-ccw) are the only separately-registered ops; everything else (blur, bundled images, procedural shaders, the masked person) is a layer in a composite stack.
+
+## Vocabulary (canonical; the code speaks ONLY these words)
+
+This kit was unified so that every effect is one shape: a **composite**. The older "one effect at a time" framing (a separate `blur`, a `background-image`, a `scene`) is gone. When you touch any effect, shader, asset, or the native bridge, use exactly these nouns; the types, the asset dirs, the native classes, and the wire all agree on them, and a stray `scene` / `scene-plate` / `background-image` is a bug to fix, not a synonym to keep.
+
+| Term | Meaning | Where it lives |
+|------|---------|----------------|
+| **preset** | What a consumer AUTHORS in their `kaleidoscope.preset-book.ts`: a named `{ taxonomy, layers, thumbnail?, controls? }`. A preset PROJECTS into a runtime composite (its layer stack) when applied via `kaleidoscope(id)`; the consumer never writes a composite directly. | `KaleidoscopePreset` (types); the consumer's preset book |
+| **composite** | The one registered native effect a preset projects into: a stack of layers rendered back-to-front into the output frame. "One effect" is a composite with a single layer. | registered effect string `"composite"`; `CompositeFactory` / `CompositeProcessor` (native); `makeComposite` (web); `CompositeSpec` (types) |
+| **layer** | One entry in a composite's stack: `{ id, shader, target?, blend?, source?/uniforms? }`, rendered in array order. | `LayerSpec` (types); `CompositeLayer` (native) |
+| **id** | A layer's stable address within its composite. `kaleidoscope(presetId, patches)` addresses layers by `id` and merges partial uniforms over the baked values. | `LayerSpec.id`, `LayerPatch.id` |
+| **shader** | What a layer draws: a GLSL effect basename (`clouds`, `plasma`, `godrays`, `fireflies`, `blur`), or one of the two built-ins `image` (a bundled WebP) and `direct` (the raw camera). | `LayerSpec.shader` |
+| **target** | Where a layer renders: `background` (fullscreen) or `subject` (mask-stenciled to the person). Defaults to `background`. | `LayerSpec.target` |
+| **blend** | How a layer composites over those below it: opaque base, `normal` (alpha-over), or `additive`. | `LayerSpec.blend` |
+| **image** | A bundled WebP an `image` layer resolves by id. Source folder `catalog/images/<category>/` (filed by taxonomy category, several per folder; the leaf basename is the image id); native bundle dir `assets/images/` (Android) and the app-bundle root (iOS). NOT "scene", NOT "background-image", NOT "plate". | `catalog/images/` (source); `assets/images/` (native); `shader: 'image'` |
+| **catalog/** | The out-of-build-path asset root. `catalog/shaders/<name>/` is the canonical GLSL (single source, codegen'd to every platform), one folder per shader; `catalog/images/<category>/` is the images, filed by category with several leaves per folder; `catalog/composites/<name>/` is the packaged composite defs + thumbnails, one folder per composite. | repo root (`catalog/`) |
+
+The native channel that carries a composite's layer stack across the bridge is the Expo Function `setCompositeLayers` (same name on JS, Android, and iOS); the JS that serializes the stack is `serializeCompositeLayers`. `test/registry-parity.test.ts` does not pin that function name directly; it asserts the set of registered effect names (`composite` plus the four transform ops), the generative-shader catalog, and that both native modules expose the SAME set of Expo Functions, which catches a half-wired `setCompositeLayers` indirectly. The per-layer Metal sources are `composite-image`, `composite-subject`, `composite-blur`, etc.
+
+Words we deleted and must not reappear in code: `scene`, `scene-plate(s)`, `background-image` (as an effect name), `mirror` (the transform-op set replaced it). If one shows up, it is stale; rename it.
 
 ## Status
 
-Pre-1.0, active development. The transform, `blur`, and `background-image` effects ship on web, Android, and iOS. Durable conventions live in `PATTERNS.md`.
+Pre-1.0, active development. The transform ops and the `composite` effect ship on web, Android, and iOS; blur, bundled images, and the generative shaders are all layers inside a composite. Durable conventions live in `PATTERNS.md`.
 
-## Orientation, the composite, and the mask — READ THIS before changing any effect, shader, or the ingest
+## Orientation, the composite, and the mask: READ THIS before changing any effect, shader, or the ingest
 
 This architecture was hard-won over a long cross-platform debugging arc, and a "correction" to it will look like a local win while silently breaking the other platform. Do not undo these without understanding them; the detail and the same rules live at the code site in the `Ingest.{kt,swift}` and `Orientation.{kt,swift}` headers and in [PATTERNS.md](./PATTERNS.md).
 
 1. **Orientation is normalized exactly once, upstream, at the ingest.** `android/.../gpu/Ingest.kt` and `ios/.../gpu/Ingest.swift` fold the camera's display rotation (and, on iOS, the front-camera selfie mirror) into the camera→texture step, so the "original" texture every effect samples is already DISPLAY-UPRIGHT and non-mirrored. Effects then emit `rotation 0`. There is no per-effect orientation logic downstream, and there must not be.
 
-2. **Never add a flip, rotation, or V-flip inside an effect or shader to "make it look right."** If the frame is rotated or mirrored wrong, it is an INGEST problem; fix it there, one sign-flip per symptom per platform. Android: `Ingest.ROTATION_DIRECTION` only — the front-camera selfie mirror is baked into the camera `transformMatrix`, so there is no separate Android mirror knob. iOS: `Ingest.ROTATION_DIRECTION` plus `Ingest.INGEST_MIRROR_X` (the front-camera buffer arrives mirrored, so iOS folds in a de-mirror). Per-effect corrections are the "orientation cascade" this design exists to kill; each one breaks another effect.
+2. **Never add a flip, rotation, or V-flip inside an effect or shader to "make it look right."** If the frame is rotated or mirrored wrong, it is an INGEST problem; fix it there, one sign-flip per symptom per platform. Android: `Ingest.ROTATION_DIRECTION` only; the front-camera selfie mirror is baked into the camera `transformMatrix`, so there is no separate Android mirror knob. iOS: `Ingest.ROTATION_DIRECTION` plus `Ingest.INGEST_MIRROR_X` (the front-camera buffer arrives mirrored, so iOS folds in a de-mirror). Per-effect corrections are the "orientation cascade" this design exists to kill; each one breaks another effect.
 
 3. **Web is the orientation reference.** The web pipeline (canvas, display-space) is correct by construction; native matches it. `Orientation.{kt,swift}` are pure SCREEN-SPACE matrices (flip-x = negate U, flip-y = negate V, rotate = axis swap) and do NOT read `frame.rotation`; the ingest already handled rotation.
 
-4. **The composite's V-flip terms are platform-specific render-pass / texture-origin PARITY, not camera orientation. Do not unify them or zero them out.** The vertical flip some composite paths need (from the odd ping-pong pass count and each platform's texture-origin convention) lands on a DIFFERENT uniform per platform: **iOS blur** sets `uBgUvScale=(1,-1)`; **web blur and web background** set `uMaskUvScale=(1,-1)`; **Android** sets neither (identity — its GL pipeline does not accumulate the flip here). Each is correct for its platform. Zeroing web's `uMaskUvScale`, or copying iOS's `(1,-1)` onto Android, breaks that platform's compositing. The per-platform table lives in `shaders/composite.frag`; the why is in PATTERNS.md "Texture-orientation convention."
+4. **The composite's V-flip terms are platform-specific render-pass / texture-origin PARITY, not camera orientation. Do not unify them or zero them out.** The vertical flip some composite paths need (from the odd ping-pong pass count and each platform's texture-origin convention) lands on a DIFFERENT uniform per platform: **web blur and web background** set `uMaskUvScale=(1,-1)`; **Android** sets neither (identity; its GL pipeline does not accumulate the flip here); **iOS** composites per-layer (NOT via the monolithic composite shader, which is web/Android only) and carries the parity in CompositeProcessor's scratch-parity constants (`scratchOddParity` / `scratchEvenParity`) and the cover-scale's negated y. Each is correct for its platform. Zeroing web's `uMaskUvScale`, or copying it onto Android, breaks that platform's compositing. The per-platform values live in the `composite-subject`, `composite-masked`, `composite-image`, and `composite-blur` frag headers; the consolidated why is in PATTERNS.md "Texture-orientation convention."
 
-5. **The composite is background-source-agnostic; that is the extensibility model.** `shaders/composite.frag` is `mix(background, original, mask)` and does not care what the background texture is. Effects differ ONLY in how that texture is produced: a PNG (background-image), the blurred camera (blur), or a procedural GLSL shader (planned, issue #25). A new shader dropped into `shaders/` (single source → codegen to all platforms) gets the canonical upright frame and composites through the mask with ZERO orientation work; only its raw compute cost varies by device, and that is handled by the resolution tier (`targetShortSide`), not orientation. The flip/rotate transform ops are debug/utility table-stakes, not the product surface; the product is the masked-background composite.
+5. **The composite is background-source-agnostic; that is the extensibility model.** Compositing is per-layer: a layer renders its content into a scratch, then `composite-subject` / `composite-masked` stencil it to the person through the mask, or the over/additive blend lays a background layer down. The mask stencil does not care what a layer's texture is. Layers differ ONLY in how that texture is produced: an `image` layer, the blurred camera (`blur`), or a generative GLSL shader (`plasma`, `clouds`, and the rest of the catalog). A new shader dropped into `catalog/shaders/<name>/` (single source → codegen to all platforms) gets the canonical upright frame and composites through the mask with ZERO orientation work; only its raw compute cost varies by device, and that is handled by the resolution tier (`targetShortSide`), not orientation. The flip/rotate transform ops are debug/utility table-stakes, not the product surface; the product is the masked-background composite.
 
 6. **Segmentation mask buffers are owned, never a shallow reused ring.** The mask the compositor reads must be a buffer the segmenter owns and hands out fresh per cycle (Android: a fresh bitmap; iOS: a `CVPixelBufferPool`), because frame-pipelining keeps a mask texture GPU-referenced across multiple cycles. A reused 2-deep ring gets overwritten mid-read and the mask visibly "drifts" / contorts. Preserve this if you touch the segmenter.
 
 ## Quick orientation
 
+The library is organized around four points of entry plus a ports-and-adapters
+driver split (`android/`, `ios/`, `web-driver/` behind the effect spec).
+
 ```
 src/
-├── index.ts                 # native entry; thin shim, Metro picks it via "react-native" condition
-├── index.web.ts             # web entry; wires MediaStreamTrackProcessor pipeline per effect
-├── types.ts                 # ApplyVideoEffects, EffectName
-└── web/
-    ├── effects/             # per-effect FrameTransform implementations
-    │   ├── blur.ts
-    │   ├── background-image.ts
-    │   └── transform.ts       # flip-x/flip-y/rotate-cw/rotate-ccw (replaced mirror.ts)
-    └── insertable-streams.ts  # MediaStreamTrackProcessor + MediaStreamTrackGenerator wiring
+├── index.ts                 # native entry (point #2 runtime: the three verbs); Metro picks it via "react-native"
+├── index.web.ts             # web entry; wires the web-driver pipeline per effect
+├── kaleidoscope.preset-book.types.ts  # point #1: the preset-book vocabulary (source of truth)
+├── kaleidoscope/            # point #2 runtime: the command machine, shader-to-spec, the effect-contract (spec) types
+├── components/              # point #3 drop-in UI: picker/ + tuner/ features, ui/ primitives, form/, theme/
+└── lib/                     # shared, environment-neutral: the test-id grammar, primitive types
 
-plugin/
-├── src/withKaleidoscope.ts  # Expo config plugin (TypeScript source)
-└── tsconfig.json            # plugin builds CJS-via-Node16 to plugin/build/
+web-driver/                  # the JS/WebGL driver (root peer of android/ + ios/); consumed by src/index.web.ts
+catalog/                     # out-of-build-path assets: shaders/<name>/ · images/<category>/ · composites/<name>/
+android/ · ios/              # the native drivers (Kotlin / Swift)
 
-app.plugin.js                # ESM entry that re-exports plugin/build/withKaleidoscope.js
+plugin/                      # point #4 prebuild: plugin/src/{android,ios,lib} compiled to a COMMITTED plugin/build
+app.plugin.js                # one-line shim: module.exports = require('./plugin/build')
 app.plugin.d.ts              # ConfigPlugin type for the entry above
 expo-module.config.json      # Expo Modules autolinking config
 ```
@@ -48,11 +69,11 @@ expo-module.config.json      # Expo Modules autolinking config
 ## Conventions
 
 - Bun, TypeScript ESM, biome for lint+format, semantic-release driven by Conventional Commits.
-- Native module shape: `src/` is the JS facade, `android/` is Kotlin, `ios/` is Swift, `plugin/` is the Expo config plugin (TypeScript, compiled to `plugin/build/`).
+- Native module shape: `src/` is the JS facade, `android/` is Kotlin, `ios/` is Swift, and the Expo config plugin is TypeScript in `plugin/src/` compiled to a committed `plugin/build/`; `app.plugin.js` is a one-line shim over it.
 - `react-native-webrtc` is a **peer dependency**, not a direct dependency. Do not import it from `src/` runtime code beyond type-only imports.
 - Frame processors are registered once at app boot via the config plugin. Do not move registration into a runtime-callable path.
 - Web target uses `MediaStreamTrackProcessor` + `MediaStreamTrackGenerator` (Insertable Streams). Metro's `.web.ts` resolution swaps `src/index.ts` ↔ `src/index.web.ts`.
-- Package is `"type": "module"`; every `.js` file in the repo is parsed as ESM by Node. CJS syntax (`module.exports`, `require(...)`) is invalid at the top level.
+- Package is `"type": "commonjs"`. The library SOURCE in `src/` is authored as ESM and consumed by Metro via the `react-native` export condition (never loaded by Node). Plain `.js` files Node actually loads, notably `app.plugin.js`, are CommonJS (`module.exports`, `require(...)`).
 
 ## The undocumented API
 
@@ -74,9 +95,9 @@ bun run check                # full local-pre-push gate (lint:fix, typecheck var
 bun run lint                 # biome check
 bun run lint:fix             # biome check --write
 bun run typecheck            # tsgo --noEmit on src/
-bun run typecheck:test       # tsgo --noEmit on src + test + plugin/src against tsconfig.test.json
+bun run typecheck:test       # tsgo --noEmit on src + test against tsconfig.test.json
 bun run typecheck:demo       # tsc --noEmit on demo/
-bun run build                # emit dist/ (tsgo) and plugin/build/ (tsc -p plugin/)
+bun run build                # emit dist/ (tsgo -p tsconfig.build.json) then copy:assets
 bun test                     # bun's test runner; smoke test for the plugin
 bun run check:package        # publint + attw with internal-resolution-error ignored
 bun run check:knip           # knip; flags unused deps and dead code
@@ -96,13 +117,12 @@ Conventional Commits, imperative tense, succinct. `feat:` → minor release; `fi
 ## Things that will trip you up
 
 - **No `.js` extensions on relative imports in `src/`.** Tempting because strict node16 ESM resolution wants them, but Metro does not map `.js` to `.ts` for the `react-native` exports condition that ships TS source. Anything you add to `src/index.ts` or `src/index.web.ts` resolves the way the existing imports do (extension-less). `attw` is configured with `--ignore-rules internal-resolution-error` to absorb the resulting node16-from-ESM check.
-- **`app.plugin.js` is ESM, not CJS.** The package is `"type": "module"`, so the file is parsed as ESM by Node. Use `import` / `export default`, never `module.exports` / `require`. The compiled `plugin/build/withKaleidoscope.js` is also ESM (built with `module: Node16` in `plugin/tsconfig.json`).
-- **`plugin/tsconfig.json` uses `module: Node16` + `moduleResolution: node16`.** TS 6 deprecated `moduleResolution: node` (legacy node10). The plugin emits Node16-compatible output that happens to be CJS via the package's `"type": "module"` flip-side: when a `.cjs` file exists or the package type forces ESM, Node16 mode picks accordingly. Do not regress this to `CommonJS` + `node`.
+- **`app.plugin.js` is a one-line CJS shim over a committed `plugin/build`.** The package is `"type": "commonjs"`; `app.plugin.js` is `module.exports = require('./plugin/build')`. The real implementation is TypeScript in `plugin/src/` (`{android,ios,lib}`), compiled by `bun run build:plugin` (tsgo + a `@generated` banner + biome) into `plugin/build/`, which is **committed to git** and guarded by the `check:plugin` drift gate. Why committed and not `dist/`: Expo loads `app.plugin.js` with `require()` from its REAL path, which on EAS is the repo root (the demo consumes the lib via `file:..`) where neither `node_modules` NOR the gitignored `dist/` is present; a committed `plugin/build` is the only output guaranteed there. For the same reason the compiled output touches nothing but Node builtins at load: the mods register by mutating `config.mods.<platform>` directly (not `withDangerousMod`), and `@expo/config-plugins` is `require.resolve`'d lazily from the CONSUMER at mod-execution time. Edit `plugin/src/`, then `bun run build:plugin`; never hand-edit `plugin/build/`, and never point the shim at `dist/`.
 - **`@expo/config-plugins` v9 ≠ SDK 51.** The legacy `@expo/config-plugins@9.x` line was updated post-hoc to track SDK 53 internals. The version `expo@51.0.39` actually ships internally is `~8.0.8`. Root devDep is pinned `~8.0.8` so doctor stays clean. Bumping to v9 (or v55) without bumping `expo` re-breaks the integration story; follow Lifeguides on the next SDK bump rather than getting ahead of it.
 - **Local `check:expo` can false-positive.** Doctor's `SupportPackageVersionCheck` shells out to `npm explain`, which walks the parent directories looking in every `node_modules` it finds. When this repo sits next to another Expo SDK project on disk (e.g. `~/Simiancraft_Programming/Lifeguides/`), `npm explain` reports the sibling's `@expo/config-plugins@54.x` as part of "our" tree. CI never sees this. The aggregator does not include `check:expo` for exactly this reason; run it manually when verifying Expo dep alignment.
 - **Release job is opt-in.** `vars.RELEASE_ENABLED` gates the semantic-release job in `ci.yml`. To activate: configure `APP_ID` + `APP_PRIVATE_KEY` repo secrets (GitHub App that can bypass main's ruleset for the `chore(release)` commit + tag), then `gh variable set RELEASE_ENABLED --body true`.
 - **Demo Metro picks up `src/` directly via `link:..`.** The demo's `package.json` resolves the workspace as `link:..` and Metro reads the package's `react-native` exports condition pointing at `src/index.ts`. Changes to `src/` take effect without a publish, but the demo's `bun run start` does NOT run `bun run build` first by default; the `demo*` scripts at the repo root prefix `bun run build &&` so they do.
-- **`bun run check:android` requires Java 17+ in `JAVA_HOME` and a prebuilt `demo/android/`.** WSL2's default OpenJDK is Java 8 (`/usr/lib/jvm/java-8-openjdk-amd64`); Gradle 8.8 can't run on it. Export `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64` (or wherever your distro's `update-alternatives` points Java 17). The script also assumes `demo/android/` exists — run `bun run prebuild:android` once after a fresh checkout, or any time `demo/app.config.ts` / the config plugin changes. Subsequent incremental compiles land in ~3 seconds. Not part of the `bun run check` aggregator since CI doesn't ship an Android SDK; opt-in for native iteration.
+- **`bun run check:android` requires Java 17+ in `JAVA_HOME` and a prebuilt `demo/android/`.** WSL2's default OpenJDK is Java 8 (`/usr/lib/jvm/java-8-openjdk-amd64`); Gradle 8.8 can't run on it. Export `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64` (or wherever your distro's `update-alternatives` points Java 17). The script also assumes `demo/android/` exists; run `bun run prebuild:android` once after a fresh checkout, or any time `demo/app.config.ts` / the config plugin changes. Subsequent incremental compiles land in ~3 seconds. Not part of the `bun run check` aggregator since CI doesn't ship an Android SDK; opt-in for native iteration.
 - **`refresh:android` is wrapped in `env -i HOME=$HOME PATH=$PATH bash -c` for a reason.** `bun run` injects `npm_package_json` (and other `npm_*` vars) into the script's environment. When the script then invokes a child `bun install --force` against the `file:..` workspace dep, those env vars make the child think it is the running package and the install fails on the local `react-native-webrtc-kaleidoscope` entry only (1267/1268 succeed, kaleidoscope errors). Stripping the env to just `HOME` and `PATH` bypasses the detection. The CWD-drift gotcha further down also bites here; the `cd demo` inside the script is what actually runs the install in the right directory.
 - **WSL2 Metro can't be reached by a real device through the WSL adapter.** A phone on the LAN cannot reach the WSL2 NAT interface; Metro must bind 0.0.0.0 AND report the Windows-host LAN IP (not the WSL veth) in its bundle URL so the dev client knows where to fetch. `bun run demo:wsl` shells out to PowerShell from WSL to find the Windows host's real LAN adapter (skipping Hyper-V / vEthernet / loopback / etc.), exports it as `REACT_NATIVE_PACKAGER_HOSTNAME`, sets `METRO_LISTEN_ADDRESS=0.0.0.0` + `EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0`, then runs `expo start --dev-client --host lan --port 8081`. The plain `bun run demo` works on macOS / Linux native; use `:wsl` only on Windows-WSL2.
 
@@ -140,7 +160,7 @@ bun run demo:android        # ditto for Android
 bun run demo:web            # browser only; no native build needed
 ```
 
-The dev-client on the device scans the QR code shown in the terminal, opens a tunnel or LAN connection to Metro, and pulls the JS bundle. Edits to `src/`, `src/web/`, or `demo/app/` hot-reload without rebuilding.
+The dev-client on the device scans the QR code shown in the terminal, opens a tunnel or LAN connection to Metro, and pulls the JS bundle. Edits to `src/`, `web-driver/`, or `demo/app/` hot-reload without rebuilding.
 
 ### When to rebuild the dev client
 
@@ -148,7 +168,7 @@ Rebuild **only** when the native footprint changes; JS-only edits never need a n
 
 - Bumping `react-native-webrtc` (peer dep).
 - Adding or changing native modules in `android/` or `ios/` (effect factories, registration).
-- Changing the Expo config plugin's injection (`plugin/src/withKaleidoscope.ts`).
+- Changing the Expo config plugin's injection (`plugin/src/`; then `bun run build:plugin`).
 - Bumping the Expo SDK in `demo/` or this lib.
 
 ### Build provisioning hygiene

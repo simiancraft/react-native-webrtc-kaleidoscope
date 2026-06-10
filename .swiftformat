@@ -1,0 +1,7 @@
+# SwiftFormat config for the iOS Expo module. Run `bun run format:swift` to apply,
+# `bun run check:swift` to gate. The binary is fetched into .tooling/ by
+# scripts/swift.ts (mirrors the ktlint and shader-toolchain pattern).
+--swiftversion 5.9
+--exclude ios/Pods,ios/build
+# Let SwiftLint own comma style (its trailing_comma rule); don't fight it here.
+--commas inline

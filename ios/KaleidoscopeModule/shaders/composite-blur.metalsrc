@@ -1,0 +1,93 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+    
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+    
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+    
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+    
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float& uSigma [[buffer(0)]], constant float2& uDir [[buffer(1)]], texture2d<float> uTex [[texture(0)]], sampler uTexSmplr [[sampler(0)]])
+{
+    main0_out out = {};
+    float _15 = (2.0 * uSigma) * uSigma;
+    float _138;
+    _138 = 0.0;
+    float _62;
+    spvUnsafeArray<float, 7> w;
+    for (int _137 = 0; _137 < 7; _138 = _62, _137++)
+    {
+        float _38 = float(_137);
+        w[_137] = exp((-(_38 * _38)) / _15);
+        float _142;
+        if (_137 == 0)
+        {
+            _142 = w[_137];
+        }
+        else
+        {
+            _142 = 2.0 * w[_137];
+        }
+        _62 = _138 + _142;
+    }
+    float _69 = uSigma * 0.25;
+    float4 _140;
+    _140 = uTex.sample(uTexSmplr, in.vUv) * (w[0] / _138);
+    for (int _139 = 1; _139 < 7; )
+    {
+        float2 _105 = (uDir * float(_139)) * _69;
+        _140 = (_140 + (uTex.sample(uTexSmplr, (in.vUv + _105)) * (w[_139] / _138))) + (uTex.sample(uTexSmplr, (in.vUv - _105)) * (w[_139] / _138));
+        _139++;
+        continue;
+    }
+    out.oColor = _140;
+    return out;
+}
+

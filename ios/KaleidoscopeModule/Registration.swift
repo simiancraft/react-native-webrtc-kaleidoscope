@@ -9,6 +9,18 @@
 // processor holds its own cached Metal/MediaPipe resources and is internally
 // thread-safe (see each processor's os_unfair_lock).
 //
+// The registry is now just TWO things (the effect-unification collapse, Phase C):
+//   - the four geometric transform ops (flip-x/flip-y/rotate-cw/rotate-ccw),
+//     sharing one TransformProcessor + transform.metalsrc, and
+//   - one "composite" compositor (CompositeProcessor): EVERY art effect (images,
+//     blur, generative shaders, masked subjects) is now a LAYER inside a
+//     composite, delivered out-of-band via setCompositeLayers (CompositeLayers) and
+//     composited per frame. The per-effect art processors (background-image-<id>,
+//     the bare generative names, blur) and their data-driven registration are
+//     gone; adding a preset is pure JS (a new Composite in the book), no Swift
+//     change and no native registration. Mirrors android/.../Registration.kt
+//     registering only the transforms + CompositeFactory under "composite".
+//
 // ProcessorProvider and the VideoFrameProcessorDelegate protocol come from
 // react-native-webrtc's Obj-C sources, imported as a Clang module (the consumer
 // enables `:modular_headers => true`; see Kaleidoscope.podspec and app.plugin.js).
@@ -20,67 +32,34 @@
 // types (RTCVideoFrame etc.) come from WebRTC.framework via `import WebRTC`.
 
 import Foundation
+import os.log
 import WebRTC
 #if canImport(livekit_react_native_webrtc)
-import livekit_react_native_webrtc
+    import livekit_react_native_webrtc
 #elseif canImport(react_native_webrtc)
-import react_native_webrtc
+    import react_native_webrtc
 #endif
 
 public enum Registration {
-  public static func registerAll() {
-    // Geometric reorientation ops. flip-x is the corrected screen-horizontal
-    // mirror that replaces the old "mirror" effect; the other three are new.
-    // All four share TransformProcessor + transform.metalsrc; the buffer-space
-    // rotation correction lives only in Orientation.swift.
-    ProcessorProvider.addProcessor(TransformProcessor(op: .flipX), forName: "flip-x")
-    ProcessorProvider.addProcessor(TransformProcessor(op: .flipY), forName: "flip-y")
-    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCW), forName: "rotate-cw")
-    ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
-    ProcessorProvider.addProcessor(BlurProcessor(), forName: "blur")
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "debug-resolutions"),
-      forName: "background-image-debug-resolutions"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "dark-office"),
-      forName: "background-image-dark-office"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "light-office"),
-      forName: "background-image-light-office"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "home-light"),
-      forName: "background-image-home-light"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "home-dark"),
-      forName: "background-image-home-dark"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "nature-light"),
-      forName: "background-image-nature-light"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "nature-dark"),
-      forName: "background-image-nature-dark"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "stylized-light"),
-      forName: "background-image-stylized-light"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "stylized-dark"),
-      forName: "background-image-stylized-dark"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "simiancraft-light"),
-      forName: "background-image-simiancraft-light"
-    )
-    ProcessorProvider.addProcessor(
-      BackgroundImageProcessor(assetName: "simiancraft-dark"),
-      forName: "background-image-simiancraft-dark"
-    )
-  }
+    private static let log = OSLog(subsystem: "com.simiancraft.kaleidoscope", category: "Registration")
+
+    public static func registerAll() {
+        // Geometric reorientation ops. flip-x is the corrected screen-horizontal
+        // mirror that replaces the old "mirror" effect; the other three are new.
+        // All four share TransformProcessor + transform.metalsrc; the buffer-space
+        // rotation correction lives only in Orientation.swift. The registry-parity
+        // test pins these literals plus "composite".
+        ProcessorProvider.addProcessor(TransformProcessor(op: .flipX), forName: "flip-x")
+        ProcessorProvider.addProcessor(TransformProcessor(op: .flipY), forName: "flip-y")
+        ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCW), forName: "rotate-cw")
+        ProcessorProvider.addProcessor(TransformProcessor(op: .rotateCCW), forName: "rotate-ccw")
+
+        // One composite compositor serves EVERY art effect; the active layer stack is
+        // data, delivered out-of-band via setCompositeLayers (CompositeLayers) and read per
+        // frame. A single registered instance, like the transform processors. Mirrors
+        // android/.../Registration.kt registering CompositeFactory under "composite".
+        ProcessorProvider.addProcessor(CompositeProcessor(), forName: "composite")
+
+        os_log("registered 4 transform op(s) + 1 composite compositor", log: log, type: .info)
+    }
 }

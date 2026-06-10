@@ -17,9 +17,9 @@ Pod::Spec.new do |s|
   # source_files, AND they use a custom `.metalsrc` extension instead of
   # `.metal`. Both halves of that constraint are load-bearing:
   #
-  #   (a) All three transpiled shaders (passthrough, blur, composite) export
-  #       the entry point `main0` because spirv-cross emits `main0` for every
-  #       stage. Three identical symbols cannot coexist in one metallib.
+  #   (a) Every transpiled shader exports the entry point `main0` because
+  #       spirv-cross emits `main0` for every stage. Identical symbols cannot
+  #       coexist in one metallib.
   #   (b) Excluding them from source_files prevents the main target's default
   #       metallib from compiling and colliding on `main0`.
   #   (c) Renaming the extension from `.metal` to `.metalsrc` prevents Xcode's
@@ -34,12 +34,13 @@ Pod::Spec.new do |s|
   #       so each `main0` stays in its own namespace.
   s.source_files   = 'KaleidoscopeModule/**/*.{h,m,swift}'
 
-  # Bundled background-image presets (mirrors android/src/main/assets/
-  # backgrounds/) plus the transpiled Metal shader SOURCE. Both are loaded at
-  # runtime from the Kaleidoscope.bundle:
-  #   - BackgroundImageProcessor resolves "dark-office" -> dark-office.webp.
-  #   - ShaderLibrary reads passthrough/blur/composite.metalsrc as TEXT and
-  #     compiles each into its own MTLLibrary via makeLibrary(source:). The
+  # Bundled images (mirrors android/src/main/assets/images/) plus the
+  # transpiled Metal shader SOURCE. Both are loaded at runtime from the
+  # Kaleidoscope.bundle:
+  #   - BundledImage resolves "dark-office" -> dark-office.webp (shared by
+  #     resolveImageUri and the composite's image layers).
+  #   - ShaderLibrary reads each `.metalsrc` as TEXT and compiles it into its
+  #     own MTLLibrary via makeLibrary(source:). The
   #     `.metalsrc` extension (not `.metal`) is required so Xcode's
   #     MetalCompile build phase does not auto-compile them into a
   #     `default.metallib` inside the bundle and hit the same `main0`
@@ -50,18 +51,24 @@ Pod::Spec.new do |s|
     'Kaleidoscope' => [
       'KaleidoscopeModule/resources/**/*',
       'KaleidoscopeModule/shaders/*.metalsrc',
+      # The generative-shader name list (codegen) so registration is data-driven.
+      'KaleidoscopeModule/shaders/GENERATIVE.txt',
     ]
   }
 
   s.dependency 'ExpoModulesCore'
 
   # Person segmentation via MediaPipe Tasks ImageSegmenter, replacing Apple
-  # Vision. Pinned to the 0.10 line to track Android's
+  # Vision. Pinned to EXACTLY 0.10.14 to match Android's
   # com.google.mediapipe:tasks-vision:0.10.14 (same model family, same
   # confidence-mask API shape) so all three platforms run identical
-  # segmentation. The selfie_segmenter.tflite model ships in the
-  # Kaleidoscope.bundle resource_bundles glob below (resources/**/*).
-  s.dependency 'MediaPipeTasksVision', '~> 0.10'
+  # segmentation. The exact pin (not `~> 0.10`) is deliberate: the pessimistic
+  # range floats to the newest 0.10.x, and MediaPipeTasksVision 0.10.33+ ships
+  # an XCFramework structure with known CocoaPods linking problems; 0.10.14 is
+  # the known-good version the RN ecosystem standardizes on. The
+  # selfie_segmenter.tflite model ships in the Kaleidoscope.bundle
+  # resource_bundles glob below (resources/**/*).
+  s.dependency 'MediaPipeTasksVision', '0.10.14'
 
   # Fork-resolving dependency on react-native-webrtc. The Kaleidoscope target
   # needs FRAMEWORK_SEARCH_PATHS pointing at WebRTC.framework so the Swift
@@ -79,7 +86,7 @@ Pod::Spec.new do |s|
   # `#if canImport(livekit_react_native_webrtc)` chains in Registration.swift
   # and the three Processor files. Android's build.gradle is upstream-first
   # (pre-existing inconsistency, tracked separately); do NOT mirror Android
-  # here — the iOS Swift code unconditionally imports the LiveKit module first
+  # here; the iOS Swift code unconditionally imports the LiveKit module first
   # when present, and the chosen dependency must match what Swift imports.
   #
   # The plugin's `pod ... :modular_headers => true` Podfile patch
@@ -90,7 +97,7 @@ Pod::Spec.new do |s|
   #
   # `__dir__` here is `<consumer>/node_modules/react-native-webrtc-kaleidoscope/
   # ios/` at pod-install time, so `../../@livekit/react-native-webrtc`
-  # resolves to `<consumer>/node_modules/@livekit/react-native-webrtc` —
+  # resolves to `<consumer>/node_modules/@livekit/react-native-webrtc`;
   # the same probe app.plugin.js performs at `:117`.
   livekit_fork_path = File.expand_path('../../@livekit/react-native-webrtc', __dir__)
   if File.directory?(livekit_fork_path)

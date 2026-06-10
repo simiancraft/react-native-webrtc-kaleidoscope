@@ -1,0 +1,26 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution [[buffer(0)]], constant float& uTime [[buffer(1)]], constant float& uSpeed [[buffer(2)]], constant float& uScale [[buffer(3)]], constant float3& uColorA [[buffer(4)]], constant float3& uColorB [[buffer(5)]])
+{
+    main0_out out = {};
+    float2 _29 = ((in.vUv * uResolution) - (uResolution * 0.5)) / float2(uResolution.y);
+    float _36 = uTime * uSpeed;
+    float _40 = _29.x;
+    float _48 = _29.y;
+    out.oColor = float4(mix(uColorA, uColorB, float3(0.5 + (0.5 * sin(((sin((_40 * uScale) + _36) + sin((_48 * uScale) + (_36 * 0.800000011920928955078125))) + sin((((_40 + _48) * uScale) * 0.699999988079071044921875) + (_36 * 1.2999999523162841796875))) + sin(((length(_29) * uScale) * 1.2000000476837158203125) - _36))))), 1.0);
+    return out;
+}
+

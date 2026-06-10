@@ -18,13 +18,59 @@ void main() {
 }
 """
 
-  const val COMPOSITE_FRAG = """#version 300 es
-precision mediump float;
-uniform sampler2D uOriginal;
-uniform sampler2D uBackground;
+  const val COMPOSITE_CAMERA_FRAG = """#version 300 es
+precision highp float;
+uniform sampler2D uCamera;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  oColor = vec4(texture(uCamera, vUv).rgb, 1.0);
+}
+"""
+
+  const val COMPOSITE_BLUR_FRAG = """#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uDir;
+uniform float uSigma;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  float s2 = 2.0 * uSigma * uSigma;
+  float w[7];
+  float sum = 0.0;
+  for (int i = 0; i < 7; i++) {
+    w[i] = exp(-(float(i) * float(i)) / s2);
+    sum += (i == 0) ? w[i] : 2.0 * w[i];
+  }
+  float spread = uSigma * 0.25;
+  vec4 acc = texture(uTex, vUv) * (w[0] / sum);
+  for (int i = 1; i < 7; i++) {
+    vec2 off = uDir * float(i) * spread;
+    acc += texture(uTex, vUv + off) * (w[i] / sum);
+    acc += texture(uTex, vUv - off) * (w[i] / sum);
+  }
+  oColor = acc;
+}
+"""
+
+  const val COMPOSITE_IMAGE_FRAG = """#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uCoverScale;
+in highp vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec2 uv = (vUv - 0.5) * uCoverScale + 0.5;
+  vec4 c = texture(uTex, uv);
+  oColor = vec4(c.rgb * c.a, c.a);
+}
+"""
+
+  const val COMPOSITE_SUBJECT_FRAG = """#version 300 es
+precision highp float;
+uniform sampler2D uCamera;
 uniform sampler2D uMask;
-uniform vec2 uBgUvScale;
-uniform vec2 uBgUvOffset;
 uniform vec2 uMaskUvScale;
 uniform vec2 uMaskUvOffset;
 uniform float uMaskLo;
@@ -32,33 +78,30 @@ uniform float uMaskHi;
 in highp vec2 vUv;
 out vec4 oColor;
 void main() {
-  vec2 maskUv = vUv * uMaskUvScale + uMaskUvOffset;
-  float raw = texture(uMask, maskUv).r;
+  vec3 cam = texture(uCamera, vUv).rgb;
+  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
   float safeHi = max(uMaskHi, uMaskLo + 0.001);
-  float m = smoothstep(uMaskLo, safeHi, raw);
-  vec3 orig = texture(uOriginal, vUv).rgb;
-  vec2 bgUv = clamp(vUv * uBgUvScale + uBgUvOffset, 0.0, 1.0);
-  vec3 bg = texture(uBackground, bgUv).rgb;
-  oColor = vec4(mix(bg, orig, m), 1.0);
+  float a = clamp(smoothstep(uMaskLo, safeHi, raw), 0.0, 1.0);
+  oColor = vec4(cam * a, a);
 }
 """
 
-  const val BLUR_FRAG = """#version 300 es
-precision mediump float;
+  const val COMPOSITE_MASKED_FRAG = """#version 300 es
+precision highp float;
 uniform sampler2D uTex;
-uniform vec2 uAxis;
-uniform float uWeights[5];
-uniform float uOffsets[5];
+uniform sampler2D uMask;
+uniform vec2 uMaskUvScale;
+uniform vec2 uMaskUvOffset;
+uniform float uMaskLo;
+uniform float uMaskHi;
 in highp vec2 vUv;
 out vec4 oColor;
 void main() {
-  vec4 color = texture(uTex, vUv) * uWeights[0];
-  for (int i = 1; i < 5; i++) {
-    vec2 off = uAxis * uOffsets[i];
-    color += texture(uTex, vUv + off) * uWeights[i];
-    color += texture(uTex, vUv - off) * uWeights[i];
-  }
-  oColor = color;
+  vec4 c = texture(uTex, vUv);
+  float raw = texture(uMask, vUv * uMaskUvScale + uMaskUvOffset).r;
+  float safeHi = max(uMaskHi, uMaskLo + 0.001);
+  float a = clamp(smoothstep(uMaskLo, safeHi, raw), 0.0, 1.0);
+  oColor = c * a;
 }
 """
 
@@ -73,4 +116,1098 @@ void main() {
   oColor = texture(uTex, uv);
 }
 """
+
+  const val PLASMA_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;       // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;  // framebuffer size in pixels; both components > 0
+uniform vec3 uColorA;      // first palette color, linear-ish RGB in [0, 1]
+uniform vec3 uColorB;      // second palette color, linear-ish RGB in [0, 1]
+uniform float uSpeed;      // animation rate multiplier; 0 freezes the field
+uniform float uScale;      // spatial frequency; higher = more, tighter cells
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+void main() {
+  // Aspect-correct, screen-centered coordinates (matches nebula.frag): divide
+  // by the height so uScale reads the same regardless of aspect ratio.
+  vec2 fragCoord = vUv * uResolution;
+  vec2 uv = (fragCoord - 0.5 * uResolution) / uResolution.y;
+
+  float t = uTime * uSpeed;
+
+  // Classic demoscene plasma: a few sines of position and time. The radial
+  // term (length(uv)) gives the field an organic, non-grid-aligned drift.
+  float v = sin(uv.x * uScale + t);
+  v += sin(uv.y * uScale + t * 0.8);
+  v += sin((uv.x + uv.y) * uScale * 0.7 + t * 1.3);
+  v += sin(length(uv) * uScale * 1.2 - t);
+
+  // v ranges roughly [-4, 4]; fold through sin to a smooth [0, 1] mix factor.
+  float mixT = 0.5 + 0.5 * sin(v);
+
+  // Opaque procedural background; the person is composited over it downstream.
+  oColor = vec4(mix(uColorA, uColorB, mixT), 1.0);
+}
+"""
+
+  const val CLOUDS_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;
+uniform vec2 uResolution;
+uniform vec3 uSkyLowColor;
+uniform vec3 uSkyHighColor;
+uniform vec3 uCloudLightColor;
+uniform vec3 uCloudDarkColor;
+uniform float uExposure;
+uniform float uStepSize;
+uniform float uCloudSpeed;
+uniform float uCloudScale;
+uniform float uDensity;
+uniform float uCoverage;
+uniform float uSoftness;
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+// STEPS must stay a compile-time constant (GLSL ES loop bound).
+#define STEPS 48
+
+float hash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float rand(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+        mix(
+            mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+            mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x),
+            f.y),
+        mix(
+            mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+            mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x),
+            f.y),
+        f.z);
+}
+
+float fbm(vec3 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+        v += a * noise(p);
+        p *= 2.03;
+        a *= 0.5;
+    }
+    return v;
+}
+
+float cloudDensity(vec3 p) {
+    p += vec3(uTime * uCloudSpeed, 0.0, uTime * uCloudSpeed * 0.35);
+    // Outside the slab the height mask is 0, so the sample is 0; bail before fbm.
+    if (p.y <= 0.0 || p.y >= 3.0) return 0.0;
+    float n = fbm(p * uCloudScale);
+    float bottom = smoothstep(0.0, 0.7, p.y);
+    float top = smoothstep(3.0, 1.2, p.y);
+    float heightMask = bottom * top;
+    float cloud = smoothstep(uCoverage, uCoverage + uSoftness, n);
+    return cloud * heightMask;
+}
+
+void main() {
+    vec2 fragCoord = vUv * uResolution;
+    vec2 uv = (fragCoord - 0.5 * uResolution) / uResolution.y;
+    vec3 ro = vec3(0.0, 1.2, -4.0);
+    vec3 rd = normalize(vec3(uv, 1.5));
+    float skyGradient = clamp(rd.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 skyColor = mix(uSkyLowColor, uSkyHighColor, skyGradient);
+    vec3 accum = vec3(0.0);
+    float alpha = 0.0;
+    float t = rand(fragCoord) * uStepSize;
+    for (int i = 0; i < STEPS; i++) {
+        vec3 p = ro + rd * t;
+        // The slab is crossed monotonically in t; once past it, all samples are 0.
+        if (rd.y > 0.0 && p.y >= 3.0) break;
+        if (rd.y < 0.0 && p.y <= 0.0) break;
+        float d = cloudDensity(p);
+        if (d > 0.01) {
+            float light = smoothstep(0.4, 2.8, p.y);
+            vec3 sampleColor = mix(uCloudDarkColor, uCloudLightColor, light);
+            float a = d * uDensity;
+            accum += (1.0 - alpha) * sampleColor * a;
+            alpha += (1.0 - alpha) * a;
+        }
+        t += uStepSize;
+        if (alpha > 0.95) break;
+    }
+    vec3 color = mix(skyColor, accum, alpha);
+    color *= uExposure;
+    color = pow(color, vec3(0.9));
+    oColor = vec4(color, 1.0);
+}
+"""
+
+  const val NEBULA_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
+uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = untinted
+uniform float uBrightness;    // final glow multiplier; 1.0 = stock
+uniform float uSpeed;         // drift + rotation rate; 1.0 = stock, 0 freezes
+uniform float uTwinkleSpeed;  // star color-cycle rate; 1.0 = stock
+uniform float uScale;         // starfield zoom / density; >1 = more, smaller stars
+uniform float uStarGlow;      // star-core size; 1.0 = stock
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+const float PI = 3.14159265;
+const float MIN_DIVIDE = 64.0;
+const float MAX_DIVIDE = 0.01;
+// Number of stacked starfield layers. Compile-time constant so the layer
+// loop has a fixed integer bound (cross-compile-safe; no float loop counter).
+const int STARFIELD_LAYERS_COUNT = 12;
+
+mat2 Rotate(float angle) {
+  float s = sin(angle);
+  float c = cos(angle);
+  return mat2(c, -s, s, c);
+}
+
+float Star(vec2 uv, float flaresize, float rotAngle, float randomN) {
+  float d = length(uv);
+  // Star core. Guard the division: length(uv) can be exactly 0 at a cell
+  // center, which yields inf/NaN under Metal. max(d, 1e-4) caps the core
+  // brightness without visibly changing the look (the concentric
+  // smoothstep fade below already clamps it).
+  float starcore = 0.05 * uStarGlow / max(d, 1e-4);
+  uv *= Rotate(-2.0 * PI * rotAngle);
+  float flareMax = 1.0;
+
+  // flares
+  float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+  starcore += starflares * flaresize;
+  uv *= Rotate(PI * 0.25);
+  starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+  starcore += starflares * 0.3 * flaresize;
+  // light can't go forever, fade it concentrically.
+  starcore *= smoothstep(1.0, 0.05, d);
+  return starcore;
+}
+
+float PseudoRandomizer(vec2 p) {
+  // not really random, but it looks random.
+  p = fract(p * vec2(123.45, 345.67));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+vec3 StarFieldLayer(vec2 uv, float rotAngle) {
+  vec3 col = vec3(0.0);
+
+  vec2 gv = fract(uv) - 0.5;
+  vec2 id = floor(uv);
+
+  float deltaTimeTwinkle = uTime * 0.35 * uTwinkleSpeed;
+
+  // sweep the 8 neighbors plus the home cell so stars are not clipped at
+  // cell borders. Constant 3x3 bounds.
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 offset = vec2(float(x), float(y));
+
+      float randomN = PseudoRandomizer(id + offset); // 0..1
+      float randoX = randomN - 0.5;
+      float randoY = fract(randomN * 45.0) - 0.5;
+      vec2 randomPosition = gv - offset - vec2(randoX, randoY);
+      // fract trick: random sizes
+      float size = fract(randomN * 1356.33);
+      float flareSwitch = smoothstep(0.9, 1.0, size);
+      float star = Star(randomPosition, flareSwitch, rotAngle, randomN);
+
+      // fract trick: random colors
+      float randomStarColorSeed = fract(randomN * 2150.0) * (3.0 * PI) * deltaTimeTwinkle;
+      vec3 color = sin(vec3(0.7, 0.3, 0.9) * randomStarColorSeed);
+
+      // compress
+      color = color * (0.4 * sin(deltaTimeTwinkle)) + 0.6;
+      // filter
+      color = color * vec3(1.0, 0.1, 0.9 + size);
+      float dimByDensity = 15.0 / float(STARFIELD_LAYERS_COUNT);
+      col += star * size * color * dimByDensity;
+    }
+  }
+
+  return col;
+}
+
+void main() {
+  // ShaderToy fragCoord, reconstructed from vUv (see header).
+  vec2 fragCoord = vUv * uResolution;
+
+  // Normalized pixel coordinates centered at screen middle.
+  vec2 uv = (fragCoord - 0.5 * uResolution.xy) / uResolution.y;
+
+  float deltaTime = uTime * 0.01 * uSpeed;
+
+  vec3 col = vec3(0.0);
+
+  float rotAngle = deltaTime * 0.09;
+
+  // Layer accumulation. Integer-counted loop replacing the original
+  // `for (float i = 0.0; i < 1.0; i += 1.0/COUNT)`. With n in [0, COUNT),
+  // i = n/COUNT reproduces the exact same {0, 1/N, 2/N, ...} sequence and
+  // the same iteration count, so visual output is unchanged; only the loop
+  // form is cross-compile-safe.
+  for (int n = 0; n < STARFIELD_LAYERS_COUNT; n++) {
+    float i = float(n) / float(STARFIELD_LAYERS_COUNT);
+    float layerDepth = fract(i + deltaTime);
+    float layerScale = mix(MIN_DIVIDE, MAX_DIVIDE, layerDepth);
+    float layerFader = layerDepth * smoothstep(0.1, 1.1, layerDepth);
+    float layerOffset = i * (3430.0 + fract(i));
+    mat2 layerRot = Rotate(rotAngle * i * -10.0);
+    uv *= layerRot;
+    vec2 starfieldUv = uv * layerScale * uScale + layerOffset;
+    col += StarFieldLayer(starfieldUv, rotAngle) * layerFader;
+  }
+
+  // Glow + color grade, then opaque procedural background.
+  col *= uBrightness * uColor;
+  oColor = vec4(col, 1.0);
+}
+"""
+
+  const val GODRAYS_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing
+uniform vec2 uResolution;     // framebuffer size in pixels
+uniform vec3 uLightColor;     // ray tint (linear-ish RGB, 0..1)
+uniform float uRayCount;      // number of ray bands
+uniform float uRaySpeed;      // drift speed
+uniform float uRayIntensity;  // overall brightness / additive strength
+uniform float uRaySoftness;   // edge falloff exponent (higher = crisper shafts)
+uniform float uTopGlow;       // extra glow concentrated near the top
+uniform float uFadeDistance;  // vertical falloff from the top
+uniform float uWobbleAmount;  // horizontal wobble magnitude
+uniform float uWobbleSpeed;   // wobble animation speed
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+float hash(float n) {
+    return fract(sin(n) * 43758.5453123);
+}
+
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    f = f * f * (3.0 - 2.0 * f);
+
+    float a = hash(i.x + i.y * 57.0);
+    float b = hash(i.x + 1.0 + i.y * 57.0);
+    float c = hash(i.x + (i.y + 1.0) * 57.0);
+    float d = hash(i.x + 1.0 + (i.y + 1.0) * 57.0);
+
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+void main() {
+    // vUv is already 0..1 with bottom-left origin; this is the Shadertoy `uv`.
+    vec2 uv = vUv;
+
+    float aspect = uResolution.x / uResolution.y;
+    vec2 p = uv;
+    p.x = (p.x - 0.5) * aspect + 0.5;
+
+    float t = uTime;
+    float fromTop = 1.0 - uv.y;
+
+    float verticalFade = exp(-fromTop * uFadeDistance);
+    float topGlow = exp(-fromTop * 8.0) * uTopGlow;
+
+    float wobble =
+        (noise(vec2(uv.y * 3.0, t * uWobbleSpeed)) - 0.5) * uWobbleAmount;
+
+    float rayCoord = (p.x + wobble) * uRayCount;
+
+    float raysA = sin(rayCoord + t * uRaySpeed);
+    float raysB = sin(rayCoord * 1.73 - t * uRaySpeed * 0.7);
+
+    float rays = raysA * 0.65 + raysB * 0.35;
+    rays = rays * 0.5 + 0.5;
+    rays = pow(rays, uRaySoftness);
+
+    float shimmer = noise(vec2(uv.x * 10.0, uv.y * 4.0 - t * 0.3));
+    rays *= mix(0.75, 1.25, shimmer);
+
+    float alpha = rays * verticalFade * uRayIntensity;
+    alpha += topGlow * uRayIntensity;
+    alpha = clamp(alpha, 0.0, 1.0);
+
+    // Premultiplied additive output: rgb already scaled by alpha.
+    vec3 rayColor = uLightColor * alpha;
+    oColor = vec4(rayColor, alpha);
+}
+"""
+
+  const val FIREFLIES_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;
+uniform vec2 uResolution;
+uniform float uGlowSize;
+uniform float uDotSize;
+uniform float uSpeed;
+uniform float uTwinkle;
+uniform vec3 uColor;
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+#define FIREFLY_COUNT 36
+
+float hash(float n) {
+    return fract(sin(n) * 43758.5453123);
+}
+
+vec2 fireflyPos(float id, float t) {
+    vec2 base = vec2(hash(id * 12.7), hash(id * 31.3));
+    float a = hash(id * 5.1) * 6.28318;
+    float b = hash(id * 9.7) * 6.28318;
+    vec2 drift = vec2(sin(t * uSpeed + a), cos(t * uSpeed * 0.73 + b)) * 0.12;
+    return fract(base + drift);
+}
+
+void main() {
+    vec2 uv = vUv;
+    vec2 p = uv;
+    p.x *= uResolution.x / uResolution.y;
+    vec3 color = vec3(0.0);
+    float alpha = 0.0;
+    for (int i = 0; i < FIREFLY_COUNT; i++) {
+        float id = float(i);
+        vec2 pos = fireflyPos(id, uTime);
+        pos.x *= uResolution.x / uResolution.y;
+        float d = length(p - pos);
+        float phase = hash(id * 17.1) * 6.28318;
+        float pulse = 0.5 + 0.5 * sin(uTime * uTwinkle + phase);
+        pulse = pulse * pulse * sqrt(pulse);  // pow(pulse, 2.5): a non-integer pow is ~2 transcendentals on mobile; this is 1 sqrt + 2 muls
+        float glow = exp(-d * d / (uGlowSize * uGlowSize));
+        float core = smoothstep(uDotSize, 0.0, d);
+        float intensity = pulse * (glow * 0.55 + core * 1.4);
+        color += uColor * intensity;
+        alpha += intensity * 0.55;
+    }
+    alpha = clamp(alpha, 0.0, 1.0);
+    color = clamp(color, 0.0, 1.0);
+    oColor = vec4(color, alpha);
+}
+"""
+
+  const val SIMIANLIGHTS_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
+uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = untinted
+uniform float uBrightness;    // final glow multiplier; 1.0 = stock
+uniform float uSpeed;         // drift + rotation rate; 1.0 = stock, 0 freezes
+uniform float uTwinkleSpeed;  // star color-cycle rate; 1.0 = stock
+uniform float uScale;         // starfield zoom / density; >1 = more, smaller stars
+uniform float uStarGlow;      // star-core size; 1.0 = stock
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+const float PI = 3.14159265;
+const float MIN_DIVIDE = 3.0;
+const float MAX_DIVIDE = 0.01;
+// Number of stacked starfield layers. Compile-time constant so the layer
+// loop has a fixed integer bound (cross-compile-safe; no float loop counter).
+const int STARFIELD_LAYERS_COUNT = 4;
+
+mat2 Rotate(float angle) {
+  float s = sin(angle);
+  float c = cos(angle);
+  return mat2(c, -s, s, c);
+}
+
+float Star(vec2 uv, float flaresize, float rotAngle, float randomN) {
+  float d = length(uv);
+  // Star core. Guard the division: length(uv) can be exactly 0 at a cell
+  // center, which yields inf/NaN under Metal. max(d, 1e-4) caps the core
+  // brightness without visibly changing the look (the concentric
+  // smoothstep fade below already clamps it).
+  float starcore = 0.09 * uStarGlow / max(d, 1e-4);
+  uv *= Rotate(-2.0 * PI * rotAngle);
+  float flareMax = 1.0;
+
+  // flares
+  float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+  starcore += starflares * flaresize;
+  uv *= Rotate(PI * 0.25);
+  starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+  starcore += starflares * 0.3 * flaresize;
+  // light can't go forever, fade it concentrically.
+  starcore *= smoothstep(1.0, 0.05, d);
+  return starcore;
+}
+
+float PseudoRandomizer(vec2 p) {
+  // not really random, but it looks random.
+  p = fract(p * vec2(123.45, 345.67));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+vec3 StarFieldLayer(vec2 uv, float rotAngle) {
+  vec3 col = vec3(0.0);
+
+  vec2 gv = fract(uv) - 0.5;
+  vec2 id = floor(uv);
+
+  float deltaTimeTwinkle = uTime * 0.35 * uTwinkleSpeed;
+
+  // sweep the 8 neighbors plus the home cell so stars are not clipped at
+  // cell borders. Constant 3x3 bounds.
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 offset = vec2(float(x), float(y));
+
+      float randomN = PseudoRandomizer(id + offset); // 0..1
+      float randoX = randomN - 0.5;
+      float randoY = fract(randomN * 45.0) - 0.5;
+      vec2 randomPosition = gv - offset - vec2(randoX, randoY);
+      // fract trick: random sizes
+      float size = fract(randomN * 1356.33);
+      float flareSwitch = smoothstep(0.9, 1.0, size);
+      float star = Star(randomPosition, flareSwitch, rotAngle, randomN);
+
+      // fract trick: random colors
+      float randomStarColorSeed = fract(randomN * 2150.0) * (3.0 * PI) * deltaTimeTwinkle;
+      vec3 color = sin(vec3(0.7, 0.3, 0.9) * randomStarColorSeed);
+
+      // compress
+      color = color * (0.4 * sin(deltaTimeTwinkle)) + 0.6;
+      // filter
+      color = color * vec3(1.0, 0.1, 0.9 + size);
+      float dimByDensity = 15.0 / float(STARFIELD_LAYERS_COUNT);
+      col += star * size * color * dimByDensity;
+    }
+  }
+
+  return col;
+}
+
+void main() {
+  // ShaderToy fragCoord, reconstructed from vUv (see header).
+  vec2 fragCoord = vUv * uResolution;
+
+  // Normalized pixel coordinates centered at screen middle.
+  vec2 uv = (fragCoord - 0.5 * uResolution.xy) / uResolution.y;
+
+  float deltaTime = uTime * 0.01 * uSpeed;
+
+  vec3 col = vec3(0.0);
+
+  float rotAngle = deltaTime * 0.09;
+
+  // Layer accumulation. Integer-counted loop replacing the original
+  // `for (float i = 0.0; i < 1.0; i += 1.0/COUNT)`. With n in [0, COUNT),
+  // i = n/COUNT reproduces the exact same {0, 1/N, 2/N, ...} sequence and
+  // the same iteration count, so visual output is unchanged; only the loop
+  // form is cross-compile-safe.
+  for (int n = 0; n < STARFIELD_LAYERS_COUNT; n++) {
+    float i = float(n) / float(STARFIELD_LAYERS_COUNT);
+    float layerDepth = fract(i + deltaTime);
+    float layerScale = mix(MIN_DIVIDE, MAX_DIVIDE, layerDepth);
+    float layerFader = layerDepth * smoothstep(0.1, 1.1, layerDepth);
+    float layerOffset = i * (3430.0 + fract(i));
+    mat2 layerRot = Rotate(rotAngle * i * -10.0);
+    uv *= layerRot;
+    vec2 starfieldUv = uv * layerScale * uScale + layerOffset;
+    col += StarFieldLayer(starfieldUv, rotAngle) * layerFader;
+  }
+
+  // Glow + color grade, then opaque procedural background.
+  col *= uBrightness * uColor;
+  oColor = vec4(col, 1.0);
+}
+"""
+
+  const val ANAMORPHIC_LENSFLARE_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform float uFlareX;        // flare X position, 0..1 (drifts slowly around this)
+uniform float uFlareY;        // flare Y position, 0..1 (0 = bottom)
+uniform float uIntensity;     // overall brightness multiplier
+uniform float uStreakLength;  // horizontal streak reach; higher = longer
+uniform float uStreakWidth;   // main streak vertical tightness; higher = thinner
+uniform float uGhostStrength; // optical-ghost strength along the flare axis
+uniform vec3 uWarmColor;      // core / warm streak tint
+uniform vec3 uBlueColor;      // halo / wide-streak tint
+uniform vec3 uPinkColor;      // secondary streak / ghost tint
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+float softOrb(vec2 uv, vec2 center, float radius) {
+  float d = length(uv - center);
+  float q = d / radius;  // pow(q, 2.0) -> q*q; spirv-opt does not strength-reduce it
+  return exp(-q * q);
+}
+
+float softStreak(vec2 uv, vec2 center, float width, float length) {
+  float yFalloff = exp(-abs(uv.y - center.y) * width);
+  float xFalloff = exp(-abs(uv.x - center.x) * length);
+  return yFalloff * xFalloff;
+}
+
+void main() {
+  // ShaderToy uv = fragCoord / iResolution; identical to vUv here.
+  vec2 uv = vUv;
+
+  // Slow horizontal drift.
+  float horizontalDrift = sin(uTime * 0.18) * 0.10;
+  vec2 flarePos = vec2(uFlareX + horizontalDrift, uFlareY);
+
+  vec3 col = vec3(0.0);
+  float alpha = 0.0;
+
+  // Main source.
+  float core = softOrb(uv, flarePos, 0.022);
+  float bloom = softOrb(uv, flarePos, 0.095);
+  float outerHalo = softOrb(uv, flarePos, 0.28);
+
+  col += vec3(1.0) * core * 1.8;
+  col += uWarmColor * bloom * 0.95;
+  col += uBlueColor * outerHalo * 0.16;
+
+  alpha += core * 0.45;
+  alpha += bloom * 0.22;
+  alpha += outerHalo * 0.045;
+
+  // Moving streak intensity.
+  float sweepGlow = 0.85 + 0.15 * sin(uTime * 0.7 + uv.x * 8.0);
+
+  // Main + wide anamorphic streaks.
+  float mainStreak = softStreak(uv, flarePos, uStreakWidth, uStreakLength);
+  float wideStreak = softStreak(uv, flarePos, 70.0, uStreakLength * 0.65);
+
+  col += uWarmColor * mainStreak * 1.15 * sweepGlow;
+  col += uBlueColor * wideStreak * 0.26 * sweepGlow;
+
+  alpha += mainStreak * 0.18;
+  alpha += wideStreak * 0.055;
+
+  // Secondary colored streaks.
+  float upperLine = softStreak(uv, flarePos + vec2(0.0, 0.012), 260.0, uStreakLength * 0.7);
+  float lowerLine = softStreak(uv, flarePos - vec2(0.0, 0.010), 240.0, uStreakLength * 0.8);
+
+  col += uBlueColor * upperLine * 0.22;
+  col += uPinkColor * lowerLine * 0.16;
+
+  alpha += (upperLine + lowerLine) * 0.035;
+
+  // Optical ghosts along the line from the flare through screen center.
+  vec2 center = vec2(0.5);
+  vec2 axis = center - flarePos;
+
+  vec2 ghost1 = flarePos + axis * 0.45;
+  vec2 ghost2 = flarePos + axis * 0.85;
+  vec2 ghost3 = flarePos + axis * 1.28;
+  vec2 ghost4 = flarePos - axis * 0.35;
+
+  float g1 = softOrb(uv, ghost1, 0.070);
+  float g2 = softOrb(uv, ghost2, 0.115);
+  float g3 = softOrb(uv, ghost3, 0.055);
+  float g4 = softOrb(uv, ghost4, 0.095);
+
+  col += uPinkColor * g1 * 0.18 * uGhostStrength;
+  col += uBlueColor * g2 * 0.15 * uGhostStrength;
+  col += uWarmColor * g3 * 0.22 * uGhostStrength;
+  col += uBlueColor * g4 * 0.10 * uGhostStrength;
+
+  alpha += g1 * 0.040 * uGhostStrength;
+  alpha += g2 * 0.035 * uGhostStrength;
+  alpha += g3 * 0.050 * uGhostStrength;
+  alpha += g4 * 0.030 * uGhostStrength;
+
+  // Tiny shimmer to keep it alive.
+  float shimmer = 0.97 + 0.03 * sin(uTime * 2.1);
+
+  col *= uIntensity * shimmer;
+  alpha *= uIntensity * shimmer;
+
+  alpha = clamp(alpha, 0.0, 1.0);
+  oColor = vec4(col, alpha);
+}
+"""
+
+  const val LIGHT_BEAMS_AND_MOTES_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform float uSpeed;         // animation rate; 1.0 = stock, 0 freezes the field
+uniform float uBeamSoftness;  // beam polygon edge softness
+uniform float uOverlayAlpha;  // overall overlay opacity, applied to final alpha
+
+// Per-beam: a row-major quad (TL, TR, BL, BR; y-up), a color, a fill strength
+// (absolute), and an on/off flag. A disabled beam's quadMask + sins do not execute
+// at all (the flag is uniform, so the branch is coherent across every fragment) --
+// that is how you stop paying for beams you are not using.
+uniform vec2 uBeam1Poly[4];
+uniform vec3 uBeam1Color;
+uniform float uBeam1Alpha;
+uniform float uBeam1On;
+uniform vec2 uBeam2Poly[4];
+uniform vec3 uBeam2Color;
+uniform float uBeam2Alpha;
+uniform float uBeam2On;
+uniform vec2 uBeam3Poly[4];
+uniform vec3 uBeam3Color;
+uniform float uBeam3Alpha;
+uniform float uBeam3On;
+
+uniform float uMoteAlpha;     // mote brightness (absolute)
+uniform float uGlowSize;      // mote glow radius, in mote-size multiples
+uniform float uMoteCount;     // active motes (<= MOTE_COUNT); a coherent break trims the loop
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+// ---------- Mote controls (internal constants) ----------
+#define MOTE_COUNT        128   // loop bound: compile-time constant, not a uniform
+#define DRIFT_SPEED       0.060
+#define FALL_SPEED        0.012
+#define SWIRL_AMOUNT      0.065
+#define TURBULENCE        0.030
+#define MOTE_SIZE_MIN     0.0013
+#define MOTE_SIZE_MAX     0.0048
+
+float hash1(float n) {
+    return fract(sin(n) * 43758.5453123);
+}
+
+vec2 hash2(float n) {
+    return vec2(hash1(n + 11.17), hash1(n + 47.83));
+}
+
+float softMote(vec2 uv, vec2 center, float radius) {
+    float d = length(uv - center);
+    float q = d / radius;  // pow(q, 2.0) -> q*q; spirv-opt does not strength-reduce it
+    return exp(-q * q);
+}
+
+// Soft convex quad mask, winding-AGNOSTIC: the corners are user-draggable, so the
+// perimeter can wind either way. A point is inside when it is on the same side of
+// all four edges, whichever side that is; product the positive-side smoothsteps and
+// the negative-side ones and keep the larger.
+float quadMask(vec2 p, vec2 a, vec2 b, vec2 c, vec2 d, float softness) {
+    vec2 e0 = b - a;
+    vec2 e1 = c - b;
+    vec2 e2 = d - c;
+    vec2 e3 = a - d;
+    float s0 = e0.x * (p.y - a.y) - e0.y * (p.x - a.x);
+    float s1 = e1.x * (p.y - b.y) - e1.y * (p.x - b.x);
+    float s2 = e2.x * (p.y - c.y) - e2.y * (p.x - c.x);
+    float s3 = e3.x * (p.y - d.y) - e3.y * (p.x - d.x);
+    float inNeg =
+        smoothstep(-softness, softness, -s0) *
+        smoothstep(-softness, softness, -s1) *
+        smoothstep(-softness, softness, -s2) *
+        smoothstep(-softness, softness, -s3);
+    float inPos =
+        smoothstep(-softness, softness, s0) *
+        smoothstep(-softness, softness, s1) *
+        smoothstep(-softness, softness, s2) *
+        smoothstep(-softness, softness, s3);
+    return max(inNeg, inPos);
+}
+
+// Subtle animated variation inside each beam.
+float beamTexture(vec2 uv, float seed) {
+    float t = uTime * uSpeed;
+    float broadBands = 0.55 + 0.45 * sin(uv.x * 7.0 + uv.y * 4.0 + t * 0.06 + seed);
+    float fineBands = 0.75 + 0.25 * sin(uv.x * 23.0 - uv.y * 11.0 + t * 0.11 + seed * 2.7);
+    return mix(0.65, 1.0, broadBands * fineBands);
+}
+
+// Geometric coverage of one row-major beam quad at uv (mask * texture, 0..~1), with
+// the row-major -> perimeter reorder folded in. Independent of the beam's alpha.
+float beamShape(vec2 uv, vec2 poly[4], float seed) {
+    return quadMask(uv, poly[0], poly[1], poly[3], poly[2], uBeamSoftness) * beamTexture(uv, seed);
+}
+
+// Evaluate the three beams once. Returns the GEOMETRIC coverage sum (used to gate +
+// brighten motes and to drive the haze, so per-beam alpha never dims the motes);
+// writes `color` (the geometry-weighted beam hue, for fill and motes) and `litSum`
+// (the alpha-weighted amount, the actual fill brightness/opacity).
+float evalBeams(vec2 uv, out vec3 color, out float litSum) {
+    float a1 = 0.0;
+    float a2 = 0.0;
+    float a3 = 0.0;
+    if (uBeam1On > 0.5) a1 = beamShape(uv, uBeam1Poly, 1.0);
+    if (uBeam2On > 0.5) a2 = beamShape(uv, uBeam2Poly, 8.0);
+    if (uBeam3On > 0.5) a3 = beamShape(uv, uBeam3Poly, 14.0);
+
+    float geomSum = a1 + a2 + a3;
+    color = (uBeam1Color * a1 + uBeam2Color * a2 + uBeam3Color * a3) / max(geomSum, 0.0001);
+    litSum = a1 * uBeam1Alpha + a2 * uBeam2Alpha + a3 * uBeam3Alpha;
+    return geomSum;
+}
+
+// Accumulate the dust motes for ALL on beams in ONE loop. Each mote is round-
+// robined to an on beam (mote n -> the (n mod nActive)-th on beam) and spawned in
+// THAT beam's (u,v) space: every mote lands in a beam, takes the beam's color, and
+// gets a cheap (u,v) edge falloff -- no screen-space scatter to cull, no per-mote
+// quadMask. n and nActive are uniform across fragments, so the beam pick is
+// COHERENT (same for every pixel), not a divergent per-pixel branch. Motes drift
+// ALONG the beam (fall in v, swirl in u) and wrap, fading at the boundaries so the
+// wrap is never a visible pop. Total mote count is uMoteCount regardless of how
+// many beams are on -- the on beams share the budget.
+void addMotes(vec2 uv, inout vec3 col, inout float alpha) {
+    float nActive = uBeam1On + uBeam2On + uBeam3On;  // on-flags are 0/1
+    if (nActive < 0.5) return;                        // no beams -> no motes
+
+    // Motes may spill past the polygon edge by ~softness so the soft fringe is
+    // populated; the (u,v) falloff dims them there.
+    float fuzz = clamp(uBeamSoftness * 2.0, 0.03, 0.35);
+    float slot = 0.0;  // round-robin cursor over the on beams (a wrapped counter, no per-mote mod)
+
+    for (int n = 0; n < MOTE_COUNT; n++) {
+        if (float(n) >= uMoteCount) break;  // runtime-tunable mote count (coherent break)
+        float seed = float(n) * 91.73;
+
+        // Round-robin: this mote goes to the slot-th on beam. Walk the beams,
+        // counting on ones; the slot-th match wins.
+        float picked = 0.0;
+        vec2 tl = vec2(0.0);
+        vec2 tr = vec2(0.0);
+        vec2 bl = vec2(0.0);
+        vec2 br = vec2(0.0);
+        vec3 color = vec3(0.0);
+        if (uBeam1On > 0.5) {
+            if (abs(picked - slot) < 0.5) {
+                tl = uBeam1Poly[0]; tr = uBeam1Poly[1]; bl = uBeam1Poly[2]; br = uBeam1Poly[3];
+                color = uBeam1Color;
+            }
+            picked += 1.0;
+        }
+        if (uBeam2On > 0.5) {
+            if (abs(picked - slot) < 0.5) {
+                tl = uBeam2Poly[0]; tr = uBeam2Poly[1]; bl = uBeam2Poly[2]; br = uBeam2Poly[3];
+                color = uBeam2Color;
+            }
+            picked += 1.0;
+        }
+        if (uBeam3On > 0.5) {
+            if (abs(picked - slot) < 0.5) {
+                tl = uBeam3Poly[0]; tr = uBeam3Poly[1]; bl = uBeam3Poly[2]; br = uBeam3Poly[3];
+                color = uBeam3Color;
+            }
+            picked += 1.0;
+        }
+
+        float depth = hash1(seed + 3.0);
+        float size = mix(MOTE_SIZE_MIN, MOTE_SIZE_MAX, depth);
+        float speed = mix(0.45, 1.35, hash1(seed + 5.0));
+        float t = uTime * uSpeed * speed;
+
+        // (u,v) in beam space; drift = swirl in u, fall in v. fract wraps within
+        // the beam, so a mote that falls out the spread end reappears at the source.
+        vec2 g = hash2(seed);
+        g.x += sin(t * DRIFT_SPEED * 1.7 + seed) * SWIRL_AMOUNT;
+        g.x += sin(t * DRIFT_SPEED * 3.9 + seed * 0.41) * TURBULENCE;
+        g.y += uTime * uSpeed * FALL_SPEED * speed * 6.0;
+        g.y += sin(t * DRIFT_SPEED * 2.4 + seed * 0.37) * SWIRL_AMOUNT * 0.55;
+        g = fract(g);
+
+        // Expand to [-fuzz, 1+fuzz] so motes populate the soft fringe, then map
+        // bilinearly onto the quad.
+        vec2 q = g * (1.0 + 2.0 * fuzz) - fuzz;
+        vec2 pos = mix(mix(tl, tr, q.x), mix(bl, br, q.x), q.y);
+
+        // Cheap soft-edge falloff in (u,v), replacing the per-mote quadMask.
+        float edge =
+            smoothstep(0.0, fuzz, q.x) * smoothstep(0.0, fuzz, 1.0 - q.x) *
+            smoothstep(0.0, fuzz, q.y) * smoothstep(0.0, fuzz, 1.0 - q.y);
+
+        float mote = softMote(uv, pos, size);
+        float core = softMote(uv, pos, size * 0.42);
+        float glow = softMote(uv, pos, size * uGlowSize);
+
+        float shimmer =
+            0.72 + 0.28 * sin(uTime * uSpeed * mix(0.22, 0.95, hash1(seed + 9.0)) + seed);
+        float strength = mix(0.15, 1.0, depth) * shimmer * edge * uMoteAlpha;
+
+        col += color * glow * strength * 0.12;
+        col += color * mote * strength * 0.36;
+        col += vec3(1.0) * core * strength * 0.10;
+
+        alpha += glow * strength * 0.030;
+        alpha += mote * strength * 0.105;
+        alpha += core * strength * 0.110;
+
+        slot += 1.0;
+        if (slot >= nActive) slot = 0.0;  // wrap the round-robin cursor
+    }
+}
+
+void main() {
+    // vUv is already 0..1 with bottom-left origin; this is the Shadertoy uv.
+    vec2 uv = vUv;
+
+    vec3 col = vec3(0.0);
+    float alpha = 0.0;
+
+    vec3 beamColor;
+    float litSum;
+    float cover = evalBeams(uv, beamColor, litSum);
+
+    col += beamColor * litSum;       // litSum carries each beam's per-beam alpha
+    alpha += litSum * 0.45;
+
+    // One loop; each mote is round-robined into an on beam and spawned there.
+    addMotes(uv, col, alpha);
+
+    float haze =
+        cover * cover * (0.6 + 0.4 * sin(uv.x * 8.0 + uv.y * 5.0 + uTime * uSpeed * 0.08));
+    col += beamColor * haze * 0.018;
+    alpha += haze * 0.010;
+
+    alpha = clamp(alpha * uOverlayAlpha, 0.0, 1.0);
+    oColor = vec4(col, alpha);
+}
+"""
+
+  const val CORPORATE_BLOBS_FRAG = """#version 300 es
+precision highp float;
+
+uniform float uTime;          // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;     // framebuffer size in pixels; both components > 0
+uniform vec3 uColor;          // overall tint / color grade; [1,1,1] = stock colors
+uniform float uGlobalAlpha;   // overall blob opacity; stock 0.58
+uniform float uScale;         // global blob size multiplier; stock 2.55
+uniform float uEdgePull;      // pushes blobs outward from center; stock 0.32
+uniform float uCenterClear;   // radius around center that repels blobs; stock 0.42
+uniform float uMotionAmount;  // positional drift magnitude; 1.0 = stock, 0 = still
+uniform float uMotionSpeed;   // drift + morph rate; 1.0 = stock, 0 freezes motion
+uniform float uEdgeSoftness;  // blob edge falloff; stock 0.024
+// Per-blob base colors, multiplied by uColor at output. Defaults (the stock
+// brand palette) live in CORPORATE_BLOBS_CONTROLS.
+uniform vec3 uBlobColor1;     // stock: light blue
+uniform vec3 uBlobColor2;     // stock: dark green
+uniform vec3 uBlobColor3;     // stock: yellow
+uniform vec3 uBlobColor4;     // stock: orange
+uniform vec3 uBlobColor5;     // stock: light green
+uniform vec3 uBlobColor6;     // stock: magenta
+uniform vec3 uBlobColor7;     // stock: brown
+uniform vec3 uBlobColor8;     // stock: dark blue
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+// BLOB_COUNT must stay a compile-time constant (GLSL ES loop bound).
+#define BLOB_COUNT            8
+
+// Internal animation constants (not tunable; keep the look coherent).
+#define CENTER_CLEAR_PUSH     0.34
+#define SCALE_PULSE_AMOUNT    0.10
+#define SCALE_PULSE_SPEED     0.42
+#define ROTATION_SWAY_AMOUNT  0.12
+#define ROTATION_SWAY_SPEED   0.11
+#define SHAPE_MORPH_SPEED     1.00
+
+struct Blob {
+    vec2 pos;
+    float scale;
+    float opacity;
+    float speed;
+    float drift;
+    float rotation;
+    float variant;
+    vec3 color;
+};
+
+Blob getBlob(float i) {
+    if (i < 0.5) return Blob(vec2(-1.18, -0.55), 0.62, 0.48, 0.22, 0.14, 0.10, 0.0, uBlobColor1);
+    if (i < 1.5) return Blob(vec2( 1.12, -0.35), 0.66, 0.40, 0.18, 0.13, 1.00, 1.0, uBlobColor2);
+    if (i < 2.5) return Blob(vec2( 0.95,  0.88), 0.58, 0.44, 0.20, 0.14, 2.20, 2.0, uBlobColor3);
+    if (i < 3.5) return Blob(vec2(-0.98,  0.82), 0.56, 0.38, 0.16, 0.12, 0.70, 3.0, uBlobColor4);
+    if (i < 4.5) return Blob(vec2( 1.28,  0.28), 0.50, 0.34, 0.24, 0.11, 1.80, 4.0, uBlobColor5);
+    if (i < 5.5) return Blob(vec2(-0.25, -1.12), 0.54, 0.36, 0.19, 0.11, 2.60, 5.0, uBlobColor6);
+    if (i < 6.5) return Blob(vec2(-1.30,  0.10), 0.48, 0.30, 0.17, 0.12, 0.40, 6.0, uBlobColor7);
+    return             Blob(vec2( 0.28,  1.18), 0.52, 0.30, 0.14, 0.10, 0.90, 7.0, uBlobColor8);
+}
+
+mat2 rotate2d(float a) {
+    float s = sin(a);
+    float c = cos(a);
+    return mat2(c, -s, s, c);
+}
+
+float variantRadius(float angle, float variant, float phase) {
+    float r = 1.0;
+
+    if (variant < 0.5) {
+        r += 0.115 * sin(angle * 2.0 + 0.20 + phase * 0.20);
+        r += 0.075 * sin(angle * 3.0 - 1.10 - phase * 0.13);
+        r += 0.035 * sin(angle * 5.0 + 2.00 + phase * 0.09);
+    } else if (variant < 1.5) {
+        r += 0.090 * sin(angle * 2.0 - 0.80 + phase * 0.18);
+        r += 0.105 * sin(angle * 3.0 + 0.70 - phase * 0.10);
+        r += 0.030 * sin(angle * 6.0 - 1.50 + phase * 0.08);
+    } else if (variant < 2.5) {
+        r += 0.130 * sin(angle * 2.0 + 1.10 + phase * 0.16);
+        r += 0.060 * sin(angle * 4.0 - 0.30 - phase * 0.12);
+        r += 0.045 * sin(angle * 5.0 + 2.80 + phase * 0.07);
+    } else if (variant < 3.5) {
+        r += 0.080 * sin(angle * 2.0 + 2.30 + phase * 0.14);
+        r += 0.120 * sin(angle * 3.0 - 0.40 - phase * 0.11);
+        r += 0.040 * sin(angle * 7.0 + 1.10 + phase * 0.06);
+    } else if (variant < 4.5) {
+        r += 0.035 * sin(angle * 2.0 + 0.10 + phase * 0.12);
+        r += 0.030 * sin(angle * 3.0 + 1.80 - phase * 0.09);
+        r += 0.020 * sin(angle * 5.0 - 0.90 + phase * 0.05);
+    } else if (variant < 5.5) {
+        r += 0.145 * sin(angle * 2.0 - 1.30 + phase * 0.17);
+        r += 0.070 * sin(angle * 3.0 + 2.40 - phase * 0.11);
+        r += 0.035 * sin(angle * 5.0 + 0.20 + phase * 0.08);
+    } else if (variant < 6.5) {
+        r += 0.045 * sin(angle * 2.0 + 1.70 + phase * 0.10);
+        r += 0.035 * sin(angle * 4.0 - 2.10 - phase * 0.08);
+        r += 0.025 * sin(angle * 6.0 + 0.50 + phase * 0.05);
+    } else {
+        r += 0.170 * sin(angle * 2.0 + 2.80 + phase * 0.20);
+        r += 0.090 * sin(angle * 3.0 - 1.90 - phase * 0.15);
+        r += 0.055 * sin(angle * 5.0 + 0.80 + phase * 0.09);
+    }
+
+    return r;
+}
+
+vec2 applyCenterRepulsor(vec2 center) {
+    float d = length(center);
+    vec2 dir = normalize(center + vec2(0.0001, 0.0001));
+
+    center += dir * uEdgePull;
+
+    float centerInfluence = 1.0 - smoothstep(uCenterClear, uCenterClear + 0.35, d);
+    center += dir * centerInfluence * CENTER_CLEAR_PUSH;
+
+    return center;
+}
+
+float animatedScale(float baseScale, float blobIndex, float blobSpeed) {
+    float localPhase =
+        uTime * SCALE_PULSE_SPEED * (0.65 + blobSpeed * 1.35) +
+        blobIndex * 2.731;
+
+    float pulseA = sin(localPhase);
+    float pulseB = sin(localPhase * 0.47 + blobIndex * 5.13) * 0.45;
+
+    float scaleMultiplier = 1.0 + (pulseA + pulseB) * SCALE_PULSE_AMOUNT;
+
+    return baseScale * max(0.05, scaleMultiplier);
+}
+
+float blobMask(vec2 p, vec2 center, Blob b, float phase, float liveScale) {
+    vec2 q = p - center;
+
+    vec2 squash = vec2(
+        1.0 + 0.14 * sin(b.variant * 1.91),
+        1.0 + 0.14 * cos(b.variant * 2.37)
+    );
+
+    float rotationSway =
+        sin(uTime * ROTATION_SWAY_SPEED * (0.6 + b.speed) + b.variant * 3.0) *
+        ROTATION_SWAY_AMOUNT;
+
+    q = rotate2d(b.rotation + rotationSway) * q;
+    q /= squash;
+
+    float angle = atan(q.y, q.x);
+    float dist = length(q);
+
+    float r = liveScale * uScale * 0.5 * variantRadius(angle, b.variant, phase);
+
+    return 1.0 - smoothstep(r, r + uEdgeSoftness, dist);
+}
+
+void main() {
+    vec2 uv = vUv;
+
+    vec2 p = uv * 2.0 - 1.0;
+    p.x *= uResolution.x / uResolution.y;
+
+    vec3 blobCol = vec3(0.0);
+    float blobAlpha = 0.0;
+
+    // Integer-counted loop over a compile-time bound; i is reconstructed as
+    // float(n), so the per-blob lookups and phases match the prototype.
+    for (int n = 0; n < BLOB_COUNT; n++) {
+        float i = float(n);
+        Blob b = getBlob(i);
+
+        float phase =
+            uTime * b.speed * uMotionSpeed * SHAPE_MORPH_SPEED +
+            i * 4.137;
+
+        vec2 center = b.pos;
+
+        center.x += sin(phase * 0.41 + i * 1.70) * b.drift * uMotionAmount;
+        center.x += sin(phase * 0.19 + i * 3.10) * b.drift * uMotionAmount * 0.45;
+        center.y += cos(phase * 0.33 + i * 2.30) * b.drift * uMotionAmount * 0.75;
+        center.y += sin(phase * 0.17 + i * 4.40) * b.drift * uMotionAmount * 0.35;
+
+        center = applyCenterRepulsor(center);
+
+        float liveScale = animatedScale(b.scale, i, b.speed);
+        float mask = blobMask(p, center, b, phase, liveScale);
+
+        float inner = pow(mask, 1.35);
+        float rim = mask * (1.0 - smoothstep(0.45, 1.0, mask));
+
+        vec3 gelColor = b.color * inner + b.color * rim * 0.18;
+        float a = mask * b.opacity * uGlobalAlpha;
+
+        blobCol += gelColor * a * (1.0 - blobAlpha);
+        blobAlpha += a * (1.0 - blobAlpha);
+    }
+
+    // Premultiplied output; tint grades the (premultiplied) color, not alpha.
+    oColor = vec4(blobCol * uColor, blobAlpha);
+}
+"""
+
+  // Generative background shaders, by name. The generic shader processor and
+  // directory-driven registration iterate this; adding a generative .frag adds
+  // an entry here automatically.
+  val GENERATIVE: Map<String, String> = mapOf(
+    "plasma" to PLASMA_FRAG,
+    "clouds" to CLOUDS_FRAG,
+    "nebula" to NEBULA_FRAG,
+    "godrays" to GODRAYS_FRAG,
+    "fireflies" to FIREFLIES_FRAG,
+    "simianlights" to SIMIANLIGHTS_FRAG,
+    "anamorphic-lensflare" to ANAMORPHIC_LENSFLARE_FRAG,
+    "light-beams-and-motes" to LIGHT_BEAMS_AND_MOTES_FRAG,
+    "corporate-blobs" to CORPORATE_BLOBS_FRAG,
+  )
 }

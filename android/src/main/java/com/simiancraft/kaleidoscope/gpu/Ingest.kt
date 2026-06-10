@@ -11,7 +11,7 @@
 // composited pre-rotated). That per-effect cascade is what this module removes.
 //
 // `composedTexMatrix` folds the display rotation INTO the texture matrix, so the
-// single OES->2D pass that BlurFactory, BackgroundImageFactory, and
+// single OES->2D pass that the composite factory and
 // TransformFactory each run now lands a DISPLAY-UPRIGHT frame in the FBO. The
 // FBO is sized with `displayWidth` / `displayHeight` (buffer dims swapped on a
 // 90/270 frame), so the upright image fills it without clamping.
@@ -41,83 +41,104 @@
 package com.simiancraft.kaleidoscope.gpu
 
 internal object Ingest {
-  // The ONE orientation calibration knob. +1f applies the display rotation as
-  // -frame.rotation about center (the geometric inverse, which is what maps a
-  // display-upright destination UV back into the camera's pre-rotation UV
-  // space); -1f applies +frame.rotation. Flip this sign if a portrait-device
-  // screenshot shows the whole frame rotated the wrong way. This is the only
-  // place orientation direction is decided.
-  private const val ROTATION_DIRECTION = 1f
+    // The ONE orientation calibration knob. +1f applies the display rotation as
+    // -frame.rotation about center (the geometric inverse, which is what maps a
+    // display-upright destination UV back into the camera's pre-rotation UV
+    // space); -1f applies +frame.rotation. Flip this sign if a portrait-device
+    // screenshot shows the whole frame rotated the wrong way. This is the only
+    // place orientation direction is decided.
+    private const val ROTATION_DIRECTION = 1f
 
-  /** Display width for a buffer of [bufferWidth] x [bufferHeight] at [frameRotation]. */
-  fun displayWidth(bufferWidth: Int, bufferHeight: Int, frameRotation: Int): Int =
-    if (swaps(frameRotation)) bufferHeight else bufferWidth
+    /** Display width for a buffer of [bufferWidth] x [bufferHeight] at [frameRotation]. */
+    fun displayWidth(
+        bufferWidth: Int,
+        bufferHeight: Int,
+        frameRotation: Int,
+    ): Int = if (swaps(frameRotation)) bufferHeight else bufferWidth
 
-  /** Display height for a buffer of [bufferWidth] x [bufferHeight] at [frameRotation]. */
-  fun displayHeight(bufferWidth: Int, bufferHeight: Int, frameRotation: Int): Int =
-    if (swaps(frameRotation)) bufferWidth else bufferHeight
+    /** Display height for a buffer of [bufferWidth] x [bufferHeight] at [frameRotation]. */
+    fun displayHeight(
+        bufferWidth: Int,
+        bufferHeight: Int,
+        frameRotation: Int,
+    ): Int = if (swaps(frameRotation)) bufferWidth else bufferHeight
 
-  /** Does this frame rotation swap buffer dims into display dims? */
-  private fun swaps(frameRotation: Int): Boolean {
-    val r = normalize(frameRotation)
-    return r == 90 || r == 270
-  }
-
-  /**
-   * Column-major 4x4 for the OES->2D pass's `uTexMatrix`, composing the camera
-   * [transformMatrix] with the display rotation derived from [frameRotation].
-   * Feed the result straight to glUniformMatrix4fv (already flat, length 16).
-   *
-   * M' = transformMatrix4 * Rot(theta about 0.5), where
-   * theta = ROTATION_DIRECTION * frameRotation degrees.
-   */
-  fun composedTexMatrix(
-    transformMatrix: android.graphics.Matrix,
-    frameRotation: Int,
-  ): FloatArray {
-    val base = Egl.matrixToGl(transformMatrix)
-    val rot = rotationAboutCenter(ROTATION_DIRECTION * normalize(frameRotation).toFloat())
-    return multiplyColumnMajor4(base, rot)
-  }
-
-  /**
-   * Column-major 4x4 that rotates the xy UV plane by [degrees] about (0.5, 0.5),
-   * leaving z and w untouched. Translate-to-center, rotate, translate-back.
-   */
-  private fun rotationAboutCenter(degrees: Float): FloatArray {
-    val rad = Math.toRadians(degrees.toDouble())
-    val c = Math.cos(rad).toFloat()
-    val s = Math.sin(rad).toFloat()
-    // 2D rotation about 0.5 in (x, y):
-    //   x' = c*(x-0.5) - s*(y-0.5) + 0.5
-    //   y' = s*(x-0.5) + c*(y-0.5) + 0.5
-    // As an affine 4x4 (column-major): linear block in the upper-left 2x2,
-    // translation in the last column.
-    val tx = 0.5f - 0.5f * c + 0.5f * s
-    val ty = 0.5f - 0.5f * s - 0.5f * c
-    return floatArrayOf(
-      c, s, 0f, 0f,
-      -s, c, 0f, 0f,
-      0f, 0f, 1f, 0f,
-      tx, ty, 0f, 1f,
-    )
-  }
-
-  /** a * b, both column-major 4x4 flat arrays (length 16). Returns a*b. */
-  private fun multiplyColumnMajor4(a: FloatArray, b: FloatArray): FloatArray {
-    val out = FloatArray(16)
-    for (col in 0 until 4) {
-      for (row in 0 until 4) {
-        var sum = 0f
-        for (k in 0 until 4) {
-          // column-major index: element(row, k) = a[k*4 + row]
-          sum += a[k * 4 + row] * b[col * 4 + k]
-        }
-        out[col * 4 + row] = sum
-      }
+    /** Does this frame rotation swap buffer dims into display dims? */
+    private fun swaps(frameRotation: Int): Boolean {
+        val r = normalize(frameRotation)
+        return r == 90 || r == 270
     }
-    return out
-  }
 
-  private fun normalize(deg: Int): Int = ((deg % 360) + 360) % 360
+    /**
+     * Column-major 4x4 for the OES->2D pass's `uTexMatrix`, composing the camera
+     * [transformMatrix] with the display rotation derived from [frameRotation].
+     * Feed the result straight to glUniformMatrix4fv (already flat, length 16).
+     *
+     * M' = transformMatrix4 * Rot(theta about 0.5), where
+     * theta = ROTATION_DIRECTION * frameRotation degrees.
+     */
+    fun composedTexMatrix(
+        transformMatrix: android.graphics.Matrix,
+        frameRotation: Int,
+    ): FloatArray {
+        val base = Egl.matrixToGl(transformMatrix)
+        val rot = rotationAboutCenter(ROTATION_DIRECTION * normalize(frameRotation).toFloat())
+        return multiplyColumnMajor4(base, rot)
+    }
+
+    /**
+     * Column-major 4x4 that rotates the xy UV plane by [degrees] about (0.5, 0.5),
+     * leaving z and w untouched. Translate-to-center, rotate, translate-back.
+     */
+    private fun rotationAboutCenter(degrees: Float): FloatArray {
+        val rad = Math.toRadians(degrees.toDouble())
+        val c = Math.cos(rad).toFloat()
+        val s = Math.sin(rad).toFloat()
+        // 2D rotation about 0.5 in (x, y):
+        //   x' = c*(x-0.5) - s*(y-0.5) + 0.5
+        //   y' = s*(x-0.5) + c*(y-0.5) + 0.5
+        // As an affine 4x4 (column-major): linear block in the upper-left 2x2,
+        // translation in the last column.
+        val tx = 0.5f - 0.5f * c + 0.5f * s
+        val ty = 0.5f - 0.5f * s - 0.5f * c
+        return floatArrayOf(
+            c,
+            s,
+            0f,
+            0f,
+            -s,
+            c,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            tx,
+            ty,
+            0f,
+            1f,
+        )
+    }
+
+    /** a * b, both column-major 4x4 flat arrays (length 16). Returns a*b. */
+    private fun multiplyColumnMajor4(
+        a: FloatArray,
+        b: FloatArray,
+    ): FloatArray {
+        val out = FloatArray(16)
+        for (col in 0 until 4) {
+            for (row in 0 until 4) {
+                var sum = 0f
+                for (k in 0 until 4) {
+                    // column-major index: element(row, k) = a[k*4 + row]
+                    sum += a[k * 4 + row] * b[col * 4 + k]
+                }
+                out[col * 4 + row] = sum
+            }
+        }
+        return out
+    }
+
+    private fun normalize(deg: Int): Int = ((deg % 360) + 360) % 360
 }

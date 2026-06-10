@@ -1,6 +1,29 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["demo/**"],
+  "entry": [
+    "src/livekit.ts",
+    "catalog/shaders/**/*.ts",
+    "catalog/images/**/*.{ts,web.ts}",
+    "catalog/composites/**/*.ts",
+    "plugin/src/index.ts"
+  ],
+  "ignore": [
+    "demo/**",
+    "web-driver/shaders.generated.ts",
+    "scripts/chroma-strip.ts",
+    "plugin/build/**"
+  ],
   "ignoreDependencies": ["@semantic-release/.*", "react-native-webrtc"],
-  "ignoreBinaries": ["which", "glslangValidator", "spirv-val", "spirv-opt", "spirv-cross"]
+  "ignoreBinaries": [
+    "which",
+    "glslangValidator",
+    "spirv-val",
+    "spirv-opt",
+    "spirv-cross",
+    "spirv-dis",
+    "show",
+    "wslpath",
+    "explorer.exe",
+    "wslview"
+  ]
 }

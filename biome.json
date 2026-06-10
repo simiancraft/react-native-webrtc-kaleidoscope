@@ -8,16 +8,29 @@
   "files": {
     "includes": [
       "src/**",
+      "catalog/shaders/**",
+      "catalog/images/**",
+      "catalog/composites/**",
       "test/**",
       "scripts/**",
       "demo/app/**",
       "demo/src/**",
       "app.plugin.js",
+      "plugin/src/**",
+      "plugin/build/**",
+      "web-driver/**",
       "*.ts",
       "*.json",
-      "!src/web/shaders.generated.ts"
+      "!web-driver/shaders.generated.ts"
     ]
   },
+  "overrides": [
+    {
+      "includes": ["plugin/build/**"],
+      "linter": { "enabled": false },
+      "assist": { "enabled": false }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

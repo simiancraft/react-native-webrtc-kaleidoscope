@@ -1,0 +1,39 @@
+# SwiftLint config for the iOS Expo module. Gated by `bun run check:swift`; the
+# binary is fetched into .tooling/ by scripts/swift.ts.
+#
+# The disabled rules are SwiftLint metric defaults that fight legitimate GPU/Metal
+# pipeline code: render-pass functions are long, draw calls take many bindings,
+# and the math uses short names (i, sx, sy, ms). Disabling them keeps the linter
+# useful (correctness, unused bindings, redundancy) instead of forcing harmful
+# splits of cohesive render code. opening_brace is disabled because SwiftFormat
+# owns brace placement and its wrapped-signature style (brace on its own line)
+# conflicts with the rule. Correctness and style rules stay on.
+disabled_rules:
+  - type_body_length
+  - function_body_length
+  - function_parameter_count
+  - file_length
+  - cyclomatic_complexity
+  - large_tuple
+  - opening_brace
+
+identifier_name:
+  # GPU math uses short names (i, sx, sy, ms); allow them.
+  min_length:
+    warning: 1
+    error: 1
+  excluded:
+    # Intentional SCREAMING_SNAKE orientation knobs, documented in AGENTS.md as
+    # the per-platform sign-flip sentinels; renaming would break that contract.
+    - ROTATION_DIRECTION
+    - INGEST_MIRROR_X
+    - INGEST_V_FLIP
+
+type_name:
+  # Allow short enums like `Op`.
+  min_length:
+    warning: 2
+
+excluded:
+  - ios/Pods
+  - ios/build

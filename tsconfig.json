@@ -4,9 +4,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "jsx": "react-native",
+    "jsx": "react-jsx",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -24,6 +24,13 @@
     "allowSyntheticDefaultImports": true,
     "types": ["bun"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "plugin", "demo", "android", "ios"]
+  "include": [
+    "src/**/*",
+    "web-driver/**/*.ts",
+    "catalog/shaders/**/*.ts",
+    "catalog/images/**/*.ts",
+    "catalog/composites/**/*.ts",
+    "catalog/composites/**/*.tsx"
+  ],
+  "exclude": ["node_modules", "dist", "plugin", "demo", "android", "ios", "web-driver/test"]
 }

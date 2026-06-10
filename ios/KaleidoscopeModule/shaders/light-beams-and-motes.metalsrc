@@ -1,0 +1,316 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+    
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+    
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+    
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+    
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
+
+constant float2 _2239 = {};
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float& uTime [[buffer(0)]], constant float& uSpeed [[buffer(1)]], constant float& uBeamSoftness [[buffer(2)]], constant float& uBeam1On [[buffer(3)]], constant spvUnsafeArray<float2, 4>& uBeam1Poly [[buffer(4)]], constant float& uBeam2On [[buffer(8)]], constant spvUnsafeArray<float2, 4>& uBeam2Poly [[buffer(9)]], constant float& uBeam3On [[buffer(13)]], constant spvUnsafeArray<float2, 4>& uBeam3Poly [[buffer(14)]], constant float3& uBeam1Color [[buffer(18)]], constant float3& uBeam2Color [[buffer(19)]], constant float3& uBeam3Color [[buffer(20)]], constant float& uBeam1Alpha [[buffer(21)]], constant float& uBeam2Alpha [[buffer(22)]], constant float& uBeam3Alpha [[buffer(23)]], constant float& uMoteCount [[buffer(24)]], constant float& uGlowSize [[buffer(25)]], constant float& uMoteAlpha [[buffer(26)]], constant float& uOverlayAlpha [[buffer(27)]])
+{
+    main0_out out = {};
+    bool _894 = uBeam1On > 0.5;
+    float _2136;
+    if (_894)
+    {
+        float2 _985 = uBeam1Poly[1] - uBeam1Poly[0];
+        float2 _988 = uBeam1Poly[3] - uBeam1Poly[1];
+        float2 _991 = uBeam1Poly[2] - uBeam1Poly[3];
+        float2 _994 = uBeam1Poly[0] - uBeam1Poly[2];
+        float _1011 = (_985.x * (in.vUv.y - uBeam1Poly[0].y)) - (_985.y * (in.vUv.x - uBeam1Poly[0].x));
+        float _1028 = (_988.x * (in.vUv.y - uBeam1Poly[1].y)) - (_988.y * (in.vUv.x - uBeam1Poly[1].x));
+        float _1045 = (_991.x * (in.vUv.y - uBeam1Poly[3].y)) - (_991.y * (in.vUv.x - uBeam1Poly[3].x));
+        float _1062 = (_994.x * (in.vUv.y - uBeam1Poly[2].y)) - (_994.y * (in.vUv.x - uBeam1Poly[2].x));
+        float _1064 = -uBeamSoftness;
+        float _1123 = uTime * uSpeed;
+        _2136 = fast::max(((smoothstep(_1064, uBeamSoftness, -_1011) * smoothstep(_1064, uBeamSoftness, -_1028)) * smoothstep(_1064, uBeamSoftness, -_1045)) * smoothstep(_1064, uBeamSoftness, -_1062), ((smoothstep(_1064, uBeamSoftness, _1011) * smoothstep(_1064, uBeamSoftness, _1028)) * smoothstep(_1064, uBeamSoftness, _1045)) * smoothstep(_1064, uBeamSoftness, _1062)) * mix(0.64999997615814208984375, 1.0, (0.550000011920928955078125 + (0.449999988079071044921875 * sin((((in.vUv.x * 7.0) + (in.vUv.y * 4.0)) + (_1123 * 0.0599999986588954925537109375)) + 1.0))) * (0.75 + (0.25 * sin((((in.vUv.x * 23.0) - (in.vUv.y * 11.0)) + (_1123 * 0.10999999940395355224609375)) + 2.7000000476837158203125))));
+    }
+    else
+    {
+        _2136 = 0.0;
+    }
+    bool _901 = uBeam2On > 0.5;
+    float _2138;
+    if (_901)
+    {
+        float2 _1198 = uBeam2Poly[1] - uBeam2Poly[0];
+        float2 _1201 = uBeam2Poly[3] - uBeam2Poly[1];
+        float2 _1204 = uBeam2Poly[2] - uBeam2Poly[3];
+        float2 _1207 = uBeam2Poly[0] - uBeam2Poly[2];
+        float _1224 = (_1198.x * (in.vUv.y - uBeam2Poly[0].y)) - (_1198.y * (in.vUv.x - uBeam2Poly[0].x));
+        float _1241 = (_1201.x * (in.vUv.y - uBeam2Poly[1].y)) - (_1201.y * (in.vUv.x - uBeam2Poly[1].x));
+        float _1258 = (_1204.x * (in.vUv.y - uBeam2Poly[3].y)) - (_1204.y * (in.vUv.x - uBeam2Poly[3].x));
+        float _1275 = (_1207.x * (in.vUv.y - uBeam2Poly[2].y)) - (_1207.y * (in.vUv.x - uBeam2Poly[2].x));
+        float _1277 = -uBeamSoftness;
+        float _1336 = uTime * uSpeed;
+        _2138 = fast::max(((smoothstep(_1277, uBeamSoftness, -_1224) * smoothstep(_1277, uBeamSoftness, -_1241)) * smoothstep(_1277, uBeamSoftness, -_1258)) * smoothstep(_1277, uBeamSoftness, -_1275), ((smoothstep(_1277, uBeamSoftness, _1224) * smoothstep(_1277, uBeamSoftness, _1241)) * smoothstep(_1277, uBeamSoftness, _1258)) * smoothstep(_1277, uBeamSoftness, _1275)) * mix(0.64999997615814208984375, 1.0, (0.550000011920928955078125 + (0.449999988079071044921875 * sin((((in.vUv.x * 7.0) + (in.vUv.y * 4.0)) + (_1336 * 0.0599999986588954925537109375)) + 8.0))) * (0.75 + (0.25 * sin((((in.vUv.x * 23.0) - (in.vUv.y * 11.0)) + (_1336 * 0.10999999940395355224609375)) + 21.6000003814697265625))));
+    }
+    else
+    {
+        _2138 = 0.0;
+    }
+    bool _908 = uBeam3On > 0.5;
+    float _2140;
+    if (_908)
+    {
+        float2 _1411 = uBeam3Poly[1] - uBeam3Poly[0];
+        float2 _1414 = uBeam3Poly[3] - uBeam3Poly[1];
+        float2 _1417 = uBeam3Poly[2] - uBeam3Poly[3];
+        float2 _1420 = uBeam3Poly[0] - uBeam3Poly[2];
+        float _1437 = (_1411.x * (in.vUv.y - uBeam3Poly[0].y)) - (_1411.y * (in.vUv.x - uBeam3Poly[0].x));
+        float _1454 = (_1414.x * (in.vUv.y - uBeam3Poly[1].y)) - (_1414.y * (in.vUv.x - uBeam3Poly[1].x));
+        float _1471 = (_1417.x * (in.vUv.y - uBeam3Poly[3].y)) - (_1417.y * (in.vUv.x - uBeam3Poly[3].x));
+        float _1488 = (_1420.x * (in.vUv.y - uBeam3Poly[2].y)) - (_1420.y * (in.vUv.x - uBeam3Poly[2].x));
+        float _1490 = -uBeamSoftness;
+        float _1549 = uTime * uSpeed;
+        _2140 = fast::max(((smoothstep(_1490, uBeamSoftness, -_1437) * smoothstep(_1490, uBeamSoftness, -_1454)) * smoothstep(_1490, uBeamSoftness, -_1471)) * smoothstep(_1490, uBeamSoftness, -_1488), ((smoothstep(_1490, uBeamSoftness, _1437) * smoothstep(_1490, uBeamSoftness, _1454)) * smoothstep(_1490, uBeamSoftness, _1471)) * smoothstep(_1490, uBeamSoftness, _1488)) * mix(0.64999997615814208984375, 1.0, (0.550000011920928955078125 + (0.449999988079071044921875 * sin((((in.vUv.x * 7.0) + (in.vUv.y * 4.0)) + (_1549 * 0.0599999986588954925537109375)) + 14.0))) * (0.75 + (0.25 * sin((((in.vUv.x * 23.0) - (in.vUv.y * 11.0)) + (_1549 * 0.10999999940395355224609375)) + 37.799999237060546875))));
+    }
+    else
+    {
+        _2140 = 0.0;
+    }
+    float _918 = (_2136 + _2138) + _2140;
+    float3 _933 = (((uBeam1Color * _2136) + (uBeam2Color * _2138)) + (uBeam3Color * _2140)) / float3(fast::max(_918, 9.9999997473787516355514526367188e-05));
+    float _944 = ((_2136 * uBeam1Alpha) + (_2138 * uBeam2Alpha)) + (_2140 * uBeam3Alpha);
+    float3 _807 = _933 * _944;
+    float _811 = _944 * 0.449999988079071044921875;
+    float3 _2213;
+    float _2215;
+    do
+    {
+        float _1629 = (uBeam1On + uBeam2On) + uBeam3On;
+        if (_1629 < 0.5)
+        {
+            _2215 = _811;
+            _2213 = _807;
+            break;
+        }
+        float _1636 = fast::clamp(uBeamSoftness * 2.0, 0.02999999932944774627685546875, 0.3499999940395355224609375);
+        int _2149;
+        float _2150;
+        float3 _2193;
+        float _2200;
+        _2200 = _811;
+        _2193 = _807;
+        _2150 = 0.0;
+        _2149 = 0;
+        float3 _1885;
+        float _1903;
+        float _2248;
+        for (; _2149 < 128; _2200 = _1903, _2193 = _1885, _2150 = _2248, _2149++)
+        {
+            float _1643 = float(_2149);
+            if (_1643 >= uMoteCount)
+            {
+                break;
+            }
+            float _1650 = _1643 * 91.73000335693359375;
+            float2 _2162;
+            float2 _2168;
+            float2 _2174;
+            float2 _2180;
+            float3 _2186;
+            if (_894)
+            {
+                bool _1658 = abs(-_2150) < 0.5;
+                float2 _2163;
+                float2 _2169;
+                float2 _2175;
+                float2 _2181;
+                if (_1658)
+                {
+                    _2181 = uBeam1Poly[3];
+                    _2175 = uBeam1Poly[2];
+                    _2169 = uBeam1Poly[1];
+                    _2163 = uBeam1Poly[0];
+                }
+                else
+                {
+                    _2181 = float2(0.0);
+                    _2175 = float2(0.0);
+                    _2169 = float2(0.0);
+                    _2163 = float2(0.0);
+                }
+                _2186 = select(float3(0.0), uBeam1Color, bool3(_1658));
+                _2180 = _2181;
+                _2174 = _2175;
+                _2168 = _2169;
+                _2162 = _2163;
+            }
+            else
+            {
+                _2186 = float3(0.0);
+                _2180 = float2(0.0);
+                _2174 = float2(0.0);
+                _2168 = float2(0.0);
+                _2162 = float2(0.0);
+            }
+            float _2243 = float(_894);
+            float _2156;
+            float2 _2161;
+            float2 _2167;
+            float2 _2173;
+            float2 _2179;
+            float3 _2185;
+            if (_901)
+            {
+                bool _1680 = abs(_2243 - _2150) < 0.5;
+                float2 _2164;
+                float2 _2170;
+                float2 _2176;
+                float2 _2182;
+                if (_1680)
+                {
+                    _2182 = uBeam2Poly[3];
+                    _2176 = uBeam2Poly[2];
+                    _2170 = uBeam2Poly[1];
+                    _2164 = uBeam2Poly[0];
+                }
+                else
+                {
+                    _2182 = _2180;
+                    _2176 = _2174;
+                    _2170 = _2168;
+                    _2164 = _2162;
+                }
+                _2185 = select(_2186, uBeam2Color, bool3(_1680));
+                _2179 = _2182;
+                _2173 = _2176;
+                _2167 = _2170;
+                _2161 = _2164;
+                _2156 = _2243 + 1.0;
+            }
+            else
+            {
+                _2185 = _2186;
+                _2179 = _2180;
+                _2173 = _2174;
+                _2167 = _2168;
+                _2161 = _2162;
+                _2156 = _2243;
+            }
+            float2 _2160;
+            float2 _2166;
+            float2 _2172;
+            float2 _2178;
+            float3 _2184;
+            if (_908)
+            {
+                bool _1702 = abs(_2156 - _2150) < 0.5;
+                float2 _2165;
+                float2 _2171;
+                float2 _2177;
+                float2 _2183;
+                if (_1702)
+                {
+                    _2183 = uBeam3Poly[3];
+                    _2177 = uBeam3Poly[2];
+                    _2171 = uBeam3Poly[1];
+                    _2165 = uBeam3Poly[0];
+                }
+                else
+                {
+                    _2183 = _2179;
+                    _2177 = _2173;
+                    _2171 = _2167;
+                    _2165 = _2161;
+                }
+                _2184 = select(_2185, uBeam3Color, bool3(_1702));
+                _2178 = _2183;
+                _2172 = _2177;
+                _2166 = _2171;
+                _2160 = _2165;
+            }
+            else
+            {
+                _2184 = _2185;
+                _2178 = _2179;
+                _2172 = _2173;
+                _2166 = _2167;
+                _2160 = _2161;
+            }
+            float _1921 = fract(sin(_1650 + 3.0) * 43758.546875);
+            float _1721 = mix(0.001300000003539025783538818359375, 0.004800000227987766265869140625, _1921);
+            float _1725 = mix(0.449999988079071044921875, 1.35000002384185791015625, fract(sin(_1650 + 5.0) * 43758.546875));
+            float _1728 = uTime * uSpeed;
+            float _1730 = _1728 * _1725;
+            float2 _2118 = _2239;
+            _2118.x = (fract(sin(_1650 + 11.1700000762939453125) * 43758.546875) + (sin((_1730 * 0.1019999980926513671875) + _1650) * 0.064999997615814208984375)) + (sin((_1730 * 0.2339999973773956298828125) + (_1643 * 37.609302520751953125)) * 0.02999999932944774627685546875);
+            float2 _2124 = _2118;
+            _2124.y = (fract(sin(_1650 + 47.8300018310546875) * 43758.546875) + (((_1728 * 0.01200000010430812835693359375) * _1725) * 6.0)) + (sin((_1730 * 0.14400000870227813720703125) + (_1643 * 33.94010162353515625)) * 0.0357499979436397552490234375);
+            float2 _1789 = (fract(_2124) * (1.0 + (2.0 * _1636))) - float2(_1636);
+            float _1793 = _1789.x;
+            float2 _1794 = float2(_1793);
+            float _1803 = _1789.y;
+            float _1958 = length(in.vUv - mix(mix(_2160, _2166, _1794), mix(_2172, _2178, _1794), float2(_1803)));
+            float _1961 = _1958 / _1721;
+            float _1966 = exp((-_1961) * _1961);
+            float _1977 = _1958 / (_1721 * 0.4199999868869781494140625);
+            float _1982 = exp((-_1977) * _1977);
+            float _1993 = _1958 / (_1721 * uGlowSize);
+            float _1998 = exp((-_1993) * _1993);
+            float _1862 = ((mix(0.1500000059604644775390625, 1.0, _1921) * (0.7200000286102294921875 + (0.2800000011920928955078125 * sin((_1728 * mix(0.2199999988079071044921875, 0.949999988079071044921875, fract(sin(_1650 + 9.0) * 43758.546875))) + _1650)))) * (((smoothstep(0.0, _1636, _1793) * smoothstep(0.0, _1636, 1.0 - _1793)) * smoothstep(0.0, _1636, _1803)) * smoothstep(0.0, _1636, 1.0 - _1803))) * uMoteAlpha;
+            _1885 = ((_2193 + (((_2184 * _1998) * _1862) * 0.119999997317790985107421875)) + (((_2184 * _1966) * _1862) * 0.36000001430511474609375)) + (((float3(1.0) * _1982) * _1862) * 0.100000001490116119384765625);
+            _1903 = ((_2200 + ((_1998 * _1862) * 0.02999999932944774627685546875)) + ((_1966 * _1862) * 0.104999996721744537353515625)) + ((_1982 * _1862) * 0.10999999940395355224609375);
+            float _1905 = _2150 + 1.0;
+            _2248 = (_1905 >= _1629) ? 0.0 : _1905;
+        }
+        _2215 = _2200;
+        _2213 = _2193;
+        break;
+    } while(false);
+    float _845 = (_918 * _918) * (0.60000002384185791015625 + (0.4000000059604644775390625 * sin(((in.vUv.x * 8.0) + (in.vUv.y * 5.0)) + ((uTime * uSpeed) * 0.07999999821186065673828125))));
+    out.oColor = float4(_2213 + ((_933 * _845) * 0.017999999225139617919921875), fast::clamp((_2215 + (_845 * 0.00999999977648258209228515625)) * uOverlayAlpha, 0.0, 1.0));
+    return out;
+}
+

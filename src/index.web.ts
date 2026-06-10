@@ -4,85 +4,98 @@
 // resolution; the `.web.ts` suffix here is just our source convention, not what
 // selects this file at consume time.
 //
-// applyVideoEffects(track, effects) wires an Insertable-Streams pipeline that
-// chains each effect's transform and returns a new MediaStreamTrack carrying
-// the transformed frames. Pass the returned track to a `<video>` element or
-// to `RTCRtpSender.replaceTrack(...)`.
+// Every visual effect is one composite (a layer stack) or one transform. A
+// composite wires an Insertable-Streams stage that runs the whole layer stack
+// through the compositor and returns a new MediaStreamTrack carrying the
+// transformed frames. Pass the returned track to a `<video>` element or to
+// `RTCRtpSender.replaceTrack(...)`.
 
-import { type ApplyVideoEffects, type EffectInput, type EffectSpec, toEffectSpec } from './types';
-import { makeBackgroundImage } from './web/effects/background-image';
-import { blur } from './web/effects/blur';
-import { makeTransform } from './web/effects/transform';
 import {
   applyEffectToTrack,
   type DisposablePipeline,
   type FrameTransform,
-} from './web/insertable-streams';
-import { tuning } from './web/tuning';
+  makeComposite,
+  makeTransform,
+  resetLayerUniforms as resetCompositeLayerUniforms,
+  setLayerUniforms as setCompositeLayerUniforms,
+  tuning,
+} from '../web-driver';
+import {
+  createControls,
+  type Reconcile,
+  type ResetLayerUniforms,
+  type SetLayerUniforms,
+  type SetMask,
+} from './kaleidoscope/controls';
+import { toEffectSpec } from './kaleidoscope/effect';
+import type { EffectInput, EffectSpec } from './kaleidoscope/effect.types';
+import type { KaleidoscopeBinding, KaleidoscopeBindOptions } from './kaleidoscope/types';
+import type { KaleidoscopePresetBook } from './kaleidoscope.preset-book.types';
 
-/**
- * Set the Gaussian sigma for the blur effect. Higher = softer blur.
- * Clamped to [0.5, 7] (the useful range before the linear-sampled kernel
- * truncates and bands). Default 5.
- */
-export const setBlurSigma = (value: number): void => {
-  tuning.setBlurSigma(value);
-};
+// The tuning channel (tuning.*) is internal: the mask edge flows from the mask()
+// verb (see bindKaleidoscope). Per-layer uniform tuning flows from the
+// kaleidoscope verb's patch path into the composite compositor's live channel. The
+// old global set* exports are gone; effects are driven by kaleidoscope /
+// transform / mask, not loose setters.
 
-/**
- * Set the mask smoothstep hardness for blur and background-image
- * composites, in [0, 1]. 0 = soft halo, 1 = near-step edge. Default 0.5.
- */
-export const setMaskHardness = (value: number): void => {
-  tuning.setMaskHardness(value);
-};
-
-/**
- * Set the mask smoothstep threshold (center of the transition) in
- * [0.05, 0.95]. 0.5 is neutral. Higher values reject low-confidence
- * pixels; lower values are more inclusive. Optimal value is platform-
- * specific because each segmentation model has a different confidence
- * distribution.
- */
-export const setMaskThreshold = (value: number): void => {
-  tuning.setMaskThreshold(value);
-};
-
-/**
- * Set the segmentation input short-side (px). Native-only knob (lower =
- * cheaper segmentation on older devices); stored on web for API parity but
- * the web MediaPipe pipeline does not consume it.
- */
-export const setSegmentationTargetShortSide = (value: number): void => {
-  tuning.setSegmentationTargetShortSide(value);
-};
-
-/**
- * Toggle native per-frame timing logs (off by default). No-op effect on web
- * beyond storing the flag.
- */
-export const setDebugTiming = (value: boolean): void => {
-  tuning.setDebugTiming(value);
-};
-
-/**
- * Reset all effect tuning parameters to library defaults.
- */
-export const resetEffectTuning = (): void => {
-  tuning.reset();
-};
-
-export type { BackgroundPresetName } from './backgrounds';
+export type { CatalogImageId } from '../catalog/images';
 export type {
-  ApplyVideoEffects,
-  BackgroundImageSpec,
-  BlurSpec,
+  AnamorphicLensFlareUniforms,
+  BlurUniforms,
+  CloudsUniforms,
+  CorporateBlobsUniforms,
+  FirefliesUniforms,
+  GodraysUniforms,
+  LayerShaderName,
+  LayerShaderOptions,
+  LightBeamsAndMotesUniforms,
+  NebulaUniforms,
+  PatchableShaderName,
+  PlasmaUniforms,
+  ShaderUniformsMap,
+  SimianlightsUniforms,
+  UniformControl,
+} from '../catalog/shaders';
+export {
+  ANAMORPHIC_LENSFLARE_CONTROLS,
+  BLUR_CONTROLS,
+  CLOUDS_CONTROLS,
+  CORPORATE_BLOBS_CONTROLS,
+  defaultUniforms,
+  FIREFLIES_CONTROLS,
+  GODRAYS_CONTROLS,
+  LIGHT_BEAMS_AND_MOTES_CONTROLS,
+  NEBULA_CONTROLS,
+  PLASMA_CONTROLS,
+  SIMIANLIGHTS_CONTROLS,
+} from '../catalog/shaders';
+export type {
+  CompositeSpec,
   EffectInput,
   EffectName,
   EffectSpec,
   TransformName,
   TransformSpec,
-} from './types';
+} from './kaleidoscope/effect.types';
+export type {
+  KaleidoscopeBinding,
+  KaleidoscopeBindOptions,
+  MaskInput,
+  PatchesFor,
+  PatchFor,
+  TransformInput,
+} from './kaleidoscope/types';
+export type {
+  KaleidoscopeBlendMode,
+  KaleidoscopeControls,
+  KaleidoscopeLayer,
+  KaleidoscopeLayerTarget,
+  KaleidoscopePreset,
+  KaleidoscopePresetBook,
+  KaleidoscopePresetEntry,
+  KaleidoscopeTaxonomy,
+} from './kaleidoscope.preset-book.types';
+export type { RGB } from './lib/primitives.types';
 
 const specToTransform = (spec: EffectSpec): FrameTransform => {
   switch (spec.name) {
@@ -91,12 +104,11 @@ const specToTransform = (spec: EffectSpec): FrameTransform => {
     case 'rotate-cw':
     case 'rotate-ccw':
       return makeTransform(spec.name);
-    case 'blur':
-      // Blur strength comes from the global tuning state (setBlurSigma), not
-      // the spec; the spec carries no parameters.
-      return blur;
-    case 'background-image':
-      return makeBackgroundImage(spec.source);
+    case 'composite':
+      // The layer stack runs as a single compositor stage (painter's order,
+      // per-layer blend), not a serial chain of replace-stages. Blur, image, and
+      // generative layers all live inside it.
+      return makeComposite(spec.layers);
   }
 };
 
@@ -139,5 +151,45 @@ export const applyVideoEffectsDisposable = (
   };
 };
 
-export const applyVideoEffects: ApplyVideoEffects = (track, effects) =>
-  applyVideoEffectsDisposable(track, effects).track;
+/**
+ * Bind a track and a preset book; get the three verbs back
+ * (`{ kaleidoscope, transform, mask }`). Presets live in the consumer's
+ * project; these verbs drive them. On web each `kaleidoscope` preset switch and
+ * each `transform` command rebuilds the Insertable-Streams pipeline and yields a
+ * new output track, so read the live track from `onTrack` (or `controls.track`);
+ * the prior pipeline is disposed each command and on `dispose()`. A `kaleidoscope`
+ * patch of the active preset and `mask` both update what the running pipeline
+ * reads per frame (no rebuild).
+ */
+export const bindKaleidoscope = <P extends KaleidoscopePresetBook>(
+  track: MediaStreamTrack,
+  options: KaleidoscopeBindOptions<P>,
+): KaleidoscopeBinding<P> => {
+  let prevDispose = (): void => {};
+  const reconcile: Reconcile = {
+    apply: (specs) => {
+      // Rebuild the whole pipeline from the base track each command, disposing
+      // the previous one (generators/pipes) so stages don't leak.
+      prevDispose();
+      const { track: out, dispose } = applyVideoEffectsDisposable(track, specs);
+      prevDispose = dispose;
+      return out;
+    },
+    dispose: () => prevDispose(),
+  };
+  const setMask: SetMask = (hardness, threshold) => {
+    tuning.setMaskHardness(hardness);
+    tuning.setMaskThreshold(threshold);
+  };
+  // Live per-layer uniform channel: a patch of the active preset writes here
+  // (keyed by layer id) and the running compositor merges it each frame.
+  const setLayerUniforms: SetLayerUniforms = (id, uniforms) => {
+    setCompositeLayerUniforms(id, uniforms);
+  };
+  // A preset switch drops every live override so reused layer ids revert to the
+  // new preset's baked uniforms (see createControls).
+  const resetLayerUniforms: ResetLayerUniforms = () => {
+    resetCompositeLayerUniforms();
+  };
+  return createControls(track, options, reconcile, setMask, setLayerUniforms, resetLayerUniforms);
+};

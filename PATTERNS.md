@@ -11,24 +11,24 @@ expect.
 src/                                   JS facade and shared types
 ├── index.ts                           native entry (Metro picks via "react-native" condition)
 ├── index.web.ts                       web entry (Metro picks via "browser" condition)
-├── types.ts                           EffectSpec discriminated union, ApplyVideoEffects
-├── backgrounds/                       preset catalog (presets.ts) + per-preset source modules (single source of truth)
+├── types.ts                           EffectSpec discriminated union, LayerSpec catalog, ApplyVideoEffects
 └── web/                               web-only implementation
     ├── insertable-streams.ts            MediaStreamTrackProcessor wiring
     ├── segmenter.ts                     MediaPipe Selfie Segmentation loader (shared)
     ├── shaders.ts                       all GLSL source for every web effect
-    └── effects/                         one file per effect; owns its GL state and per-frame transform
-        ├── transform.ts                  flip-x/flip-y/rotate-cw/rotate-ccw (replaced mirror.ts)
-        ├── blur.ts
-        └── background-image.ts
+    └── effects/                         the composite compositor, its layer shaders, and the transform ops
+        ├── composite.ts                  WebGL2 layered compositor (makeComposite); image/direct/blur/generative layers
+        ├── layer-shaders.ts              per-layer GLSL the compositor compiles
+        └── transform.ts                  flip-x/flip-y/rotate-cw/rotate-ccw (replaced mirror.ts)
 
 android/src/main/java/com/simiancraft/kaleidoscope/
 ├── KaleidoscopeModule.kt              Expo Module entry (OnCreate calls Registration.registerAll)
-├── Registration.kt                    flat-string registry: name -> VideoFrameProcessorFactoryInterface
-├── effects/                           one VideoFrameProcessorFactory per effect
-│   ├── TransformFactory.kt              flip-x/flip-y/rotate-cw/rotate-ccw (replaced MirrorFactory.kt)
-│   ├── BlurFactory.kt
-│   └── BackgroundImageFactory.kt
+├── Registration.kt                    flat-string registry: name -> VideoFrameProcessorFactoryInterface (four transform ops + "composite")
+├── CompositeLayers.kt                 the layer stack JS delivers via setCompositeLayers (read per frame)
+├── effects/                           the composite factory, its layer shaders, and the transform factory
+│   ├── CompositeFactory.kt              builds the one "composite" compositor; image/direct/blur/generative layers
+│   ├── LayerShaders.kt                  per-layer GLSL the compositor compiles
+│   └── TransformFactory.kt              flip-x/flip-y/rotate-cw/rotate-ccw (replaced MirrorFactory.kt)
 ├── gpu/                               pure GL primitives, no domain logic
 │   ├── Ingest.kt                        THE one place camera orientation is normalized (display rotation + dims)
 │   ├── Orientation.kt                   screen-space transform-op matrices (no frame.rotation dependence)
@@ -46,11 +46,11 @@ android/src/main/java/com/simiancraft/kaleidoscope/
 
 ios/KaleidoscopeModule/
 ├── KaleidoscopeModule.swift           Expo Module entry (mirrors Android)
-├── Registration.swift                 flat-string registry: transform ops, blur, background-image
-├── effects/                           one VideoFrameProcessorDelegate per effect
+├── Registration.swift                 flat-string registry: four transform ops + one "composite" processor instance
+├── CompositeLayers.swift               the layer stack JS delivers via setCompositeLayers (read per frame)
+├── effects/                           the composite processor, the transform processor, and the frame bridge
+│   ├── CompositeProcessor.swift         the one "composite" compositor instance; image/direct/blur/generative layers
 │   ├── TransformProcessor.swift         flip-x/flip-y/rotate-cw/rotate-ccw (replaced MirrorProcessor.swift)
-│   ├── BlurProcessor.swift
-│   ├── BackgroundImageProcessor.swift
 │   └── FrameBridge.swift                RTCVideoFrame <-> CVPixelBuffer in/out bridge
 ├── gpu/                               Metal + CoreImage primitives
 │   ├── Ingest.swift                     THE one place camera orientation is normalized (display rotation + selfie mirror)
@@ -60,9 +60,8 @@ ios/KaleidoscopeModule/
 └── segmentation/                      person-segmentation helpers (MediaPipe Tasks ImageSegmenter on iOS)
     └── Segmenter.swift                  MediaPipe ImageSegmenter worker (selfie_segmenter.tflite); owns mask buffers via a pool
 
-plugin/
-└── src/
-    └── withKaleidoscope.ts            Expo config plugin (currently a passthrough)
+app.plugin.js                          Expo config plugin; standalone CommonJS (no build step, no plugin/ dir)
+app.plugin.d.ts                        its ConfigPlugin type
 ```
 
 ## Conventions
@@ -97,7 +96,7 @@ Run after editing any `.frag` / `.vert`, then commit the regenerated files:
 CI enforces freshness with `bun run check:shaders`: it regenerates and
 `git diff --exit-code`s the **deterministic** codegen (`ShadersGenerated.kt`,
 `shaders.generated.ts`), so a `.frag` edit pushed without regenerating fails
-the build. The transpiled `.metalsrc` is intentionally NOT diffed — spirv-cross
+the build. The transpiled `.metalsrc` is intentionally NOT diffed; spirv-cross
 emits slightly different MSL across tool versions, so diffing it across
 machines would flag false drift; the Kotlin/TS copies already catch any stale
 `.frag`. The check is CI-only, so contributors who don't touch shaders need
@@ -105,27 +104,30 @@ not install the glslang/spirv toolchain locally.
 
 Per-platform outputs (generated from the canonical `shaders/*` files; do
 not hand-edit):
-- Web: `src/web/shaders.generated.ts` (`*_SRC` consts), re-exported by
-  `src/web/shaders.ts`.
+- Web: `web-driver/shaders.generated.ts` (`*_SRC` consts), re-exported by
+  `web-driver/shaders.ts`.
 - Android: `android/.../gpu/ShadersGenerated.kt` (`const val` strings),
   delegated by `Shaders.kt`. Platform-local shaders with no cross-runtime
   twin (OES external texture, 2D passthrough) stay hand-written in
   `Shaders.kt` / `Mask.kt`.
 - iOS: `ios/KaleidoscopeModule/shaders/*.metalsrc`.
 
-The composite shader (`shaders/composite.frag`) is the canonical mix-with-
-mask shader; every effect category (blur, background-image, future
-procedural backgrounds like Simianlights and Nebula) uses it unchanged.
-Per-effect shaders (currently `shaders/blur.frag`, `shaders/transform.frag`)
-live as separate files under `shaders/`.
+Compositing is per-layer: a layer renders its content (an image, the blurred
+camera, or a generative shader like Simianlights or Nebula) into a scratch,
+then `composite-subject` / `composite-masked` stencil it to the person through
+the mask, or the over/additive blend lays a background layer down. The
+per-layer frags live under `shaders/_shared/` (`composite-camera`,
+`composite-image`, `composite-subject`, `composite-masked`, `composite-blit`)
+plus `shaders/blur/composite-blur.frag`; `shaders/_shared/transform.frag` is
+the geometric op.
 
-It is **background-source-agnostic**: `mix(background, original, mask)` does
-not care whether `uBackground` is a loaded image, the blurred camera, or a
-procedural shader's output; a new effect differs only in how it produces that
+The compositor is **background-source-agnostic**: the mask stencil does not
+care whether a layer's texture is a loaded image, the blurred camera, or a
+generative shader's output; a new layer differs only in how it produces that
 texture. Because orientation is normalized upstream at the ingest (see
 "Orientation" below), a new shader composites correctly on every platform with
-no orientation code — that is the whole extensibility model for procedural
-backgrounds (issue #25).
+no orientation code; that is the whole extensibility model for generative
+layers (issue #25).
 
 ### Orientation: normalized once at the ingest (load-bearing; do not re-correct per effect)
 
@@ -139,13 +141,13 @@ Consequences a contributor must not undo:
 - `Orientation.{kt,swift}` (`mat2For` / `uvTransform`) are pure SCREEN-SPACE
   matrices for the transform ops (flip-x = negate U, flip-y = negate V,
   rotate-cw/ccw = axis swap). They do NOT read `frame.rotation`.
-- The background-image composite samples the WebP preset texture directly; no pre-orient pass.
+- An `image` layer samples its WebP image texture directly; no pre-orient pass.
 - There is NO per-effect orientation correction anywhere. Adding one re-creates
   the "orientation cascade" this design removed (it surfaced as "every fix
   breaks another effect" across web/Android/iOS during development).
 
 If a device shows the WHOLE frame rotated or mirrored wrong, it is an ingest
-calibration, not an effect bug: flip exactly one constant, per platform —
+calibration, not an effect bug: flip exactly one constant, per platform:
 `Ingest.ROTATION_DIRECTION` (rotation sign) or `Ingest.INGEST_MIRROR_X`
 (horizontal mirror). The web pipeline (canvas, display-space) is the
 orientation source of truth; native must match it.
@@ -154,20 +156,22 @@ NOT orientation, and must not be "cleaned up" to identity: the composite's
 V-flip parity terms. The vertical flip some composite paths need (odd
 ping-pong pass count plus each platform's texture-origin convention) is
 render-pass/texture parity, not camera orientation, and it lands on a
-DIFFERENT uniform per platform: iOS blur uses `uBgUvScale=(1,-1)`; iOS background
-negates `uBgUvScale.y` and sets `uBgUvOffset.y = offset.y+scale.y` composed WITH
-the cover-fit (the MTKTextureLoader texture's V convention differs from the
-CoreImage "original" at sample time); web blur and web background use
+DIFFERENT uniform per platform: web blur and web background use
 `uMaskUvScale=(1,-1)`; Android uses identity for both (its GL pipeline does not
-accumulate the flip, and the background is pre-flipped on the bitmap instead).
-The authoritative per-platform table is
-in the `shaders/composite.frag` header. Do not cross-normalize these; zeroing
-web's mask flip or copying iOS's bg flip onto Android breaks that platform.
+accumulate the flip, and the background is pre-flipped on the bitmap instead);
+iOS composites per-layer (NOT via the monolithic composite shader, which is
+web/Android only) and carries the parity in CompositeProcessor's scratch-parity
+constants (`scratchOddParity` / `scratchEvenParity`) and the cover-scale's
+negated y.
+The per-platform values are documented in the `composite-subject`,
+`composite-masked`, `composite-image`, and `composite-blur` frag headers. Do not
+cross-normalize these; zeroing web's mask flip or copying iOS's bg flip onto
+Android breaks that platform.
 
 ### Segmentation mask buffer ownership
 
 The mask the compositor reads must be a buffer the segmenter OWNS and hands out
-fresh per cycle — Android allocates a fresh bitmap (`Mask.kt`), iOS dequeues
+fresh per cycle; Android allocates a fresh bitmap (`Mask.kt`), iOS dequeues
 from a `CVPixelBufferPool` (`Segmenter.swift`). It must NOT be the live buffer
 the segmentation framework hands back (Vision recycles it) or a shallow reused
 ring: frame-pipelining keeps a mask texture GPU-referenced across multiple
@@ -209,52 +213,75 @@ genuinely cross-platform. If a future texture source does not naturally
 land "top at v=1", the right fix is at the upload boundary, not in the
 shader.
 
-### Where a new effect goes
+### Where a new generative layer goes
 
-Four things, in order:
+Art effects are not registered per effect. The one registered art processor is
+`composite`; a new visual effect is a new LAYER SHADER the compositor can draw,
+delivered inside a composite's layer stack via `setCompositeLayers`. Adding one
+is data plus a shader, with no `Registration.kt` / `Registration.swift` change:
 
-1. **Spec**: add a new branch to `EffectSpec` in `src/types.ts`. Add the
-   discriminant string to `NATIVE_REGISTERED_EFFECTS_LIST` in `src/index.ts`
-   (one list covers both native platforms).
-2. **Web**: a new file under `src/web/effects/<name>.ts` exporting a
-   `FrameTransform`. Add the case to `specToTransform` in `src/index.web.ts`.
-3. **Android**: a new `effects/<Name>Factory.kt` implementing
-   `VideoFrameProcessorFactoryInterface`. Add a
-   `ProcessorProvider.addProcessor("<name>", <Name>Factory(...))` line to
-   `Registration.kt`. If the effect needs new GLSL, add the `.frag`/`.vert` to
-   `shaders/` and run `bun run build:shaders` (do not hand-edit `Shaders.kt`).
-4. **iOS**: a new `effects/<Name>Processor.swift` conforming to the
-   `VideoFrameProcessorDelegate` protocol. Add a
-   `ProcessorProvider.addProcessor(<Name>Processor(), forName: "<name>")` line
-   to `Registration.swift`. Unlike Android (one factory, one processor per
-   track), iOS registers a single processor INSTANCE per name at boot, so do
-   not skip this step; an effect with no `Registration.swift` entry is silently
-   absent on iOS.
+1. **Spec**: add the shader name and its required fields to `LayerShaderOptions`
+   in `src/types.ts` (the closed catalog the `LayerSpec` discriminant narrows
+   on). A generative layer takes `uniforms`.
+2. **GLSL**: add the canonical `catalog/shaders/<name>.frag` and run `bun run
+   build:shaders`; the codegen emits the per-platform sources (web
+   `*_FRAG_SRC` const, Android, iOS). Do not hand-edit the generated files. (See
+   "Where a new GLSL shader goes" for the pipeline; that is its own subsystem.)
+3. **Web dispatch**: map the shader name to its generated `*_FRAG_SRC` const in
+   `LAYER_SHADER_SOURCES` (`web-driver/effects/layer-shaders.ts`). The web
+   compositor (`composite.ts`) and the native compositors dispatch on the name;
+   no new file per effect.
+
+The only path that still registers a NEW native name is a new GEOMETRIC
+transform op (an axis flip or rotation), not an art effect:
+
+- **Spec**: add the name to `TransformName` in `src/types.ts`.
+- **Android**: add a `ProcessorProvider.addProcessor("<name>",
+  TransformFactory(Orientation.Op.<OP>))` line to `Registration.kt`, with the
+  matrix in `Orientation.kt`.
+- **iOS**: add a `ProcessorProvider.addProcessor(TransformProcessor(op: .<op>),
+  forName: "<name>")` line to `Registration.swift`. Unlike Android (one factory,
+  one processor per track), iOS registers a single processor INSTANCE per name
+  at boot, so do not skip this; an op with no `Registration.swift` entry is
+  silently absent on iOS.
 
 The native side uses a flat-string registry (`ProcessorProvider.addProcessor`)
 because the upstream `react-native-webrtc` `_setVideoEffects` API takes
-`string[]`. Parameterized specs (`{name: 'blur', sigma: 5}`) get the spec
-parameters dropped on the native side today; wiring them through is a v0.2
-conversation.
+`string[]`. The registry holds only the four transform ops plus `composite`;
+per-layer parameters travel out of band through `setCompositeLayers` and the
+effect-tuning channel, not through the registry name.
 
-### Where a new background preset goes
+### Where a new image goes
 
-Single source of truth: `src/backgrounds.ts`. Append the preset name to
-`BACKGROUND_PRESETS`. Then:
+A bundled image is layer DATA, not a registered effect. The one registered art
+processor is `composite`; an `image` layer resolves the image by id at runtime,
+so adding an image needs NO native registration. The flow mirrors
+[`catalog/images/README.md`](./catalog/images/README.md) "Adding an image":
 
-- Drop `<name>.webp` into `android/src/main/assets/backgrounds/` and into
-  `ios/KaleidoscopeModule/resources/backgrounds/` (the iOS `Kaleidoscope.bundle`).
-- Add a `ProcessorProvider.addProcessor("background-image-<name>",
-  BackgroundImageFactory(context, "<name>"))` line to `Registration.kt`.
-- Add a `ProcessorProvider.addProcessor(BackgroundImageProcessor(assetName:
-  "<name>"), forName: "background-image-<name>")` line to `Registration.swift`.
-- Add the per-preset subpath export and the `.webp` asset export to
-  `package.json` "exports" (Metro has no tree-shaking; consumers import one
-  preset's bytes via its subpath).
-- Add the preset to the demo's preset map.
+Plates are filed by **category** (the taxonomy's second level), several leaves
+per folder; the leaf is the globally-unique image id.
 
-The JS allowlist and type-level autocomplete (`BackgroundPresetName`) pick
-up the new preset automatically from the catalog.
+1. If it is a standalone background, append the leaf to `BACKGROUND_PRESETS` in
+   `catalog/images/image-ids.ts`. A cutout image that only feeds a packaged composite skips
+   this.
+2. Create or reuse `catalog/images/<category>/` and drop the optimized `<leaf>.webp` in
+   it. Two encodings: opaque backgrounds are 1280x720 lossy q88 with no alpha;
+   alpha images keep their transparency (recipes in `catalog/images/README.md`).
+3. Add the loader pair mirroring `office-dark`: `catalog/images/<category>/<leaf>.ts`
+   (native, returns the image id) and `catalog/images/<category>/<leaf>.web.ts` (web,
+   returns the WebP URL), both annotated with `ImageSource` from
+   `images/image.types.ts`.
+4. Add the `./images/<category>/<leaf>` export (with `react-native`, `browser`,
+   `import`, `default` conditions) and the `./images/<category>/<leaf>.webp` asset
+   export to the package `exports` (Metro has no tree-shaking; consumers import
+   one image's bytes via its subpath).
+
+At `expo prebuild` the config plugin reads the consumer's preset book, finds the
+`image` layers it references, and copies just those WebPs into the native bundle
+under `assets/images/<id>.webp`. The native side resolves an image by that id at
+runtime; there is no `Registration.kt` / `Registration.swift` line to add. The
+type-level autocomplete (`BackgroundPresetName`) picks up the new image from the
+catalog automatically.
 
 ### Where GL pipeline helpers go
 
@@ -264,7 +291,7 @@ strings. If a helper does anything *with* the pipeline (mask production,
 specific effects' state, etc.), it goes in a domain folder
 (`segmentation/`, `effects/`).
 
-The iOS equivalent is `ios/KaleidoscopeModule/gpu/` — Metal + CoreImage
+The iOS equivalent is `ios/KaleidoscopeModule/gpu/`; Metal + CoreImage
 primitives with no domain logic: `Ingest.swift` (orientation normalization),
 `Orientation.swift` (transform-op matrices), `MetalRenderer.swift` (pipelines
 and passes), `TextureBridge.swift` (ingest + texture/pool utilities). The Metal
@@ -289,13 +316,13 @@ sigma, mask hardness, etc.) flow through a three-tier mirror:
    setters that clamp to valid ranges. Per-frame processors read these
    values each frame, so changes take effect on the next frame without
    re-registering processors.
-2. **Web state**: `src/web/tuning.ts` mirrors the same shape; per-frame
-   `FrameTransform`s in `src/web/effects/*.ts` read from it when uploading
+2. **Web state**: `web-driver/tuning.ts` mirrors the same shape; per-frame
+   `FrameTransform`s in `web-driver/effects/*.ts` read from it when uploading
    uniforms.
 3. **JS facade**: `src/index.ts` and `src/index.web.ts` export the same
    `set<Param>(value)` functions, native versions calling
    `requireNativeModule('RnWebrtcKaleidoscope').setX(value)`, web versions
-   mutating `src/web/tuning.ts` directly.
+   mutating `web-driver/tuning.ts` directly.
 
 The Expo Module's `Function("setX") { value -> EffectTuning.x = value }`
 declarations in `KaleidoscopeModule.{kt,swift}` provide the bridge between
@@ -314,6 +341,88 @@ To add a new parameter:
   uploading its uniforms.
 - Add a slider row in `demo/src/effect-tuning-panel.tsx`.
 
+### Where a consumable control goes (the `./controls` kit)
+
+The tuning editor is a composition kit on the opt-in `./controls` subpath. The
+shape, in one breath: a per-layer `ControlForm` micro-provider holds that layer's
+view model in a `useReducer`, fields self-wire to it via `useField`, and the form
+emits a debounced, trailing-flushed `onPatch({ id, uniforms })` the host routes
+into `kaleidoscope(activeId, [patch])`. The Tuner is a dumb, controlled renderer;
+it never calls `kaleidoscope` itself.
+
+- **The shared view model is the shader's uniform type.** `ShaderUniformsMap[shader]`
+  (e.g. `CloudsUniforms`) is the one contract: the preset bakes values into it, a
+  control emits `Partial` of it. A layer's baked `uniforms` is typed against it
+  (`LayerShaderOptions[S].uniforms = Partial<ShaderUniformsMap[S]>`), and the
+  `kaleidoscope` patch (`PatchFor`) re-indexes the same map by the layer's literal
+  `shader`.
+- **Built-in path: data-driven.** `<UniformControls controls={CLOUDS_CONTROLS} />`
+  renders a shader's `*_CONTROLS` descriptor as fields. No per-shader file. Hide
+  knobs by filtering the array; narrow a range with the `overrides` prop.
+- **Typed path: `makeControls<U>()`.** For a custom widget, `const { Slider } =
+  makeControls<CloudsUniforms>()` constrains the field's `uniform` to `U`'s keys of
+  the matching value type (numeric for `Slider`, `RGB` for `ColorPicker`); a typo
+  is a compile error.
+- **Form ownership.** A composite's `<Composite>Controls` (a sibling
+  `composites/<name>/<name>.controls.tsx`, exported as `./composites/<name>/controls`)
+  mounts one `ControlForm` per tunable layer, each wrapped in a `ControlSection`
+  (title + slot + a web-only copy button). Reset is by **remount** (the Tuner keys
+  the controls component by preset id), never an effect. The composite *data*
+  module (`<name>.ts`) stays runtime-React-free; the `.controls.tsx` is reached
+  only through the `./controls` subpaths, so importing composite data never pulls
+  the React kit.
+- **Theming.** One `KaleidoscopeThemeProvider` holds a flat slot bank (a
+  `<slot>ClassName` + `<slot>Style` pair per primitive and per state). Primitives
+  read their slot and merge it after defaults; the `style` path is universal, the
+  `className` path rides the `./nativewind` cssInterop registration (only the field
+  primitives are registered; the parity test scopes "styleable" to them). Pass a
+  memoized provider value (this package is off the React Compiler).
+- **Copy is web-only.** The `ControlSection` copy button renders only when
+  `Platform.OS === 'web'` and writes via `navigator.clipboard`; the package depends
+  on no clipboard module.
+- **Import direction (one-way).** `./controls` must never import from `./ui`. The
+  only allowed cross-edge is `./ui` importing the theme context from
+  `./controls/theme` (a leaf module that imports nothing from its siblings).
+
+### Test ids and accessibility (the `kld.*` grammar)
+
+Every interactive control and picker leaf carries a deterministic, semantic
+`accessibilityIdentifier` so a Maestro flow can address it by a stable id
+(`tapOn: { id: "kld.transform.rotate-90" }`) instead of brittle visible text. The
+builders are one pure module, `src/lib/test-id.ts`; nothing hand-authors an id string.
+
+- **Field ids are generated, not written.** The preset id flows from the Tuner
+  through `ControlScopeContext`; `ControlForm` composes `kld.<preset>.<layer>` into
+  its context `path`; `useField` appends the uniform. A new shader dropped into
+  `shaders/<name>/` inherits field ids for free; the per-composite `.controls.tsx`
+  files never mention a test id.
+- **The grammar (dot-delimited, rooted at `kld`).** Preset, layer, and uniform are
+  already stable tokens and are used verbatim; only display strings (family,
+  category) are slugged (lowercase, spaces/underscores → `-`, strip non `[a-z0-9-]`).
+
+  | Surface | Id |
+  |---|---|
+  | control field | `kld.<preset>.<layer>.<uniform>` |
+  | color channel | `…<uniform>.r` / `.g` / `.b` |
+  | section copy button | `<scope>.copy` |
+  | standalone form (no Tuner) | `kld.<layer>.<uniform>` |
+  | transform | `kld.transform.rotate-<deg>` / `.flip-<axis>` |
+  | mask | `kld.mask.hardness` / `.threshold` |
+  | family tab | `kld.family.<slug>` |
+  | category item | `kld.category.<slug-family>.<slug-category>` |
+  | preset tile | `kld.preset.<id>` |
+
+- **Static-prefix families.** `KaleidoscopeTransformControls` and
+  `KaleidoscopeMaskControls` render outside any preset scope, so they take a
+  `testIDPrefix` prop (default `kld.transform` / `kld.mask`); override it only when a
+  screen mounts two instances.
+- **BYO tiles get the id.** `PresetGrid` passes the tile id through the `RenderTile`
+  state (`state.testID`); a custom `renderTile` should apply it to its pressable
+  root, as the demo does.
+- **A11y rides along.** The same pass fills real gaps: the transform flip/rotate
+  pressables carry an `accessibilityLabel` ("Flip horizontal", "Rotate 90 degrees"),
+  not just a role. Add the label when you add the id.
+
 ## Out-of-scope organization
 
 These were considered and rejected for the current scale; revisit when
@@ -326,6 +435,8 @@ pressure grows.
 - **Shared GLSL source files.** Right answer long-term; the duplication is
   bearable at four shaders. Needs a Metro transformer on web and an Android
   assets loader; not free.
-- **Codegen sync of background-preset list to Android Registration.kt.** The
-  catalog lives in TS; Kotlin manually mirrors the names with a comment
-  pointing at `src/backgrounds.ts`. At two presets this is fine.
+- **Codegen sync of the image-image catalog to native.** Moot under the
+  unified model: images are not registered names. The catalog lives in TS
+  (`catalog/images/image-ids.ts`); the prebuild plugin copies only the images a consumer's
+  book references, and the native side resolves them by id at runtime, so there
+  is nothing for Kotlin or Swift to mirror.

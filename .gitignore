@@ -35,3 +35,7 @@ android/.gradle/
 android/local.properties
 android/.cxx/
 android/app/build/
+
+# Automated integration-test snapshots (emulator/device screenshot artifacts)
+integration/snapshots/
+.tooling/
