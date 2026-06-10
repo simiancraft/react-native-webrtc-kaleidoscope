@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.1.0...v2.1.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **build:** skip lefthook install when the binary is absent ([2cdcb9f](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/2cdcb9fb9861461939182b6d079d9b2164e5d5e4))
+
 # [2.1.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.0.0...v2.1.0) (2026-06-10)
 
 
