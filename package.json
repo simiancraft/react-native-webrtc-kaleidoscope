@@ -510,7 +510,7 @@
     "typecheck": "tsgo --noEmit",
     "typecheck:test": "tsgo --noEmit --project tsconfig.test.json",
     "typecheck:demo": "cd demo && bunx tsc --noEmit",
-    "prepare": "lefthook install",
+    "prepare": "command -v lefthook >/dev/null 2>&1 && lefthook install || true",
     "lint": "biome check",
     "lint:fix": "biome check --write",
     "format": "biome format --write .",
