@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { maskSmoothstepRange, tuning } from '../tuning';
+import { maskSmoothstepRange, setMaskTuning, tuning } from '../tuning';
 
 describe('maskSmoothstepRange', () => {
   test('centers the range on the threshold', () => {
@@ -81,6 +81,23 @@ describe('tuning singleton', () => {
     expect(tuning.debugTiming).toBe(true);
     tuning.setDebugTiming(false);
     expect(tuning.debugTiming).toBe(false);
+  });
+
+  test('setMaskTuning writes the page-shared mask edge (#47)', () => {
+    // The processor-path twin of the binding's mask verb: no binding, no
+    // pipeline, no instance; one call writes what every pipeline reads.
+    setMaskTuning({ hardness: 0.2, threshold: 0.85 });
+    expect(tuning.maskHardness).toBe(0.2);
+    expect(tuning.maskThreshold).toBe(0.85);
+  });
+
+  test('setMaskTuning clamps to the mask verb ranges', () => {
+    setMaskTuning({ hardness: 5, threshold: 2 });
+    expect(tuning.maskHardness).toBe(1);
+    expect(tuning.maskThreshold).toBe(0.95);
+    setMaskTuning({ hardness: -1, threshold: -1 });
+    expect(tuning.maskHardness).toBe(0);
+    expect(tuning.maskThreshold).toBe(0.05);
   });
 
   test('reset restores defaults', () => {

@@ -26,6 +26,13 @@ import type { ProcessorOptions, Track, TrackProcessor } from 'livekit-client';
 import { applyVideoEffectsDisposable } from './index.web';
 import type { EffectInput } from './kaleidoscope/effect.types';
 
+// The first-class mask surface for the processor path (the twin of the
+// binding's `mask` verb; see the implementation's doc in web-driver/tuning.ts).
+// LiveKit owns the RTCRtpSender, so consumers here have no binding to call
+// `mask` on; this export is how they drive the page-shared mask edge.
+export { setMaskTuning } from '../web-driver/tuning';
+export type { MaskInput } from './kaleidoscope/types';
+
 /**
  * A LiveKit `TrackProcessor` that applies Kaleidoscope video effects to a local
  * camera track. Construct it with the same effect inputs `applyVideoEffects`
