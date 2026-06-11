@@ -23,29 +23,15 @@
 // error at init().
 
 import type { ProcessorOptions, Track, TrackProcessor } from 'livekit-client';
-import { tuning } from '../web-driver';
 import { applyVideoEffectsDisposable } from './index.web';
 import type { EffectInput } from './kaleidoscope/effect.types';
-import type { MaskInput } from './kaleidoscope/types';
 
+// The first-class mask surface for the processor path (the twin of the
+// binding's `mask` verb; see the implementation's doc in web-driver/tuning.ts).
+// LiveKit owns the RTCRtpSender, so consumers here have no binding to call
+// `mask` on; this export is how they drive the page-shared mask edge.
+export { setMaskTuning } from '../web-driver/tuning';
 export type { MaskInput } from './kaleidoscope/types';
-
-/**
- * Write the segmentation mask edge (`hardness`, `threshold`) that every
- * running composite reads each frame. This is the processor-path twin of the
- * `mask` verb on a `bindKaleidoscope` binding: the mask edge is page-shared
- * state (one value every kaleidoscope pipeline on the page reads), so a write
- * here reaches every active `KaleidoscopeProcessor` on the next frame with no
- * pipeline rebuild. Values clamp to the `mask` verb's ranges (hardness 0..1,
- * threshold 0.05..0.95).
- *
- * Module-level rather than per-instance because that is the true scope today;
- * a per-pipeline mask would be a different (future) API, not this one.
- */
-export const setMaskTuning = (mask: MaskInput): void => {
-  tuning.setMaskHardness(mask.hardness);
-  tuning.setMaskThreshold(mask.threshold);
-};
 
 /**
  * A LiveKit `TrackProcessor` that applies Kaleidoscope video effects to a local

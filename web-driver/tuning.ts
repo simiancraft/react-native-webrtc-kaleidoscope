@@ -1,11 +1,14 @@
 // Mutable runtime state for the web GLSL effects. Mirrors
 // android/.../EffectTuning.kt and ios/.../EffectTuning.swift.
 //
-// There are no global set* exports anymore; the mask edge (hardness/threshold)
-// is written here through the setMask closure that `bindKaleidoscope`
-// (src/index.web.ts) wires up, and the composite compositor in
-// `web-driver/effects/*.ts` reads it when uploading uniforms. Writes take effect on
-// the next frame.
+// The mask edge (hardness/threshold) is written here through exactly two
+// doors: the setMask closure that `bindKaleidoscope` (src/index.web.ts) wires
+// up, and `setMaskTuning` below (re-exported by the `/livekit` subpath for the
+// processor path, where LiveKit owns the sender and there is no binding). The
+// composite compositor in `web-driver/effects/*.ts` reads it when uploading
+// uniforms. Writes take effect on the next frame.
+
+import type { MaskInput } from '../src/kaleidoscope/types';
 
 const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.max(value, lo), hi);
 
@@ -48,6 +51,23 @@ class EffectTuningState {
 }
 
 export const tuning = new EffectTuningState();
+
+/**
+ * Write the segmentation mask edge (`hardness`, `threshold`) that every
+ * running composite reads each frame. This is the processor-path twin of the
+ * `mask` verb on a `bindKaleidoscope` binding: the mask edge is page-shared
+ * state (one value every kaleidoscope pipeline on the page reads), so a write
+ * here reaches every active pipeline on the next frame with no rebuild.
+ * Values clamp to the `mask` verb's ranges (hardness 0..1, threshold
+ * 0.05..0.95).
+ *
+ * Module-level rather than per-instance because that is the true scope today;
+ * a per-pipeline mask would be a different (future) API, not this one.
+ */
+export const setMaskTuning = (mask: MaskInput): void => {
+  tuning.setMaskHardness(mask.hardness);
+  tuning.setMaskThreshold(mask.threshold);
+};
 
 /**
  * Derive a smoothstep (lo, hi) range from a hardness factor in [0, 1] and
