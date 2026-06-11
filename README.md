@@ -82,6 +82,14 @@ await localVideoTrack.setProcessor(new KaleidoscopeProcessor(['blur']), true);
 
 The `true` second argument to `setProcessor` shows the processed stream in your local preview. The processor tears down its Insertable-Streams pipeline on camera flip (`restart`) and unpublish (`destroy`), so repeated flips do not leak generators.
 
+To tune the segmentation mask edge on the processor path, use `setMaskTuning`; it is the processor-path twin of the binding's `mask` verb. The mask edge is page-shared state every kaleidoscope pipeline reads per frame, so the write reaches every active processor on the next frame with no rebuild:
+
+```ts
+import { setMaskTuning } from 'react-native-webrtc-kaleidoscope/livekit';
+
+setMaskTuning({ hardness: 0.2, threshold: 0.85 });
+```
+
 ## Configure
 
 Add the config plugin to `app.config.ts`:

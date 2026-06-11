@@ -552,8 +552,9 @@ const { kaleidoscope } = bindKaleidoscope(localCameraTrack.mediaStreamTrack, { p
 On web, LiveKit owns the `RTCRtpSender`, so go through its processor API via the opt-in `/livekit` subpath (needs `livekit-client`):
 
 ```ts
-import { KaleidoscopeProcessor } from 'react-native-webrtc-kaleidoscope/livekit';
+import { KaleidoscopeProcessor, setMaskTuning } from 'react-native-webrtc-kaleidoscope/livekit';
 await localVideoTrack.setProcessor(new KaleidoscopeProcessor(['blur']), true);
+setMaskTuning({ hardness: 0.2, threshold: 0.85 }); // the mask verb's twin on the processor path; page-shared, applies next frame, no rebuild
 ```
 
 ## Platform support
