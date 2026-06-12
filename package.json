@@ -432,6 +432,13 @@
       "import": "./dist/catalog/shaders/plasma/plasma.form.js",
       "default": "./dist/catalog/shaders/plasma/plasma.form.js"
     },
+    "./shaders/kaleidoscope/form": {
+      "types": "./dist/catalog/shaders/kaleidoscope/kaleidoscope.form.d.ts",
+      "react-native": "./catalog/shaders/kaleidoscope/kaleidoscope.form.tsx",
+      "browser": "./dist/catalog/shaders/kaleidoscope/kaleidoscope.form.js",
+      "import": "./dist/catalog/shaders/kaleidoscope/kaleidoscope.form.js",
+      "default": "./dist/catalog/shaders/kaleidoscope/kaleidoscope.form.js"
+    },
     "./shaders/blur/form": {
       "types": "./dist/catalog/shaders/blur/blur.form.d.ts",
       "react-native": "./catalog/shaders/blur/blur.form.tsx",

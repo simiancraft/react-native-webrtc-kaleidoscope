@@ -3,6 +3,7 @@ clouds
 corporate-blobs
 fireflies
 godrays
+kaleidoscope
 light-beams-and-motes
 nebula
 plasma

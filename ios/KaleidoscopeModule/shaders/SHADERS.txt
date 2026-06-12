@@ -9,6 +9,7 @@ composite-subject.frag
 corporate-blobs.frag
 fireflies.frag
 godrays.frag
+kaleidoscope.frag
 light-beams-and-motes.frag
 nebula.frag
 passthrough.vert

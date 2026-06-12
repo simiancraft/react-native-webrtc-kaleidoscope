@@ -48,6 +48,7 @@ import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/compo
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
 import { BlurForm } from 'react-native-webrtc-kaleidoscope/shaders/blur/form';
+import { KaleidoscopeForm } from 'react-native-webrtc-kaleidoscope/shaders/kaleidoscope/form';
 import { LightBeamsAndMotesForm } from 'react-native-webrtc-kaleidoscope/shaders/light-beams-and-motes/form';
 import { PlasmaForm } from 'react-native-webrtc-kaleidoscope/shaders/plasma/form';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
@@ -236,6 +237,72 @@ export const presets = {
         id: 'plasma',
         shader: 'plasma',
         uniforms: { uColorA: [0.9, 0.3, 0.1], uColorB: [0.8, 0.1, 0.5], uSpeed: 0.9, uScale: 10 },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'kaleidoscope-stained-glass': {
+    name: 'Stained Glass',
+    taxonomy: ['Shaders', 'Kaleidoscope'],
+    controls: KaleidoscopeForm,
+    layers: [
+      {
+        id: 'kaleidoscope',
+        shader: 'kaleidoscope',
+        uniforms: {
+          uColorA: [0.07, 0.15, 0.36],
+          uColorB: [0.1, 0.55, 0.62],
+          uColorC: [0.93, 0.69, 0.21],
+          uSegments: 8,
+          uSpeed: 0.35,
+          uRotate: 0.04,
+          uZoom: 1.6,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'kaleidoscope-mandala': {
+    name: 'Mandala',
+    taxonomy: ['Shaders', 'Kaleidoscope'],
+    controls: KaleidoscopeForm,
+    layers: [
+      {
+        id: 'kaleidoscope',
+        shader: 'kaleidoscope',
+        uniforms: {
+          uColorA: [0.24, 0.08, 0.28],
+          uColorB: [0.85, 0.36, 0.32],
+          uColorC: [0.95, 0.78, 0.35],
+          uSegments: 12,
+          uSpeed: 0.3,
+          uRotate: -0.03,
+          uZoom: 2.4,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'kaleidoscope-prism': {
+    name: 'Prism',
+    taxonomy: ['Shaders', 'Kaleidoscope'],
+    controls: KaleidoscopeForm,
+    layers: [
+      {
+        id: 'kaleidoscope',
+        shader: 'kaleidoscope',
+        uniforms: {
+          uColorA: [0.1, 0.13, 0.22],
+          uColorB: [0.35, 0.45, 0.62],
+          uColorC: [0.92, 0.94, 0.97],
+          uSegments: 6,
+          uSpeed: 0.22,
+          uRotate: 0.02,
+          uZoom: 1.2,
+          uCalm: 0.35,
+        },
       },
       { id: 'you', shader: 'direct', target: 'subject' },
     ],

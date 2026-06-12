@@ -1,0 +1,45 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+// Implementation of the GLSL mod() function, which is slightly different than Metal fmod()
+template<typename Tx, typename Ty>
+inline Tx mod(Tx x, Ty y)
+{
+    return x - y * floor(x / y);
+}
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution [[buffer(0)]], constant float& uTime [[buffer(1)]], constant float& uRotate [[buffer(2)]], constant float& uZoom [[buffer(3)]], constant float& uSegments [[buffer(4)]], constant float& uSpeed [[buffer(5)]], constant float3& uColorA [[buffer(6)]], constant float3& uColorB [[buffer(7)]], constant float3& uColorC [[buffer(8)]], constant float& uCalm [[buffer(9)]])
+{
+    main0_out out = {};
+    float2 _29 = ((in.vUv * uResolution) - (uResolution * 0.5)) / float2(uResolution.y);
+    float _33 = length(_29);
+    float _39 = uTime * uRotate;
+    float _42 = cos(_39);
+    float _45 = sin(_39);
+    float2 _58 = float2x2(float2(_42, -_45), float2(_45, _42)) * _29;
+    float _78 = fast::max(3.0, floor(uSegments));
+    float _94 = 3.1415927410125732421875 / _78;
+    float _96 = abs(mod(atan2(_58.y, _58.x + 9.9999997473787516355514526367188e-06), 6.283185482025146484375 / _78) - _94);
+    float2 _104 = float2(cos(_96), sin(_96)) * ((_33 * uZoom) * (1.0 + (0.0599999986588954925537109375 * sin(uTime * 0.23000000417232513427734375))));
+    float _109 = uTime * uSpeed;
+    float _112 = _104.x;
+    float _121 = _104.y;
+    float _150 = (sin((_112 * 6.0) + _109) + sin(((_112 + _121) * 4.19999980926513671875) - (_109 * 0.699999988079071044921875))) + sin((length(_104 - float2(0.89999997615814208984375 + (0.25 * sin(_109 * 0.310000002384185791015625)), 0.0)) * 7.0) + (_109 * 1.10000002384185791015625));
+    out.oColor = float4(mix(mix(mix(uColorA, uColorB, float3(0.5 + (0.5 * sin(_150)))), uColorC, float3(smoothstep(0.25, 0.89999997615814208984375, 0.5 + (0.5 * sin(sin(((_121 * 5.0) - (_109 * 0.89999997615814208984375)) + sin((_112 * 3.099999904632568359375) + (_109 * 0.4000000059604644775390625))) + (_150 * 0.5)))) * 0.64999997615814208984375)) * (1.0 - (0.180000007152557373046875 * (smoothstep(0.0350000001490116119384765625, 0.0, abs(_96 - _94)) + smoothstep(0.0350000001490116119384765625, 0.0, _96)))), (uColorA + uColorB) * 0.5, float3((uCalm * (1.0 - smoothstep(0.1500000059604644775390625, 0.62000000476837158203125, _33))) * 0.60000002384185791015625)), 1.0);
+    return out;
+}
+
