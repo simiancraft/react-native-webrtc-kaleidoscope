@@ -119,6 +119,10 @@ const UTILITY_WEB = [
 // not generative and stay out.
 const GENERATIVE_SHADERS = [
   'plasma.frag',
+  'kaleidoscope.frag',
+  'neo-memphis.frag',
+  'halftone-waves.frag',
+  'aurora-silk.frag',
   'clouds.frag',
   'nebula.frag',
   'godrays.frag',

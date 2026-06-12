@@ -1,4 +1,5 @@
 anamorphic-lensflare.frag
+aurora-silk.frag
 clouds.frag
 composite-blit.frag
 composite-blur.frag
@@ -9,8 +10,11 @@ composite-subject.frag
 corporate-blobs.frag
 fireflies.frag
 godrays.frag
+halftone-waves.frag
+kaleidoscope.frag
 light-beams-and-motes.frag
 nebula.frag
+neo-memphis.frag
 passthrough.vert
 plasma.frag
 simianlights.frag

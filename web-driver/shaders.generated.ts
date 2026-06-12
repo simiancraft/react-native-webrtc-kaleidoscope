@@ -134,6 +134,356 @@ void main() {
 }
 `;
 
+export const KALEIDOSCOPE_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform float uTime;       // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;  // framebuffer size in pixels; both components > 0
+uniform vec3 uColorA;      // base palette color (also the calm midpoint pole)
+uniform vec3 uColorB;      // second palette color
+uniform vec3 uColorC;      // accent color, layered over the A/B field
+uniform float uSegments;   // mirror segment count; floor()ed, clamped >= 3
+uniform float uSpeed;      // source-field drift rate; 0 freezes the pattern
+uniform float uRotate;     // whole-field rotation rate; sign sets direction
+uniform float uZoom;       // pattern scale; higher = more rings of detail
+uniform float uCalm;       // 0..1 eases contrast at frame center (face zone)
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+const float TAU = 6.28318530718;
+
+void main() {
+  // Aspect-correct, screen-centered coordinates (matches plasma/nebula).
+  vec2 fragCoord = vUv * uResolution;
+  vec2 uv = (fragCoord - 0.5 * uResolution) / uResolution.y;
+  float centerDist = length(uv);
+
+  // Whole-field rotation: the slow "turning the scope" motion.
+  float ra = uTime * uRotate;
+  float cs = cos(ra);
+  float sn = sin(ra);
+  uv = mat2(cs, -sn, sn, cs) * uv;
+
+  // Mirrored polar fold. The 1e-5 nudge keeps atan() off the undefined (0,0)
+  // input under Metal; it is far below one pixel at any resolution.
+  float r = centerDist * uZoom * (1.0 + 0.06 * sin(uTime * 0.23));
+  float seg = TAU / max(3.0, floor(uSegments));
+  float a = atan(uv.y, uv.x + 1e-5);
+  a = mod(a, seg);
+  a = abs(a - seg * 0.5);
+  vec2 p = r * vec2(cos(a), sin(a));
+
+  float t = uTime * uSpeed;
+
+  // Drifting source field, plasma-class: a few sines of folded position and
+  // time. The off-axis moving center in the length() term keeps the pattern
+  // evolving (non-repeating) rather than pulsing in place.
+  float f1 = sin(p.x * 6.0 + t)
+      + sin((p.x + p.y) * 4.2 - t * 0.7)
+      + sin(length(p - vec2(0.9 + 0.25 * sin(t * 0.31), 0.0)) * 7.0 + t * 1.1);
+  float f2 = sin(p.y * 5.0 - t * 0.9 + sin(p.x * 3.1 + t * 0.4));
+  float m1 = 0.5 + 0.5 * sin(f1);
+  float m2 = smoothstep(0.25, 0.9, 0.5 + 0.5 * sin(f2 + f1 * 0.5));
+
+  vec3 color = mix(uColorA, uColorB, m1);
+  color = mix(color, uColorC, m2 * 0.65);
+
+  // Thin darkening along both mirror lines sells the cut-glass facets.
+  float seam = smoothstep(0.035, 0.0, abs(a - seg * 0.5)) + smoothstep(0.035, 0.0, a);
+  color *= 1.0 - 0.18 * seam;
+
+  // uCalm: ease toward the palette midpoint near frame center. Spatial-only
+  // (never scales time per pixel, which would shear the field across the
+  // falloff ring).
+  vec3 mid = 0.5 * (uColorA + uColorB);
+  float calm = uCalm * (1.0 - smoothstep(0.15, 0.62, centerDist));
+  color = mix(color, mid, calm * 0.6);
+
+  // Opaque procedural background; the person is composited over it downstream.
+  oColor = vec4(color, 1.0);
+}
+`;
+
+export const NEO_MEMPHIS_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform float uTime;       // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;  // framebuffer size in pixels; both components > 0
+uniform vec3 uBgColor;     // field color behind the shapes
+uniform vec3 uColorA;      // shape palette color 1
+uniform vec3 uColorB;      // shape palette color 2
+uniform vec3 uColorC;      // shape palette color 3
+uniform float uScale;      // hero-grid cells across frame height
+uniform float uDensity;    // probability a cell draws its shape, 0..1
+uniform float uOutline;    // probability a shape renders outlined, 0..1
+uniform float uDrift;      // scroll + rotation rate; 0 freezes
+uniform float uCalm;       // 0..1 fades shapes near frame center (face zone)
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+const float TAU = 6.28318530718;
+// Antialias half-width in cell units; ~1px at the default pitch.
+const float AA = 0.012;
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(234.34, 435.345));
+  p += dot(p, p + 34.23);
+  return fract(p.x * p.y);
+}
+
+float sdBox(vec2 p, vec2 b) {
+  vec2 d = abs(p) - b;
+  return length(max(d, vec2(0.0))) + min(max(d.x, d.y), 0.0);
+}
+
+// iq's equilateral triangle, point up, circumradius r.
+float sdTriangle(vec2 p, float r) {
+  const float k = 1.7320508;
+  p.x = abs(p.x) - r;
+  p.y = p.y + r / k;
+  if (p.x + k * p.y > 0.0) {
+    p = vec2(p.x - k * p.y, -k * p.x - p.y) * 0.5;
+  }
+  p.x -= clamp(p.x, -2.0 * r, 0.0);
+  return -length(p) * sign(p.y);
+}
+
+// One cell layer: returns the shape coverage and writes its color.
+// luv is the layer's scrolled cell-space coordinate; backfill restricts the
+// shape menu to dots and crosses and draws smaller.
+float memphisCell(vec2 luv, float seed, float backfill, float t, out vec3 shapeColor) {
+  vec2 id = floor(luv);
+  vec2 gv = fract(luv) - 0.5;
+  float h = hash21(id + seed);
+  shapeColor = uBgColor;
+  // Density gate: empty cells cost one hash.
+  if (h > uDensity) return 0.0;
+
+  float h2 = fract(h * 57.31);
+  float h3 = fract(h * 113.77);
+  float h4 = fract(h * 431.13);
+  float h5 = fract(h * 891.71);
+
+  // Per-cell slow spin and a small bob; both bounded so the shape stays
+  // inside its cell (max extent 0.34 + 0.04 < 0.5).
+  float ang = h2 * TAU + t * (h3 - 0.5) * 0.8;
+  float cs = cos(ang);
+  float sn = sin(ang);
+  gv -= 0.04 * vec2(sin(t * 0.6 + h * TAU), cos(t * 0.8 + h * TAU));
+  gv = mat2(cs, -sn, sn, cs) * gv;
+
+  float r = mix(0.14, 0.30, h3) * mix(1.0, 0.6, backfill);
+  float pick = h4 * 6.0;
+  float d;
+  if (backfill > 0.5) {
+    // Backfill texture: dots and crosses only.
+    d = (pick < 3.0)
+        ? length(gv) - r * 0.45
+        : min(sdBox(gv, vec2(r, r * 0.22)), sdBox(gv, vec2(r * 0.22, r)));
+  } else if (pick < 1.0) {
+    d = length(gv) - r;                                   // disc
+  } else if (pick < 2.0) {
+    d = abs(length(gv) - r * 0.8) - r * 0.18;             // ring
+  } else if (pick < 3.0) {
+    d = sdTriangle(gv, r);                                // triangle
+  } else if (pick < 4.0) {
+    d = min(sdBox(gv, vec2(r, r * 0.24)), sdBox(gv, vec2(r * 0.24, r))); // cross
+  } else if (pick < 5.0) {
+    d = sdBox(gv, vec2(r * 0.78, r * 0.78));              // box
+  } else {
+    // Squiggle: a sine-displaced band, clipped to its run length.
+    d = max(abs(gv.y - 0.4 * r * sin(gv.x / r * 6.5)) - r * 0.17, abs(gv.x) - r);
+  }
+
+  float fill = smoothstep(AA, -AA, d);
+  float ring = smoothstep(AA, -AA, abs(d + r * 0.06) - r * 0.09);
+  float m = (h5 < uOutline) ? ring : fill;
+
+  float colorPick = fract(h * 769.23) * 3.0;
+  shapeColor = (colorPick < 1.0) ? uColorA : (colorPick < 2.0) ? uColorB : uColorC;
+  return m;
+}
+
+void main() {
+  // Aspect-correct, screen-centered coordinates (matches plasma/nebula).
+  vec2 fragCoord = vUv * uResolution;
+  vec2 uv = (fragCoord - 0.5 * uResolution) / uResolution.y;
+  float centerDist = length(uv);
+
+  float t = uTime * uDrift;
+  vec3 color = uBgColor;
+  vec3 shapeColor;
+
+  // Backfill layer first (under the hero shapes): smaller, denser, dimmer.
+  vec2 luv1 = uv * uScale * 2.3 + vec2(t * 0.045, t * -0.03) + 51.7;
+  float m1 = memphisCell(luv1, 7.0, 1.0, t, shapeColor);
+  color = mix(color, mix(uBgColor, shapeColor, 0.55), m1);
+
+  // Hero layer: the big shapes, scrolling the other way.
+  vec2 luv0 = uv * uScale + vec2(t * -0.06, t * 0.04);
+  float m0 = memphisCell(luv0, 0.0, 0.0, t, shapeColor);
+
+  // uCalm: fade shapes (not the field) near frame center.
+  float calm = 1.0 - uCalm * (1.0 - smoothstep(0.15, 0.62, centerDist));
+  color = mix(color, shapeColor, m0 * calm);
+
+  // Opaque procedural background; the person is composited over it downstream.
+  oColor = vec4(color, 1.0);
+}
+`;
+
+export const HALFTONE_WAVES_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform float uTime;       // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;  // framebuffer size in pixels; both components > 0
+uniform vec3 uPaper;       // field color (behind the dots)
+uniform vec3 uInk;         // dot color
+uniform float uPitch;      // dot-grid cells across frame height
+uniform float uDotSize;    // base dot radius in cell units, 0..0.5
+uniform float uWaveAmp;    // radius modulation depth, 0..1
+uniform float uSpeed;      // wave travel rate; 0 freezes
+uniform float uShape;      // dot shape: 0 diamond, 1 circle, 2 square
+uniform float uAngle;      // wave direction, radians
+uniform float uCalm;       // 0..1 eases the waves at frame center (face zone)
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+// Antialias half-width in cell units; ~1px at the default pitch.
+const float AA = 0.06;
+
+void main() {
+  // Aspect-correct, screen-centered coordinates (matches plasma/nebula).
+  vec2 fragCoord = vUv * uResolution;
+  vec2 uv = (fragCoord - 0.5 * uResolution) / uResolution.y;
+  float centerDist = length(uv);
+
+  vec2 luv = uv * uPitch;
+  vec2 id = floor(luv);
+  vec2 gv = fract(luv) - 0.5;
+  // Wave phase is sampled at the CELL CENTER so a dot's radius is uniform
+  // across its own pixels (true halftone, not a warped field).
+  vec2 c = (id + 0.5) / uPitch;
+
+  float t = uTime * uSpeed;
+  vec2 dir1 = vec2(cos(uAngle), sin(uAngle));
+  vec2 dir2 = vec2(cos(uAngle + 2.2), sin(uAngle + 2.2));
+  // Two traveling waves at incommensurate frequencies: interference patterns
+  // that drift forever without visibly repeating.
+  float w = 0.5 + 0.25 * sin(dot(c, dir1) * 3.1 + t) + 0.25 * sin(dot(c, dir2) * 4.7 - t * 0.77);
+
+  // uCalm: flatten the modulation toward its midpoint near frame center.
+  float calm = uCalm * (1.0 - smoothstep(0.15, 0.62, centerDist));
+  w = mix(w, 0.5, calm);
+
+  float radius = uDotSize * mix(1.0 - uWaveAmp, 1.0 + uWaveAmp, w);
+
+  // Blended distance metric, pow-free (variable-exponent pow lowers to
+  // exp2+log2 on mobile): diamond (L1) -> circle (L2) -> square (Linf).
+  vec2 q = abs(gv);
+  float dDiamond = (q.x + q.y) * 0.7071;
+  float dCircle = length(q);
+  float dSquare = max(q.x, q.y);
+  float d = (uShape < 1.0)
+      ? mix(dDiamond, dCircle, clamp(uShape, 0.0, 1.0))
+      : mix(dCircle, dSquare, clamp(uShape - 1.0, 0.0, 1.0));
+
+  float m = smoothstep(radius + AA, radius - AA, d);
+  vec3 color = mix(uPaper, uInk, m);
+
+  // Opaque procedural background; the person is composited over it downstream.
+  oColor = vec4(color, 1.0);
+}
+`;
+
+export const AURORA_SILK_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform float uTime;       // seconds, monotonically increasing; range [0, inf)
+uniform vec2 uResolution;  // framebuffer size in pixels; both components > 0
+uniform vec3 uColorLow;    // gradient color at the flow's low side
+uniform vec3 uColorHigh;   // gradient color at the flow's high side
+uniform vec3 uRibbonColor; // ribbon tint; shades blend toward uColorHigh
+uniform float uRibbons;    // visible ribbon count, 1..5 (MAX_RIBBONS)
+uniform float uSoftness;   // ribbon edge softness, 0..1
+uniform float uAngle;      // flow direction, radians
+uniform float uSpeed;      // drift rate; 0 freezes
+uniform float uStyle;      // 0 flat paper-cut .. 1 glowing silk
+uniform float uCalm;       // 0..1 eases ribbons at frame center (face zone)
+
+in highp vec2 vUv;
+out vec4 oColor;
+
+const int MAX_RIBBONS = 5;
+
+float hash11(float n) {
+  return fract(sin(n) * 43758.5453123);
+}
+
+// 1D value noise: smooth, cheap, non-repeating drift source per ribbon.
+float vnoise(float x, float seed) {
+  float i = floor(x);
+  float f = fract(x);
+  float a = hash11(i + seed);
+  float b = hash11(i + 1.0 + seed);
+  return mix(a, b, f * f * (3.0 - 2.0 * f));
+}
+
+void main() {
+  // Aspect-correct, screen-centered coordinates (matches plasma/nebula).
+  vec2 fragCoord = vUv * uResolution;
+  vec2 uv = (fragCoord - 0.5 * uResolution) / uResolution.y;
+  float centerDist = length(uv);
+
+  // Rotate into flow space: ribbons run along q.x, stack along q.y.
+  float cs = cos(uAngle);
+  float sn = sin(uAngle);
+  vec2 q = mat2(cs, -sn, sn, cs) * uv;
+
+  float t = uTime * uSpeed;
+
+  // Base: soft two-stop gradient across the stacking axis, with a slow
+  // breathing tilt so the field is alive even at uRibbons = 0 edge cases.
+  float g = clamp(q.y * 0.85 + 0.5 + 0.04 * sin(t * 0.17), 0.0, 1.0);
+  vec3 color = mix(uColorLow, uColorHigh, g);
+
+  float ribbons = clamp(uRibbons, 0.0, float(MAX_RIBBONS));
+  float calm = 1.0 - uCalm * (1.0 - smoothstep(0.15, 0.62, centerDist));
+
+  for (int i = 0; i < MAX_RIBBONS; i++) {
+    float fi = float(i);
+    if (fi >= ribbons) break;
+
+    // Stack centers across the frame, each with its own slow vertical sway.
+    float center = -0.42 + 0.84 * (fi + 0.5) / ribbons + 0.07 * sin(t * 0.19 + fi * 1.7);
+    // Lateral warp: low-frequency noise plus one sine, per-ribbon phase and
+    // rate so the bands never move in lockstep.
+    float warp = (vnoise(q.x * 1.4 + t * (0.1 + 0.04 * fi), fi * 17.0) - 0.5) * 0.5
+        + 0.1 * sin(q.x * 2.3 + t * (0.26 + 0.06 * fi) + fi * 2.1);
+    float dy = abs(q.y - (center + warp));
+
+    float widthR = mix(0.06, 0.15, hash11(fi * 7.3 + 1.0));
+    float soft = mix(0.008, widthR * 1.6, uSoftness);
+    float band = (1.0 - smoothstep(widthR - soft, widthR + soft, dy)) * calm;
+
+    // Ribbon shade: deeper tints at the back of the stack.
+    vec3 rc = mix(uRibbonColor, uColorHigh, fi / float(MAX_RIBBONS) * 0.6);
+
+    // uStyle blends two composites of the same band: flat paint-over vs
+    // additive glow.
+    vec3 flat_ = mix(color, rc, band * 0.85);
+    vec3 glow = color + rc * band * 0.4;
+    color = mix(flat_, glow, uStyle);
+  }
+
+  // Opaque procedural background; the person is composited over it downstream.
+  oColor = vec4(color, 1.0);
+}
+`;
+
 export const CLOUDS_FRAG_SRC = `#version 300 es
 precision highp float;
 
@@ -1215,6 +1565,10 @@ void main() {
 // dispatch iterate this; adding a generative .frag adds an entry here.
 export const SHADER_SOURCES: Readonly<Record<string, string>> = {
   'plasma': PLASMA_FRAG_SRC,
+  'kaleidoscope': KALEIDOSCOPE_FRAG_SRC,
+  'neo-memphis': NEO_MEMPHIS_FRAG_SRC,
+  'halftone-waves': HALFTONE_WAVES_FRAG_SRC,
+  'aurora-silk': AURORA_SILK_FRAG_SRC,
   'clouds': CLOUDS_FRAG_SRC,
   'nebula': NEBULA_FRAG_SRC,
   'godrays': GODRAYS_FRAG_SRC,

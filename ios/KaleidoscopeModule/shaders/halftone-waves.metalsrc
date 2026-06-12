@@ -1,0 +1,41 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution [[buffer(0)]], constant float& uPitch [[buffer(1)]], constant float& uTime [[buffer(2)]], constant float& uSpeed [[buffer(3)]], constant float& uAngle [[buffer(4)]], constant float& uCalm [[buffer(5)]], constant float& uDotSize [[buffer(6)]], constant float& uWaveAmp [[buffer(7)]], constant float& uShape [[buffer(8)]], constant float3& uPaper [[buffer(9)]], constant float3& uInk [[buffer(10)]])
+{
+    main0_out out = {};
+    float2 _29 = ((in.vUv * uResolution) - (uResolution * 0.5)) / float2(uResolution.y);
+    float2 _38 = _29 * uPitch;
+    float2 _53 = (floor(_38) + float2(0.5)) / float2(uPitch);
+    float _59 = uTime * uSpeed;
+    float _70 = uAngle + 2.2000000476837158203125;
+    float _123 = uDotSize * mix(1.0 - uWaveAmp, 1.0 + uWaveAmp, mix((0.5 + (0.25 * sin((dot(_53, float2(cos(uAngle), sin(uAngle))) * 3.099999904632568359375) + _59))) + (0.25 * sin((dot(_53, float2(cos(_70), sin(_70))) * 4.69999980926513671875) - (_59 * 0.769999980926513671875))), 0.5, uCalm * (1.0 - smoothstep(0.1500000059604644775390625, 0.62000000476837158203125, length(_29)))));
+    float2 _126 = abs(fract(_38) - float2(0.5));
+    float _130 = _126.x;
+    float _132 = _126.y;
+    float _138 = length(_126);
+    float _198;
+    if (uShape < 1.0)
+    {
+        _198 = mix((_130 + _132) * 0.707099974155426025390625, _138, fast::clamp(uShape, 0.0, 1.0));
+    }
+    else
+    {
+        _198 = mix(_138, fast::max(_130, _132), fast::clamp(uShape - 1.0, 0.0, 1.0));
+    }
+    out.oColor = float4(mix(uPaper, uInk, float3(smoothstep(_123 + 0.0599999986588954925537109375, _123 - 0.0599999986588954925537109375, _198))), 1.0);
+    return out;
+}
+

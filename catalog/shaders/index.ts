@@ -4,19 +4,25 @@
 // re-exported individually; a consumer imports the one its preset's layer needs.
 
 import type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare/anamorphic-lensflare';
+import type { AuroraSilkUniforms } from './aurora-silk/aurora-silk';
 import type { BlurUniforms } from './blur/blur';
 import type { CloudsUniforms } from './clouds/clouds';
 import type { CorporateBlobsUniforms } from './corporate-blobs/corporate-blobs';
 import type { FirefliesUniforms } from './fireflies/fireflies';
 import type { GodraysUniforms } from './godrays/godrays';
+import type { HalftoneWavesUniforms } from './halftone-waves/halftone-waves';
+import type { KaleidoscopeShaderUniforms } from './kaleidoscope/kaleidoscope';
 import type { LightBeamsAndMotesUniforms } from './light-beams-and-motes/light-beams-and-motes';
 import type { NebulaUniforms } from './nebula/nebula';
+import type { NeoMemphisUniforms } from './neo-memphis/neo-memphis';
 import type { PlasmaUniforms } from './plasma/plasma';
 import type { SimianlightsUniforms } from './simianlights/simianlights';
 
 export { defaultUniforms, type UniformControl } from './_shared/types';
 export type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare/anamorphic-lensflare';
 export { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare/anamorphic-lensflare';
+export type { AuroraSilkUniforms } from './aurora-silk/aurora-silk';
+export { AURORA_SILK_CONTROLS } from './aurora-silk/aurora-silk';
 export type { BlurUniforms } from './blur/blur';
 export { BLUR_CONTROLS } from './blur/blur';
 export type { CloudsUniforms } from './clouds/clouds';
@@ -27,10 +33,16 @@ export type { FirefliesUniforms } from './fireflies/fireflies';
 export { FIREFLIES_CONTROLS } from './fireflies/fireflies';
 export type { GodraysUniforms } from './godrays/godrays';
 export { GODRAYS_CONTROLS } from './godrays/godrays';
+export type { HalftoneWavesUniforms } from './halftone-waves/halftone-waves';
+export { HALFTONE_WAVES_CONTROLS } from './halftone-waves/halftone-waves';
+export type { KaleidoscopeShaderUniforms } from './kaleidoscope/kaleidoscope';
+export { KALEIDOSCOPE_CONTROLS } from './kaleidoscope/kaleidoscope';
 export type { LightBeamsAndMotesUniforms } from './light-beams-and-motes/light-beams-and-motes';
 export { LIGHT_BEAMS_AND_MOTES_CONTROLS } from './light-beams-and-motes/light-beams-and-motes';
 export type { NebulaUniforms } from './nebula/nebula';
 export { NEBULA_CONTROLS } from './nebula/nebula';
+export type { NeoMemphisUniforms } from './neo-memphis/neo-memphis';
+export { NEO_MEMPHIS_CONTROLS } from './neo-memphis/neo-memphis';
 export type { PlasmaUniforms } from './plasma/plasma';
 export { PLASMA_CONTROLS } from './plasma/plasma';
 export type { SimianlightsUniforms } from './simianlights/simianlights';
@@ -47,10 +59,14 @@ export type ShaderUniformsMap = {
   readonly clouds: CloudsUniforms;
   readonly godrays: GodraysUniforms;
   readonly fireflies: FirefliesUniforms;
+  readonly kaleidoscope: KaleidoscopeShaderUniforms;
+  readonly 'halftone-waves': HalftoneWavesUniforms;
   readonly plasma: PlasmaUniforms;
   readonly nebula: NebulaUniforms;
+  readonly 'neo-memphis': NeoMemphisUniforms;
   readonly simianlights: SimianlightsUniforms;
   readonly 'anamorphic-lensflare': AnamorphicLensFlareUniforms;
+  readonly 'aurora-silk': AuroraSilkUniforms;
   readonly 'light-beams-and-motes': LightBeamsAndMotesUniforms;
   readonly 'corporate-blobs': CorporateBlobsUniforms;
 };

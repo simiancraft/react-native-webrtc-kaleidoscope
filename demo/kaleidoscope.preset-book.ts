@@ -47,8 +47,12 @@ import { wizardTowerNight } from 'react-native-webrtc-kaleidoscope/composites/wi
 import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower-night/controls';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
+import { AuroraSilkForm } from 'react-native-webrtc-kaleidoscope/shaders/aurora-silk/form';
 import { BlurForm } from 'react-native-webrtc-kaleidoscope/shaders/blur/form';
+import { HalftoneWavesForm } from 'react-native-webrtc-kaleidoscope/shaders/halftone-waves/form';
+import { KaleidoscopeForm } from 'react-native-webrtc-kaleidoscope/shaders/kaleidoscope/form';
 import { LightBeamsAndMotesForm } from 'react-native-webrtc-kaleidoscope/shaders/light-beams-and-motes/form';
+import { NeoMemphisForm } from 'react-native-webrtc-kaleidoscope/shaders/neo-memphis/form';
 import { PlasmaForm } from 'react-native-webrtc-kaleidoscope/shaders/plasma/form';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug/debug-resolutions';
@@ -339,6 +343,279 @@ export const presets = {
         id: 'plasma',
         shader: 'plasma',
         uniforms: { uColorA: [0.9, 0.3, 0.1], uColorB: [0.8, 0.1, 0.5], uSpeed: 0.9, uScale: 10 },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'kaleidoscope-stained-glass': {
+    name: 'Stained Glass',
+    taxonomy: ['Shaders', 'Kaleidoscope'],
+    controls: KaleidoscopeForm,
+    layers: [
+      {
+        id: 'kaleidoscope',
+        shader: 'kaleidoscope',
+        uniforms: {
+          uColorA: [0.07, 0.15, 0.36],
+          uColorB: [0.1, 0.55, 0.62],
+          uColorC: [0.93, 0.69, 0.21],
+          uSegments: 8,
+          uSpeed: 0.35,
+          uRotate: 0.04,
+          uZoom: 1.6,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'kaleidoscope-mandala': {
+    name: 'Mandala',
+    taxonomy: ['Shaders', 'Kaleidoscope'],
+    controls: KaleidoscopeForm,
+    layers: [
+      {
+        id: 'kaleidoscope',
+        shader: 'kaleidoscope',
+        uniforms: {
+          uColorA: [0.24, 0.08, 0.28],
+          uColorB: [0.85, 0.36, 0.32],
+          uColorC: [0.95, 0.78, 0.35],
+          uSegments: 12,
+          uSpeed: 0.3,
+          uRotate: -0.03,
+          uZoom: 2.4,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'kaleidoscope-prism': {
+    name: 'Prism',
+    taxonomy: ['Shaders', 'Kaleidoscope'],
+    controls: KaleidoscopeForm,
+    layers: [
+      {
+        id: 'kaleidoscope',
+        shader: 'kaleidoscope',
+        uniforms: {
+          uColorA: [0.1, 0.13, 0.22],
+          uColorB: [0.35, 0.45, 0.62],
+          uColorC: [0.92, 0.94, 0.97],
+          uSegments: 6,
+          uSpeed: 0.22,
+          uRotate: 0.02,
+          uZoom: 1.2,
+          uCalm: 0.35,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'neo-memphis-jazz-cup': {
+    name: 'Jazz Cup',
+    taxonomy: ['Shaders', 'Neo-Memphis'],
+    controls: NeoMemphisForm,
+    layers: [
+      {
+        id: 'neo-memphis',
+        shader: 'neo-memphis',
+        uniforms: {
+          uBgColor: [0.93, 0.95, 0.96],
+          uColorA: [0.0, 0.65, 0.66],
+          uColorB: [0.42, 0.2, 0.62],
+          uColorC: [0.05, 0.42, 0.7],
+          uScale: 4,
+          uDensity: 0.62,
+          uOutline: 0.5,
+          uDrift: 0.5,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'neo-memphis-bauhaus': {
+    name: 'Bauhaus',
+    taxonomy: ['Shaders', 'Neo-Memphis'],
+    controls: NeoMemphisForm,
+    layers: [
+      {
+        id: 'neo-memphis',
+        shader: 'neo-memphis',
+        uniforms: {
+          uBgColor: [0.92, 0.89, 0.83],
+          uColorA: [0.86, 0.2, 0.18],
+          uColorB: [0.95, 0.72, 0.12],
+          uColorC: [0.13, 0.23, 0.47],
+          uScale: 3,
+          uDensity: 0.55,
+          uOutline: 0.15,
+          uDrift: 0.35,
+          uCalm: 0.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'neo-memphis-confetti': {
+    name: 'Confetti',
+    taxonomy: ['Shaders', 'Neo-Memphis'],
+    controls: NeoMemphisForm,
+    layers: [
+      {
+        id: 'neo-memphis',
+        shader: 'neo-memphis',
+        uniforms: {
+          uBgColor: [0.14, 0.14, 0.18],
+          uColorA: [0.95, 0.55, 0.66],
+          uColorB: [0.45, 0.78, 0.9],
+          uColorC: [0.96, 0.83, 0.4],
+          uScale: 8,
+          uDensity: 0.75,
+          uOutline: 0.2,
+          uDrift: 0.8,
+          uCalm: 0.4,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'halftone-boardroom': {
+    name: 'Boardroom',
+    taxonomy: ['Shaders', 'Halftone'],
+    controls: HalftoneWavesForm,
+    layers: [
+      {
+        id: 'halftone-waves',
+        shader: 'halftone-waves',
+        uniforms: {
+          uPaper: [0.95, 0.95, 0.94],
+          uInk: [0.62, 0.66, 0.7],
+          uPitch: 26,
+          uDotSize: 0.26,
+          uWaveAmp: 0.55,
+          uSpeed: 0.5,
+          uShape: 1,
+          uAngle: 0.6,
+          uCalm: 0.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'halftone-press': {
+    name: 'Press',
+    taxonomy: ['Shaders', 'Halftone'],
+    controls: HalftoneWavesForm,
+    layers: [
+      {
+        id: 'halftone-waves',
+        shader: 'halftone-waves',
+        uniforms: {
+          uPaper: [0.12, 0.13, 0.16],
+          uInk: [0.85, 0.87, 0.9],
+          uPitch: 34,
+          uDotSize: 0.22,
+          uWaveAmp: 0.7,
+          uSpeed: 0.4,
+          uShape: 2,
+          uAngle: 2.2,
+          uCalm: 0.35,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'halftone-ripple': {
+    name: 'Ripple',
+    taxonomy: ['Shaders', 'Halftone'],
+    controls: HalftoneWavesForm,
+    layers: [
+      {
+        id: 'halftone-waves',
+        shader: 'halftone-waves',
+        uniforms: {
+          uPaper: [0.07, 0.21, 0.32],
+          uInk: [0.3, 0.75, 0.78],
+          uPitch: 22,
+          uDotSize: 0.3,
+          uWaveAmp: 0.8,
+          uSpeed: 0.7,
+          uShape: 0,
+          uAngle: 1.1,
+          uCalm: 0.25,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'aurora-corporate-silk': {
+    name: 'Corporate Silk',
+    taxonomy: ['Shaders', 'Aurora'],
+    controls: AuroraSilkForm,
+    layers: [
+      {
+        id: 'aurora-silk',
+        shader: 'aurora-silk',
+        uniforms: {
+          uColorLow: [0.08, 0.11, 0.22],
+          uColorHigh: [0.16, 0.29, 0.48],
+          uRibbonColor: [0.36, 0.62, 0.85],
+          uRibbons: 4,
+          uSoftness: 0.7,
+          uAngle: 0.5,
+          uSpeed: 0.6,
+          uStyle: 0.8,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'aurora-dusk': {
+    name: 'Dusk',
+    taxonomy: ['Shaders', 'Aurora'],
+    controls: AuroraSilkForm,
+    layers: [
+      {
+        id: 'aurora-silk',
+        shader: 'aurora-silk',
+        uniforms: {
+          uColorLow: [0.18, 0.09, 0.2],
+          uColorHigh: [0.55, 0.25, 0.3],
+          uRibbonColor: [0.95, 0.6, 0.35],
+          uRibbons: 3,
+          uSoftness: 0.85,
+          uAngle: 0.25,
+          uSpeed: 0.45,
+          uStyle: 1,
+          uCalm: 0.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'aurora-polar': {
+    name: 'Polar',
+    taxonomy: ['Shaders', 'Aurora'],
+    controls: AuroraSilkForm,
+    layers: [
+      {
+        id: 'aurora-silk',
+        shader: 'aurora-silk',
+        uniforms: {
+          uColorLow: [0.9, 0.93, 0.96],
+          uColorHigh: [0.75, 0.85, 0.92],
+          uRibbonColor: [0.45, 0.65, 0.8],
+          uRibbons: 5,
+          uSoftness: 0.2,
+          uAngle: 5.9,
+          uSpeed: 0.5,
+          uStyle: 0,
+          uCalm: 0.25,
+        },
       },
       { id: 'you', shader: 'direct', target: 'subject' },
     ],
