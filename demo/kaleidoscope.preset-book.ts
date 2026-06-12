@@ -48,6 +48,7 @@ import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/compo
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
 import { BlurForm } from 'react-native-webrtc-kaleidoscope/shaders/blur/form';
+import { HalftoneWavesForm } from 'react-native-webrtc-kaleidoscope/shaders/halftone-waves/form';
 import { KaleidoscopeForm } from 'react-native-webrtc-kaleidoscope/shaders/kaleidoscope/form';
 import { LightBeamsAndMotesForm } from 'react-native-webrtc-kaleidoscope/shaders/light-beams-and-motes/form';
 import { NeoMemphisForm } from 'react-native-webrtc-kaleidoscope/shaders/neo-memphis/form';
@@ -372,6 +373,75 @@ export const presets = {
           uOutline: 0.2,
           uDrift: 0.8,
           uCalm: 0.4,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'halftone-boardroom': {
+    name: 'Boardroom',
+    taxonomy: ['Shaders', 'Halftone'],
+    controls: HalftoneWavesForm,
+    layers: [
+      {
+        id: 'halftone-waves',
+        shader: 'halftone-waves',
+        uniforms: {
+          uPaper: [0.95, 0.95, 0.94],
+          uInk: [0.62, 0.66, 0.7],
+          uPitch: 26,
+          uDotSize: 0.26,
+          uWaveAmp: 0.55,
+          uSpeed: 0.5,
+          uShape: 1,
+          uAngle: 0.6,
+          uCalm: 0.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'halftone-press': {
+    name: 'Press',
+    taxonomy: ['Shaders', 'Halftone'],
+    controls: HalftoneWavesForm,
+    layers: [
+      {
+        id: 'halftone-waves',
+        shader: 'halftone-waves',
+        uniforms: {
+          uPaper: [0.12, 0.13, 0.16],
+          uInk: [0.85, 0.87, 0.9],
+          uPitch: 34,
+          uDotSize: 0.22,
+          uWaveAmp: 0.7,
+          uSpeed: 0.4,
+          uShape: 2,
+          uAngle: 2.2,
+          uCalm: 0.35,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'halftone-ripple': {
+    name: 'Ripple',
+    taxonomy: ['Shaders', 'Halftone'],
+    controls: HalftoneWavesForm,
+    layers: [
+      {
+        id: 'halftone-waves',
+        shader: 'halftone-waves',
+        uniforms: {
+          uPaper: [0.07, 0.21, 0.32],
+          uInk: [0.3, 0.75, 0.78],
+          uPitch: 22,
+          uDotSize: 0.3,
+          uWaveAmp: 0.8,
+          uSpeed: 0.7,
+          uShape: 0,
+          uAngle: 1.1,
+          uCalm: 0.25,
         },
       },
       { id: 'you', shader: 'direct', target: 'subject' },
