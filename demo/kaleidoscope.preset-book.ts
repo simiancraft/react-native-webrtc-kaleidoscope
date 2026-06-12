@@ -50,6 +50,7 @@ import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/compo
 import { BlurForm } from 'react-native-webrtc-kaleidoscope/shaders/blur/form';
 import { KaleidoscopeForm } from 'react-native-webrtc-kaleidoscope/shaders/kaleidoscope/form';
 import { LightBeamsAndMotesForm } from 'react-native-webrtc-kaleidoscope/shaders/light-beams-and-motes/form';
+import { NeoMemphisForm } from 'react-native-webrtc-kaleidoscope/shaders/neo-memphis/form';
 import { PlasmaForm } from 'react-native-webrtc-kaleidoscope/shaders/plasma/form';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug/debug-resolutions';
@@ -302,6 +303,75 @@ export const presets = {
           uRotate: 0.02,
           uZoom: 1.2,
           uCalm: 0.35,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'neo-memphis-jazz-cup': {
+    name: 'Jazz Cup',
+    taxonomy: ['Shaders', 'Neo-Memphis'],
+    controls: NeoMemphisForm,
+    layers: [
+      {
+        id: 'neo-memphis',
+        shader: 'neo-memphis',
+        uniforms: {
+          uBgColor: [0.93, 0.95, 0.96],
+          uColorA: [0.0, 0.65, 0.66],
+          uColorB: [0.42, 0.2, 0.62],
+          uColorC: [0.05, 0.42, 0.7],
+          uScale: 4,
+          uDensity: 0.62,
+          uOutline: 0.5,
+          uDrift: 0.5,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'neo-memphis-bauhaus': {
+    name: 'Bauhaus',
+    taxonomy: ['Shaders', 'Neo-Memphis'],
+    controls: NeoMemphisForm,
+    layers: [
+      {
+        id: 'neo-memphis',
+        shader: 'neo-memphis',
+        uniforms: {
+          uBgColor: [0.92, 0.89, 0.83],
+          uColorA: [0.86, 0.2, 0.18],
+          uColorB: [0.95, 0.72, 0.12],
+          uColorC: [0.13, 0.23, 0.47],
+          uScale: 3,
+          uDensity: 0.55,
+          uOutline: 0.15,
+          uDrift: 0.35,
+          uCalm: 0.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'neo-memphis-confetti': {
+    name: 'Confetti',
+    taxonomy: ['Shaders', 'Neo-Memphis'],
+    controls: NeoMemphisForm,
+    layers: [
+      {
+        id: 'neo-memphis',
+        shader: 'neo-memphis',
+        uniforms: {
+          uBgColor: [0.14, 0.14, 0.18],
+          uColorA: [0.95, 0.55, 0.66],
+          uColorB: [0.45, 0.78, 0.9],
+          uColorC: [0.96, 0.83, 0.4],
+          uScale: 8,
+          uDensity: 0.75,
+          uOutline: 0.2,
+          uDrift: 0.8,
+          uCalm: 0.4,
         },
       },
       { id: 'you', shader: 'direct', target: 'subject' },

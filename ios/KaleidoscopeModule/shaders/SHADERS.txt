@@ -12,6 +12,7 @@ godrays.frag
 kaleidoscope.frag
 light-beams-and-motes.frag
 nebula.frag
+neo-memphis.frag
 passthrough.vert
 plasma.frag
 simianlights.frag

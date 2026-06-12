@@ -120,6 +120,7 @@ const UTILITY_WEB = [
 const GENERATIVE_SHADERS = [
   'plasma.frag',
   'kaleidoscope.frag',
+  'neo-memphis.frag',
   'clouds.frag',
   'nebula.frag',
   'godrays.frag',

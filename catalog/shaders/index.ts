@@ -12,6 +12,7 @@ import type { GodraysUniforms } from './godrays/godrays';
 import type { KaleidoscopeShaderUniforms } from './kaleidoscope/kaleidoscope';
 import type { LightBeamsAndMotesUniforms } from './light-beams-and-motes/light-beams-and-motes';
 import type { NebulaUniforms } from './nebula/nebula';
+import type { NeoMemphisUniforms } from './neo-memphis/neo-memphis';
 import type { PlasmaUniforms } from './plasma/plasma';
 import type { SimianlightsUniforms } from './simianlights/simianlights';
 
@@ -34,6 +35,8 @@ export type { LightBeamsAndMotesUniforms } from './light-beams-and-motes/light-b
 export { LIGHT_BEAMS_AND_MOTES_CONTROLS } from './light-beams-and-motes/light-beams-and-motes';
 export type { NebulaUniforms } from './nebula/nebula';
 export { NEBULA_CONTROLS } from './nebula/nebula';
+export type { NeoMemphisUniforms } from './neo-memphis/neo-memphis';
+export { NEO_MEMPHIS_CONTROLS } from './neo-memphis/neo-memphis';
 export type { PlasmaUniforms } from './plasma/plasma';
 export { PLASMA_CONTROLS } from './plasma/plasma';
 export type { SimianlightsUniforms } from './simianlights/simianlights';
@@ -53,6 +56,7 @@ export type ShaderUniformsMap = {
   readonly kaleidoscope: KaleidoscopeShaderUniforms;
   readonly plasma: PlasmaUniforms;
   readonly nebula: NebulaUniforms;
+  readonly 'neo-memphis': NeoMemphisUniforms;
   readonly simianlights: SimianlightsUniforms;
   readonly 'anamorphic-lensflare': AnamorphicLensFlareUniforms;
   readonly 'light-beams-and-motes': LightBeamsAndMotesUniforms;

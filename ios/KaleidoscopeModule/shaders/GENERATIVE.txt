@@ -6,5 +6,6 @@ godrays
 kaleidoscope
 light-beams-and-motes
 nebula
+neo-memphis
 plasma
 simianlights

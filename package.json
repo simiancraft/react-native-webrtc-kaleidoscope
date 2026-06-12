@@ -439,6 +439,13 @@
       "import": "./dist/catalog/shaders/kaleidoscope/kaleidoscope.form.js",
       "default": "./dist/catalog/shaders/kaleidoscope/kaleidoscope.form.js"
     },
+    "./shaders/neo-memphis/form": {
+      "types": "./dist/catalog/shaders/neo-memphis/neo-memphis.form.d.ts",
+      "react-native": "./catalog/shaders/neo-memphis/neo-memphis.form.tsx",
+      "browser": "./dist/catalog/shaders/neo-memphis/neo-memphis.form.js",
+      "import": "./dist/catalog/shaders/neo-memphis/neo-memphis.form.js",
+      "default": "./dist/catalog/shaders/neo-memphis/neo-memphis.form.js"
+    },
     "./shaders/blur/form": {
       "types": "./dist/catalog/shaders/blur/blur.form.d.ts",
       "react-native": "./catalog/shaders/blur/blur.form.tsx",
