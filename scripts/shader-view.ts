@@ -188,7 +188,11 @@ async function resolveSide(raw: string, path: string, label: string): Promise<Si
         uniforms.push({ name, role: 'static', glType, value: defaults.get(name), arrayLen });
       } else {
         notes.push(`${name} not in .ts; defaulted`);
-        uniforms.push({ name, role: 'static', glType, value: defaultForType(glType), arrayLen });
+        // An array uniform needs the per-element default TILED to its length;
+        // a single vec's worth of floats under-fills the uniform*fv bind.
+        const base = defaultForType(glType);
+        const value = arrayLen ? Array.from({ length: arrayLen }, () => base).flat() : base;
+        uniforms.push({ name, role: 'static', glType, value, arrayLen });
       }
       m = re.exec(fragSrc);
     }
@@ -437,6 +441,10 @@ function setUniforms(gl, locs, uniforms, time, W, H, vals) {
 function makeSide(canvas, side, errPanel, vals) {
   const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
   if (!gl) { errPanel.textContent = 'WebGL2 unavailable'; return null; }
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    errPanel.textContent = 'WebGL context lost — reload, or lower meter res / overdraw';
+  });
   let prog;
   try { prog = makeProgram(gl, side.fragSrc, errPanel); } catch { return null; }
   const locs = {};
@@ -464,19 +472,30 @@ function makeSide(canvas, side, errPanel, vals) {
       setUniforms(gl, locs, side.uniforms, time, w, h, vals);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     },
-    measure(time, k) {
+    measure(time, k, hintMs) {
       const m = this.meter;
       gl.bindFramebuffer(gl.FRAMEBUFFER, m.fbo);
       gl.viewport(0, 0, m.w, m.h);
       gl.useProgram(prog);
       setUniforms(gl, locs, side.uniforms, time, m.w, m.h, vals);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);            // warm
+      // Clamp the overdraw count so one synchronous meter block never holds
+      // the GPU long enough to trip the OS watchdog; past that watchdog the
+      // context keeps REPORTING healthy while every call no-ops in
+      // microseconds (issue #62), so prevention beats detection here. The
+      // side's EMA is the calibrator once it exists; the warm draw bounds
+      // only the first sample (its synced time also swallows the tick's
+      // queued work, so it overestimates cheap shaders badly).
+      const w0 = performance.now();
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, scratch);
+      const warmMs = performance.now() - w0;
+      const perDraw = hintMs > 0 ? hintMs : warmMs;
+      const kEff = Math.max(1, Math.min(k, Math.floor(BLOCK_BUDGET_MS / Math.max(perDraw, 0.01))));
       const t0 = performance.now();
-      for (let i = 0; i < k; i++) gl.drawArrays(gl.TRIANGLES, 0, 3);
+      for (let i = 0; i < kEff; i++) gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, scratch); // sync
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      return (performance.now() - t0) / k;
+      return { ms: (performance.now() - t0) / kEff, kEff };
     },
   };
 }
@@ -513,28 +532,57 @@ function sgn(n) { return n > 0 ? '+' + n : '' + n; }
 })();
 let paused = false, speed = 1, mres = 1280, mk = 24, t = 0, last = performance.now();
 let emaA = 0, emaB = 0, lastMeter = 0;
+// Wall-clock cap for one synchronous meter block (warm draw calibrates; see
+// measure()). Stays an order of magnitude under the ~2s GPU watchdog.
+const BLOCK_BUDGET_MS = 200;
 const bind = (id, fn) => document.getElementById(id).addEventListener('input', fn);
 document.getElementById('pause').onclick = (e) => { paused = !paused; e.target.textContent = paused ? 'play' : 'pause'; };
 bind('speed', (e) => { speed = +e.target.value; document.getElementById('speedv').textContent = speed.toFixed(2) + '×'; });
-bind('mres', (e) => { mres = +e.target.value; document.getElementById('mresv').textContent = mres; });
-bind('mk', (e) => { mk = +e.target.value; document.getElementById('mkv').textContent = mk; });
+// A per-draw EMA only means something at fixed res×overdraw; reset on any
+// meter-settings change (also re-arms a side parked by the degenerate guard).
+bind('mres', (e) => { mres = +e.target.value; document.getElementById('mresv').textContent = mres; emaA = 0; emaB = 0; });
+bind('mk', (e) => { mk = +e.target.value; document.getElementById('mkv').textContent = mk; emaA = 0; emaB = 0; });
 const fmt = (ms) => ms >= 1 ? ms.toFixed(2) + ' ms' : (ms * 1000).toFixed(0) + ' µs';
-function frame(now) {
+// One meter sample for a side; returns the updated EMA, or -1 to park the
+// side. After a GPU reset the context still REPORTS healthy (isContextLost()
+// false, getError() 0) while every draw "completes" in call-overhead
+// microseconds — so detect the collapse (a >50× drop to sub-overhead time)
+// instead of averaging it into confident garbage.
+function meterSample(S, elId, ema) {
+  S.resizeMeter(mres);
+  const r = S.measure(t, mk, ema);
+  if (ema > 0.5 && r.ms < 0.05 && r.ms < ema / 50) {
+    document.getElementById(elId).innerHTML =
+      '⚠ GPU reset suspected — reload, or lower meter res / overdraw and re-measure';
+    return -1;
+  }
+  const next = ema > 0 ? ema * 0.7 + r.ms * 0.3 : r.ms;
+  document.getElementById(elId).innerHTML = fmt(next) +
+    ' <small>@' + mres + '×' + r.kEff + (r.kEff < mk ? ' (of ' + mk + ')' : '') + '</small>';
+  return next;
+}
+function frameBody(now) {
   const dt = (now - last) / 1000; last = now;
   if (!paused) t += dt * speed;
   if (A) A.draw(t);
   if (B) B.draw(t);
   if (now - lastMeter > 350) {
     lastMeter = now;
-    if (A) { A.resizeMeter(mres); const ms = A.measure(t, mk); emaA = emaA ? emaA * 0.7 + ms * 0.3 : ms; document.getElementById('ma').innerHTML = fmt(emaA) + ' <small>@' + mres + '×' + mk + '</small>'; }
-    if (B) { B.resizeMeter(mres); const ms = B.measure(t, mk); emaB = emaB ? emaB * 0.7 + ms * 0.3 : ms; document.getElementById('mb').innerHTML = fmt(emaB) + ' <small>@' + mres + '×' + mk + '</small>'; }
-    if (emaA && emaB) {
+    if (A && emaA >= 0) emaA = meterSample(A, 'ma', emaA);
+    if (B && emaB >= 0) emaB = meterSample(B, 'mb', emaB);
+    if (emaA > 0 && emaB > 0) {
       const ratio = emaA / emaB, v = document.getElementById('verdict');
       if (ratio > 1.02) v.innerHTML = 'B is <b>' + ratio.toFixed(2) + '×</b> faster (' + (100 - 100 / ratio).toFixed(0) + '% less GPU time)';
       else if (ratio < 0.98) v.innerHTML = 'A is <b>' + (1 / ratio).toFixed(2) + '×</b> faster (B costs ' + (100 / ratio - 100).toFixed(0) + '% more)';
       else v.innerHTML = 'within noise (' + ratio.toFixed(3) + '×) — crank meter-res / overdraw to separate them';
     }
   }
+}
+// The loop must outlive any single bad frame: a throw inside the body is
+// surfaced, not allowed to kill rAF for both sides.
+function frame(now) {
+  try { frameBody(now); }
+  catch (err) { document.getElementById('verdict').textContent = 'viewer error: ' + (err && err.message ? err.message : err); }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
