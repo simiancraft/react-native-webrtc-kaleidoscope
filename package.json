@@ -524,10 +524,14 @@
     "./expo-module.config.json": "./expo-module.config.json",
     "./package.json": "./package.json"
   },
+  "bin": {
+    "kaleidoscope-thumbnails": "./tools/thumbnails/make-thumbnails.ts"
+  },
   "files": [
     "src",
     "catalog",
     "dist",
+    "tools",
     "android/src",
     "android/build.gradle",
     "ios",
@@ -568,6 +572,7 @@
     "check:shaders": "bun run build:shaders && git diff --exit-code -- android/src/main/java/com/simiancraft/kaleidoscope/gpu/ShadersGenerated.kt web-driver/shaders.generated.ts",
     "bench:shader": "bun run scripts/shader-cost.ts",
     "shader:view": "bun run scripts/shader-view.ts",
+    "thumbs": "bun run build && bun tools/thumbnails/make-thumbnails.ts --book demo/kaleidoscope.preset-book.ts --out demo/assets/thumbnails --repo",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",
@@ -634,7 +639,7 @@
     "lefthook": "^2.1.9",
     "livekit-client": "^2.0.0",
     "nativewind": "4.2.x",
-    "playwright": "^1.60.0",
+    "playwright": "1.60.0",
     "publint": "^0.3.18",
     "react": "18.2.0",
     "react-native": "0.74.5",
