@@ -36,7 +36,6 @@ import {
   mergePatch,
   patchListFor,
   pruneStoredState,
-  type StoredKaleidoscopeState,
   type StoredPatch,
   type StoredPatches,
 } from './state';

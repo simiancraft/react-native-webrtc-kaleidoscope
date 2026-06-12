@@ -17,6 +17,14 @@ export type PresetControlPanelProps<P extends KaleidoscopePresetBook> = {
   readonly value: (keyof P & string) | null;
   /** Routed to the host, which applies it via `kaleidoscope(value, [patch])`. */
   readonly onPatch: KaleidoscopeControls['onPatch'];
+  /**
+   * Per-layer uniform overrides (e.g. a persisted selection's stored patches)
+   * merged over the preset's baked uniforms when the forms seed. Seed-time
+   * only: the forms re-seed on a preset switch, not when this prop changes
+   * mid-mount, so hosts restoring persisted patches should mount the panel
+   * after hydration.
+   */
+  readonly patches?: KaleidoscopeControls['uniforms'];
   readonly disabled?: boolean;
 };
 
@@ -24,6 +32,7 @@ export function PresetControlPanel<P extends KaleidoscopePresetBook>({
   presets,
   value,
   onPatch,
+  patches,
   disabled = false,
 }: PresetControlPanelProps<P>): ReactElement | null {
   if (value === null) return null;
@@ -32,11 +41,15 @@ export function PresetControlPanel<P extends KaleidoscopePresetBook>({
   if (!Controls) return null;
 
   // Per-layer baked uniforms keyed by id, for the controls component to seed each
-  // layer's ControlForm. Only tunable layers carry uniforms.
+  // layer's ControlForm. Only tunable layers carry uniforms; stored overrides
+  // merge over the baked values so restored tweaks appear in the forms.
   const uniforms: Record<string, Record<string, number | readonly number[]>> = {};
   for (const layer of preset.layers) {
     if ('uniforms' in layer) {
-      uniforms[layer.id] = { ...layer.uniforms } as Record<string, number | readonly number[]>;
+      uniforms[layer.id] = {
+        ...layer.uniforms,
+        ...patches?.[layer.id],
+      } as Record<string, number | readonly number[]>;
     }
   }
 
