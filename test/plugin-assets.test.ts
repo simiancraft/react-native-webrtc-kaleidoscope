@@ -56,13 +56,19 @@ const installPbxproj = (iosRoot: string, name = 'Demo') => {
 
 // A consumer book that exercises every inline parse path the precompiler
 // supports: a require('./x.webp') literal with an explicit id, a require-binding
-// referenced by identifier, an image layer with no id (basename fallback), a
+// referenced by identifier, a FORMATTER-WRAPPED require binding (biome and
+// prettier wrap the idiomatic Asset.fromModule(require(...)).uri at narrow
+// print widths; issue #48), an image layer with no id (basename fallback), a
 // require() to a missing file (unresolvable -> warn, skip), an aliased package
-// import that won't resolve (unresolvable -> warn, skip), and a non-image layer.
+// import that won't resolve (unresolvable -> warn, skip), an identifier bound
+// by nothing (unparseable -> warn at parse time, skip), and a non-image layer.
 const BOOK = `
 import { something } from 'react-native-webrtc-kaleidoscope';
 import { oceanscapeDark as oceans } from 'react-native-webrtc-kaleidoscope/images/underwater/oceanscape-dark';
 const wolfCave = Asset.fromModule(require('./assets/wolf-cave.webp')).uri;
+const videoBackdrop = Asset.fromModule(
+  require('./assets/video-backdrop.webp'),
+).uri;
 
 export const presets = {
   aurora: {
@@ -71,9 +77,11 @@ export const presets = {
     layers: [
       { id: 'sky', shader: 'image', source: require('./assets/aurora.webp') },
       { id: 'cave', shader: 'image', source: wolfCave },
+      { id: 'backdrop', shader: 'image', source: videoBackdrop },
       { shader: 'image', source: require('./assets/nebula.webp') },
       { id: 'ghost', shader: 'image', source: require('./assets/missing.webp') },
       { id: 'deep', shader: 'image', source: oceans },
+      { id: 'lost', shader: 'image', source: neverBound },
       { id: 'glow', shader: 'plasma', uniforms: { uSpeed: 0.5 } },
     ],
   },
@@ -98,7 +106,7 @@ const writeInlineProject = (root: string) => {
   writeBook(root, BOOK);
   const assets = path.join(root, 'assets');
   fs.mkdirSync(assets, { recursive: true });
-  for (const name of ['aurora', 'wolf-cave', 'nebula']) {
+  for (const name of ['aurora', 'wolf-cave', 'nebula', 'video-backdrop']) {
     fs.writeFileSync(path.join(assets, `${name}.webp`), `webp:${name}`);
   }
 };
@@ -159,6 +167,7 @@ describe('Android prebuild image-plate copy', () => {
     const dest = androidImagesDir(plat.dir);
     expect(fs.existsSync(path.join(dest, 'sky.webp'))).toBe(true); // require literal + explicit id
     expect(fs.existsSync(path.join(dest, 'cave.webp'))).toBe(true); // require-binding identifier ref
+    expect(fs.existsSync(path.join(dest, 'backdrop.webp'))).toBe(true); // formatter-wrapped binding (#48)
     expect(fs.existsSync(path.join(dest, 'nebula.webp'))).toBe(true); // id omitted -> basename
     expect(fs.readFileSync(path.join(dest, 'sky.webp'), 'utf8')).toBe('webp:aurora');
   });
@@ -171,6 +180,39 @@ describe('Android prebuild image-plate copy', () => {
     expect(fs.existsSync(path.join(dest, 'ghost.webp'))).toBe(false); // missing.webp
     expect(fs.existsSync(path.join(dest, 'deep.webp'))).toBe(false); // unresolved package import
     expect(warn.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('an unbound source identifier warns NAMING THE LAYER, instead of skipping silently (#48)', async () => {
+    writeInlineProject(proj.dir);
+    await runAndroidMod(proj.dir, plat.dir);
+
+    expect(fs.existsSync(path.join(androidImagesDir(plat.dir), 'lost.webp'))).toBe(false);
+    const texts = warn.mock.calls.map((call: ReadonlyArray<unknown>) => String(call[0]));
+    expect(texts.some((t: string) => t.includes("'lost'") && t.includes('neverBound'))).toBe(true);
+  });
+
+  test('a no-semicolon book does not misattribute a later require() to an earlier binding', async () => {
+    writeBook(
+      proj.dir,
+      [
+        'const plain = 5',
+        "const aurora = Asset.fromModule(require('./assets/aurora.webp')).uri",
+        '',
+        'export const presets = {',
+        "  a: { name: 'A', taxonomy: ['x'], layers: [",
+        "    { id: 'sky', shader: 'image', source: aurora },",
+        '  ] },',
+        '}',
+      ].join('\n'),
+    );
+    const assets = path.join(proj.dir, 'assets');
+    fs.mkdirSync(assets, { recursive: true });
+    fs.writeFileSync(path.join(assets, 'aurora.webp'), 'webp:aurora');
+    await runAndroidMod(proj.dir, plat.dir);
+
+    // If the newline-tolerant scan ran past `const plain = 5` into the next
+    // declaration, `aurora` would be unbound and sky.webp never copied.
+    expect(fs.existsSync(path.join(androidImagesDir(plat.dir), 'sky.webp'))).toBe(true);
   });
 
   test('ignores non-image layers', async () => {
@@ -186,7 +228,7 @@ describe('Android prebuild image-plate copy', () => {
     await runAndroidMod(proj.dir, plat.dir);
     const second = fs.readdirSync(androidImagesDir(plat.dir)).sort();
     expect(second).toEqual(first);
-    expect(first).toEqual(['cave.webp', 'nebula.webp', 'sky.webp']);
+    expect(first).toEqual(['backdrop.webp', 'cave.webp', 'nebula.webp', 'sky.webp']);
   });
 
   test('chains a previously registered android.dangerous mod', async () => {

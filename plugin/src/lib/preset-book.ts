@@ -10,11 +10,15 @@
 // each `image` layer is `{ id, shader: 'image', source: <ref> }`, where <ref> is
 // a `require('./x.webp')` literal, a single named import from an
 // `.../images/<category>/<leaf>` specifier, or a `const X = ...require('./x.webp')...`
-// binding. Anything that can't be parsed or resolved warns (never throws),
-// matching the plugin's non-fatal contract.
+// binding. A binding's initializer may span lines (a consumer's formatter wraps
+// the idiomatic `Asset.fromModule(require(...)).uri` at narrow print widths), so
+// the parse reads statements, not lines. Anything that can't be parsed or
+// resolved warns (never throws), matching the plugin's non-fatal contract; an
+// `image` layer dropped silently at prebuild is a bug, not a policy.
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { LOG_TAG } from './constants';
 import { readTextOrNull } from './file-manipulation';
 
 /** The file a consumer declares at their project root. */
@@ -48,8 +52,12 @@ function parseImports(source: string): Record<string, string> {
     const specifier = m[3];
     if (local && specifier) imports[local] = specifier;
   }
+  // The initializer scan crosses newlines (formatters wrap the binding) but
+  // stops at `;` and refuses to run into a following declaration, so a
+  // no-semicolon style cannot misattribute a later require() to an earlier
+  // binding.
   const requireBindingRe =
-    /(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*[^;\n]*\brequire\(\s*['"]([^'"]+)['"]\s*\)/g;
+    /(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:(?!\b(?:const|let|var)\b)[^;])*?\brequire\(\s*['"]([^'"]+)['"]\s*\)/g;
   for (const m of source.matchAll(requireBindingRe)) {
     const local = m[1];
     const specifier = m[2];
@@ -83,14 +91,27 @@ function parseImageRefs(source: string): Array<{ id: string; specifier: string }
   for (const m of source.matchAll(layerRe)) {
     const body = m[1];
     if (!body) continue;
+    const layerId = body.match(/\bid\s*:\s*['"]([\w-]+)['"]/)?.[1];
     const sourceM = body.match(/source\s*:\s*(require\(\s*['"][^'"]+['"]\s*\)|[A-Za-z0-9_$]+)/);
     const expr = sourceM?.[1];
-    if (!expr) continue;
+    // The warn-never-throw contract: a layer the parse cannot follow is skipped
+    // LOUDLY, naming the layer, so the missing plate surfaces at prebuild
+    // instead of on-device.
+    if (!expr) {
+      console.warn(
+        `${LOG_TAG} Could not parse the 'source' of image layer '${layerId ?? '<no id>'}'; skipping its asset. An image layer's source must be a require('...') literal or an identifier bound by a single named import or a require() binding.`,
+      );
+      continue;
+    }
     const requireLiteral = expr.match(/require\(\s*['"]([^'"]+)['"]\s*\)/);
     const specifier = requireLiteral ? requireLiteral[1] : (imports[expr] ?? null);
-    if (!specifier) continue;
-    const idM = body.match(/\bid\s*:\s*['"]([\w-]+)['"]/);
-    const id = idM?.[1] ?? imageIdFromSpecifier(specifier);
+    if (!specifier) {
+      console.warn(
+        `${LOG_TAG} Could not resolve '${expr}' (the 'source' of image layer '${layerId ?? '<no id>'}') to an import or require() binding; skipping its asset.`,
+      );
+      continue;
+    }
+    const id = layerId ?? imageIdFromSpecifier(specifier);
     if (seen.has(id)) continue;
     seen.add(id);
     refs.push({ id, specifier });
@@ -99,13 +120,22 @@ function parseImageRefs(source: string): Array<{ id: string; specifier: string }
 }
 
 /**
- * Resolve an imported-composite specifier (`<pkg>/composites/<name>`) to its
- * source `.ts` on disk. Returns null for a non-composite specifier or an
- * unresolvable package.
+ * The composite a specifier references: `<pkg>/composites/<name>` or any of its
+ * per-composite subpaths (today `/controls`). A consumer importing ONLY a
+ * composite's controls is still using that composite, so both forms count.
+ */
+function compositeNameFromSpecifier(specifier: string): string | null {
+  return specifier.match(/(?:^|\/)composites\/([\w-]+)(?:\/controls)?$/)?.[1] ?? null;
+}
+
+/**
+ * Resolve an imported-composite specifier (`<pkg>/composites/<name>`, or its
+ * `/controls` subpath) to the composite's source `.ts` on disk. Returns null
+ * for a non-composite specifier or an unresolvable package.
  */
 function resolveCompositeSource(specifier: string, projectRoot: string): string | null {
-  if (!/(^|\/)composites\/[\w-]+$/.test(specifier)) return null;
-  const name = specifier.substring(specifier.lastIndexOf('/') + 1);
+  const name = compositeNameFromSpecifier(specifier);
+  if (!name) return null;
   try {
     const pkgJson = require.resolve('react-native-webrtc-kaleidoscope/package.json', {
       paths: [projectRoot],
@@ -145,9 +175,13 @@ function walkBookSources(
   projectRoot: string,
 ): Array<{ readonly source: string; readonly baseDir: string }> {
   const sources = [{ source: bookSource, baseDir: projectRoot }];
+  // A composite and its `/controls` subpath resolve to the SAME source file;
+  // parse it once.
+  const seenPaths = new Set<string>();
   for (const specifier of Object.values(parseImports(bookSource))) {
     const compositePath = resolveCompositeSource(specifier, projectRoot);
-    if (!compositePath) continue;
+    if (!compositePath || seenPaths.has(compositePath)) continue;
+    seenPaths.add(compositePath);
     const compositeSource = readTextOrNull(compositePath);
     // Non-fatal: a composite we cannot read contributes nothing.
     if (compositeSource !== null) {
@@ -183,10 +217,10 @@ function collectCompositeThumbRefs(bookSource: string, projectRoot: string): Thu
   const refs: ThumbRef[] = [];
   const seen = new Set<string>();
   for (const specifier of Object.values(parseImports(bookSource))) {
+    const name = compositeNameFromSpecifier(specifier);
+    if (!name || seen.has(name)) continue;
     const compositeTs = resolveCompositeSource(specifier, projectRoot);
     if (!compositeTs) continue;
-    const name = specifier.substring(specifier.lastIndexOf('/') + 1);
-    if (seen.has(name)) continue;
     const thumbPath = path.join(path.dirname(compositeTs), `${name}.thumb.webp`);
     if (!fs.existsSync(thumbPath)) continue;
     seen.add(name);
