@@ -6,9 +6,12 @@
 // compile-time constant (GLSL ES loop bound).
 //
 // Slab-bounded march (issue #37): the clouds live in 0 < p.y < 3 (the height
-// mask is 0 outside it), so cloudDensity() returns 0 before the 5-octave fbm()
+// mask is 0 outside it), so cloudDensity() returns 0 before the 4-octave fbm()
 // when p.y leaves the slab, and the march breaks once the ray exits it. Both
-// skip only zero-contribution samples; output is unchanged.
+// skip only zero-contribution samples; output is unchanged. The march itself
+// uses a distance-growing step (see main) so 32 steps cover the old 48-step
+// range; the growth factor also weights per-sample opacity to keep optical
+// depth per unit distance consistent.
 //
 // UV convention: matches passthrough.vert. vUv = (0, 0) bottom-left, (1, 1)
 // top-right; fragCoord is reconstructed as vUv * uResolution. Fully procedural
@@ -44,7 +47,9 @@ in highp vec2 vUv;
 out vec4 oColor;
 
 // STEPS must stay a compile-time constant (GLSL ES loop bound).
-#define STEPS 48
+// 32 (was 48; issue #37): the distance-growing step in main() keeps the
+// marched range, so fewer steps buys speed instead of clipping the horizon.
+#define STEPS 32
 
 float hash(vec3 p) {
     p = fract(p * 0.3183099 + 0.1);
@@ -72,10 +77,13 @@ float noise(vec3 p) {
         f.z);
 }
 
+// 4 octaves (was 5; issue #37): the 5th octave is fine wisp detail the
+// smoothstep(uCoverage, uCoverage + uSoftness, n) threshold mostly eats; each
+// octave is 8 hash() calls per sample, so this is a flat -20% on the march.
 float fbm(vec3 p) {
     float v = 0.0;
     float a = 0.5;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         v += a * noise(p);
         p *= 2.03;
         a *= 0.5;
@@ -111,14 +119,21 @@ void main() {
         if (rd.y > 0.0 && p.y >= 3.0) break;
         if (rd.y < 0.0 && p.y <= 0.0) break;
         float d = cloudDensity(p);
+        // Distance-growing step (issue #37): far clouds are small on screen and
+        // tolerate coarser sampling, so the step stretches with t. 32 growing
+        // steps reach slightly past where 48 uniform steps did, spending the
+        // samples up close where banding would show. growth also scales the
+        // per-sample opacity so optical depth per unit distance stays consistent
+        // with the uniform-step tuning the presets were dialed against.
+        float growth = 1.0 + t * 0.15;
         if (d > 0.01) {
             float light = smoothstep(0.4, 2.8, p.y);
             vec3 sampleColor = mix(uCloudDarkColor, uCloudLightColor, light);
-            float a = d * uDensity;
+            float a = min(d * uDensity * growth, 1.0);
             accum += (1.0 - alpha) * sampleColor * a;
             alpha += (1.0 - alpha) * a;
         }
-        t += uStepSize;
+        t += uStepSize * growth;
         if (alpha > 0.95) break;
     }
     vec3 color = mix(skyColor, accum, alpha);

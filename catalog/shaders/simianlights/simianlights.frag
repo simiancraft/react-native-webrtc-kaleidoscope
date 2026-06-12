@@ -50,20 +50,30 @@ mat2 Rotate(float angle) {
 
 float Star(vec2 uv, float flaresize, float rotAngle, float randomN) {
   float d = length(uv);
+  // The concentric fade at the bottom is exactly 0 for d >= 1.0; the star is
+  // invisible there, so skip everything (issue #39: a large share of the 3x3
+  // neighbor sweep lands outside this radius; the cull is output-identical).
+  if (d >= 1.0) return 0.0;
   // Star core. Guard the division: length(uv) can be exactly 0 at a cell
   // center, which yields inf/NaN under Metal. max(d, 1e-4) caps the core
   // brightness without visibly changing the look (the concentric
   // smoothstep fade below already clamps it).
   float starcore = 0.09 * uStarGlow / max(d, 1e-4);
-  uv *= Rotate(-2.0 * PI * rotAngle);
-  float flareMax = 1.0;
+  // Flares exist only on the brightest stars: flaresize is exactly 0 below the
+  // smoothstep(0.9, 1.0, size) knee (~90% of cells), and both Rotates feed
+  // nothing but the flares. Skipping the block is output-identical, and
+  // flaresize is constant per cell, so the branch is coherent (issue #39).
+  if (flaresize > 0.0) {
+    uv *= Rotate(-2.0 * PI * rotAngle);
+    float flareMax = 1.0;
 
-  // flares
-  float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
-  starcore += starflares * flaresize;
-  uv *= Rotate(PI * 0.25);
-  starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
-  starcore += starflares * 0.3 * flaresize;
+    // flares
+    float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+    starcore += starflares * flaresize;
+    uv *= Rotate(PI * 0.25);
+    starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+    starcore += starflares * 0.3 * flaresize;
+  }
   // light can't go forever, fade it concentrically.
   starcore *= smoothstep(1.0, 0.05, d);
   return starcore;
