@@ -140,6 +140,34 @@ from. These offsets are emulator/AVD/version specific: feed the image, select no
 see the raw camera preview, screenshot it, and nudge the subject's x-center until it reads
 centered before trusting a run.
 
+## Known emulator failure modes (read before blaming the library)
+
+All three of these were hit on real harness passes; each one mimics a library bug while
+being an environment or lifecycle stall. Frame-flow first, shaders second: the composite
+renders **per delivered camera frame**, so anything that stops camera delivery freezes the
+output, and on a STATIC imagefile feed every static effect still "looks right"; the only
+tell is a time-driven generative that stops moving.
+
+- **A frozen generative is a frame-flow symptom until proven otherwise.** A pass reported
+  `corporate-blobs` bit-identical for 300+ frames on swangle (#49); the same composite,
+  same uniforms, same system image, and same GPU mode animates at the camera's ~10 fps on
+  the library demo, with `EglRenderer ... Frames received: 41 ... Render fps: 10.1` in
+  logcat. Before suspecting the per-frame `uTime` path, grep logcat for the periodic
+  `EglRenderer` stats line: a healthy run receives frames continuously; a stalled run
+  shows `Frames received: 0` windows while the UI still looks plausible.
+- **The `imagefile:` camera silently dies on awkward paths.** Feeding
+  `-camera-back imagefile:<path>` from a long worktree path containing `+`
+  (`.claude/worktrees/fix+plugin-.../integration/fixtures/person-framed.png`) made the
+  guest HAL enumerate ZERO cameras: qemu lists the camera with an empty `framedims`, the
+  factory logs `0 cameras are being emulated`, and getUserMedia fails with "Unable to
+  identify a suitable camera". The same fixture copied to `/tmp/person-framed.png` works.
+  Always feed the camera from a short, plain path, and gate bring-up on
+  `dumpsys media.camera` reporting a nonzero device count before driving the app.
+- **Background/resume stalls frame delivery (#52).** Sending the app to Home and resuming
+  leaves the preview black with `Frames received: 0`; preset changes do not recover, a
+  cold app restart does. Maestro flows that tap visible text can trigger this by accident:
+  a category chip named "Home" sits near the system Home button.
+
 ## Snapshots
 
 Write run output (screenshots) under `snapshots/<platform>/<run>/`, which is git-ignored,
