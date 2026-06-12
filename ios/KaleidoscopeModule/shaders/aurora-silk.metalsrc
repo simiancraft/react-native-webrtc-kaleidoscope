@@ -1,0 +1,51 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution [[buffer(0)]], constant float& uAngle [[buffer(1)]], constant float& uTime [[buffer(2)]], constant float& uSpeed [[buffer(3)]], constant float3& uColorLow [[buffer(4)]], constant float3& uColorHigh [[buffer(5)]], constant float& uRibbons [[buffer(6)]], constant float& uCalm [[buffer(7)]], constant float& uSoftness [[buffer(8)]], constant float3& uRibbonColor [[buffer(9)]], constant float& uStyle [[buffer(10)]])
+{
+    main0_out out = {};
+    float2 _80 = ((in.vUv * uResolution) - (uResolution * 0.5)) / float2(uResolution.y);
+    float _87 = cos(uAngle);
+    float _90 = sin(uAngle);
+    float2 _103 = float2x2(float2(_87, -_90), float2(_90, _87)) * _80;
+    float _109 = uTime * uSpeed;
+    float _112 = _103.y;
+    float _139 = fast::clamp(uRibbons, 0.0, 5.0);
+    float _149 = 1.0 - (uCalm * (1.0 - smoothstep(0.1500000059604644775390625, 0.62000000476837158203125, length(_80))));
+    float3 _364;
+    _364 = mix(uColorLow, uColorHigh, float3(fast::clamp(((_112 * 0.85000002384185791015625) + 0.5) + (0.039999999105930328369140625 * sin(_109 * 0.17000000178813934326171875)), 0.0, 1.0)));
+    float3 _298;
+    for (int _363 = 0; _363 < 5; _364 = _298, _363++)
+    {
+        float _165 = float(_363);
+        if (_165 >= _139)
+        {
+            break;
+        }
+        float _195 = _103.x;
+        float _204 = (_195 * 1.39999997615814208984375) + (_109 * (0.100000001490116119384765625 + (0.039999999105930328369140625 * _165)));
+        float _207 = _165 * 17.0;
+        float _319 = floor(_204);
+        float _321 = fract(_204);
+        float _247 = mix(0.0599999986588954925537109375, 0.1500000059604644775390625, fract(sin((_165 * 7.30000019073486328125) + 1.0) * 43758.546875));
+        float _255 = mix(0.008000000379979610443115234375, _247 * 1.60000002384185791015625, uSoftness);
+        float _267 = (1.0 - smoothstep(_247 - _255, _247 + _255, abs(_112 - ((((-0.4199999868869781494140625) + ((0.839999973773956298828125 * (_165 + 0.5)) / _139)) + (0.070000000298023223876953125 * sin((_109 * 0.189999997615814208984375) + (_165 * 1.7000000476837158203125)))) + (((mix(fract(sin(_319 + _207) * 43758.546875), fract(sin((_319 + 1.0) + _207) * 43758.546875), (_321 * _321) * (3.0 - (2.0 * _321))) - 0.5) * 0.5) + (0.100000001490116119384765625 * sin(((_195 * 2.2999999523162841796875) + (_109 * (0.2599999904632568359375 + (0.0599999986588954925537109375 * _165)))) + (_165 * 2.099999904632568359375)))))))) * _149;
+        float3 _277 = mix(uRibbonColor, uColorHigh, float3(_165 * 0.12000000476837158203125));
+        _298 = mix(mix(_364, _277, float3(_267 * 0.85000002384185791015625)), _364 + ((_277 * _267) * 0.4000000059604644775390625), float3(uStyle));
+    }
+    out.oColor = float4(_364, 1.0);
+    return out;
+}
+

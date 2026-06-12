@@ -47,6 +47,7 @@ import { wizardTowerNight } from 'react-native-webrtc-kaleidoscope/composites/wi
 import { WizardTowerNightControls } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower-night/controls';
 // Library-shipped image presets; each resolves to a bundled WebP URL on web and
 // to the preset name on native. The simiancraft presets lead (shop's demo).
+import { AuroraSilkForm } from 'react-native-webrtc-kaleidoscope/shaders/aurora-silk/form';
 import { BlurForm } from 'react-native-webrtc-kaleidoscope/shaders/blur/form';
 import { HalftoneWavesForm } from 'react-native-webrtc-kaleidoscope/shaders/halftone-waves/form';
 import { KaleidoscopeForm } from 'react-native-webrtc-kaleidoscope/shaders/kaleidoscope/form';
@@ -441,6 +442,75 @@ export const presets = {
           uSpeed: 0.7,
           uShape: 0,
           uAngle: 1.1,
+          uCalm: 0.25,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'aurora-corporate-silk': {
+    name: 'Corporate Silk',
+    taxonomy: ['Shaders', 'Aurora'],
+    controls: AuroraSilkForm,
+    layers: [
+      {
+        id: 'aurora-silk',
+        shader: 'aurora-silk',
+        uniforms: {
+          uColorLow: [0.08, 0.11, 0.22],
+          uColorHigh: [0.16, 0.29, 0.48],
+          uRibbonColor: [0.36, 0.62, 0.85],
+          uRibbons: 4,
+          uSoftness: 0.7,
+          uAngle: 0.5,
+          uSpeed: 0.6,
+          uStyle: 0.8,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'aurora-dusk': {
+    name: 'Dusk',
+    taxonomy: ['Shaders', 'Aurora'],
+    controls: AuroraSilkForm,
+    layers: [
+      {
+        id: 'aurora-silk',
+        shader: 'aurora-silk',
+        uniforms: {
+          uColorLow: [0.18, 0.09, 0.2],
+          uColorHigh: [0.55, 0.25, 0.3],
+          uRibbonColor: [0.95, 0.6, 0.35],
+          uRibbons: 3,
+          uSoftness: 0.85,
+          uAngle: 0.25,
+          uSpeed: 0.45,
+          uStyle: 1,
+          uCalm: 0.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'aurora-polar': {
+    name: 'Polar',
+    taxonomy: ['Shaders', 'Aurora'],
+    controls: AuroraSilkForm,
+    layers: [
+      {
+        id: 'aurora-silk',
+        shader: 'aurora-silk',
+        uniforms: {
+          uColorLow: [0.9, 0.93, 0.96],
+          uColorHigh: [0.75, 0.85, 0.92],
+          uRibbonColor: [0.45, 0.65, 0.8],
+          uRibbons: 5,
+          uSoftness: 0.2,
+          uAngle: 5.9,
+          uSpeed: 0.5,
+          uStyle: 0,
           uCalm: 0.25,
         },
       },

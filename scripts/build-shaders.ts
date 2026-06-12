@@ -122,6 +122,7 @@ const GENERATIVE_SHADERS = [
   'kaleidoscope.frag',
   'neo-memphis.frag',
   'halftone-waves.frag',
+  'aurora-silk.frag',
   'clouds.frag',
   'nebula.frag',
   'godrays.frag',

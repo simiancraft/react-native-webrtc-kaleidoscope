@@ -4,6 +4,7 @@
 // re-exported individually; a consumer imports the one its preset's layer needs.
 
 import type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare/anamorphic-lensflare';
+import type { AuroraSilkUniforms } from './aurora-silk/aurora-silk';
 import type { BlurUniforms } from './blur/blur';
 import type { CloudsUniforms } from './clouds/clouds';
 import type { CorporateBlobsUniforms } from './corporate-blobs/corporate-blobs';
@@ -20,6 +21,8 @@ import type { SimianlightsUniforms } from './simianlights/simianlights';
 export { defaultUniforms, type UniformControl } from './_shared/types';
 export type { AnamorphicLensFlareUniforms } from './anamorphic-lensflare/anamorphic-lensflare';
 export { ANAMORPHIC_LENSFLARE_CONTROLS } from './anamorphic-lensflare/anamorphic-lensflare';
+export type { AuroraSilkUniforms } from './aurora-silk/aurora-silk';
+export { AURORA_SILK_CONTROLS } from './aurora-silk/aurora-silk';
 export type { BlurUniforms } from './blur/blur';
 export { BLUR_CONTROLS } from './blur/blur';
 export type { CloudsUniforms } from './clouds/clouds';
@@ -63,6 +66,7 @@ export type ShaderUniformsMap = {
   readonly 'neo-memphis': NeoMemphisUniforms;
   readonly simianlights: SimianlightsUniforms;
   readonly 'anamorphic-lensflare': AnamorphicLensFlareUniforms;
+  readonly 'aurora-silk': AuroraSilkUniforms;
   readonly 'light-beams-and-motes': LightBeamsAndMotesUniforms;
   readonly 'corporate-blobs': CorporateBlobsUniforms;
 };

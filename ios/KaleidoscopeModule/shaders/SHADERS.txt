@@ -1,4 +1,5 @@
 anamorphic-lensflare.frag
+aurora-silk.frag
 clouds.frag
 composite-blit.frag
 composite-blur.frag

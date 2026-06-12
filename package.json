@@ -453,6 +453,13 @@
       "import": "./dist/catalog/shaders/halftone-waves/halftone-waves.form.js",
       "default": "./dist/catalog/shaders/halftone-waves/halftone-waves.form.js"
     },
+    "./shaders/aurora-silk/form": {
+      "types": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.d.ts",
+      "react-native": "./catalog/shaders/aurora-silk/aurora-silk.form.tsx",
+      "browser": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js",
+      "import": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js",
+      "default": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js"
+    },
     "./shaders/blur/form": {
       "types": "./dist/catalog/shaders/blur/blur.form.d.ts",
       "react-native": "./catalog/shaders/blur/blur.form.tsx",
