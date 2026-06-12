@@ -1,3 +1,11 @@
+# [2.5.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.4.0...v2.5.0) (2026-06-12)
+
+
+### Features
+
+* **demo:** generate standardized thumbnails for all 54 presets ([4b261a6](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/4b261a64da8b85f9dfa40e494079969e1b2acf0f)), closes [#65](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/65) [#60](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/60) [#61](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/61)
+* **tooling:** add the preset thumbnail maker ([8a22e83](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/8a22e833b9e979c1e1714a680d31bd03bb1abed1))
+
 # [2.4.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.3.0...v2.4.0) (2026-06-12)
 
 

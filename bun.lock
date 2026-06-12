@@ -24,7 +24,7 @@
         "lefthook": "^2.1.9",
         "livekit-client": "^2.0.0",
         "nativewind": "4.2.x",
-        "playwright": "^1.60.0",
+        "playwright": "1.60.0",
         "publint": "^0.3.18",
         "react": "18.2.0",
         "react-native": "0.74.5",
