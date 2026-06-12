@@ -188,6 +188,109 @@ export const presets = {
   // nebula, and simianlights are packaged composites (their own depth-2
   // taxonomy); the plasma entries stay inline as the consumer-authoring pattern. ---
   clouds: { ...clouds, controls: CloudsControls },
+  // Times-of-day + one otherworld sky: the same clouds shader fanned into named
+  // looks, exactly like the plasma entries below (issue #59). Layer id stays
+  // 'sky' so CloudsControls addresses every variant.
+  'clouds-dawn': {
+    name: 'Dawn',
+    taxonomy: ['Shaders', 'Sky'],
+    controls: CloudsControls,
+    layers: [
+      {
+        id: 'sky',
+        shader: 'clouds',
+        uniforms: {
+          uSkyLowColor: [0.98, 0.62, 0.42],
+          uSkyHighColor: [0.25, 0.35, 0.75],
+          uCloudLightColor: [1.0, 0.8, 0.55],
+          uCloudDarkColor: [0.5, 0.3, 0.4],
+          uExposure: 1.15,
+          uStepSize: 0.2,
+          uCloudSpeed: 0.1,
+          uCloudScale: 0.9,
+          uDensity: 0.22,
+          uCoverage: 0.58,
+          uSoftness: 0.32,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'clouds-dusk': {
+    name: 'Dusk',
+    taxonomy: ['Shaders', 'Sky'],
+    controls: CloudsControls,
+    layers: [
+      {
+        id: 'sky',
+        shader: 'clouds',
+        uniforms: {
+          uSkyLowColor: [1.0, 0.42, 0.15],
+          uSkyHighColor: [0.25, 0.1, 0.5],
+          uCloudLightColor: [1.0, 0.6, 0.3],
+          uCloudDarkColor: [0.25, 0.12, 0.3],
+          uExposure: 1.15,
+          uStepSize: 0.22,
+          uCloudSpeed: 0.18,
+          uCloudScale: 1.0,
+          uDensity: 0.25,
+          uCoverage: 0.5,
+          uSoftness: 0.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'clouds-night': {
+    name: 'Night',
+    taxonomy: ['Shaders', 'Sky'],
+    controls: CloudsControls,
+    layers: [
+      {
+        id: 'sky',
+        shader: 'clouds',
+        uniforms: {
+          uSkyLowColor: [0.1, 0.14, 0.3],
+          uSkyHighColor: [0.01, 0.02, 0.08],
+          uCloudLightColor: [0.75, 0.8, 0.95],
+          uCloudDarkColor: [0.06, 0.08, 0.16],
+          uExposure: 1.0,
+          uStepSize: 0.3,
+          uCloudSpeed: 0.12,
+          uCloudScale: 1.0,
+          uDensity: 0.2,
+          uCoverage: 0.45,
+          uSoftness: 0.25,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'clouds-otherworld': {
+    name: 'Otherworld',
+    taxonomy: ['Shaders', 'Sky'],
+    controls: CloudsControls,
+    layers: [
+      {
+        id: 'sky',
+        shader: 'clouds',
+        uniforms: {
+          uSkyLowColor: [0.0, 0.6, 0.4],
+          uSkyHighColor: [0.4, 0.05, 0.65],
+          uCloudLightColor: [0.8, 1.0, 0.5],
+          uCloudDarkColor: [0.05, 0.2, 0.25],
+          uExposure: 1.2,
+          uStepSize: 0.24,
+          uCloudSpeed: 0.3,
+          uCloudScale: 1.35,
+          uDensity: 0.3,
+          uCoverage: 0.55,
+          uSoftness: 0.25,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
   'plasma-ocean': {
     name: 'Ocean',
     taxonomy: ['Shaders', 'Plasma'],
@@ -241,7 +344,90 @@ export const presets = {
     ],
   },
   nebula: { ...nebula, controls: NebulaControls },
+  // Nebula variants (issue #59): same field, different grade and density.
+  // Layer id stays 'nebula' so NebulaControls addresses every variant.
+  'nebula-ember': {
+    name: 'Ember',
+    taxonomy: ['Shaders', 'Nebula'],
+    controls: NebulaControls,
+    layers: [
+      {
+        id: 'nebula',
+        shader: 'nebula',
+        uniforms: {
+          uColor: [1.0, 0.55, 0.15],
+          uBrightness: 1.0,
+          uSpeed: 0.12,
+          uTwinkleSpeed: 1.2,
+          uScale: 1.1,
+          uStarGlow: 0.5,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'nebula-drift': {
+    name: 'Drift',
+    taxonomy: ['Shaders', 'Nebula'],
+    controls: NebulaControls,
+    layers: [
+      {
+        id: 'nebula',
+        shader: 'nebula',
+        uniforms: {
+          uColor: [0.7, 0.75, 1.0],
+          uBrightness: 1.1,
+          uSpeed: 0.08,
+          uTwinkleSpeed: 0.6,
+          uScale: 0.55,
+          uStarGlow: 1.2,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
   simianlights: { ...simianlights, controls: SimianlightsControls },
+  // Simianlights variants (issue #59); layer id stays 'field'.
+  'simianlights-glacier': {
+    name: 'Glacier',
+    taxonomy: ['Shaders', 'Simianlights'],
+    controls: SimianlightsControls,
+    layers: [
+      {
+        id: 'field',
+        shader: 'simianlights',
+        uniforms: {
+          uColor: [0.35, 0.7, 1.0],
+          uBrightness: 0.6,
+          uSpeed: 2.2,
+          uTwinkleSpeed: 4,
+          uScale: 1.1,
+          uStarGlow: 0.7,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'simianlights-hearth': {
+    name: 'Hearth',
+    taxonomy: ['Shaders', 'Simianlights'],
+    controls: SimianlightsControls,
+    layers: [
+      {
+        id: 'field',
+        shader: 'simianlights',
+        uniforms: {
+          uColor: [1.0, 0.5, 0.1],
+          uBrightness: 0.8,
+          uSpeed: 1.2,
+          uTwinkleSpeed: 1.5,
+          uScale: 1.3,
+          uStarGlow: 1.3,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
 
   // --- Worlds: Interior. A still room + a volumetric light-beams overlay (one
   // beam, the other two off) aimed at the room's real light, to make a static
