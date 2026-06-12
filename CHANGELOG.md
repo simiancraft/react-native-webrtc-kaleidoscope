@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.2.0...v2.2.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **plugin:** parse formatter-wrapped require bindings, warn on unparseable image layers ([0f50409](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/0f5040901013de2a95dda4e087e66826e86ba27e)), closes [#48](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/48)
+
 # [2.2.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.1.1...v2.2.0) (2026-06-11)
 
 
