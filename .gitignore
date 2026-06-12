@@ -39,3 +39,8 @@ android/app/build/
 # Automated integration-test snapshots (emulator/device screenshot artifacts)
 integration/snapshots/
 .tooling/
+
+# Expo CLI drops a default `{"expo": {}}` stub when a command resolves config
+# at the repo root (the real app config is demo/app.config.ts). Root-anchored
+# so a future demo/app.json or any nested app.json stays trackable.
+/app.json
