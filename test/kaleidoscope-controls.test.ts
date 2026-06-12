@@ -154,12 +154,39 @@ describe('kaleidoscope patch routing', () => {
     ]);
   });
 
-  test('patching a DIFFERENT preset rebuilds (switch wins over patch)', () => {
+  test('patching a DIFFERENT preset rebuilds with the patches merged into the stack', () => {
     const h = makeHarness();
     h.controls.kaleidoscope('aurora');
     h.controls.kaleidoscope('blur', [{ id: 'blur', uniforms: { sigma: 5 } }]);
+    // The switch path never touches the live channel; the override rides the
+    // rebuilt layers themselves (which is what reaches native over the wire).
     expect(h.setLayerCalls).toHaveLength(0);
-    expect(h.applied[1]).toEqual([{ name: 'composite', layers: blurOnly.layers }]);
+    expect(h.applied[1]).toEqual([
+      { name: 'composite', layers: [{ id: 'blur', shader: 'blur', uniforms: { sigma: 5 } }] },
+    ]);
+  });
+
+  test('switch-with-patches merges over baked uniforms and skips unknown ids', () => {
+    const h = makeHarness();
+    h.controls.kaleidoscope('blur');
+    h.controls.kaleidoscope('aurora', [
+      { id: 'haze', uniforms: { uExposure: 0.2 } },
+      // 'sky' is an image layer (not tunable) and 'ghost' is not in the stack.
+      { id: 'sky', uniforms: { uNope: 1 } } as never,
+      { id: 'ghost', uniforms: { uNope: 1 } } as never,
+    ]);
+    expect(h.applied[1]).toEqual([
+      {
+        name: 'composite',
+        layers: [
+          { id: 'sky', shader: 'image', source: 'aurora' },
+          { id: 'glow', shader: 'plasma', uniforms: { uSpeed: 0.5 } },
+          { id: 'haze', shader: 'clouds', uniforms: { uExposure: 0.2 } },
+        ],
+      },
+    ]);
+    // Overrides were still reset (stale live tweaks must not leak across).
+    expect(h.resetCount).toBe(2);
   });
 
   test('an empty patch array on the active preset falls through to a rebuild', () => {
