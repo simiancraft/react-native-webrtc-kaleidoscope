@@ -1,3 +1,22 @@
+# [2.4.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.3.0...v2.4.0) (2026-06-12)
+
+
+### Bug Fixes
+
+* **demo:** export web with the GitHub Pages base path ([5e9720f](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/5e9720f9888c8bc2b3002296059e23797dad9a0c))
+* **demo:** re-acquire the camera stream on background resume ([0dc641a](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/0dc641aa97df735844cfb53c4fdc3aa5970f9054))
+
+
+### Features
+
+* **aurora-silk:** add the noise-warped ribbon gradient shader ([a8b7151](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/a8b7151f97e897f1d5e0053ca76c8210f55de43f))
+* **demo:** add footer with project and author links ([f7314fc](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/f7314fc4378a0699b45fbadb7648d1680122f4af))
+* **demo:** fan clouds, nebula, and simianlights into named preset variants ([f2567c4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/f2567c48168864509a3e2f5dd250ffd98b05a34b)), closes [#59](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/59)
+* **demo:** tune the shader-family variants against live renders ([7e19046](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/7e19046a4b44294a8859f6809480339d95a2a607))
+* **halftone-waves:** add the traveling-wave dot-lattice shader ([52af80d](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/52af80d782ce696b73a9ff920b17c45bf685ac2d))
+* **kaleidoscope:** add the namesake mirrored polar-fold shader ([e1f79d6](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e1f79d690b71d7dfc2635828d9e9c60f2ab1f2ec))
+* **neo-memphis:** add the Memphis-pattern geometric shader ([1ba5e26](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/1ba5e269babfc591f7a93e65e9f68f40c697ccd5))
+
 # [2.3.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.2.2...v2.3.0) (2026-06-12)
 
 
