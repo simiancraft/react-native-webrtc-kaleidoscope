@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.1.1...v2.2.0) (2026-06-11)
+
+
+### Features
+
+* **livekit:** expose setMaskTuning on the /livekit subpath ([5687fa0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/5687fa0d9a86c243e15b2c84a530244cdcac6cc4)), closes [#47](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/47)
+
 ## [2.1.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.1.0...v2.1.1) (2026-06-10)
 
 
