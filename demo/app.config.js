@@ -58,6 +58,13 @@ const config = {
     // No favicon shipped with v0.1; referencing a path here makes Expo's
     // FaviconMiddleware throw ENOENT when assets/ exists but the file does not.
   },
+  // GitHub Pages serves the demo from a project subpath, not the domain root;
+  // without baseUrl the exported index.html requests /_expo/static/* from the
+  // root and 404s, leaving only the pre-rendered HTML (no JS, no camera). The
+  // deploy workflow sets GITHUB_PAGES=true.
+  experiments: process.env.GITHUB_PAGES
+    ? { baseUrl: '/react-native-webrtc-kaleidoscope' }
+    : undefined,
   // For web export, only expo-router is needed. react-native-webrtc has
   // no config plugin upstream as of 124.0.7. react-native-webrtc-kaleidoscope's
   // plugin patches the iOS Podfile so react-native-webrtc builds with modular

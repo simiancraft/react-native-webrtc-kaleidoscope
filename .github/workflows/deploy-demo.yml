@@ -7,6 +7,8 @@ on:
     paths:
       - 'demo/**'
       - 'src/**'
+      - 'web-driver/**'
+      - 'catalog/**'
       - 'plugin/**'
       - 'expo-module.config.json'
       - 'app.plugin.js'
