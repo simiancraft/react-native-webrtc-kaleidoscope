@@ -25,9 +25,11 @@ permissions:
   pages: write
   id-token: write
 
-# Only one deploy at a time.
+# Serialize per ref: main keeps one Pages deploy at a time, while PR runs
+# get their own group so concurrent PRs do not cancel each other's build
+# check (a fixed group string let any PR run cancel any other).
 concurrency:
-  group: deploy-demo
+  group: deploy-demo-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
