@@ -1,3 +1,11 @@
+## [2.2.2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.2.1...v2.2.2) (2026-06-12)
+
+
+### Performance Improvements
+
+* **clouds:** drop fbm to 4 octaves and march 32 growing steps ([6a66ed4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/6a66ed4225ac01cc0324e4db485ddc82d7ded96b)), closes [#37](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/37)
+* **nebula:** cull invisible stars, gate flares, drop to 8 layers ([bf35d10](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/bf35d10fa1dfec0c41332ce06b75036d17644bfc)), closes [#39](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/39)
+
 ## [2.2.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.2.0...v2.2.1) (2026-06-12)
 
 
