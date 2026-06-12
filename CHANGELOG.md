@@ -1,3 +1,10 @@
+## [2.5.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.5.0...v2.5.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **tooling:** keep shader-view alive past GPU-watchdog territory ([87760ab](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/87760ab833b9c3daff29d8f1b05a087f89b33fb5))
+
 # [2.5.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.4.0...v2.5.0) (2026-06-12)
 
 
