@@ -62,6 +62,13 @@
       "import": "./dist/src/nativewind.js",
       "default": "./dist/src/nativewind.js"
     },
+    "./persistence": {
+      "types": "./dist/src/persistence/index.d.ts",
+      "react-native": "./src/persistence/index.ts",
+      "browser": "./dist/src/persistence/index.js",
+      "import": "./dist/src/persistence/index.js",
+      "default": "./dist/src/persistence/index.js"
+    },
     "./livekit": {
       "types": "./dist/src/livekit.d.ts",
       "browser": "./dist/src/livekit.js",
@@ -553,10 +560,14 @@
     "@livekit/react-native-webrtc": ">=144.0.0",
     "livekit-client": ">=2.0.0",
     "nativewind": ">=4.0.0",
-    "@react-native-community/slider": ">=4.5.0"
+    "@react-native-community/slider": ">=4.5.0",
+    "@react-native-async-storage/async-storage": ">=1.23.0"
   },
   "peerDependenciesMeta": {
     "@react-native-community/slider": {
+      "optional": true
+    },
+    "@react-native-async-storage/async-storage": {
       "optional": true
     },
     "nativewind": {
@@ -578,6 +589,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
     "@expo/config-plugins": "~56.0.8",
+    "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/slider": "5.2.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",

@@ -102,10 +102,13 @@ export const createControls = <P extends KaleidoscopePresetBook>(
       // Switch the preset (or clear): rebuild. Drop every live override first so
       // a reused layer id (e.g. 'blur', shared by the low/medium/high blur
       // presets) takes the new preset's baked uniforms instead of carrying a
-      // stale slider override across. A transform rebuild does NOT pass through
-      // here, so slider tweaks survive flips/rotations of the active preset.
+      // stale slider override across. Patches given WITH the switch (e.g. a
+      // persisted selection's overrides) merge into the rebuilt stack itself,
+      // so they land on every platform, native included. A transform rebuild
+      // does NOT pass through here, so slider tweaks survive flips/rotations
+      // of the active preset.
       activeId = cmd;
-      art = cmd == null ? null : compositeToEffectSpec(presets[cmd] as KaleidoscopePreset);
+      art = cmd == null ? null : compositeToEffectSpec(presets[cmd] as KaleidoscopePreset, patches);
       resetLayerUniforms();
       apply();
     },
