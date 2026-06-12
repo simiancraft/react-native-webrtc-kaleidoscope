@@ -32,6 +32,7 @@ import {
   TransformControlPanel,
 } from 'react-native-webrtc-kaleidoscope/preset-control-panel';
 import { type PresetId, presets } from '../kaleidoscope.preset-book';
+import { Footer } from '../src/footer';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
 
@@ -218,6 +219,8 @@ export default function DemoScreen() {
               </Pressable>
             </View>
           </View>
+
+          <Footer />
         </View>
       </ScrollView>
     </KaleidoscopeThemeProvider>

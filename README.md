@@ -2,6 +2,16 @@
   <img src="./docs/kaleidoscope-logo.png" alt="react-native-webrtc-kaleidoscope logo" width="180" />
 </p>
 
+<p align="center">
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/">
+    <img src="https://img.shields.io/badge/▶%20Live%20demo-blur%20yourself%2C%20swap%20the%20room-8b5cf6?style=for-the-badge" alt="Live demo" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>Needs a Chromium-based browser (Chrome or Edge) and webcam permission; Safari and Firefox fall back to the unprocessed track.</sub>
+</p>
+
 # react-native-webrtc-kaleidoscope
 
 [![status: alpha](https://img.shields.io/badge/status-alpha-orange)](#status)
@@ -22,7 +32,7 @@
 
 ## Status
 
-**Active development; not yet production-ready.** Published to npm (the badge shows the current version, which tracks release automation rather than maturity). Presentation and install-doc polish come later; for now the README documents what works.
+**Active development; not yet production-ready.** Published to npm (the badge shows the current version, which tracks release automation rather than maturity). The [live web demo](https://simiancraft.github.io/react-native-webrtc-kaleidoscope/) runs every effect in the browser; native is exercised via the dev-client demo in `demo/`.
 
 ### What works today
 
@@ -42,7 +52,6 @@
 ### Coming soon
 
 - **Animated image backgrounds**: a bundled still that moves (beyond the procedural shaders, which already render behind the person today). Same composite path; the new piece is a per-effect background producer for animated images.
-- A careful pass over the npm presentation, install docs, and demo polish before any "we recommend you use this" framing.
 
 ## Install
 
@@ -353,7 +362,6 @@ See [`PATTERNS.md`](./PATTERNS.md) for the file-layout conventions, texture-orie
 - [catalog/shaders/README.md](./catalog/shaders/README.md): adding and extending shaders.
 - [SECURITY.md](./SECURITY.md): security policy and reporting.
 - [NOTICE.md](./NOTICE.md): third-party attributions.
-- Sibling projects: [chromonym](https://github.com/simiancraft/chromonym) and [unitforge](https://github.com/simiancraft/unitforge); same OSS-hygiene template.
 
 ---
 
