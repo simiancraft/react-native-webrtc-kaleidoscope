@@ -254,6 +254,36 @@ Like the picker, the editor is controlled and presentational: it emits patches a
 
 Live per-layer tuning runs on web today; on native the editor renders but the live per-layer uniform channel is in progress. Mask and transform are live on every platform.
 
+### Persistence (the selection that survives a reload)
+
+`react-native-webrtc-kaleidoscope/persistence` ships a provider + hook that keep the person's selection across launches: the last applied preset id, the per-layer uniform patches they dialed in through the control panels (kept per preset, so tweaks to several presets all survive), and the mask edge.
+
+```tsx
+// App root:
+import { KaleidoscopeStateProvider } from 'react-native-webrtc-kaleidoscope/persistence';
+import { presets } from './kaleidoscope.preset-book';
+
+<KaleidoscopeStateProvider presets={presets}>
+  <App />
+</KaleidoscopeStateProvider>;
+
+// In the screen that binds the track:
+import { useKaleidoscopeState } from 'react-native-webrtc-kaleidoscope/persistence';
+
+const { hydrated, presetId, mask, setPreset, setMask, setPatch, patchesFor, reset } =
+  useKaleidoscopeState<typeof presets>();
+
+useEffect(() => {
+  if (!hydrated || !controls) return; // wait: don't flash the default over the restored preset
+  if (presetId) controls.kaleidoscope(presetId, patchesFor(presetId));
+  else controls.kaleidoscope(null);
+}, [hydrated, controls, presetId]);
+```
+
+Route the picker's `onSelect` into `setPreset`, the editor's `onPatch` into `setPatch(presetId, patch)` (and apply the live patch as usual), and the mask panel into `setMask`; every write persists. Pass the editor `patches={patches[presetId]}` so restored tweaks appear in the sliders, and mount it after `hydrated` (the forms seed at mount). A stored preset that no longer exists in your book reads as "none" instead of crashing the picker.
+
+The default store is [`@react-native-async-storage/async-storage`](https://github.com/react-native-async-storage/async-storage) (an optional peer; install it alongside the library when you use this subpath; on web it is localStorage-backed). To back it with something else (MMKV, a server), pass any `{ load, save }` pair as the `store` prop; the stored shape is versioned and parses tolerantly, so a malformed payload reads as empty rather than throwing.
+
 ## Worlds
 
 Packaged composites: a multi-layer stack (a generative shader or a cut-out image, the masked person on top), imported and spread into your book (e.g. `import { wizardTower } from 'react-native-webrtc-kaleidoscope/composites/wizard-tower'`). They carry their own `taxonomy: ['Worlds', <group>]`, so the menu groups them under the Worlds tab.

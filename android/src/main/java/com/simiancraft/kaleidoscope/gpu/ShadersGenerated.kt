@@ -174,7 +174,9 @@ in highp vec2 vUv;
 out vec4 oColor;
 
 // STEPS must stay a compile-time constant (GLSL ES loop bound).
-#define STEPS 48
+// 32 (was 48; issue #37): the distance-growing step in main() keeps the
+// marched range, so fewer steps buys speed instead of clipping the horizon.
+#define STEPS 32
 
 float hash(vec3 p) {
     p = fract(p * 0.3183099 + 0.1);
@@ -202,10 +204,13 @@ float noise(vec3 p) {
         f.z);
 }
 
+// 4 octaves (was 5; issue #37): the 5th octave is fine wisp detail the
+// smoothstep(uCoverage, uCoverage + uSoftness, n) threshold mostly eats; each
+// octave is 8 hash() calls per sample, so this is a flat -20% on the march.
 float fbm(vec3 p) {
     float v = 0.0;
     float a = 0.5;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         v += a * noise(p);
         p *= 2.03;
         a *= 0.5;
@@ -241,14 +246,21 @@ void main() {
         if (rd.y > 0.0 && p.y >= 3.0) break;
         if (rd.y < 0.0 && p.y <= 0.0) break;
         float d = cloudDensity(p);
+        // Distance-growing step (issue #37): far clouds are small on screen and
+        // tolerate coarser sampling, so the step stretches with t. 32 growing
+        // steps reach slightly past where 48 uniform steps did, spending the
+        // samples up close where banding would show. growth also scales the
+        // per-sample opacity so optical depth per unit distance stays consistent
+        // with the uniform-step tuning the presets were dialed against.
+        float growth = 1.0 + t * 0.15;
         if (d > 0.01) {
             float light = smoothstep(0.4, 2.8, p.y);
             vec3 sampleColor = mix(uCloudDarkColor, uCloudLightColor, light);
-            float a = d * uDensity;
+            float a = min(d * uDensity * growth, 1.0);
             accum += (1.0 - alpha) * sampleColor * a;
             alpha += (1.0 - alpha) * a;
         }
-        t += uStepSize;
+        t += uStepSize * growth;
         if (alpha > 0.95) break;
     }
     vec3 color = mix(skyColor, accum, alpha);
@@ -278,7 +290,9 @@ const float MIN_DIVIDE = 64.0;
 const float MAX_DIVIDE = 0.01;
 // Number of stacked starfield layers. Compile-time constant so the layer
 // loop has a fixed integer bound (cross-compile-safe; no float loop counter).
-const int STARFIELD_LAYERS_COUNT = 12;
+// 8 (was 12) for low-end-mobile cost (issue #39); the work is linear in the
+// count and dimByDensity rebalances per-star brightness automatically.
+const int STARFIELD_LAYERS_COUNT = 8;
 
 mat2 Rotate(float angle) {
   float s = sin(angle);
@@ -288,20 +302,30 @@ mat2 Rotate(float angle) {
 
 float Star(vec2 uv, float flaresize, float rotAngle, float randomN) {
   float d = length(uv);
+  // The concentric fade at the bottom is exactly 0 for d >= 1.0; the star is
+  // invisible there, so skip everything (issue #39: a large share of the 3x3
+  // neighbor sweep lands outside this radius; the cull is output-identical).
+  if (d >= 1.0) return 0.0;
   // Star core. Guard the division: length(uv) can be exactly 0 at a cell
   // center, which yields inf/NaN under Metal. max(d, 1e-4) caps the core
   // brightness without visibly changing the look (the concentric
   // smoothstep fade below already clamps it).
   float starcore = 0.05 * uStarGlow / max(d, 1e-4);
-  uv *= Rotate(-2.0 * PI * rotAngle);
-  float flareMax = 1.0;
+  // Flares exist only on the brightest stars: flaresize is exactly 0 below the
+  // smoothstep(0.9, 1.0, size) knee (~90% of cells), and both Rotates feed
+  // nothing but the flares. Skipping the block is output-identical, and
+  // flaresize is constant per cell, so the branch is coherent (issue #39).
+  if (flaresize > 0.0) {
+    uv *= Rotate(-2.0 * PI * rotAngle);
+    float flareMax = 1.0;
 
-  // flares
-  float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
-  starcore += starflares * flaresize;
-  uv *= Rotate(PI * 0.25);
-  starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
-  starcore += starflares * 0.3 * flaresize;
+    // flares
+    float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+    starcore += starflares * flaresize;
+    uv *= Rotate(PI * 0.25);
+    starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+    starcore += starflares * 0.3 * flaresize;
+  }
   // light can't go forever, fade it concentrically.
   starcore *= smoothstep(1.0, 0.05, d);
   return starcore;
@@ -548,20 +572,30 @@ mat2 Rotate(float angle) {
 
 float Star(vec2 uv, float flaresize, float rotAngle, float randomN) {
   float d = length(uv);
+  // The concentric fade at the bottom is exactly 0 for d >= 1.0; the star is
+  // invisible there, so skip everything (issue #39: a large share of the 3x3
+  // neighbor sweep lands outside this radius; the cull is output-identical).
+  if (d >= 1.0) return 0.0;
   // Star core. Guard the division: length(uv) can be exactly 0 at a cell
   // center, which yields inf/NaN under Metal. max(d, 1e-4) caps the core
   // brightness without visibly changing the look (the concentric
   // smoothstep fade below already clamps it).
   float starcore = 0.09 * uStarGlow / max(d, 1e-4);
-  uv *= Rotate(-2.0 * PI * rotAngle);
-  float flareMax = 1.0;
+  // Flares exist only on the brightest stars: flaresize is exactly 0 below the
+  // smoothstep(0.9, 1.0, size) knee (~90% of cells), and both Rotates feed
+  // nothing but the flares. Skipping the block is output-identical, and
+  // flaresize is constant per cell, so the branch is coherent (issue #39).
+  if (flaresize > 0.0) {
+    uv *= Rotate(-2.0 * PI * rotAngle);
+    float flareMax = 1.0;
 
-  // flares
-  float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
-  starcore += starflares * flaresize;
-  uv *= Rotate(PI * 0.25);
-  starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
-  starcore += starflares * 0.3 * flaresize;
+    // flares
+    float starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+    starcore += starflares * flaresize;
+    uv *= Rotate(PI * 0.25);
+    starflares = max(0.0, flareMax - abs(uv.x * uv.y * 3000.0));
+    starcore += starflares * 0.3 * flaresize;
+  }
   // light can't go forever, fade it concentrically.
   starcore *= smoothstep(1.0, 0.05, d);
   return starcore;

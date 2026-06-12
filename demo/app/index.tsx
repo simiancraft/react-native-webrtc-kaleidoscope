@@ -4,7 +4,9 @@
 //     layer uniforms, emitting patches the host routes into kaleidoscope.
 //   - MaskControlPanel / TransformControlPanel  the mask + geometry verbs.
 //
-// The screen owns only selection state and re-issues the full command on every
+// Selection state (preset id, control patches, mask) lives in the persisted
+// KaleidoscopeStateProvider (see _layout.tsx) and survives reloads; the screen
+// owns only the transform toggles, and re-issues the full command on every
 // change (transform and mask are absolute). bindKaleidoscope owns the composite
 // and surfaces the live track via onTrack. Presets come from ../kaleidoscope.preset-book.
 
@@ -17,6 +19,7 @@ import {
   type KaleidoscopeBinding,
   type PatchesFor,
 } from 'react-native-webrtc-kaleidoscope';
+import { useKaleidoscopeState } from 'react-native-webrtc-kaleidoscope/persistence';
 import {
   PresetBookMenu,
   PresetTile,
@@ -82,12 +85,21 @@ const Section = ({
 
 export default function DemoScreen() {
   const stream = useLoopbackStream();
-  const [art, setArt] = useState<PresetId | null>(null);
+  // The persisted selection: preset id, per-preset control patches, and mask.
+  const {
+    hydrated,
+    presetId: art,
+    mask,
+    patches,
+    setPreset,
+    setMask,
+    setPatch,
+    patchesFor,
+    reset,
+  } = useKaleidoscopeState<typeof presets>();
   const [flipX, setFlipX] = useState(false);
   const [flipY, setFlipY] = useState(false);
   const [rotate, setRotate] = useState(0);
-  const [hardness, setHardness] = useState(0.6);
-  const [threshold, setThreshold] = useState(0.75);
   const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
   const [controls, setControls] = useState<KaleidoscopeBinding<typeof presets> | null>(null);
 
@@ -110,29 +122,47 @@ export default function DemoScreen() {
     };
   }, [sourceTrack]);
 
-  // Re-issue each verb on change (transform and mask are absolute). Split the
+  // Re-issue each verb on change (transform and mask are absolute). The art
+  // axis waits for hydration so the restored preset (with its stored patches)
+  // is the first thing applied, not flashed over by the default. Split the
   // null case so each call matches a kaleidoscope() overload.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: patchesFor is read at apply time; live patches go through onPatch, not a re-apply.
   useEffect(() => {
-    if (!controls) return;
-    if (art) controls.kaleidoscope(art);
+    if (!controls || !hydrated) return;
+    if (art) controls.kaleidoscope(art, patchesFor(art));
     else controls.kaleidoscope(null);
-  }, [controls, art]);
+  }, [controls, art, hydrated]);
   useEffect(() => {
     controls?.transform({ flip: { x: flipX, y: flipY }, rotate });
   }, [controls, flipX, flipY, rotate]);
   useEffect(() => {
-    controls?.mask({ hardness, threshold });
-  }, [controls, hardness, threshold]);
+    controls?.mask(mask);
+  }, [controls, mask]);
 
   const disabled = !sourceTrack;
   const onReset = () => {
-    setArt(null);
+    reset();
     setFlipX(false);
     setFlipY(false);
     setRotate(0);
-    setHardness(0.6);
-    setThreshold(0.75);
   };
+
+  // Mounted only after hydration: the ControlForms seed at mount, so waiting
+  // lets the restored patches merge over the baked uniforms in the sliders.
+  const tunerPanel = hydrated ? (
+    <PresetControlPanel
+      presets={presets}
+      value={art}
+      patches={art ? patches[art] : undefined}
+      disabled={disabled}
+      onPatch={(patch) => {
+        if (art && controls) {
+          setPatch(art, patch);
+          controls.kaleidoscope(art, [patch] as PatchesFor<typeof presets, PresetId>);
+        }
+      }}
+    />
+  ) : null;
 
   return (
     <KaleidoscopeThemeProvider>
@@ -159,23 +189,12 @@ export default function DemoScreen() {
               <PresetBookMenu
                 presets={presets}
                 value={art}
-                onSelect={setArt}
+                onSelect={setPreset}
                 disabled={disabled}
                 renderTile={renderDemoTile}
                 className="rounded-xl bg-neutral-900 p-3"
               />
-              <View style={styles.tuner}>
-                <PresetControlPanel
-                  presets={presets}
-                  value={art}
-                  disabled={disabled}
-                  onPatch={(patch) => {
-                    if (art && controls) {
-                      controls.kaleidoscope(art, [patch] as PatchesFor<typeof presets, PresetId>);
-                    }
-                  }}
-                />
-              </View>
+              <View style={styles.tuner}>{tunerPanel}</View>
             </Section>
 
             <View style={styles.rightColumn}>
@@ -190,13 +209,10 @@ export default function DemoScreen() {
                 }}
               />
               <MaskControlPanel
-                hardness={hardness}
-                threshold={threshold}
+                hardness={mask.hardness}
+                threshold={mask.threshold}
                 disabled={disabled}
-                onChange={(m) => {
-                  setHardness(m.hardness);
-                  setThreshold(m.threshold);
-                }}
+                onChange={setMask}
               />
               <Pressable onPress={onReset} style={styles.resetBtn}>
                 <Text style={styles.resetText}>Reset</Text>

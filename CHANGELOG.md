@@ -1,3 +1,21 @@
+# [2.3.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.2.2...v2.3.0) (2026-06-12)
+
+
+### Features
+
+* **components:** seed control forms through an optional patches override ([1e49e3a](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/1e49e3ad926181de5216b64d4ea698e30472736a))
+* **demo:** persist the selection through KaleidoscopeStateProvider ([789febf](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/789febfcca2292f1ea612b7e9d703715100328af))
+* **kaleidoscope:** merge switch-time patches into the rebuilt layer stack ([664209f](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/664209f30e437c1386d4dca5c78e41684f896e0e))
+* **persistence:** add persisted-selection provider over a storage-agnostic store ([4f11d33](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/4f11d3313ea201c4e60a1179379abaa11fd2581d))
+
+## [2.2.2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.2.1...v2.2.2) (2026-06-12)
+
+
+### Performance Improvements
+
+* **clouds:** drop fbm to 4 octaves and march 32 growing steps ([6a66ed4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/6a66ed4225ac01cc0324e4db485ddc82d7ded96b)), closes [#37](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/37)
+* **nebula:** cull invisible stars, gate flares, drop to 8 layers ([bf35d10](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/bf35d10fa1dfec0c41332ce06b75036d17644bfc)), closes [#39](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/39)
+
 ## [2.2.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.2.0...v2.2.1) (2026-06-12)
 
 

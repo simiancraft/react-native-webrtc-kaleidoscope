@@ -78,7 +78,9 @@ export type KaleidoscopeBindOptions<P extends KaleidoscopePresetBook> = {
  * The art verb: select a composite by id (rebuilding the pipeline), or clear it
  * with `null`. When `cmd` is the currently-active preset id and `patches` is
  * given, the patches merge through the live no-rebuild uniform channel (keyed by
- * layer id) instead of rebuilding, so a slider drag stays smooth.
+ * layer id) instead of rebuilding, so a slider drag stays smooth. On a preset
+ * SWITCH, patches merge into the rebuilt layer stack itself, so a restored
+ * selection lands tuned on every platform, native included.
  */
 type KaleidoscopeCommand<P extends KaleidoscopePresetBook> = <K extends keyof P>(
   cmd: K | null,
