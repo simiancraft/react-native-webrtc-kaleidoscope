@@ -1,0 +1,99 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 oColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 vUv [[user(locn0)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution [[buffer(0)]], constant float3& uBgBottom [[buffer(1)]], constant float3& uBgTop [[buffer(2)]], constant float& uCalm [[buffer(3)]], constant float& uTime [[buffer(4)]], constant float& uWaveSpeed [[buffer(5)]], constant float& uHorizon [[buffer(6)]], constant float& uLineWidth [[buffer(7)]], constant float& uFarScale [[buffer(8)]], constant float& uSlant [[buffer(9)]], constant float& uWaveAmp [[buffer(10)]], constant float& uWaveScale [[buffer(11)]], constant float& uGridX [[buffer(12)]], constant float& uStrutMix [[buffer(13)]], constant float& uNodeMix [[buffer(14)]], constant float3& uLineColor [[buffer(15)]], constant float3& uCrestColor [[buffer(16)]], constant float3& uHazeColor [[buffer(17)]], constant float& uGlow [[buffer(18)]], constant float& uHaze [[buffer(19)]], constant float& uParticles [[buffer(20)]], constant float& uAccent [[buffer(21)]], constant float3& uAccentColor [[buffer(22)]])
+{
+    main0_out out = {};
+    float2 _112 = ((in.vUv * uResolution) - (uResolution * 0.5)) / float2(uResolution.y);
+    float _115 = _112.y;
+    float _139 = 1.0 - (uCalm * (1.0 - smoothstep(0.180000007152557373046875, 0.62000000476837158203125, length(_112))));
+    float _145 = uTime * uWaveSpeed;
+    float _150 = fast::clamp(uHorizon, -0.20000000298023223876953125, 0.449999988079071044921875);
+    float _157 = fast::max(uLineWidth * uLineWidth, 9.9999997473787516355514526367188e-06);
+    float _158 = 1.0 / _157;
+    float _162 = 0.14000000059604644775390625 / _157;
+    float3 _614;
+    float3 _616;
+    _616 = float3(0.0);
+    _614 = float3(0.0);
+    float3 _625;
+    float3 _627;
+    for (int _613 = 0; _613 < 20; _616 = _627, _614 = _625, _613++)
+    {
+        float _189 = 1.0 - (float(_613) * 0.052631579339504241943359375);
+        float _193 = _189 * _189;
+        float _194 = 1.0 - _193;
+        float _202 = fast::max(mix(1.0, uFarScale, _194), uFarScale);
+        float _210 = _112.x;
+        float _216 = mix(-0.62000000476837158203125, _150, _194) + ((_210 * uSlant) * _202);
+        float _221 = _202 * uWaveAmp;
+        if (abs(_115 - _216) > (((_221 * 1.7000000476837158203125) + (uLineWidth * 3.0)) + 0.0599999986588954925537109375))
+        {
+            _627 = _616;
+            _625 = _614;
+            continue;
+        }
+        float _243 = _210 / _202;
+        float _248 = _243 * uWaveScale;
+        float _579 = (((sin((_248 + (_194 * 2.4750001430511474609375)) + _145) * 0.60000002384185791015625) + (sin(((_248 * 0.550000011920928955078125) - (_194 * 4.275000095367431640625)) - (_145 * 0.699999988079071044921875)) * 0.449999988079071044921875)) + (sin((((_248 + (_194 * 4.5)) * 0.449999988079071044921875) + (_145 * 0.4000000059604644775390625)) + 1.7000000476837158203125) * 0.4000000059604644775390625)) + (sin(((_248 * 1.7000000476837158203125) - (_194 * 1.35000002384185791015625)) + (_145 * 1.2000000476837158203125)) * 0.1599999964237213134765625);
+        float _269 = _115 - (_216 + (_221 * _579));
+        float _274 = smoothstep(0.20000000298023223876953125, 1.39999997615814208984375, _579);
+        float _278 = _269 * _269;
+        float _284 = exp((-_278) * _158);
+        float _291 = 1.0 + (_278 * _162);
+        float _293 = _284 + (0.2199999988079071044921875 / _291);
+        float _299 = fract(_243 * uGridX);
+        float _308 = exp(((0.5 - _299) * (_299 - 0.5)) * 48.0);
+        _627 = _616 + (((uHazeColor * _293) * _194) * _274);
+        _625 = _614 + (((mix(uLineColor, uCrestColor, float3(_274)) * ((_293 + (uStrutMix * (_308 / _291))) + ((uNodeMix * (_284 * _308)) * 2.0))) * _193) * (0.3499999940395355224609375 + _274));
+    }
+    float3 _387 = (mix(uBgBottom, uBgTop, float3(fast::clamp(_115 + 0.5, 0.0, 1.0))) + ((_614 * uGlow) * _139)) + ((_616 * uHaze) * _139);
+    float3 _620;
+    if ((uParticles > 0.0) || (uAccent > 0.0))
+    {
+        float3 _618;
+        _618 = float3(0.0);
+        float3 _509;
+        for (int _617 = 0; _617 < 14; _618 = _509, _617++)
+        {
+            float _409 = float(_617);
+            float _412 = _409 * 1.7000000476837158203125;
+            float2 _432 = ((float2(fract(sin((_412 + 0.300000011920928955078125) * 12.98980045318603515625) * 43758.546875), fract(sin(((_409 * 3.099999904632568359375) + 1.89999997615814208984375) * 12.98980045318603515625) * 43758.546875)) * 2.0) - float2(1.0)) * float2(0.920000016689300537109375, 0.4600000083446502685546875);
+            float2 _609 = _432;
+            _609.x = _432.x + (sin((uTime * 0.070000000298023223876953125) + (_409 * 2.2999999523162841796875)) * 0.02999999932944774627685546875);
+            float2 _612 = _609;
+            _612.y = _432.y + (cos((uTime * 0.0500000007450580596923828125) + _412) * 0.02999999932944774627685546875);
+            float _479 = length(_112 - _612);
+            float3 _621;
+            if (_617 == 0)
+            {
+                _621 = uAccentColor * uAccent;
+            }
+            else
+            {
+                _621 = uCrestColor * uParticles;
+            }
+            _509 = _618 + (_621 * (exp(((-_479) * _479) * 2300.0) * (0.5 + (0.5 * sin((uTime * (0.60000002384185791015625 + fract(sin(_409 * 64.949005126953125) * 43758.546875))) + (_409 * 4.0))))));
+        }
+        _620 = _387 + (_618 * _139);
+    }
+    else
+    {
+        _620 = _387;
+    }
+    out.oColor = float4(float3(1.0) - exp(-_620), 1.0);
+    return out;
+}
+
