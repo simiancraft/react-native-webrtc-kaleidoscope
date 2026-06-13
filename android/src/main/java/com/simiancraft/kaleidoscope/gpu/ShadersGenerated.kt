@@ -733,7 +733,7 @@ const float MAX_DIVIDE = 0.01;
 // loop has a fixed integer bound (cross-compile-safe; no float loop counter).
 // 8 (was 12) for low-end-mobile cost (issue #39); the work is linear in the
 // count and dimByDensity rebalances per-star brightness automatically.
-const int STARFIELD_LAYERS_COUNT = 8;
+const int STARFIELD_LAYERS_COUNT = 7;
 
 mat2 Rotate(float angle) {
   float s = sin(angle);
@@ -801,6 +801,12 @@ vec3 StarFieldLayer(vec2 uv, float rotAngle) {
       float size = fract(randomN * 1356.33);
       float flareSwitch = smoothstep(0.9, 1.0, size);
       float star = Star(randomPosition, flareSwitch, rotAngle, randomN);
+      // The per-cell color below is multiplied by `star` at the end, so for any
+      // cell whose star is 0 (Star() returns exactly 0 for d >= 1.0, i.e. the
+      // empty-sky majority of the 8x9 = 72 cells/pixel) the whole term is 0.
+      // Skipping the sin(vec3) color work for those cells is output-identical and
+      // is the bulk of the win (issue #74).
+      if (star <= 0.0) continue;
 
       // fract trick: random colors
       float randomStarColorSeed = fract(randomN * 2150.0) * (3.0 * PI) * deltaTimeTwinkle;
