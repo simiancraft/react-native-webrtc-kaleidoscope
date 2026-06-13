@@ -30,9 +30,9 @@ fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution 
     _614 = float3(0.0);
     float3 _625;
     float3 _627;
-    for (int _613 = 0; _613 < 20; _616 = _627, _614 = _625, _613++)
+    for (int _613 = 0; _613 < 18; _616 = _627, _614 = _625, _613++)
     {
-        float _189 = 1.0 - (float(_613) * 0.052631579339504241943359375);
+        float _189 = 1.0 - (float(_613) * 0.0588235296308994293212890625);
         float _193 = _189 * _189;
         float _194 = 1.0 - _193;
         float _202 = fast::max(mix(1.0, uFarScale, _194), uFarScale);
@@ -66,7 +66,7 @@ fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution 
         float3 _618;
         _618 = float3(0.0);
         float3 _509;
-        for (int _617 = 0; _617 < 14; _618 = _509, _617++)
+        for (int _617 = 0; _617 < 10; _618 = _509, _617++)
         {
             float _409 = float(_617);
             float _412 = _409 * 1.7000000476837158203125;

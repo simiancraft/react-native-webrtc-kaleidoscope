@@ -1704,8 +1704,8 @@ out vec4 oColor;
 // ROWS / PARTICLES must stay compile-time constants (GLSL ES loop bounds). ROWS is
 // kept modest on purpose (loose mesh); perspective bunching toward the horizon
 // makes it read as far more lines than it costs.
-#define ROWS                20
-#define PARTICLES           14
+#define ROWS                18
+#define PARTICLES           10
 #define WAVE_DEPTH_SPAN     4.5   // world-depth the eased row range maps across
 #define COL_SHARP           48.0  // column-stripe sharpness in cell-phase units
 #define Y_NEAR             (-0.62) // nearest row baseline (just below the bottom edge)
