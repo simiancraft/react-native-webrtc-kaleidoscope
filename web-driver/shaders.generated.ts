@@ -538,7 +538,8 @@ void main() {
     vec3 sunCol = mix(uSunBottom, uSunTop, vy);
 
     float below = max(-sd.y / max(uSunSize, 1e-3), 0.0); // 0 above center, grows downward
-    float slit = fract(below * uSunBands);
+    // Drift the slit phase over time so the sun's scanlines crawl downward.
+    float slit = fract(below * uSunBands - uTime * 0.18);
     float gapW = clamp(below, 0.0, 1.0) * 0.85;          // gap fraction grows downward
     float cut = step(slit, gapW) * smoothstep(0.04, 0.12, below); // keep upper sun whole
     float sunBody = disc * (1.0 - cut);
@@ -548,23 +549,31 @@ void main() {
     // --- FLOOR --- perspective grid. Guard the divide; shade only below horizon.
     float depth = 1.0 / max(h - fy, 1.5e-3); // large near the horizon
     float depthMin = 1.0 / h;                // depth at the very front (fy = 0)
-    vec2 fuv = vec2(fx * depth, depth + uTime * uSpeed);
 
-    // Distance to the nearest grid line in each axis (0 on a line, 0.5 mid-cell).
-    vec2 f = fract(fuv * uGridDensity);
-    vec2 lineDist = min(f, 1.0 - f);
-    float d = min(lineDist.x, lineDist.y);
+    // Grid coordinates: x widens with depth (perspective); uGridDensity sets the
+    // cell count; the scroll is in cell units so its rate is density-independent.
+    vec2 g = vec2(fx * depth, depth) * uGridDensity;
+    g.y += uTime * uSpeed * 2.0;
+    vec2 cell = abs(fract(g) - 0.5); // 0 on a line .. 0.5 mid-cell, per axis
 
-    // Analytic neon glow; uGridGlow widens/softens the line.
-    float line = exp(-d * d * (220.0 / max(uGridGlow, 0.05)));
+    // Per-axis, depth-scaled line half-width: the rungs (g.y) compress toward the
+    // horizon as depth^2 and the verticals (g.x) ~linearly, so widening each axis'
+    // line band at its own compression rate holds the on-screen line width roughly
+    // constant. Far lines fuse into a band instead of a sub-pixel sheet that
+    // shimmers as it scrolls; near lines stay crisp. Written 1 - smoothstep(0, w, .)
+    // (NOT the reversed-edge smoothstep(w, 0, .), which is undefined on GLSL ES /
+    // Metal) and derivative-free, so it is portable and mobile-precision safe.
+    vec2 w = max(vec2(depth, depth * depth * 0.2) * uGridDensity * 0.0013, vec2(1e-4));
+    vec2 core = 1.0 - smoothstep(vec2(0.0), w, cell);
+    vec2 halo = (1.0 - smoothstep(vec2(0.0), w * 6.0, cell)) * (0.5 * uGridGlow);
+    float gridVal = clamp(core.x + core.y + halo.x + halo.y, 0.0, 1.5);
 
-    // Distance fog: fade lines out before the horizon-compression aliasing zone,
-    // which also gives the authentic converging-to-fog look.
-    float fog = clamp(1.0 - (depth - depthMin) / (depthMin * 14.0), 0.0, 1.0);
+    // Distance fog: fade the grid out toward the horizon for the converging look.
+    float fog = clamp(1.0 - (depth - depthMin) / (depthMin * 10.0), 0.0, 1.0);
     fog *= fog;
 
     vec3 floorBase = mix(vec3(0.0), uSkyHorizon * 0.16, fog * 0.6);
-    col = floorBase + uGridColor * line * fog * calm;
+    col = floorBase + uGridColor * gridVal * fog * calm;
   }
 
   // Glowing horizon seam where floor meets sky.
