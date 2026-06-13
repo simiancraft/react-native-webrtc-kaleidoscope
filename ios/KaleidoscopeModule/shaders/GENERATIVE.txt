@@ -9,5 +9,6 @@ kaleidoscope
 light-beams-and-motes
 nebula
 neo-memphis
+outrun-grid
 plasma
 simianlights

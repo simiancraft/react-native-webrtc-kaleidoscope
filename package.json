@@ -460,6 +460,13 @@
       "import": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js",
       "default": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js"
     },
+    "./shaders/outrun-grid/form": {
+      "types": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.d.ts",
+      "react-native": "./catalog/shaders/outrun-grid/outrun-grid.form.tsx",
+      "browser": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.js",
+      "import": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.js",
+      "default": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.js"
+    },
     "./shaders/blur/form": {
       "types": "./dist/catalog/shaders/blur/blur.form.d.ts",
       "react-native": "./catalog/shaders/blur/blur.form.tsx",
