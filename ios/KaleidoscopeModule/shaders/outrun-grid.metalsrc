@@ -19,28 +19,29 @@ fragment main0_out main0(main0_in in [[stage_in]], constant float2& uResolution 
     float _30 = (in.vUv.x - 0.5) * (uResolution.x / uResolution.y);
     float _39 = fast::clamp(uHorizon, 0.0500000007450580596923828125, 0.949999988079071044921875);
     float _54 = 1.0 - (uCalm * (1.0 - smoothstep(0.180000007152557373046875, 0.62000000476837158203125, length(float2(_30, in.vUv.y - 0.5)))));
-    float3 _312;
+    float3 _327;
     if (in.vUv.y > _39)
     {
         float _91 = in.vUv.y - (_39 + (uSunSize * 0.550000011920928955078125));
         float _98 = fast::max(uSunSize, 0.001000000047497451305389404296875);
         float _99 = length(float2(_30, _91)) / _98;
         float _145 = fast::max((-_91) / _98, 0.0);
-        _312 = mix(mix(uSkyHorizon, uSkyTop, float3((in.vUv.y - _39) / (1.0 - _39))) + (((uSunTop * exp(fast::max(_99 - 1.0, 0.0) * (-5.5))) * 0.550000011920928955078125) * _54), mix(uSunBottom, uSunTop, float3(fast::clamp(((_91 / _98) * 0.5) + 0.5, 0.0, 1.0))), float3(smoothstep(1.0, 0.98500001430511474609375, _99) * (1.0 - (step(fract((_145 * uSunBands) - (uTime * 0.180000007152557373046875)), fast::clamp(_145, 0.0, 1.0) * 0.85000002384185791015625) * smoothstep(0.039999999105930328369140625, 0.119999997317790985107421875, _145)))));
+        _327 = mix(mix(uSkyHorizon, uSkyTop, float3((in.vUv.y - _39) / (1.0 - _39))) + (((uSunTop * exp(fast::max(_99 - 1.0, 0.0) * (-5.5))) * 0.550000011920928955078125) * _54), mix(uSunBottom, uSunTop, float3(fast::clamp(((_91 / _98) * 0.5) + 0.5, 0.0, 1.0))), float3(smoothstep(1.0, 0.98500001430511474609375, _99) * (1.0 - (step(fract((_145 * uSunBands) - (uTime * 0.180000007152557373046875)), fast::clamp(_145, 0.0, 1.0) * 0.85000002384185791015625) * smoothstep(0.039999999105930328369140625, 0.119999997317790985107421875, _145)))));
     }
     else
     {
         float _194 = uGridDensity * 0.25;
         float _199 = _194 / ((2.0 * (_39 - in.vUv.y)) + 0.0500000007450580596923828125);
-        float2 _309 = float2(((2.0 * _30) * _199) * 0.699999988079071044921875, _199);
-        _309.y = _199 + ((uTime * uSpeed) * 0.300000011920928955078125);
-        float2 _223 = abs(fract(_309) - float2(0.5));
+        float2 _324 = float2(((2.0 * _30) * _199) * 0.699999988079071044921875, _199);
+        _324.y = _199 + ((uTime * uSpeed) * 0.300000011920928955078125);
+        float2 _223 = abs(fract(_324) - float2(0.5));
         float _231 = (uGridGlow * 4.0) / uResolution.y;
         float2 _244 = float2((_199 * 0.699999988079071044921875) * _231, ((_199 * _199) * _231) / _194);
         float2 _260 = (float2(1.0) - smoothstep(float2(0.0), _244, _223)) + ((float2(1.0) - smoothstep(float2(0.0), _244 * 4.0, _223)) * 0.5);
-        _312 = mix(uSkyHorizon * 0.0599999986588954925537109375, uGridColor, float3(fast::clamp(_260.x + _260.y, 0.0, 1.0) * _54));
+        float _274 = sqrt((_194 * uResolution.y) * 0.25);
+        _327 = mix(uSkyHorizon * 0.0599999986588954925537109375, uGridColor, float3((fast::clamp(_260.x + _260.y, 0.0, 1.0) * (1.0 - smoothstep(_274 * 0.550000011920928955078125, _274, _199))) * _54));
     }
-    out.oColor = float4(_312 + (((uGridColor * exp(abs(in.vUv.y - _39) * (-90.0))) * 0.5) * _54), 1.0);
+    out.oColor = float4(_327 + (((uGridColor * exp(abs(in.vUv.y - _39) * (-90.0))) * 0.5) * _54), 1.0);
     return out;
 }
 
