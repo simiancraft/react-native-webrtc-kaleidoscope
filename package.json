@@ -1,6 +1,6 @@
 {
   "name": "react-native-webrtc-kaleidoscope",
-  "version": "2.7.0",
+  "version": "2.7.1",
   "description": "Live video effects (blur, background replacement, generative backgrounds, flip/rotate) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Working on web, Android, and iOS. Active development.",
   "keywords": [
     "react-native",

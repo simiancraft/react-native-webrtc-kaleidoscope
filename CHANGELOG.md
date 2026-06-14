@@ -1,3 +1,15 @@
+## [2.7.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.0...v2.7.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* **outrun-grid:** pixel-calibrate line width; even rungs, no flicker ([e04e07d](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e04e07d9e0f1ad4c85c1b52cfb77adb61b4bc0b1))
+
+
+### Features
+
+* **demo:** deep-link the selected preset via URL params ([b53efe3](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/b53efe3a2ec033d555c9302d9102489eabd864b7))
+
 # [2.7.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.6.1...v2.7.0) (2026-06-14)
 
 
