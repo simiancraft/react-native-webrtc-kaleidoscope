@@ -1,3 +1,10 @@
+## [2.6.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.6.0...v2.6.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* **clouds:** retune Daytime and Night sky presets ([210f6e3](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/210f6e3ae77064a9c289d2c7d611b2ad5c725ef2))
+
 # [2.6.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.5.1...v2.6.0) (2026-06-14)
 
 
