@@ -40,7 +40,7 @@
 
 > **Blur yourself, swap the room; live, on the device.** Real-time background blur and replacement for React Native and web video calls: bundled images, animated generative shaders, or painted worlds, each stenciled to the person by an on-device segmentation mask. Works with `react-native-webrtc` and LiveKit on Android, iOS, and Chromium browsers; managed-Expo-friendly.
 
-Every other turnkey option we could find is a feature welded to one vendor's calling SDK (Stream, Agora, 100ms, and the rest). This one attaches to `react-native-webrtc` instead, so it rides whatever stack you already run, LiveKit included; and it is the only one we found that paints animated, generative-shader backgrounds, not just blur and a static image.
+Every other turnkey option we could find is a feature welded to one vendor's calling SDK (Stream, Agora, 100ms, and the rest). This one attaches to `react-native-webrtc` instead, so it rides whatever stack you already run, LiveKit included. And where those vendors ship blur and a static image, this paints animated, generative-shader backgrounds and whole worlds.
 
 What you get:
 
