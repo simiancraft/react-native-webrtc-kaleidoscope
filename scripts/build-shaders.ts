@@ -123,6 +123,7 @@ const GENERATIVE_SHADERS = [
   'neo-memphis.frag',
   'halftone-waves.frag',
   'aurora-silk.frag',
+  'outrun-grid.frag',
   'clouds.frag',
   'nebula.frag',
   'godrays.frag',

@@ -53,6 +53,7 @@ import { HalftoneWavesForm } from 'react-native-webrtc-kaleidoscope/shaders/half
 import { KaleidoscopeForm } from 'react-native-webrtc-kaleidoscope/shaders/kaleidoscope/form';
 import { LightBeamsAndMotesForm } from 'react-native-webrtc-kaleidoscope/shaders/light-beams-and-motes/form';
 import { NeoMemphisForm } from 'react-native-webrtc-kaleidoscope/shaders/neo-memphis/form';
+import { OutrunGridForm } from 'react-native-webrtc-kaleidoscope/shaders/outrun-grid/form';
 import { PlasmaForm } from 'react-native-webrtc-kaleidoscope/shaders/plasma/form';
 import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark';
 import { debugResolutions } from 'react-native-webrtc-kaleidoscope/images/debug/debug-resolutions';
@@ -638,6 +639,144 @@ export const presets = {
           uSpeed: 0.5,
           uStyle: 0,
           uCalm: 0.25,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  // Outrun (issue #70): one outrun-grid.frag fanned into deliberately divergent
+  // palettes; the grid tint, the two sun colors, and the sky hue are the levers.
+  // Layer id stays 'outrun-grid' so OutrunGridForm addresses every variant.
+  'outrun-classic': {
+    name: 'Classic',
+    taxonomy: ['Shaders', 'Outrun'],
+    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-classic.thumb.webp')).uri,
+    controls: OutrunGridForm,
+    layers: [
+      {
+        id: 'outrun-grid',
+        shader: 'outrun-grid',
+        uniforms: {
+          uSkyTop: [0.05, 0.02, 0.18],
+          uSkyHorizon: [0.35, 0.05, 0.4],
+          uSunTop: [1.0, 0.85, 0.3],
+          uSunBottom: [0.95, 0.15, 0.5],
+          uGridColor: [0.95, 0.2, 0.7],
+          uGridDensity: 4,
+          uGridGlow: 0.5,
+          uSpeed: 0.3,
+          uSunSize: 0.32,
+          uSunBands: 7,
+          uHorizon: 0.55,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'outrun-miami': {
+    name: 'Miami',
+    taxonomy: ['Shaders', 'Outrun'],
+    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-miami.thumb.webp')).uri,
+    controls: OutrunGridForm,
+    layers: [
+      {
+        id: 'outrun-grid',
+        shader: 'outrun-grid',
+        uniforms: {
+          uSkyTop: [0.12, 0.04, 0.28],
+          uSkyHorizon: [0.95, 0.45, 0.35],
+          uSunTop: [1.0, 0.95, 0.55],
+          uSunBottom: [1.0, 0.35, 0.45],
+          uGridColor: [0.1, 0.85, 0.8],
+          uGridDensity: 5,
+          uGridGlow: 0.55,
+          uSpeed: 0.25,
+          uSunSize: 0.36,
+          uSunBands: 8,
+          uHorizon: 0.5,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'outrun-circuit': {
+    name: 'Circuit',
+    taxonomy: ['Shaders', 'Outrun'],
+    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-circuit.thumb.webp')).uri,
+    controls: OutrunGridForm,
+    layers: [
+      {
+        id: 'outrun-grid',
+        shader: 'outrun-grid',
+        uniforms: {
+          uSkyTop: [0.0, 0.02, 0.05],
+          uSkyHorizon: [0.0, 0.15, 0.3],
+          uSunTop: [0.8, 0.95, 1.0],
+          uSunBottom: [0.1, 0.5, 0.95],
+          uGridColor: [0.2, 0.8, 1.0],
+          uGridDensity: 5,
+          uGridGlow: 0.4,
+          uSpeed: 0.4,
+          uSunSize: 0.26,
+          uSunBands: 5,
+          uHorizon: 0.6,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'outrun-acid': {
+    name: 'Acid',
+    taxonomy: ['Shaders', 'Outrun'],
+    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-acid.thumb.webp')).uri,
+    controls: OutrunGridForm,
+    layers: [
+      {
+        id: 'outrun-grid',
+        shader: 'outrun-grid',
+        uniforms: {
+          uSkyTop: [0.02, 0.06, 0.02],
+          uSkyHorizon: [0.1, 0.3, 0.05],
+          uSunTop: [0.85, 1.0, 0.3],
+          uSunBottom: [0.3, 0.8, 0.1],
+          uGridColor: [0.4, 1.0, 0.2],
+          uGridDensity: 3,
+          uGridGlow: 0.65,
+          uSpeed: 0.45,
+          uSunSize: 0.34,
+          uSunBands: 9,
+          uHorizon: 0.52,
+          uCalm: 0,
+        },
+      },
+      { id: 'you', shader: 'direct', target: 'subject' },
+    ],
+  },
+  'outrun-vapor': {
+    name: 'Vapor',
+    taxonomy: ['Shaders', 'Outrun'],
+    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-vapor.thumb.webp')).uri,
+    controls: OutrunGridForm,
+    layers: [
+      {
+        id: 'outrun-grid',
+        shader: 'outrun-grid',
+        uniforms: {
+          uSkyTop: [0.45, 0.35, 0.7],
+          uSkyHorizon: [0.95, 0.6, 0.8],
+          uSunTop: [1.0, 0.9, 0.85],
+          uSunBottom: [0.55, 0.85, 0.95],
+          uGridColor: [0.95, 0.55, 0.85],
+          uGridDensity: 3,
+          uGridGlow: 0.7,
+          uSpeed: 0.18,
+          uSunSize: 0.4,
+          uSunBands: 6,
+          uHorizon: 0.5,
+          uCalm: 0,
         },
       },
       { id: 'you', shader: 'direct', target: 'subject' },
