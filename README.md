@@ -9,7 +9,13 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/evidence/issue-verification/evidence/2026-06-14-readme-demo/showcase.gif" alt="One person held in frame by the segmentation mask while the background cycles through a parametric blur, painted worlds, and animated generative shaders" width="640" />
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/">
+    <img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/evidence/issue-verification/evidence/2026-06-14-readme-demo/showcase.gif" alt="One person held in frame by the live segmentation mask while the background cycles through a parametric blur, painted worlds, and animated generative shaders" width="640" />
+  </a>
+</p>
+
+<p align="center">
+  <sub><b>This is the real camera, not a still pasted over a video.</b> The live segmentation mask holds one person in frame while shipped presets swap in behind: a parametric <b>blur</b>, a <b>kaleidoscope</b> mandala, a <b>wizard's tower</b>, an <b>outrun</b> grid, a starship <b>observation deck</b>, a cobalt <b>data-mesh</b>, a <b>fairy grotto</b>, <b>simianlights</b>, and the <b>Simiancraft</b> mark; and dozens more in the book. <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/">Click the loop to run every effect on your own camera.</a></sub>
 </p>
 
 <p align="center">
