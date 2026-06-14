@@ -587,6 +587,8 @@
     "bench:shader": "bun run scripts/shader-cost.ts",
     "shader:view": "bun run scripts/shader-view.ts",
     "thumbs": "bun run build && bun tools/thumbnails/make-thumbnails.ts --book demo/kaleidoscope.preset-book.ts --out demo/assets/thumbnails --repo",
+    "gen:waffle": "bun run scripts/gen-preset-waffle.ts",
+    "check:waffle": "bun run scripts/gen-preset-waffle.ts --check",
     "demo": "bun run build && cd demo && bun run start",
     "demo:wsl": "bun run build && cd demo && bun run start:wsl",
     "demo:ios": "bun run build && cd demo && bun run ios",

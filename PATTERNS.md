@@ -231,6 +231,10 @@ is data plus a shader, with no `Registration.kt` / `Registration.swift` change:
    `LAYER_SHADER_SOURCES` (`web-driver/effects/layer-shaders.ts`). The web
    compositor (`composite.ts`) and the native compositors dispatch on the name;
    no new file per effect.
+4. **Demo + gallery**: when you add a demo preset that exercises the new layer,
+   render its thumbnail and refresh the README preset gallery: `bun run thumbs
+   && bun run gen:waffle`. The gallery is generated from the demo book between
+   the `PRESET-WAFFLE` markers; `bun run check:waffle` fails on a stale block.
 
 The only path that still registers a NEW native name is a new GEOMETRIC
 transform op (an axis flip or rotation), not an art effect:
