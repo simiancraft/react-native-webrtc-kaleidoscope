@@ -5,6 +5,9 @@
 // blobs' positions and colors are fixed in the shader; the tunables below grade,
 // scale, and pace the field. Defaults reproduce the stock prototype look.
 
+// Cost: HEAVY -- ~12 ms/draw, ~42x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14). Eight-blob loop.
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

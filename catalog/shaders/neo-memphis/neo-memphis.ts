@@ -5,6 +5,9 @@
 // confetti) by varying these uniforms; the palette is the big lever. Shader
 // source is shaders/neo-memphis.frag.
 
+// Cost: CHEAP -- ~1.0 ms/draw, ~3.4x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14).
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
