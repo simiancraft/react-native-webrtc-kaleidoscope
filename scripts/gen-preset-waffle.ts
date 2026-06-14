@@ -21,9 +21,11 @@ const BOOK = resolve(ROOT, 'demo/kaleidoscope.preset-book.ts');
 const README = resolve(ROOT, 'README.md');
 const THUMB_DIR = 'demo/assets/thumbnails';
 const DEMO = 'https://simiancraft.github.io/react-native-webrtc-kaleidoscope';
+// Absolute raw base so the thumbnails also render on npm (relative paths do not).
+const RAW = 'https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main';
 const START = '<!-- PRESET-WAFFLE:START -->';
 const END = '<!-- PRESET-WAFFLE:END -->';
-const TILE = 84; // px; small enough to be a meter, large enough to read
+const TILE = 58; // px; ~30% smaller than before, compact bar-graph rows
 
 type Preset = { id: string; name: string; group: string; category: string };
 
@@ -52,49 +54,42 @@ function thumbFor(id: string): string | null {
 }
 
 function render(presets: Preset[]): string {
-  const groups = new Map<string, Map<string, Preset[]>>();
+  // One compact row per category (group+category keyed, so book order keeps
+  // families together and a shared category name like "Ocean" stays distinct).
+  const rows = new Map<string, { label: string; items: Preset[] }>();
   for (const p of presets) {
-    let cats = groups.get(p.group);
-    if (!cats) {
-      cats = new Map();
-      groups.set(p.group, cats);
+    const key = `${p.group}/${p.category}`;
+    let row = rows.get(key);
+    if (!row) {
+      row = { label: p.category, items: [] };
+      rows.set(key, row);
     }
-    let items = cats.get(p.category);
-    if (!items) {
-      items = [];
-      cats.set(p.category, items);
-    }
-    items.push(p);
+    row.items.push(p);
   }
 
-  const lines: string[] = [];
-  for (const [group, cats] of groups) {
-    lines.push(`<sub><b>${group}</b></sub>`);
-    lines.push('');
-    for (const [category, items] of cats) {
-      const tiles = items
-        .map((p) => {
-          const thumb = thumbFor(p.id);
-          const img = thumb
-            ? `<img src="./${thumb}" alt="${p.name}" title="${p.name}" width="${TILE}" />`
-            : `<code>${p.name}</code>`;
-          return `<a href="${DEMO}/?preset=${p.id}" title="${p.name}">${img}</a>`;
-        })
-        .join(' ');
-      lines.push(`<sub>${category}</sub><br />`);
-      lines.push(tiles);
-      lines.push('');
-    }
+  const trs: string[] = [];
+  for (const { label, items } of rows.values()) {
+    const tiles = items
+      .map((p) => {
+        const thumb = thumbFor(p.id);
+        const img = thumb
+          ? `<img src="${RAW}/${thumb}" alt="${p.name}" title="${p.name}" width="${TILE}" />`
+          : `<code>${p.name}</code>`;
+        return `<a href="${DEMO}/?preset=${p.id}" title="${p.name}">${img}</a>`;
+      })
+      .join(' ');
+    trs.push(
+      `  <tr><td align="right" valign="middle"><sub><b>${label}</b></sub></td><td valign="middle">${tiles}</td></tr>`,
+    );
   }
 
   const total = presets.length;
-  const groupNames = [...groups.keys()];
-  lines.push(
-    `<sub>${total} presets ship in the demo book across ${groupNames.length} families (${groupNames.join(
-      ', ',
-    )}); click any tile to open it live. Bring your own with a few lines; see <a href="#make-your-own-presets">Make your own presets</a>.</sub>`,
-  );
-  return lines.join('\n');
+  const families = [...new Set(presets.map((p) => p.group))];
+  const summary = `<sub>${total} presets across ${families.length} families (${families.join(
+    ', ',
+  )}); click any to open it live, or <a href="#make-your-own-presets">make your own</a> in a few lines.</sub>`;
+
+  return `<table cellspacing="0" cellpadding="2">\n${trs.join('\n')}\n</table>\n\n${summary}`;
 }
 
 const presets = await parseBook();
