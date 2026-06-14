@@ -576,6 +576,14 @@ void main() {
     lines += (1.0 - smoothstep(vec2(0.0), sz * 4.0, e)) * 0.5;
     float gridVal = clamp(lines.x + lines.y, 0.0, 1.0);
 
+    // Fade the grid out BEFORE rung spacing goes sub-pixel near the horizon: that
+    // zone moires/shimmers as it scrolls no matter how clean each line is (a second
+    // flicker source, separate from line width). subpx is the depth at which rungs
+    // are ~2 px apart, derived from uResolution; the seam glow below covers the
+    // faded edge so the horizon still reads as a bright line.
+    float subpx = sqrt(num * uResolution.y * 0.25);
+    gridVal *= 1.0 - smoothstep(subpx * 0.55, subpx, depth);
+
     vec3 floorBase = uSkyHorizon * 0.06;
     col = mix(floorBase, uGridColor, gridVal * calm);
   }
