@@ -1,3 +1,15 @@
+## [2.7.3](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.2...v2.7.3) (2026-06-14)
+
+
+### Bug Fixes
+
+* **readme:** render the preset gallery on npm and compact it to a table ([3f529ae](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/3f529ae91324a45b7082feb4552b39c0cf8a12d8))
+
+
+### Features
+
+* **demo:** diversify data-mesh preset surfaces ([b0e443f](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/b0e443f2df652ce3bbcc60d16f55889e3b1b7d4d))
+
 ## [2.7.2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.1...v2.7.2) (2026-06-14)
 
 
