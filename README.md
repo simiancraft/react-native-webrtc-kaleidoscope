@@ -5,7 +5,20 @@
 </p>
 
 <p align="center">
-  <sub><b>This is the real camera, not a still pasted over a video.</b> The live segmentation mask holds one person in frame while shipped presets swap in behind: a parametric <b>blur</b>, a <b>kaleidoscope</b> mandala, a <b>wizard's tower</b>, an <b>outrun</b> grid, a starship <b>observation deck</b>, a cobalt <b>data-mesh</b>, a <b>fairy grotto</b>, <b>simianlights</b>, and the <b>Simiancraft</b> mark; and dozens more below. <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/">Click the loop to run every effect on your own camera.</a></sub>
+  <sub><b>This is the real camera, not a still pasted over a video.</b> The live segmentation mask holds one person while shipped presets swap in behind. Every icon below is a live preset, in the order the loop plays them; click one to run it on your own camera.</sub>
+</p>
+
+<p align="center">
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=blur-medium" title="Blur">🌫️</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=kaleidoscope-mandala" title="Kaleidoscope mandala">🔮</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=wizard-tower" title="Wizard's tower">🧙</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=outrun-classic" title="Outrun grid">🌆</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=observation-deck" title="Observation deck">🛸</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=data-mesh-cobalt" title="Cobalt data-mesh">🔷</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=fairy-grotto" title="Fairy grotto">🧚</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=simianlights-hearth" title="Simianlights hearth">🪔</a> &nbsp;
+  <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=simiancraft-dark" title="Simiancraft">🐒</a>
+  &nbsp; <sub><a href="#presets">+ dozens more</a></sub>
 </p>
 
 <p align="center">
@@ -15,7 +28,7 @@
 </p>
 
 <h1>
-  <img src="./docs/kaleidoscope-logo.png" alt="" width="38" />&nbsp; react-native-webrtc-kaleidoscope
+  <img src="./docs/kaleidoscope-logo-thumb.webp" alt="kaleidoscope logo" width="36" />&nbsp; react-native-webrtc-kaleidoscope
 </h1>
 
 [![npm version](https://img.shields.io/npm/v/react-native-webrtc-kaleidoscope?color=cb3837&logo=npm)](https://www.npmjs.com/package/react-native-webrtc-kaleidoscope)
@@ -26,6 +39,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 > **Blur yourself, swap the room; live, on the device.** Real-time background blur and replacement for React Native and web video calls: bundled images, animated generative shaders, or painted worlds, each stenciled to the person by an on-device segmentation mask. Works with `react-native-webrtc` and LiveKit on Android, iOS, and Chromium browsers; managed-Expo-friendly.
+
+Every other turnkey option we could find is a feature welded to one vendor's calling SDK (Stream, Agora, 100ms, and the rest). This one attaches to `react-native-webrtc` instead, so it rides whatever stack you already run, LiveKit included; and it is the only one we found that paints animated, generative-shader backgrounds, not just blur and a static image.
 
 What you get:
 
