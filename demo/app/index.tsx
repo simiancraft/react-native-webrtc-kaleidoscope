@@ -12,7 +12,7 @@
 
 import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   bindKaleidoscope,
@@ -32,6 +32,8 @@ import {
   TransformControlPanel,
 } from 'react-native-webrtc-kaleidoscope/preset-control-panel';
 import { type PresetId, presets } from '../kaleidoscope.preset-book';
+import { readDeepLink, writeDeepLink } from '../src/deep-link';
+import { presetToParams, resolvePreset } from '../src/deep-link-resolve';
 import { Footer } from '../src/footer';
 import { useLoopbackStream } from '../src/use-loopback-stream';
 import { VideoPreview } from '../src/video-preview';
@@ -102,6 +104,10 @@ export default function DemoScreen() {
   const [rotate, setRotate] = useState(0);
   const [displayTrack, setDisplayTrack] = useState<MediaStreamTrack | null>(null);
   const [controls, setControls] = useState<KaleidoscopeBinding<typeof presets> | null>(null);
+  // Deep link: resolve the URL params to a preset id once at mount (null = no
+  // params; on native there is no URL, so always null). Applied after hydration.
+  const [deepLinkId] = useState(() => resolvePreset(presets, readDeepLink()));
+  const deepLinkApplied = useRef(false);
 
   const sourceTrack = useMemo<MediaStreamTrack | null>(() => {
     if (stream.status !== 'ready') return null;
@@ -132,6 +138,15 @@ export default function DemoScreen() {
     if (art) controls.kaleidoscope(art, patchesFor(art));
     else controls.kaleidoscope(null);
   }, [controls, art, hydrated]);
+  // Apply a deep link once, after hydration, so a pasted URL wins over the
+  // persisted selection; then canonicalize the URL to ?preset=<id> for sharing.
+  useEffect(() => {
+    if (!hydrated || deepLinkApplied.current) return;
+    deepLinkApplied.current = true;
+    if (!deepLinkId) return;
+    if (deepLinkId !== art) setPreset(deepLinkId as PresetId);
+    writeDeepLink(presetToParams(presets, deepLinkId));
+  }, [hydrated, deepLinkId, art, setPreset]);
   useEffect(() => {
     controls?.transform({ flip: { x: flipX, y: flipY }, rotate });
   }, [controls, flipX, flipY, rotate]);
@@ -189,7 +204,10 @@ export default function DemoScreen() {
               <PresetBookMenu
                 presets={presets}
                 value={art}
-                onSelect={setPreset}
+                onSelect={(id) => {
+                  setPreset(id);
+                  writeDeepLink(id ? presetToParams(presets, id) : null);
+                }}
                 disabled={disabled}
                 renderTile={renderDemoTile}
                 className="rounded-xl bg-neutral-900 p-3"
