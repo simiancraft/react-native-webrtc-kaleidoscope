@@ -61,8 +61,8 @@ export const OUTRUN_GRID_CONTROLS: readonly UniformControl[] = [
   {
     name: 'uGridDensity',
     kind: 'float',
-    default: 4,
-    min: 4,
+    default: 3,
+    min: 1,
     max: 32,
     step: 1,
     doc: 'Grid cells across the floor.',

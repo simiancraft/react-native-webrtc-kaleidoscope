@@ -546,34 +546,38 @@ void main() {
 
     col = mix(col, sunCol, sunBody);
   } else {
-    // --- FLOOR --- perspective grid. Guard the divide; shade only below horizon.
-    float depth = 1.0 / max(h - fy, 1.5e-3); // large near the horizon
-    float depthMin = 1.0 / h;                // depth at the very front (fy = 0)
+    // --- FLOOR --- perspective grid, a faithful port of a known-good community
+    // outrun grid (prior versions read as a too-dense, flickering sheet). Work in
+    // the reference's centered frame: cx is full-width centered x, dy is the
+    // centered distance BELOW the horizon. The additive offset caps the depth at
+    // the horizon, and putting big cells in the near field (low min depth) is what
+    // keeps the line spacing above a pixel, so it neither sheets nor shimmers.
+    float cx = 2.0 * fx;            // = (2*vUv.x - 1) * aspect
+    float dy = 2.0 * (h - fy);      // centered distance below the horizon (> 0)
 
-    // Grid coordinates: x widens with depth (perspective); uGridDensity sets the
-    // cell count; the scroll is in cell units so its rate is density-independent.
-    vec2 g = vec2(fx * depth, depth) * uGridDensity;
-    g.y += uTime * uSpeed * 2.0;
-    vec2 cell = abs(fract(g) - 0.5); // 0 on a line .. 0.5 mid-cell, per axis
+    // Cell count: uGridDensity 4 -> numerator 1.0 (sparse, big near cells). x
+    // widens with depth (the 0.7 factor); scroll is a slow drift toward the viewer.
+    float num = uGridDensity * 0.25;
+    float depth = num / (dy + 0.05);
+    vec2 g = vec2(cx * depth * 0.7, depth);
+    g.y += uTime * uSpeed * 0.3;
+    vec2 e = abs(fract(g) - 0.5);
 
-    // Per-axis, depth-scaled line half-width: the rungs (g.y) compress toward the
-    // horizon as depth^2 and the verticals (g.x) ~linearly, so widening each axis'
-    // line band at its own compression rate holds the on-screen line width roughly
-    // constant. Far lines fuse into a band instead of a sub-pixel sheet that
-    // shimmers as it scrolls; near lines stay crisp. Written 1 - smoothstep(0, w, .)
-    // (NOT the reversed-edge smoothstep(w, 0, .), which is undefined on GLSL ES /
-    // Metal) and derivative-free, so it is portable and mobile-precision safe.
-    vec2 w = max(vec2(depth, depth * depth * 0.2) * uGridDensity * 0.0013, vec2(1e-4));
-    vec2 core = 1.0 - smoothstep(vec2(0.0), w, cell);
-    vec2 halo = (1.0 - smoothstep(vec2(0.0), w * 6.0, cell)) * (0.5 * uGridGlow);
-    float gridVal = clamp(core.x + core.y + halo.x + halo.y, 0.0, 1.5);
+    // PIXEL-CALIBRATED line width: each line core is a fixed ~px wide in SCREEN
+    // PIXELS (via uResolution), the same at every depth and every resolution. The
+    // old depth^2*const width was constant in theory but landed sub-pixel, so
+    // discrete sampling rendered some rungs thick and others thin -> the uneven
+    // rungs that read as flicker. Solving sz so screen thickness == px: the rungs
+    // (g.y, compression ~depth^2/num) need sz.y = depth^2 * pf / num; the verticals
+    // (g.x) need sz.x = depth * 0.7 * pf. uGridGlow sets px (0.5 -> 2 px).
+    float pf = (uGridGlow * 4.0) / uResolution.y;
+    vec2 sz = vec2(depth * 0.7 * pf, depth * depth * pf / num);
+    vec2 lines = 1.0 - smoothstep(vec2(0.0), sz, e);
+    lines += (1.0 - smoothstep(vec2(0.0), sz * 4.0, e)) * 0.5;
+    float gridVal = clamp(lines.x + lines.y, 0.0, 1.0);
 
-    // Distance fog: fade the grid out toward the horizon for the converging look.
-    float fog = clamp(1.0 - (depth - depthMin) / (depthMin * 10.0), 0.0, 1.0);
-    fog *= fog;
-
-    vec3 floorBase = mix(vec3(0.0), uSkyHorizon * 0.16, fog * 0.6);
-    col = floorBase + uGridColor * gridVal * fog * calm;
+    vec3 floorBase = uSkyHorizon * 0.06;
+    col = mix(floorBase, uGridColor, gridVal * calm);
   }
 
   // Glowing horizon seam where floor meets sky.
