@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/evidence/issue-verification/evidence/2026-06-14-readme-demo/showcase.gif" alt="One person held in frame by the segmentation mask while the background cycles through a parametric blur, painted worlds, and animated generative shaders" width="640" />
+</p>
+
+<p align="center">
   <sub>Needs a Chromium-based browser (Chrome or Edge) and webcam permission; Safari and Firefox fall back to the unprocessed track.</sub>
 </p>
 
