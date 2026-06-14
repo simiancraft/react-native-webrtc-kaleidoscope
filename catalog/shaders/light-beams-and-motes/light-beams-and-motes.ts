@@ -5,6 +5,9 @@
 // 4-point quad (row-major TL, TR, BL, BR; y-up), a color, a fill strength, and an
 // on/off flag; the motes are shared. Defaults reproduce the stock prototype look.
 
+// Cost: VERY-HEAVY -- ~142 ms/draw, ~490x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14). Per-pixel mote loop dominates; scales with uMoteCount and uGlowSize. An overlay (not always on).
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

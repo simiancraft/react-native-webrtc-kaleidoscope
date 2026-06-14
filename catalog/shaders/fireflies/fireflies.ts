@@ -2,6 +2,9 @@
 // transparent overlay of drifting glowing dots (use blend 'additive'). Shader
 // source is ./fireflies.frag.
 
+// Cost: HEAVY -- ~18 ms/draw, ~61x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14).
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

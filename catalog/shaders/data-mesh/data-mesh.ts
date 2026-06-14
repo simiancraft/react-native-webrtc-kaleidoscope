@@ -5,6 +5,9 @@
 // big lever (gradient + line/crest/haze/accent), the structural dials set
 // composition and motion. Shader source is shaders/data-mesh/data-mesh.frag.
 
+// Cost: MODERATE -- ~6.4 ms/draw, ~22x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14). Per-pixel row loop; scales with ROWS, uGridX, uParticles.
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

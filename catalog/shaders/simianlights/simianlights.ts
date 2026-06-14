@@ -3,6 +3,9 @@
 // scale), same opaque BACKGROUND-layer role and same uniform surface. Shader
 // source is ./simianlights.frag.
 
+// Cost: HEAVY -- ~11 ms/draw, ~39x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14).
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

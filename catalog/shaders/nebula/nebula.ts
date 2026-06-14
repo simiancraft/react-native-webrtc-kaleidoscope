@@ -4,6 +4,9 @@
 // composite runs it full-frame behind the masked subject). Shader source is
 // ./nebula.frag.
 
+// Cost: HEAVY -- ~15 ms/draw, ~51x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14). Layers x a 3x3 cell sweep; scales with STARFIELD_LAYERS_COUNT.
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
