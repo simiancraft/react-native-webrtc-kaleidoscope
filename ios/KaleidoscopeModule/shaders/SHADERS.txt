@@ -8,6 +8,7 @@ composite-image.frag
 composite-masked.frag
 composite-subject.frag
 corporate-blobs.frag
+data-mesh.frag
 fireflies.frag
 godrays.frag
 halftone-waves.frag

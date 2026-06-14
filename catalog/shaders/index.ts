@@ -8,6 +8,7 @@ import type { AuroraSilkUniforms } from './aurora-silk/aurora-silk';
 import type { BlurUniforms } from './blur/blur';
 import type { CloudsUniforms } from './clouds/clouds';
 import type { CorporateBlobsUniforms } from './corporate-blobs/corporate-blobs';
+import type { DataMeshUniforms } from './data-mesh/data-mesh';
 import type { FirefliesUniforms } from './fireflies/fireflies';
 import type { GodraysUniforms } from './godrays/godrays';
 import type { HalftoneWavesUniforms } from './halftone-waves/halftone-waves';
@@ -30,6 +31,8 @@ export type { CloudsUniforms } from './clouds/clouds';
 export { CLOUDS_CONTROLS } from './clouds/clouds';
 export type { CorporateBlobsUniforms } from './corporate-blobs/corporate-blobs';
 export { CORPORATE_BLOBS_CONTROLS } from './corporate-blobs/corporate-blobs';
+export type { DataMeshUniforms } from './data-mesh/data-mesh';
+export { DATA_MESH_CONTROLS } from './data-mesh/data-mesh';
 export type { FirefliesUniforms } from './fireflies/fireflies';
 export { FIREFLIES_CONTROLS } from './fireflies/fireflies';
 export type { GodraysUniforms } from './godrays/godrays';
@@ -73,6 +76,7 @@ export type ShaderUniformsMap = {
   readonly 'aurora-silk': AuroraSilkUniforms;
   readonly 'light-beams-and-motes': LightBeamsAndMotesUniforms;
   readonly 'corporate-blobs': CorporateBlobsUniforms;
+  readonly 'data-mesh': DataMeshUniforms;
 };
 
 /** A patchable (uniform-bearing) layer shader name. */

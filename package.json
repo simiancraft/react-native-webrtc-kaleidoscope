@@ -523,6 +523,13 @@
       "import": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js",
       "default": "./dist/catalog/shaders/corporate-blobs/corporate-blobs.form.js"
     },
+    "./shaders/data-mesh/form": {
+      "types": "./dist/catalog/shaders/data-mesh/data-mesh.form.d.ts",
+      "react-native": "./catalog/shaders/data-mesh/data-mesh.form.tsx",
+      "browser": "./dist/catalog/shaders/data-mesh/data-mesh.form.js",
+      "import": "./dist/catalog/shaders/data-mesh/data-mesh.form.js",
+      "default": "./dist/catalog/shaders/data-mesh/data-mesh.form.js"
+    },
     "./app.plugin.js": {
       "types": "./app.plugin.d.ts",
       "require": "./app.plugin.js",

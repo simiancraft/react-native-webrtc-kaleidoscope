@@ -132,6 +132,7 @@ const GENERATIVE_SHADERS = [
   'anamorphic-lensflare.frag',
   'light-beams-and-motes.frag',
   'corporate-blobs.frag',
+  'data-mesh.frag',
 ] as const;
 
 const ANDROID_CODEGEN = [...UTILITY_ANDROID, ...GENERATIVE_SHADERS] as const;
