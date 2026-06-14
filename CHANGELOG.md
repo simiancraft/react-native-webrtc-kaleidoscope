@@ -1,3 +1,15 @@
+## [2.7.2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.1...v2.7.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* **outrun-grid:** fade the horizon shimmer ([913d880](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/913d88011497566a0fad888a556da0346b752078))
+
+
+### Features
+
+* **demo:** art-direct the Outrun presets ([e635428](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e63542816687ee2d7b8b4d25255a57369c99cc15))
+
 ## [2.7.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.0...v2.7.1) (2026-06-14)
 
 
