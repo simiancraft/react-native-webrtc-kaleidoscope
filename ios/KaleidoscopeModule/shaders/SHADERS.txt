@@ -15,6 +15,7 @@ kaleidoscope.frag
 light-beams-and-motes.frag
 nebula.frag
 neo-memphis.frag
+outrun-grid.frag
 passthrough.vert
 plasma.frag
 simianlights.frag

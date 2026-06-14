@@ -1,3 +1,15 @@
+# [2.6.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.5.1...v2.6.0) (2026-06-14)
+
+
+### Bug Fixes
+
+* **outrun-grid:** sparser, slower, flicker-free grid; animate the sun slits ([32e5b12](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/32e5b12f77c441f1a63c49df7b01265daff51765))
+
+
+### Features
+
+* **shaders:** add outrun-grid background with five demo presets ([45665c4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/45665c4d48e79e38b25740f9b77282279e82eb7c)), closes [#70](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/70)
+
 ## [2.5.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.5.0...v2.5.1) (2026-06-12)
 
 

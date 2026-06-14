@@ -15,6 +15,7 @@ import type { KaleidoscopeShaderUniforms } from './kaleidoscope/kaleidoscope';
 import type { LightBeamsAndMotesUniforms } from './light-beams-and-motes/light-beams-and-motes';
 import type { NebulaUniforms } from './nebula/nebula';
 import type { NeoMemphisUniforms } from './neo-memphis/neo-memphis';
+import type { OutrunGridUniforms } from './outrun-grid/outrun-grid';
 import type { PlasmaUniforms } from './plasma/plasma';
 import type { SimianlightsUniforms } from './simianlights/simianlights';
 
@@ -43,6 +44,8 @@ export type { NebulaUniforms } from './nebula/nebula';
 export { NEBULA_CONTROLS } from './nebula/nebula';
 export type { NeoMemphisUniforms } from './neo-memphis/neo-memphis';
 export { NEO_MEMPHIS_CONTROLS } from './neo-memphis/neo-memphis';
+export type { OutrunGridUniforms } from './outrun-grid/outrun-grid';
+export { OUTRUN_GRID_CONTROLS } from './outrun-grid/outrun-grid';
 export type { PlasmaUniforms } from './plasma/plasma';
 export { PLASMA_CONTROLS } from './plasma/plasma';
 export type { SimianlightsUniforms } from './simianlights/simianlights';
@@ -64,6 +67,7 @@ export type ShaderUniformsMap = {
   readonly plasma: PlasmaUniforms;
   readonly nebula: NebulaUniforms;
   readonly 'neo-memphis': NeoMemphisUniforms;
+  readonly 'outrun-grid': OutrunGridUniforms;
   readonly simianlights: SimianlightsUniforms;
   readonly 'anamorphic-lensflare': AnamorphicLensFlareUniforms;
   readonly 'aurora-silk': AuroraSilkUniforms;

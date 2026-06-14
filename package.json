@@ -1,6 +1,6 @@
 {
   "name": "react-native-webrtc-kaleidoscope",
-  "version": "2.5.1",
+  "version": "2.6.0",
   "description": "Live video effects (blur, background replacement, generative backgrounds, flip/rotate) for react-native-webrtc, packaged as a managed-Expo-friendly Expo Module. Working on web, Android, and iOS. Active development.",
   "keywords": [
     "react-native",
@@ -459,6 +459,13 @@
       "browser": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js",
       "import": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js",
       "default": "./dist/catalog/shaders/aurora-silk/aurora-silk.form.js"
+    },
+    "./shaders/outrun-grid/form": {
+      "types": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.d.ts",
+      "react-native": "./catalog/shaders/outrun-grid/outrun-grid.form.tsx",
+      "browser": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.js",
+      "import": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.js",
+      "default": "./dist/catalog/shaders/outrun-grid/outrun-grid.form.js"
     },
     "./shaders/blur/form": {
       "types": "./dist/catalog/shaders/blur/blur.form.d.ts",
