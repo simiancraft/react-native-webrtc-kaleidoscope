@@ -61,7 +61,7 @@ export const OUTRUN_GRID_CONTROLS: readonly UniformControl[] = [
   {
     name: 'uGridDensity',
     kind: 'float',
-    default: 12,
+    default: 4,
     min: 4,
     max: 32,
     step: 1,
@@ -79,7 +79,7 @@ export const OUTRUN_GRID_CONTROLS: readonly UniformControl[] = [
   {
     name: 'uSpeed',
     kind: 'float',
-    default: 0.6,
+    default: 0.3,
     min: 0,
     max: 3,
     step: 0.01,
