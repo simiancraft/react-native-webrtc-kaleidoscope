@@ -4,6 +4,9 @@
 // `plasma` book presets (ocean/sunset/mint/fast) via ShaderOptionsMap; this file
 // is the layer-side type + control surface. Shader source is shaders/plasma.frag.
 
+// Cost: CHEAP -- ~0.35 ms/draw, ~1x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14). The cost floor: a bare sum of sines.
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

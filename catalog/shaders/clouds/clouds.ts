@@ -4,6 +4,9 @@
 // shows up in editors and for LLMs). This is the first of the per-shader type
 // files; the shader source is shaders/clouds.frag.
 
+// Cost: VERY-HEAVY -- ~70 ms/draw, ~240x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14). 32-step fbm raymarch; the live pipeline runs it half-res (~1/4 this); scales with step size and octaves.
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

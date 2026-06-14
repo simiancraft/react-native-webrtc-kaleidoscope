@@ -5,6 +5,9 @@
 // three color pairs (grid, sun, sky) are the big levers. Shader source is
 // shaders/outrun-grid/outrun-grid.frag.
 
+// Cost: CHEAP -- ~0.53 ms/draw, ~1.8x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14). Loop-free perspective grid.
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

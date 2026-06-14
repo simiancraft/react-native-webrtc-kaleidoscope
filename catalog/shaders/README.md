@@ -112,3 +112,59 @@ If you do edit a `.frag`:
 
 - Debian/Ubuntu/WSL: `sudo apt install -y glslang-tools spirv-tools spirv-cross`
 - macOS: `brew install glslang spirv-tools spirv-cross`
+
+## Cost (relative GPU budget)
+
+Each shader carries a `// Cost:` line in its `<name>.ts` so the price is visible
+where you pick presets. Use it to decide what to ship, and to drop the expensive
+ones on mobile or slow devices (e.g. "nothing above MODERATE on phones").
+
+**The portable number is `x plasma`, not the milliseconds.** Plasma is the
+cheapest shader and is re-measured as the anchor on every bench run, so the ratio
+is roughly device-independent; the absolute ms is one desktop iGPU at one
+resolution and does **not** transfer to a phone. Rank and budget by the ratio.
+
+**Rubric** (multiples of plasma, the floor):
+
+| Tier | x plasma | Read it as |
+|------|---------:|------------|
+| CHEAP | < 5x | ship anywhere, including low-end mobile |
+| MODERATE | 5–25x | fine on most devices; one at a time on weak GPUs |
+| HEAVY | 25–100x | desktop / strong mobile; gate behind a capability check |
+| VERY-HEAVY | > 100x | desktop-class only, or accept a low frame rate |
+
+**Ranking** (shader:view GPU-time meter, 1920x1080, Intel UHD 770, each at its
+`.ts` default uniforms, 2026-06-14; plasma anchor held ~0.29 ms across all runs):
+
+| Shader | ms/draw | x plasma | Tier |
+|--------|--------:|---------:|------|
+| light-beams-and-motes | 142 | ~490x | VERY-HEAVY |
+| clouds | 70 | ~240x | VERY-HEAVY |
+| fireflies | 18 | ~61x | HEAVY |
+| nebula | 15 | ~51x | HEAVY |
+| corporate-blobs | 12 | ~42x | HEAVY |
+| simianlights | 11 | ~39x | HEAVY |
+| data-mesh | 6.4 | ~22x | MODERATE |
+| aurora-silk | 1.9 | ~6.5x | MODERATE |
+| neo-memphis | 1.0 | ~3.4x | CHEAP |
+| kaleidoscope | 0.96 | ~3.3x | CHEAP |
+| anamorphic-lensflare | 0.91 | ~3.1x | CHEAP |
+| godrays | 0.68 | ~2.4x | CHEAP |
+| outrun-grid | 0.53 | ~1.8x | CHEAP |
+| halftone-waves | 0.45 | ~1.6x | CHEAP |
+| plasma | 0.35 | 1x | CHEAP |
+
+**Caveats.** The meter runs each `.frag` at full meter resolution; at runtime,
+effects render at the resolution tier (much lower) and some run reduced-resolution
+passes (clouds is half-res in the live pipeline), so real device cost is a
+fraction of these numbers. Cost also moves with uniforms (mote count, raymarch
+steps, grid density), so a specific preset can land in a neighbouring tier. The
+`composite-*` and `blur` primitives are excluded: they sample the camera texture,
+so they cannot be metered standalone (`blur` is a full-res 13-tap in the pipeline).
+
+**Keeping it current.** These numbers are filled in by hand today. The intent is a
+`bench` tool (the analog of the thumbnail maker) that drives the shader:view meter
+headless, co-measures plasma, derives the ratio and tier, and writes the `Cost:`
+line — so a new shader gets benched the same way it gets a thumbnail. Because the
+ms is GPU-specific, the tool stamps the rig and date and the committed signal is
+the ratio.

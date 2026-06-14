@@ -5,6 +5,9 @@
 // ripple) by varying these uniforms; the two-tone palette is the big lever.
 // Shader source is shaders/halftone-waves.frag.
 
+// Cost: CHEAP -- ~0.45 ms/draw, ~1.6x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14).
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 

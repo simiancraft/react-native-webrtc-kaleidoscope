@@ -4,6 +4,9 @@
 // be color-matched to whatever sits behind it (e.g. the simianlights field in the
 // observation-deck composite). Shader source is ./anamorphic-lensflare.frag.
 
+// Cost: CHEAP -- ~0.91 ms/draw, ~3.1x plasma (shader:view meter
+// @1920, Intel UHD 770, default uniforms, 2026-06-14).
+// Rubric + full ranking: ../README.md ("Cost").
 import type { RGB } from '../../../src/lib/primitives.types';
 import type { UniformControl } from '../_shared/types';
 
