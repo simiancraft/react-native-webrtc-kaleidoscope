@@ -1,3 +1,16 @@
+# [2.7.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.6.1...v2.7.0) (2026-06-14)
+
+
+### Features
+
+* **shaders:** add data-mesh generative background ([714570c](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/714570c24ef9b87e52bc6b405f1355e9c691e7c1))
+
+
+### Performance Improvements
+
+* **data-mesh:** cut loop trips to lighten the budget ([3518cb0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/3518cb0d05d71476f5ddad23f41870ba5c007670))
+* **nebula:** skip dead per-cell color, drop one starfield layer ([e6cc474](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/e6cc474a3025141610607d1aa9464dcb2025378e)), closes [#74](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/74)
+
 ## [2.6.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.6.0...v2.6.1) (2026-06-14)
 
 
