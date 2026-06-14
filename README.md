@@ -265,6 +265,10 @@ A layer's `shader` is what it draws: `image` (a bundled WebP, takes a `source`),
 
 ## The three verbs
 
+<p align="center">
+  <code>kaleidoscope</code> &nbsp;•&nbsp; <code>transform</code> &nbsp;•&nbsp; <code>mask</code>
+</p>
+
 `bindKaleidoscope(track, { presets })` returns three functions. That is the whole runtime API.
 
 ```ts
