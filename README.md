@@ -342,7 +342,8 @@ const { hydrated, presetId, mask, setPreset, setMask, setPatch, patchesFor, rese
 // `controls` is the binding from bindKaleidoscope(track, { presets }); see Quick start.
 useEffect(() => {
   if (!hydrated || !controls) return; // wait: don't flash the default over the restored preset
-  // patchesFor is stable and read at apply time, so it stays out of the deps.
+  // patchesFor reads the active preset's patches from this render; live edits go
+  // through onPatch, not this re-apply, so it stays out of the deps.
   if (presetId) controls.kaleidoscope(presetId, patchesFor(presetId));
   else controls.kaleidoscope(null);
 }, [hydrated, controls, presetId]);

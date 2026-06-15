@@ -542,7 +542,7 @@
     "src",
     "catalog",
     "dist",
-    "android/src",
+    "android/src/main",
     "android/build.gradle",
     "ios",
     "app.plugin.js",

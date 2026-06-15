@@ -10,7 +10,8 @@
 //   const { hydrated, presetId, patchesFor, mask, ... } = useKaleidoscopeState<typeof presets>();
 //   useEffect(() => {
 //     if (!hydrated || !controls) return;
-//     // patchesFor is stable, read at apply time, so it stays out of the deps.
+//     // patchesFor reads this render's patches; live edits go through onPatch,
+//     // not this re-apply, so it stays out of the deps.
 //     if (presetId) controls.kaleidoscope(presetId, patchesFor(presetId));
 //     else controls.kaleidoscope(null);
 //   }, [hydrated, controls, presetId]);
