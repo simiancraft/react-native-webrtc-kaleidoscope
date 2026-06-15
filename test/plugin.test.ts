@@ -107,6 +107,72 @@ describe('withKaleidoscope iOS deployment-target patch', () => {
     const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
     expect(after['ios.deploymentTarget']).toBe('15.5');
   });
+
+  // Regression for issue #86: on RN >= 0.81 the generated Podfile already
+  // defaults `|| '15.1'`, above the pod's 15.0. Writing 15.0 into an unset key
+  // LOWERED that floor and failed pod install on ReactAppDependencyProvider. The
+  // patch must DEFER (leave the key unset) so the Podfile's own 15.1 stands.
+  test('defers to the Podfile floor when it already meets the pod (RN 0.81 / 15.1)', async () => {
+    fs.writeFileSync(
+      path.join(tmp.dir, 'Podfile'),
+      "platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'\n\ntarget 'Demo' do\nend\n",
+    );
+    const propsPath = path.join(tmp.dir, 'Podfile.properties.json');
+    fs.writeFileSync(propsPath, '{}\n');
+
+    await runIosDangerousMod(tmp.dir);
+
+    const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
+    expect(after['ios.deploymentTarget']).toBeUndefined();
+  });
+
+  // The bare `platform :ios, '16.0'` form (no `||`) must also be respected, and a
+  // floor strictly above the pod floor must never be pulled down to it.
+  test('does not lower a Podfile floor above the pod floor (bare platform 16.0)', async () => {
+    fs.writeFileSync(
+      path.join(tmp.dir, 'Podfile'),
+      "platform :ios, '16.0'\n\ntarget 'Demo' do\nend\n",
+    );
+    const propsPath = path.join(tmp.dir, 'Podfile.properties.json');
+    fs.writeFileSync(propsPath, '{}\n');
+
+    await runIosDangerousMod(tmp.dir);
+
+    const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
+    expect(after['ios.deploymentTarget']).toBeUndefined();
+  });
+
+  // The original reason the patch exists: when the Podfile floor is below the pod
+  // floor (RN 0.74 era, 13.4 < 15.0), the pod would be dropped, so force 15.0.
+  test('still forces the pod floor when the Podfile floor is below it (RN 0.74 / 13.4)', async () => {
+    fs.writeFileSync(
+      path.join(tmp.dir, 'Podfile'),
+      "platform :ios, podfile_properties['ios.deploymentTarget'] || '13.4'\n\ntarget 'Demo' do\nend\n",
+    );
+    const propsPath = path.join(tmp.dir, 'Podfile.properties.json');
+    fs.writeFileSync(propsPath, '{}\n');
+
+    await runIosDangerousMod(tmp.dir);
+
+    const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
+    expect(after['ios.deploymentTarget']).toBe('15.0');
+  });
+
+  // An explicit consumer value below the pod floor is still raised, regardless of
+  // the Podfile fallback floor.
+  test('raises an explicit value below the pod floor (14.0 -> 15.0)', async () => {
+    fs.writeFileSync(
+      path.join(tmp.dir, 'Podfile'),
+      "platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'\n\ntarget 'Demo' do\nend\n",
+    );
+    const propsPath = path.join(tmp.dir, 'Podfile.properties.json');
+    fs.writeFileSync(propsPath, `${JSON.stringify({ 'ios.deploymentTarget': '14.0' }, null, 2)}\n`);
+
+    await runIosDangerousMod(tmp.dir);
+
+    const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
+    expect(after['ios.deploymentTarget']).toBe('15.0');
+  });
 });
 
 // Build a temp consumer project: <root>/node_modules/<pkg> markers + <root>/ios.
