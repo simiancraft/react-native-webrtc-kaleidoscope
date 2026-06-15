@@ -1,3 +1,14 @@
+## [2.7.6](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.5...v2.7.6) (2026-06-15)
+
+
+### Bug Fixes
+
+* **readme:** align the verb count to four and state performance plainly ([fa9658e](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/fa9658e0c7f7f2a5b47913e3ff7a4fa49423819a))
+* **readme:** correct the aurora-night uniforms and note the track cast ([c408e67](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/c408e67b4735c4c82e80d877d2b0ee2e22e84d7a))
+* **readme:** correct the persistence deps rationale and stop shipping a test ([21066c4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/21066c4b4fb01ec82d37265a64c6cea2a23c6035))
+* **readme:** pack the remaining review items ([c3aa0a2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/c3aa0a25bce65e99b2b59237848be5f8c145e53c))
+* **readme:** state it's highly performant and correct the resolution-knob claim ([9d48dc7](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/9d48dc7dce43140e8fd8054e2c75a3113e844efd))
+
 ## [2.7.5](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.4...v2.7.5) (2026-06-15)
 
 
