@@ -1,3 +1,10 @@
+## [2.7.5](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.4...v2.7.5) (2026-06-15)
+
+
+### Bug Fixes
+
+* **readme:** make the LiveKit and patch code examples compile ([06c49e3](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/06c49e37f164e7034690de4a89e22d1c48c58507))
+
 ## [2.7.4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.3...v2.7.4) (2026-06-15)
 
 
