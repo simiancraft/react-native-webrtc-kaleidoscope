@@ -72,8 +72,8 @@ function render(presets: Preset[]): string {
     row.items.push(p);
   }
 
-  const trs: string[] = [];
-  for (const { label, items } of rows.values()) {
+  // One category renders as a right-aligned label cell + an icon-bar cell.
+  const cell = ({ label, items }: { label: string; items: Preset[] }): string => {
     const tiles = items
       .map((p) => {
         const thumb = thumbFor(p.id);
@@ -83,9 +83,17 @@ function render(presets: Preset[]): string {
         return `<a href="${DEMO}/?preset=${p.id}" title="${p.name}">${img}</a>`;
       })
       .join(' ');
-    trs.push(
-      `  <tr><td align="right" valign="middle"><sub><b>${label}</b></sub></td><td valign="middle">${tiles}</td></tr>`,
-    );
+    return `<td align="right" valign="middle"><sub><b>${label}</b></sub></td><td valign="middle">${tiles}</td>`;
+  };
+
+  // Two category blocks per row (4 columns), the list split in half so the
+  // table fills the page width and runs half as tall.
+  const cells = [...rows.values()].map(cell);
+  const half = Math.ceil(cells.length / 2);
+  const blank = '<td></td><td></td>';
+  const trs: string[] = [];
+  for (let i = 0; i < half; i++) {
+    trs.push(`  <tr>${cells[i] ?? blank}${cells[i + half] ?? blank}</tr>`);
   }
 
   const total = presets.length;
