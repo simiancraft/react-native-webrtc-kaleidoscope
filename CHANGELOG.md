@@ -1,3 +1,12 @@
+## [2.7.8](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.7...v2.7.8) (2026-06-15)
+
+
+### Bug Fixes
+
+* **ci:** keep the release commit out of the dev pre-commit gate ([2d75120](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/2d75120f629a829bfe74239ddc976c69331378d9))
+* **composites:** wire the clouds Daytime thumbnail ([7f4040d](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/7f4040d5915795e3696e3b0de8ebfcae195008ae))
+* **demo:** resolve picker thumbnails on native via bundled requires ([97761ca](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/97761ca31654ef677aec334cf8edc153cc0add95))
+
 ## [2.7.7](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.6...v2.7.7) (2026-06-15)
 
 
