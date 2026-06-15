@@ -76,7 +76,7 @@ export const presets = {
   'blur-low': {
     name: 'Low',
     taxonomy: ['Effects', 'Blur'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/blur-low.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/blur-low.thumb.webp'),
     controls: BlurForm,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 1.5 } },
@@ -86,7 +86,7 @@ export const presets = {
   'blur-medium': {
     name: 'Medium',
     taxonomy: ['Effects', 'Blur'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/blur-medium.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/blur-medium.thumb.webp'),
     controls: BlurForm,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 3.75 } },
@@ -96,7 +96,7 @@ export const presets = {
   'blur-high': {
     name: 'High',
     taxonomy: ['Effects', 'Blur'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/blur-high.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/blur-high.thumb.webp'),
     controls: BlurForm,
     layers: [
       { id: 'blur', shader: 'blur', target: 'background', uniforms: { sigma: 8 } },
@@ -120,67 +120,67 @@ export const presets = {
   'simiancraft-light': {
     name: 'Simiancraft Light',
     taxonomy: ['Backgrounds', 'Simiancraft'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/simiancraft-light.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/simiancraft-light.thumb.webp'),
     layers: [{ id: 'simiancraft-light', shader: 'image', source: simiancraftLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'simiancraft-dark': {
     name: 'Simiancraft Dark',
     taxonomy: ['Backgrounds', 'Simiancraft'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/simiancraft-dark.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/simiancraft-dark.thumb.webp'),
     layers: [{ id: 'simiancraft-dark', shader: 'image', source: simiancraftDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'office-dark': {
     name: 'Dark Office',
     taxonomy: ['Backgrounds', 'Office'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/office-dark.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/office-dark.thumb.webp'),
     layers: [{ id: 'office-dark', shader: 'image', source: officeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'office-light': {
     name: 'Light Office',
     taxonomy: ['Backgrounds', 'Office'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/office-light.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/office-light.thumb.webp'),
     layers: [{ id: 'office-light', shader: 'image', source: officeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'landscape-light': {
     name: 'Nature Light',
     taxonomy: ['Backgrounds', 'Nature'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/landscape-light.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/landscape-light.thumb.webp'),
     layers: [{ id: 'landscape-light', shader: 'image', source: landscapeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'landscape-dark': {
     name: 'Nature Dark',
     taxonomy: ['Backgrounds', 'Nature'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/landscape-dark.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/landscape-dark.thumb.webp'),
     layers: [{ id: 'landscape-dark', shader: 'image', source: landscapeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'home-light': {
     name: 'Home Light',
     taxonomy: ['Backgrounds', 'Home'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/home-light.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/home-light.thumb.webp'),
     layers: [{ id: 'home-light', shader: 'image', source: homeLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'home-dark': {
     name: 'Home Dark',
     taxonomy: ['Backgrounds', 'Home'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/home-dark.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/home-dark.thumb.webp'),
     layers: [{ id: 'home-dark', shader: 'image', source: homeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'sci-fi-light': {
     name: 'Landscape',
     taxonomy: ['Backgrounds', 'Sci-Fi'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/sci-fi-light.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/sci-fi-light.thumb.webp'),
     layers: [{ id: 'sci-fi-light', shader: 'image', source: sciFiLight }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'oceanscape-dark': {
     name: 'Underwater',
     taxonomy: ['Backgrounds', 'Oceanscape'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/oceanscape-dark.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/oceanscape-dark.thumb.webp'),
     layers: [{ id: 'oceanscape-dark', shader: 'image', source: oceanscapeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   'debug-resolutions': {
     name: 'Resolutions',
     taxonomy: ['Backgrounds', 'Debug'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/debug-resolutions.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/debug-resolutions.thumb.webp'),
     layers: [{ id: 'debug-resolutions', shader: 'image', source: debugResolutions }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
   // A demo-owned image (NOT part of the package), proving a consumer can add
@@ -189,7 +189,7 @@ export const presets = {
   'wolf-cave': {
     name: 'Wolf Cave',
     taxonomy: ['Backgrounds', 'User'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/wolf-cave.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/wolf-cave.thumb.webp'),
     layers: [{ id: 'wolf-cave', shader: 'image', source: wolfCave }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
 
@@ -203,7 +203,7 @@ export const presets = {
   'clouds-dawn': {
     name: 'Dawn',
     taxonomy: ['Shaders', 'Sky'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/clouds-dawn.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/clouds-dawn.thumb.webp'),
     controls: CloudsControls,
     layers: [
       {
@@ -229,7 +229,7 @@ export const presets = {
   'clouds-dusk': {
     name: 'Dusk',
     taxonomy: ['Shaders', 'Sky'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/clouds-dusk.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/clouds-dusk.thumb.webp'),
     controls: CloudsControls,
     layers: [
       {
@@ -255,7 +255,7 @@ export const presets = {
   'clouds-night': {
     name: 'Night',
     taxonomy: ['Shaders', 'Sky'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/clouds-night.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/clouds-night.thumb.webp'),
     controls: CloudsControls,
     layers: [
       {
@@ -281,7 +281,7 @@ export const presets = {
   'clouds-otherworld': {
     name: 'Otherworld',
     taxonomy: ['Shaders', 'Sky'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/clouds-otherworld.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/clouds-otherworld.thumb.webp'),
     controls: CloudsControls,
     layers: [
       {
@@ -307,7 +307,7 @@ export const presets = {
   'plasma-ocean': {
     name: 'Ocean',
     taxonomy: ['Shaders', 'Plasma'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/plasma-ocean.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/plasma-ocean.thumb.webp'),
     controls: PlasmaForm,
     layers: [
       {
@@ -321,7 +321,7 @@ export const presets = {
   'plasma-sunset': {
     name: 'Sunset',
     taxonomy: ['Shaders', 'Plasma'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/plasma-sunset.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/plasma-sunset.thumb.webp'),
     controls: PlasmaForm,
     layers: [
       {
@@ -335,7 +335,7 @@ export const presets = {
   'plasma-mint': {
     name: 'Mint',
     taxonomy: ['Shaders', 'Plasma'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/plasma-mint.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/plasma-mint.thumb.webp'),
     controls: PlasmaForm,
     layers: [
       {
@@ -349,7 +349,7 @@ export const presets = {
   'plasma-fast': {
     name: 'Fast',
     taxonomy: ['Shaders', 'Plasma'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/plasma-fast.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/plasma-fast.thumb.webp'),
     controls: PlasmaForm,
     layers: [
       {
@@ -363,7 +363,7 @@ export const presets = {
   'kaleidoscope-stained-glass': {
     name: 'Stained Glass',
     taxonomy: ['Shaders', 'Kaleidoscope'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/kaleidoscope-stained-glass.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/kaleidoscope-stained-glass.thumb.webp'),
     controls: KaleidoscopeForm,
     layers: [
       {
@@ -386,7 +386,7 @@ export const presets = {
   'kaleidoscope-mandala': {
     name: 'Mandala',
     taxonomy: ['Shaders', 'Kaleidoscope'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/kaleidoscope-mandala.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/kaleidoscope-mandala.thumb.webp'),
     controls: KaleidoscopeForm,
     layers: [
       {
@@ -409,7 +409,7 @@ export const presets = {
   'kaleidoscope-prism': {
     name: 'Prism',
     taxonomy: ['Shaders', 'Kaleidoscope'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/kaleidoscope-prism.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/kaleidoscope-prism.thumb.webp'),
     controls: KaleidoscopeForm,
     layers: [
       {
@@ -432,7 +432,7 @@ export const presets = {
   'neo-memphis-jazz-cup': {
     name: 'Jazz Cup',
     taxonomy: ['Shaders', 'Neo-Memphis'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/neo-memphis-jazz-cup.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/neo-memphis-jazz-cup.thumb.webp'),
     controls: NeoMemphisForm,
     layers: [
       {
@@ -456,7 +456,7 @@ export const presets = {
   'neo-memphis-bauhaus': {
     name: 'Bauhaus',
     taxonomy: ['Shaders', 'Neo-Memphis'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/neo-memphis-bauhaus.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/neo-memphis-bauhaus.thumb.webp'),
     controls: NeoMemphisForm,
     layers: [
       {
@@ -480,7 +480,7 @@ export const presets = {
   'neo-memphis-confetti': {
     name: 'Confetti',
     taxonomy: ['Shaders', 'Neo-Memphis'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/neo-memphis-confetti.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/neo-memphis-confetti.thumb.webp'),
     controls: NeoMemphisForm,
     layers: [
       {
@@ -504,7 +504,7 @@ export const presets = {
   'halftone-boardroom': {
     name: 'Boardroom',
     taxonomy: ['Shaders', 'Halftone'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/halftone-boardroom.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/halftone-boardroom.thumb.webp'),
     controls: HalftoneWavesForm,
     layers: [
       {
@@ -528,7 +528,7 @@ export const presets = {
   'halftone-press': {
     name: 'Press',
     taxonomy: ['Shaders', 'Halftone'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/halftone-press.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/halftone-press.thumb.webp'),
     controls: HalftoneWavesForm,
     layers: [
       {
@@ -552,7 +552,7 @@ export const presets = {
   'halftone-ripple': {
     name: 'Ripple',
     taxonomy: ['Shaders', 'Halftone'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/halftone-ripple.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/halftone-ripple.thumb.webp'),
     controls: HalftoneWavesForm,
     layers: [
       {
@@ -576,7 +576,7 @@ export const presets = {
   'aurora-corporate-silk': {
     name: 'Corporate Silk',
     taxonomy: ['Shaders', 'Aurora'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/aurora-corporate-silk.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/aurora-corporate-silk.thumb.webp'),
     controls: AuroraSilkForm,
     layers: [
       {
@@ -600,7 +600,7 @@ export const presets = {
   'aurora-dusk': {
     name: 'Dusk',
     taxonomy: ['Shaders', 'Aurora'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/aurora-dusk.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/aurora-dusk.thumb.webp'),
     controls: AuroraSilkForm,
     layers: [
       {
@@ -624,7 +624,7 @@ export const presets = {
   'aurora-polar': {
     name: 'Polar',
     taxonomy: ['Shaders', 'Aurora'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/aurora-polar.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/aurora-polar.thumb.webp'),
     controls: AuroraSilkForm,
     layers: [
       {
@@ -651,7 +651,7 @@ export const presets = {
   'outrun-classic': {
     name: 'Classic',
     taxonomy: ['Shaders', 'Outrun'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-classic.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/outrun-classic.thumb.webp'),
     controls: OutrunGridForm,
     layers: [
       {
@@ -678,7 +678,7 @@ export const presets = {
   'outrun-miami': {
     name: 'Miami',
     taxonomy: ['Shaders', 'Outrun'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-miami.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/outrun-miami.thumb.webp'),
     controls: OutrunGridForm,
     layers: [
       {
@@ -705,7 +705,7 @@ export const presets = {
   'outrun-circuit': {
     name: 'Circuit',
     taxonomy: ['Shaders', 'Outrun'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-circuit.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/outrun-circuit.thumb.webp'),
     controls: OutrunGridForm,
     layers: [
       {
@@ -732,7 +732,7 @@ export const presets = {
   'outrun-acid': {
     name: 'Acid',
     taxonomy: ['Shaders', 'Outrun'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-acid.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/outrun-acid.thumb.webp'),
     controls: OutrunGridForm,
     layers: [
       {
@@ -759,7 +759,7 @@ export const presets = {
   'outrun-vapor': {
     name: 'Vapor',
     taxonomy: ['Shaders', 'Outrun'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/outrun-vapor.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/outrun-vapor.thumb.webp'),
     controls: OutrunGridForm,
     layers: [
       {
@@ -789,7 +789,7 @@ export const presets = {
   'nebula-ember': {
     name: 'Ember',
     taxonomy: ['Shaders', 'Nebula'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/nebula-ember.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/nebula-ember.thumb.webp'),
     controls: NebulaControls,
     layers: [
       {
@@ -810,7 +810,7 @@ export const presets = {
   'nebula-drift': {
     name: 'Drift',
     taxonomy: ['Shaders', 'Nebula'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/nebula-drift.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/nebula-drift.thumb.webp'),
     controls: NebulaControls,
     layers: [
       {
@@ -833,7 +833,7 @@ export const presets = {
   'simianlights-glacier': {
     name: 'Glacier',
     taxonomy: ['Shaders', 'Simianlights'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/simianlights-glacier.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/simianlights-glacier.thumb.webp'),
     controls: SimianlightsControls,
     layers: [
       {
@@ -854,7 +854,7 @@ export const presets = {
   'simianlights-hearth': {
     name: 'Hearth',
     taxonomy: ['Shaders', 'Simianlights'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/simianlights-hearth.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/simianlights-hearth.thumb.webp'),
     controls: SimianlightsControls,
     layers: [
       {
@@ -880,7 +880,7 @@ export const presets = {
   'interior-home': {
     name: 'Home',
     taxonomy: ['Worlds', 'Interior'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/interior-home.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/interior-home.thumb.webp'),
     controls: LightBeamsAndMotesForm,
     layers: [
       { id: 'home-light', shader: 'image', source: homeLight },
@@ -915,7 +915,7 @@ export const presets = {
   'interior-office': {
     name: 'Office',
     taxonomy: ['Worlds', 'Interior'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/interior-office.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/interior-office.thumb.webp'),
     controls: LightBeamsAndMotesForm,
     layers: [
       { id: 'office-light', shader: 'image', source: officeLight },
@@ -950,7 +950,7 @@ export const presets = {
   'interior-ab-shaft': {
     name: 'A/B 1-shaft',
     taxonomy: ['Worlds', 'Interior'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/interior-ab-shaft.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/interior-ab-shaft.thumb.webp'),
     controls: LightBeamsAndMotesForm,
     layers: [
       { id: 'office-dark', shader: 'image', source: officeDark },
@@ -985,7 +985,7 @@ export const presets = {
   'interior-ab-3beam': {
     name: 'A/B 3-beam',
     taxonomy: ['Worlds', 'Interior'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/interior-ab-3beam.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/interior-ab-3beam.thumb.webp'),
     controls: LightBeamsAndMotesForm,
     layers: [
       { id: 'office-dark', shader: 'image', source: officeDark },
@@ -1023,7 +1023,7 @@ export const presets = {
   'data-mesh-datafield': {
     name: 'Datafield',
     taxonomy: ['Shaders', 'Data-Mesh'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/data-mesh-datafield.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/data-mesh-datafield.thumb.webp'),
     controls: DataMeshForm,
     layers: [
       {
@@ -1059,7 +1059,7 @@ export const presets = {
   'data-mesh-boardroom': {
     name: 'Boardroom',
     taxonomy: ['Shaders', 'Data-Mesh'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/data-mesh-boardroom.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/data-mesh-boardroom.thumb.webp'),
     controls: DataMeshForm,
     layers: [
       {
@@ -1095,7 +1095,7 @@ export const presets = {
   'data-mesh-acid': {
     name: 'Acid',
     taxonomy: ['Shaders', 'Data-Mesh'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/data-mesh-acid.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/data-mesh-acid.thumb.webp'),
     controls: DataMeshForm,
     layers: [
       {
@@ -1131,7 +1131,7 @@ export const presets = {
   'data-mesh-cobalt': {
     name: 'Cobalt',
     taxonomy: ['Shaders', 'Data-Mesh'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/data-mesh-cobalt.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/data-mesh-cobalt.thumb.webp'),
     controls: DataMeshForm,
     layers: [
       {
@@ -1167,7 +1167,7 @@ export const presets = {
   'data-mesh-slate': {
     name: 'Slate',
     taxonomy: ['Shaders', 'Data-Mesh'],
-    thumbnail: Asset.fromModule(require('./assets/thumbnails/data-mesh-slate.thumb.webp')).uri,
+    thumbnail: require('./assets/thumbnails/data-mesh-slate.thumb.webp'),
     controls: DataMeshForm,
     layers: [
       {
