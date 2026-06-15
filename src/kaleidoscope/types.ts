@@ -1,4 +1,4 @@
-// The three-verb surface: types.
+// The four-verb surface: types.
 //
 // Bind a track and a preset book once; get three typed verbs back:
 //   - kaleidoscope(cmd, patches?)  the art axis: which composite (layer stack)
@@ -88,7 +88,7 @@ type KaleidoscopeCommand<P extends KaleidoscopePresetBook> = <K extends keyof P>
 ) => void;
 
 /**
- * The three verbs for one bound track and book, plus the live track and a
+ * The four verbs for one bound track and book, plus the live track and a
  * teardown. `kaleidoscope` (preset switch) and `transform` rebuild the composite
  * (web yields a new track via onTrack); a `kaleidoscope` patch of the active
  * preset and `mask` both update what the running composite reads each frame, so

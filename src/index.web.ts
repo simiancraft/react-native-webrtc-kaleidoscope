@@ -152,7 +152,7 @@ export const applyVideoEffectsDisposable = (
 };
 
 /**
- * Bind a track and a preset book; get the three verbs back
+ * Bind a track and a preset book; get the four verbs back
  * (`{ kaleidoscope, transform, mask }`). Presets live in the consumer's
  * project; these verbs drive them. On web each `kaleidoscope` preset switch and
  * each `transform` command rebuilds the Insertable-Streams pipeline and yields a

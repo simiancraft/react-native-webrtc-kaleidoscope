@@ -348,7 +348,7 @@ Route the picker's `onSelect` into `setPreset`, the editor's `onPatch` into `set
 
 ## Performance
 
-The product is the masked-background composite, and its cost is something you can see, not guess.
+It runs in real time on every supported platform, down to an iPhone X. Absolute frame rate is device-dependent, so the kit gives you **relative** cost instead: each shader is annotated against a cheap baseline, so you can compare effects and budget the heavy ones.
 
 - **Annotated shader cost.** Each generative shader's `.ts` carries a measured GPU cost annotation (relative to `plasma` as the cheap baseline), so you know what a preset spends before you ship it.
 - **One resolution knob.** Raw shader compute scales with output resolution, handled by the resolution tier (`targetShortSide`), not by per-effect orientation tricks. Drop the tier on weak GPUs; the mask and composite logic are unchanged.

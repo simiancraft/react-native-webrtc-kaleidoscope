@@ -192,7 +192,7 @@ const specToNativeName = (spec: ReturnType<typeof toEffectSpec>): string => {
 const lastAppliedSignatureByTrack = new WeakMap<object, string>();
 
 // The lower-level native primitive: route a spec array through the upstream
-// `_setVideoEffects`. Internal now (the public surface is the three verbs);
+// `_setVideoEffects`. Internal now (the public surface is the four verbs);
 // `bindKaleidoscope`'s reconcile drives it.
 const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
   const t = track as MediaStreamTrack & WebRTCTrackExtensions;
@@ -264,7 +264,7 @@ const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
 };
 
 /**
- * Bind a track and a preset book; get the three verbs back
+ * Bind a track and a preset book; get the four verbs back
  * (`{ kaleidoscope, transform, mask }`). On native the track is mutated in
  * place, so `controls.track` is the bound track and `onTrack` fires with it
  * after each `kaleidoscope` preset switch and `transform` command. `mask`
