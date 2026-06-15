@@ -69,7 +69,7 @@ The demo book ships the gallery below; **every tile is a live link**, so click o
   <tr><td align="right" valign="middle"><sub><b>Nature</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=landscape-light" title="Nature Light"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/landscape-light.thumb.webp" alt="Nature Light" title="Nature Light" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=landscape-dark" title="Nature Dark"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/landscape-dark.thumb.webp" alt="Nature Dark" title="Nature Dark" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Home</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=home-light" title="Home Light"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/home-light.thumb.webp" alt="Home Light" title="Home Light" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=home-dark" title="Home Dark"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/home-dark.thumb.webp" alt="Home Dark" title="Home Dark" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Sci-Fi</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=sci-fi-light" title="Landscape"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/sci-fi-light.thumb.webp" alt="Landscape" title="Landscape" width="58" /></a></td></tr>
-  <tr><td align="right" valign="middle"><sub><b>Ocean</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=oceanscape-dark" title="Underwater"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/oceanscape-dark.thumb.webp" alt="Underwater" title="Underwater" width="58" /></a></td></tr>
+  <tr><td align="right" valign="middle"><sub><b>Oceanscape</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=oceanscape-dark" title="Underwater"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/oceanscape-dark.thumb.webp" alt="Underwater" title="Underwater" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Debug</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=debug-resolutions" title="Resolutions"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/debug-resolutions.thumb.webp" alt="Resolutions" title="Resolutions" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Sky</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds" title="Daytime"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/catalog/composites/clouds/clouds.thumb.webp" alt="Daytime" title="Daytime" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-dawn" title="Dawn"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-dawn.thumb.webp" alt="Dawn" title="Dawn" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-dusk" title="Dusk"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-dusk.thumb.webp" alt="Dusk" title="Dusk" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-night" title="Night"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-night.thumb.webp" alt="Night" title="Night" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-otherworld" title="Otherworld"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-otherworld.thumb.webp" alt="Otherworld" title="Otherworld" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Plasma</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-ocean" title="Ocean"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-ocean.thumb.webp" alt="Ocean" title="Ocean" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-sunset" title="Sunset"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-sunset.thumb.webp" alt="Sunset" title="Sunset" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-mint" title="Mint"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-mint.thumb.webp" alt="Mint" title="Mint" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-fast" title="Fast"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-fast.thumb.webp" alt="Fast" title="Fast" width="58" /></a></td></tr>
@@ -204,15 +204,16 @@ On web, LiveKit owns the `RTCRtpSender`, so you cannot swap the track yourself; 
 import { KaleidoscopeProcessor, setMaskTuning } from 'react-native-webrtc-kaleidoscope/livekit';
 
 // A processor effect is a `composite` spec: the same layer stack a preset projects into.
-const composite = {
-  name: 'composite',
-  layers: [
-    { id: 'bg', shader: 'blur', uniforms: { sigma: 8 } },
-    { id: 'you', shader: 'direct', target: 'subject' },
-  ],
-};
 await localVideoTrack.setProcessor(
-  new KaleidoscopeProcessor([composite]),
+  new KaleidoscopeProcessor([
+    {
+      name: 'composite',
+      layers: [
+        { id: 'bg', shader: 'blur', uniforms: { sigma: 8 } },
+        { id: 'you', shader: 'direct', target: 'subject' },
+      ],
+    },
+  ]),
   true,
 );
 setMaskTuning({ hardness: 0.2, threshold: 0.85 }); // the processor-path twin of `mask`
@@ -256,7 +257,7 @@ const { kaleidoscope, transform, mask, dispose } =
 
 kaleidoscope('wizard-tower');          // a preset id
 kaleidoscope('blur-soft', [            // patch a layer live, by id
-  { id: 'bg', shader: 'blur', uniforms: { sigma: 9 } },
+  { id: 'bg', uniforms: { sigma: 9 } },
 ]);
 kaleidoscope(null);                    // clear the art
 
