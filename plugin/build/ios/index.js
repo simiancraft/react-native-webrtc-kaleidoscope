@@ -48,7 +48,8 @@ function withKaleidoscopeIos(config) {
           );
         }
       }
-      if (platformProjectRoot) (0, deployment_target_1.bumpDeploymentTarget)(platformProjectRoot);
+      if (platformProjectRoot)
+        (0, deployment_target_1.bumpDeploymentTarget)(platformProjectRoot, projectRoot);
       if (projectRoot && platformProjectRoot) {
         try {
           (0, assets_1.copyIosAssets)(projectRoot, platformProjectRoot);

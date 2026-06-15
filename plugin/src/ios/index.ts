@@ -33,7 +33,7 @@ export function withKaleidoscopeIos(config: ExpoConfig): ExpoConfig {
       }
     }
 
-    if (platformProjectRoot) bumpDeploymentTarget(platformProjectRoot);
+    if (platformProjectRoot) bumpDeploymentTarget(platformProjectRoot, projectRoot);
 
     if (projectRoot && platformProjectRoot) {
       try {

@@ -16,10 +16,19 @@ exports.bumpDeploymentTarget = bumpDeploymentTarget;
 const node_fs_1 = __importDefault(require('node:fs'));
 const node_path_1 = __importDefault(require('node:path'));
 const constants_1 = require('../lib/constants');
-// Mirrors ios/Kaleidoscope.podspec :ios => '15.0'. Bumping the podspec requires
-// bumping this constant; the drift cost is a silent pod-install drop (the bug
-// this plugin fixes): expo-modules-autolinking drops any pod whose declared
-// minimum platform exceeds the Podfile platform.
+// The LIBRARY's own iOS floor; mirrors ios/Kaleidoscope.podspec :ios => '15.0'
+// (Metal effect pipeline + Vision person segmentation). This is only a FLOOR:
+// the value actually written is max(this, the host React Native's iOS floor),
+// so the plugin can never lower the Podfile platform below what RN's own core
+// pods require.
+//
+// Why the max matters: expo-modules-autolinking drops any pod whose declared
+// minimum platform EXCEEDS the Podfile platform, so the plugin must raise the
+// Podfile to keep the Kaleidoscope pod. But RN moves its floor between versions
+// (13.4 on 0.74, 15.1 on 0.81); writing a hardcoded 15.0 on a host whose floor
+// is 15.1 LOWERS the platform and breaks pod install on RN's core pods
+// (ReactAppDependencyProvider et al). Taking the max fixes that for any current
+// or future RN floor.
 const IOS_DEPLOYMENT_TARGET = '15.0';
 /**
  * Compare two dotted version strings element-wise. Returns true iff `existing`
@@ -41,6 +50,40 @@ function isVersionLessThan(existing, target) {
   }
   return false; // equal
 }
+/** The larger of two dotted version strings (ties return `a`). */
+function maxVersion(a, b) {
+  return isVersionLessThan(a, b) ? b : a;
+}
+/**
+ * Read the host React Native's iOS floor (`Helpers::Constants
+ * .min_ios_version_supported` in `scripts/cocoapods/helpers.rb`), resolved from
+ * the CONSUMER's installed `react-native`. Returns the dotted version, or
+ * `undefined` if RN cannot be resolved or the constant cannot be parsed.
+ *
+ * Deliberately dependency-free: resolves a path and reads a file (mirrors how
+ * assets.ts resolves `@expo/config-plugins`), so the plugin stays loadable on
+ * an EAS worker. The generated Podfile defaults the platform to RN's floor when
+ * `ios.deploymentTarget` is unset; reading the same value here lets the plugin
+ * write max(library floor, RN floor) instead of a stale hardcoded constant.
+ */
+function readReactNativeIosFloor(projectRoot) {
+  try {
+    const rnPkg = require.resolve('react-native/package.json', { paths: [projectRoot] });
+    const helpers = node_path_1.default.join(
+      node_path_1.default.dirname(rnPkg),
+      'scripts',
+      'cocoapods',
+      'helpers.rb',
+    );
+    const raw = node_fs_1.default.readFileSync(helpers, 'utf8');
+    const match = raw.match(
+      /min_ios_version_supported[\s\S]*?return\s+['"]([0-9]+(?:\.[0-9]+)*)['"]/,
+    );
+    return match?.[1];
+  } catch {
+    return undefined;
+  }
+}
 /**
  * Raise `ios.deploymentTarget` in Podfile.properties.json to the library
  * minimum. The generated Podfile reads `podfile_properties['ios.deploymentTarget']`
@@ -52,8 +95,14 @@ function isVersionLessThan(existing, target) {
  * missing file (treat as `{}` and write the bump) from an unreadable one (bail
  * without clobbering); a distinction readTextOrNull deliberately flattens.
  */
-function bumpDeploymentTarget(platformProjectRoot) {
+function bumpDeploymentTarget(platformProjectRoot, projectRoot) {
   const propsPath = node_path_1.default.join(platformProjectRoot, 'Podfile.properties.json');
+  // Never write below the host RN's floor. `platformProjectRoot` is `<root>/ios`,
+  // so its parent is the JS project root when an explicit `projectRoot` is absent.
+  const rnFloor = readReactNativeIosFloor(
+    projectRoot ?? node_path_1.default.dirname(platformProjectRoot),
+  );
+  const target = rnFloor ? maxVersion(IOS_DEPLOYMENT_TARGET, rnFloor) : IOS_DEPLOYMENT_TARGET;
   try {
     let parsed = {};
     try {
@@ -91,15 +140,13 @@ function bumpDeploymentTarget(platformProjectRoot) {
       next[key] = parsed[key];
     }
     const existing = next['ios.deploymentTarget'];
-    if (
-      isVersionLessThan(typeof existing === 'string' ? existing : undefined, IOS_DEPLOYMENT_TARGET)
-    ) {
-      next['ios.deploymentTarget'] = IOS_DEPLOYMENT_TARGET;
+    if (isVersionLessThan(typeof existing === 'string' ? existing : undefined, target)) {
+      next['ios.deploymentTarget'] = target;
     }
     node_fs_1.default.writeFileSync(propsPath, `${JSON.stringify(next, null, 2)}\n`);
   } catch (error) {
     console.warn(
-      `${constants_1.LOG_TAG} Could not patch ${propsPath} to raise iOS deployment target; add "ios.deploymentTarget": "${IOS_DEPLOYMENT_TARGET}" to Podfile.properties.json manually. ${String(error)}`,
+      `${constants_1.LOG_TAG} Could not patch ${propsPath} to raise iOS deployment target; add "ios.deploymentTarget": "${target}" to Podfile.properties.json manually. ${String(error)}`,
     );
   }
 }

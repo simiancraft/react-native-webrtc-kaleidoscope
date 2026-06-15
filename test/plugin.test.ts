@@ -42,23 +42,38 @@ end
 // The mod chains a previous mod (none here), then patches files at
 // `platformProjectRoot`. The returned config is irrelevant for these tests —
 // we assert on the files it wrote.
-const runIosDangerousMod = async (platformProjectRoot: string) => {
+const runIosDangerousMod = async (platformProjectRoot: string, projectRoot?: string) => {
   const config = withKaleidoscope({ name: 'demo', slug: 'demo' } as Parameters<
     typeof withKaleidoscope
   >[0]);
   const mods = (config as { mods?: { ios?: { dangerous?: unknown } } }).mods;
   const dangerous = mods?.ios?.dangerous as (modConfig: unknown) => Promise<unknown>;
   expect(typeof dangerous).toBe('function');
-  // `projectRoot` is left undefined so resolveWebrtcPod returns the default
-  // (no fork lookup against node_modules). Podfile.properties.json patching
-  // is independent of the Podfile patch.
+  // `projectRoot` defaults to undefined so resolveWebrtcPod returns the default
+  // (no fork lookup against node_modules). The deployment-target bump reads the
+  // host RN floor from `projectRoot`; pass one to exercise that path.
   await dangerous({
     modResults: {},
     modRequest: {
       platformProjectRoot,
-      projectRoot: undefined,
+      projectRoot,
     },
   });
+};
+
+// Stage a fake `react-native` under `<root>/node_modules` exposing the given
+// iOS floor via scripts/cocoapods/helpers.rb, the same file the plugin reads.
+const stageReactNative = (root: string, iosFloor: string) => {
+  const rnRoot = path.join(root, 'node_modules', 'react-native');
+  fs.mkdirSync(path.join(rnRoot, 'scripts', 'cocoapods'), { recursive: true });
+  fs.writeFileSync(
+    path.join(rnRoot, 'package.json'),
+    `${JSON.stringify({ name: 'react-native', version: '0.0.0', main: 'index.js' })}\n`,
+  );
+  fs.writeFileSync(
+    path.join(rnRoot, 'scripts', 'cocoapods', 'helpers.rb'),
+    `module Helpers\n  class Constants\n    def self.min_ios_version_supported\n      return '${iosFloor}'\n    end\n  end\nend\n`,
+  );
 };
 
 describe('withKaleidoscope iOS deployment-target patch', () => {
@@ -106,6 +121,32 @@ describe('withKaleidoscope iOS deployment-target patch', () => {
 
     const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
     expect(after['ios.deploymentTarget']).toBe('15.5');
+  });
+
+  test('raises to the host RN floor when it exceeds the library floor (RN 0.81 -> 15.1)', async () => {
+    // Regression for #86: a hardcoded 15.0 lowered RN 0.81's 15.1 floor and
+    // broke pod install on ReactAppDependencyProvider.
+    stageReactNative(tmp.dir, '15.1');
+    fs.writeFileSync(path.join(tmp.dir, 'Podfile'), STUB_PODFILE);
+    const propsPath = path.join(tmp.dir, 'Podfile.properties.json');
+    fs.writeFileSync(propsPath, '{}\n');
+
+    await runIosDangerousMod(tmp.dir, tmp.dir);
+
+    const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
+    expect(after['ios.deploymentTarget']).toBe('15.1');
+  });
+
+  test('keeps the library floor when the host RN floor is lower (RN 0.74 -> 15.0)', async () => {
+    stageReactNative(tmp.dir, '13.4');
+    fs.writeFileSync(path.join(tmp.dir, 'Podfile'), STUB_PODFILE);
+    const propsPath = path.join(tmp.dir, 'Podfile.properties.json');
+    fs.writeFileSync(propsPath, '{}\n');
+
+    await runIosDangerousMod(tmp.dir, tmp.dir);
+
+    const after = JSON.parse(fs.readFileSync(propsPath, 'utf8')) as Record<string, unknown>;
+    expect(after['ios.deploymentTarget']).toBe('15.0');
   });
 });
 
