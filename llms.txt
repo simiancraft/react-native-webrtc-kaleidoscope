@@ -484,7 +484,7 @@ Each book entry is a `KaleidoscopePreset`:
 
 - `name`: human label shown in the picker.
 - `taxonomy`: the picker's grouping path, root first: `[group]` or `[group, category]` (e.g. `['Backgrounds', 'Office']`). Group is the tab; category is the second-level menu. (This field is named `taxonomy`, NOT `category`.)
-- `thumbnail?`: optional preview source for the picker tile.
+- `thumbnail?`: optional preview source for the picker tile. Pass a bundled-asset reference: a bare `require('./thumb.webp')` (what `bun run thumbs` emits) or an imported image module (`thumbnail: officeDark`). Do NOT use `Asset.fromModule(require('./thumb.webp')).uri` in a single-file book; that string renders on web but is empty in a native release build.
 - `controls?`: optional editor component for the live-controls panel (see below).
 - `layers`: the painter's stack, rendered back to front. A layer is `{ id, shader, target?, blend? }` plus the shader's own fields:
   - `shader: 'image'` takes a `source` (a bundled image id on native; a URL/data-URI also allowed on web).

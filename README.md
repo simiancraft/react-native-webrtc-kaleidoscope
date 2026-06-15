@@ -284,6 +284,7 @@ The demo book's [`wolf-cave`](./demo/kaleidoscope.preset-book.ts) is a runnable 
 - **Bundled images** ship as tree-shakeable `image` layers, filed by category and imported per image (`import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`). On web a `source` can also be any image URL or data URI; native resolves bundled ids only. See [`catalog/images/README.md`](./catalog/images/README.md).
 - **New shaders** drop a single `.frag` + typed `.ts` into `catalog/shaders/<name>/`; `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal. The canonical upright frame and the mask stencil come for free; you write zero orientation code. See [`catalog/shaders/README.md`](./catalog/shaders/README.md).
 - **Packaged composites** (the Worlds) live in `catalog/composites/<name>/` behind a `./composites/<name>` subpath export; import and spread one into your book.
+- **Thumbnails** are a bundled-asset reference, not a URL string: pass a bare `require('./thumb.webp')` (what `bun run thumbs` emits), or an imported image module (`thumbnail: officeDark`). Both resolve on every platform; native loads the bundled asset, web the asset pipeline. Do **not** wrap the require in `Asset.fromModule(require('./thumb.webp')).uri` in a single-file book: the resolved string renders on web but is empty in a native release build.
 
 After adding a preset to the demo book, regenerate its thumbnail and this README's gallery: `bun run thumbs && bun run gen:waffle` (see [Authoring tooling](#authoring-tooling)).
 
