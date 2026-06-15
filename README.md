@@ -258,7 +258,9 @@ mask({ hardness: 0.5, threshold: 0.5 });
 dispose();                             // on unmount
 ```
 
-Many uniforms are normalized `0..1`; others (`sigma`, scales, counts) carry natural units, and JSDoc documents each range. `mask` defaults to `0.5 / 0.5`; nudge it to match your camera and lighting.
+Many uniforms are normalized `0..1`; others carry natural units (blur's `sigma` runs `0.5..10`; scales and counts vary), and JSDoc documents each range. `mask` defaults to `0.5 / 0.5`; nudge it to match your camera and lighting.
+
+On native today, `dispose()` is a no-op (the bound track is mutated in place, never torn down) and a `kaleidoscope` patch bakes into the next stack rebuild instead of tuning live; both are fully live on web.
 
 ## Make your own presets
 
@@ -337,8 +339,10 @@ import { useKaleidoscopeState } from 'react-native-webrtc-kaleidoscope/persisten
 const { hydrated, presetId, mask, setPreset, setMask, setPatch, patchesFor, reset } =
   useKaleidoscopeState<typeof presets>();
 
+// `controls` is the binding from bindKaleidoscope(track, { presets }); see Quick start.
 useEffect(() => {
   if (!hydrated || !controls) return; // wait: don't flash the default over the restored preset
+  // patchesFor is stable and read at apply time, so it stays out of the deps.
   if (presetId) controls.kaleidoscope(presetId, patchesFor(presetId));
   else controls.kaleidoscope(null);
 }, [hydrated, controls, presetId]);

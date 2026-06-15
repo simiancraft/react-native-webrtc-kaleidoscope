@@ -538,14 +538,10 @@
     "./expo-module.config.json": "./expo-module.config.json",
     "./package.json": "./package.json"
   },
-  "bin": {
-    "kaleidoscope-thumbnails": "./tools/thumbnails/make-thumbnails.ts"
-  },
   "files": [
     "src",
     "catalog",
     "dist",
-    "tools",
     "android/src",
     "android/build.gradle",
     "ios",
