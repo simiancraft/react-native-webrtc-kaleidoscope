@@ -115,4 +115,8 @@ jobs:
       - name: Semantic Release
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          # @semantic-release/git makes the `chore(release)` commit; the lefthook
+          # pre-commit dev gate must not run in release automation (it assumes a
+          # full dev install, e.g. the demo's deps). Disable lefthook for this step.
+          LEFTHOOK: '0'
         run: npx semantic-release
