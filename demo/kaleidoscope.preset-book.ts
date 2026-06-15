@@ -173,7 +173,7 @@ export const presets = {
   },
   'oceanscape-dark': {
     name: 'Underwater',
-    taxonomy: ['Backgrounds', 'Ocean'],
+    taxonomy: ['Backgrounds', 'Oceanscape'],
     thumbnail: Asset.fromModule(require('./assets/thumbnails/oceanscape-dark.thumb.webp')).uri,
     layers: [{ id: 'oceanscape-dark', shader: 'image', source: oceanscapeDark }, { id: 'you', shader: 'direct', target: 'subject' }],
   },
