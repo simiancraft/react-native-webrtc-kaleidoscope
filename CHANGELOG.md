@@ -1,3 +1,10 @@
+## [2.7.4](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.3...v2.7.4) (2026-06-15)
+
+
+### Bug Fixes
+
+* **readme:** correct the LiveKit example, document dispose, and tighten the surface ([39323a2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/39323a28ce0d84753e50de762656e420431019bd))
+
 ## [2.7.3](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.2...v2.7.3) (2026-06-14)
 
 
