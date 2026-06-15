@@ -348,10 +348,10 @@ Route the picker's `onSelect` into `setPreset`, the editor's `onPatch` into `set
 
 ## Performance
 
-It runs in real time on every supported platform, down to an iPhone X. Absolute frame rate is device-dependent, so the kit gives you **relative** cost instead: each shader is annotated against a cheap baseline, so you can compare effects and budget the heavy ones.
+**Highly performant.** The lightweight presets (the plasma family and the simpler shaders) run at a high frame rate even on an iPhone X. Absolute frame rate is device-dependent, so the kit ships **relative** per-shader cost: each shader is annotated against a cheap baseline, so you can compare effects and keep the heavy ones in budget.
 
 - **Annotated shader cost.** Each generative shader's `.ts` carries a measured GPU cost annotation (relative to `plasma` as the cheap baseline), so you know what a preset spends before you ship it.
-- **One resolution knob.** Raw shader compute scales with output resolution, handled by the resolution tier (`targetShortSide`), not by per-effect orientation tricks. Drop the tier on weak GPUs; the mask and composite logic are unchanged.
+- **A segmentation-cost knob.** The mask is produced from the camera downscaled to `targetShortSide`; lower it on weak GPUs to cut segmentation cost, at a slightly softer mask edge. A heavy shader is its own cost; reach for a lighter preset if a device struggles.
 - **Bounded work per frame.** Compositing is per-layer through a single mask stencil; a new shader inherits the pipeline's frame budget rather than adding a pass of its own.
 
 ## Authoring tooling

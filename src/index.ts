@@ -265,7 +265,7 @@ const applyVideoEffects: ApplyVideoEffects = (track, effects) => {
 
 /**
  * Bind a track and a preset book; get the four verbs back
- * (`{ kaleidoscope, transform, mask }`). On native the track is mutated in
+ * (`{ kaleidoscope, transform, mask, dispose }`). On native the track is mutated in
  * place, so `controls.track` is the bound track and `onTrack` fires with it
  * after each `kaleidoscope` preset switch and `transform` command. `mask`
  * updates the segmentation edge the per-frame processors read.
