@@ -32,12 +32,17 @@ type Preset = { id: string; name: string; group: string; category: string };
 /** Execute the book and read each preset's canonical id, name, and taxonomy. */
 async function parseBook(): Promise<Preset[]> {
   const book = await loadPresetBook(BOOK);
-  return Object.entries(book).map(([id, p]) => ({
-    id,
-    name: p.name,
-    group: p.taxonomy[0] ?? 'Other',
-    category: p.taxonomy[1] ?? p.taxonomy[0] ?? 'Other',
-  }));
+  return (
+    Object.entries(book)
+      .map(([id, p]) => ({
+        id,
+        name: p.name,
+        group: p.taxonomy[0] ?? 'Other',
+        category: p.taxonomy[1] ?? p.taxonomy[0] ?? 'Other',
+      }))
+      // Drop demo-only "User" presets (e.g. wolf-cave); the gallery is shipped presets.
+      .filter((p) => p.category !== 'User')
+  );
 }
 
 /**
