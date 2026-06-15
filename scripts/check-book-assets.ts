@@ -79,6 +79,12 @@ for (const name of readdirSync(COMPOSITES)) {
 // fine — the exact "passes on web, fails on device" trap.
 const refs = collectReferencedAssets(join(ROOT, 'demo'));
 for (const img of refs?.images ?? []) {
+  // Only the consumer's OWN relative image sources are this gate's concern, and
+  // they resolve from the filesystem in any environment. Library-subpath imports
+  // (`react-native-webrtc-kaleidoscope/images/...`) are bundled and guaranteed by
+  // the library, and resolving them needs the installed package, which a lib-only
+  // context (the release job) lacks; checking them there only false-positives.
+  if (!img.specifier.startsWith('.')) continue;
   if (img.srcPath === null) {
     errors.push(
       `${BOOK}  image layer '${img.id}' (source '${img.specifier}') does not resolve to a bundled .webp; the prebuild would skip it, leaving it blank on native. Use a statically-parseable require/import and keep id == basename.`,
