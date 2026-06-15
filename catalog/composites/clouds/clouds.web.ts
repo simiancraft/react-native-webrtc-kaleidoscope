@@ -1,19 +1,16 @@
-// Sky: raymarched daytime clouds with you composited over them. Fully
-// procedural; no image layer.
-//
-// A packaged composite consumers can list by importing this module.
-//
-// Native variant. The thumbnail is the string id the prebuild plugin
-// (app.plugin.js) bundles `clouds.thumb.webp` as into the native app target;
-// `resolveImageUri` looks it up in Bundle.main. The web sibling (clouds.web.ts)
-// keeps the `Asset.fromModule(...).uri` pattern; mirrors the other composites.
+// Web variant. Resolves the thumbnail URI via expo-asset at module-load time;
+// safe on web (react-native-web has no Image.resolveAssetSource and `.uri` is
+// set synchronously by fromModule). Native is clouds.ts (a string-id thumbnail
+// the prebuild plugin bundles). Mirrors the other composites' {<id>.ts,<id>.web.ts}.
 
+import { Asset } from 'expo-asset';
 import type { KaleidoscopePreset } from '../../../src/kaleidoscope.preset-book.types';
+import cloudsThumb from './clouds.thumb.webp';
 
 export const clouds = {
   name: 'Daytime',
   taxonomy: ['Shaders', 'Sky'],
-  thumbnail: 'clouds-thumb',
+  thumbnail: Asset.fromModule(cloudsThumb).uri,
   layers: [
     {
       id: 'sky',

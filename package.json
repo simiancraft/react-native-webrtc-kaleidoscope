@@ -331,6 +331,7 @@
     "./composites/clouds": {
       "types": "./dist/catalog/composites/clouds/clouds.d.ts",
       "react-native": "./catalog/composites/clouds/clouds.ts",
+      "browser": "./dist/catalog/composites/clouds/clouds.web.js",
       "import": "./dist/catalog/composites/clouds/clouds.js",
       "default": "./dist/catalog/composites/clouds/clouds.js"
     },
