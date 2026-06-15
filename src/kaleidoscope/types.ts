@@ -1,6 +1,6 @@
-// The three-verb surface: types.
+// The four-verb surface: types.
 //
-// Bind a track and a preset book once; get three typed verbs back:
+// Bind a track and a preset book once; get four typed verbs back:
 //   - kaleidoscope(cmd, patches?)  the art axis: which composite (layer stack)
 //     fills the frame. cmd is a preset id from the book (narrowed), or null to
 //     clear. patches optionally merge per-layer uniform overrides (addressed by
@@ -8,6 +8,7 @@
 //     no-rebuild channel, so sliders stay smooth.
 //   - transform(t?)             the geometry axis: absolute flips + 90° rotation.
 //   - mask(m)                   the segmentation edge shared by every art effect.
+//   - dispose()                 tear down the pipeline; release the bound track.
 //
 // Shaders live in the library; consumers add presets (composites) over them,
 // never new shaders. Per shader-world convention, numeric uniforms are
@@ -88,7 +89,7 @@ type KaleidoscopeCommand<P extends KaleidoscopePresetBook> = <K extends keyof P>
 ) => void;
 
 /**
- * The three verbs for one bound track and book, plus the live track and a
+ * The four verbs for one bound track and book, plus the live track and a
  * teardown. `kaleidoscope` (preset switch) and `transform` rebuild the composite
  * (web yields a new track via onTrack); a `kaleidoscope` patch of the active
  * preset and `mask` both update what the running composite reads each frame, so

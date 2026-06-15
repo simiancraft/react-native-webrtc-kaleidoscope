@@ -1,4 +1,4 @@
-// The three-verb controls: shared composite-state machine, platform-agnostic.
+// The four-verb controls: shared composite-state machine, platform-agnostic.
 //
 // Holds the art effect (one composite) and the transform op list, reconciles
 // them into an ordered EffectSpec array (art FIRST so segmentation sees the
