@@ -1,3 +1,10 @@
+## [2.7.7](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.6...v2.7.7) (2026-06-15)
+
+
+### Bug Fixes
+
+* **plugin:** never lower the iOS deployment target below RN's floor ([d6b617b](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/d6b617bf166aa6ee17b44fbca16880304ee211a6))
+
 ## [2.7.6](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.5...v2.7.6) (2026-06-15)
 
 
