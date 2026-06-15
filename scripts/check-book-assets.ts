@@ -17,6 +17,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { collectReferencedAssets } from '../plugin/src/lib/preset-book';
 
 const ROOT = join(import.meta.dir, '..');
 const errors: string[] = [];
@@ -67,6 +68,20 @@ for (const name of readdirSync(COMPOSITES)) {
   if (!pkg.exports?.[`./composites/${name}`]?.browser) {
     errors.push(
       `package.json  export "./composites/${name}" needs a "browser" condition pointing at ${name}.web.js.`,
+    );
+  }
+}
+
+// Rule 3: every image-layer source the demo book references must resolve to a
+// real bundled WebP, checked with the prebuild plugin's OWN parser so this gate
+// cannot drift from what actually gets bundled. An unresolved ref bundles
+// nothing into the native binary (blank on device) while web fetches the JS URL
+// fine — the exact "passes on web, fails on device" trap.
+const refs = collectReferencedAssets(join(ROOT, 'demo'));
+for (const img of refs?.images ?? []) {
+  if (img.srcPath === null) {
+    errors.push(
+      `${BOOK}  image layer '${img.id}' (source '${img.specifier}') does not resolve to a bundled .webp; the prebuild would skip it, leaving it blank on native. Use a statically-parseable require/import and keep id == basename.`,
     );
   }
 }

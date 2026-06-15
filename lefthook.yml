@@ -20,3 +20,8 @@ pre-commit:
     # React Compiler safety on the library's components.
     - name: react-compiler
       run: bun run check:react-compiler
+    # Asset-wiring gate: block the "renders on web, blank on a native standalone
+    # build" thumbnail/image leak at the front door, so catching it never needs
+    # an EAS build + device. Fast (file reads + the prebuild plugin's parser).
+    - name: asset-wiring
+      run: bun run check:assets
