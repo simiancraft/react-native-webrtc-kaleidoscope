@@ -46,7 +46,7 @@ What you get:
 
 - **Four simple functions.** `bindKaleidoscope(track, { presets })` hands back [`kaleidoscope`, `transform`, `mask`, and `dispose`](#the-four-verbs); that is the whole runtime API.
 - **Agent-first setup.** Point a coding agent at [`llms.txt`](./llms.txt) and it [installs the package, writes the config plugin, and gets an effect on screen](#with-an-agent) without you babysitting it.
-- **Turnkey implementation.** [Drop-in components](#quick-start), a picker, a live editor, and a persistence provider, render [dozens of presets](#presets) over your camera; wire a callback, ship it.
+- **Turnkey implementation.** [Drop-in components](#quick-start), a picker, a live editor, and a persistence provider, render [63 presets](#presets) over your camera; wire a callback, ship it.
 - **Cost and tooling.** Every shader carries a [measured GPU cost](#performance) you can read before you ship, and the [bench, meter, and thumbnail tools](#authoring-tooling) come in the box.
 - **Won't bloat your binary.** Per-asset subpath exports and `sideEffects: false` mean you [ship only the presets you reference](#only-ship-what-you-use); web tree-shakes and native bundles just the assets your book names.
 - **Built for extension.** A new shader is one folder that codegens to every platform, [clear by construction](#architecture); remix the compositor to [build your own worlds](#make-your-own-presets).
@@ -171,6 +171,8 @@ kaleidoscope('wizard-tower'); // autocompletes from your book
 // call dispose() on unmount to release the track
 ```
 
+<sub>Strict TypeScript setups that pull in the DOM lib may need `track as unknown as MediaStreamTrack` here; `react-native-webrtc`'s track type is structurally narrower than the DOM one, the same cast the demo uses.</sub>
+
 For a ready-made gallery, drop in the picker; it reads your book directly:
 
 ```tsx
@@ -280,8 +282,8 @@ A preset is a composition: **every preset is a back-to-front stack of N layers**
   name: 'Aurora night',
   taxonomy: ['Shaders', 'Aurora'],
   layers: [
-    { id: 'sky',  shader: 'clouds',   target: 'background', uniforms: { coverage: 0.4 } },
-    { id: 'glow', shader: 'godrays',  target: 'background', blend: 'additive' },
+    { id: 'sky',  shader: 'clouds',   target: 'background', uniforms: { uCoverage: 0.4 } },
+    { id: 'glow', shader: 'godrays',  target: 'background', blend: 'additive', uniforms: { uRayIntensity: 0.6 } },
     { id: 'you',  shader: 'direct',   target: 'subject' },
   ],
 },
