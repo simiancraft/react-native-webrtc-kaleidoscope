@@ -44,18 +44,16 @@ Every other turnkey option we could find is a feature welded to one vendor's cal
 
 What you get:
 
-- **[Bind a track once, then drive it with three verbs.](#the-three-verbs)** `kaleidoscope` swaps the background, `transform` reorients the frame, and `mask` tunes the segmentation edge. That is the entire runtime surface.
-- **[Hand it to an agent and it wires itself.](#with-an-agent)** Point a coding agent at [`llms.txt`](./llms.txt) and it installs the package, writes the config plugin, provisions a preset book, and gets an effect on screen.
-- **[Drop-in components, not a pipeline to assemble.](#quick-start)** A picker that reads your preset book, a headless live-editor, and a persistence provider; one import each, wire a callback, done.
-- **[Dozens of presets out of the box.](#presets)** Blur, painted worlds, bundled rooms, and animated shaders; every one is a starting point you can retune.
-- **[See what every effect costs.](#performance)** Each shader carries a measured GPU-cost annotation and the resolution tier is one knob, so you size the spend before you ship it.
-- **[Bench, meter, and thumbnail tools included.](#authoring-tooling)** A SPIR-V cost bench, a live GPU-time meter, a thumbnail renderer, and this README's preset gallery all regenerate from one command set.
-- **[Ship only the presets you reference.](#only-ship-what-you-use)** Per-asset subpath exports plus `sideEffects: false`; web tree-shakes by import and `expo prebuild` copies only the assets your book names into the native bundle.
-- **[A new shader is one folder.](#make-your-own-presets)** Every effect is a layer in one [compositor](#architecture); drop a `.frag` into `catalog/shaders/` and it codegens to web, Android, and iOS, masked and oriented for free.
+- **Four simple functions.** `bindKaleidoscope(track, { presets })` hands back [`kaleidoscope`, `transform`, `mask`, and `dispose`](#the-four-verbs); that is the whole runtime API.
+- **Agent-first setup.** Point a coding agent at [`llms.txt`](./llms.txt) and it [installs the package, writes the config plugin, and gets an effect on screen](#with-an-agent) without you babysitting it.
+- **Turnkey implementation.** [Drop-in components](#quick-start), a picker, a live editor, and a persistence provider, render [dozens of presets](#presets) over your camera; wire a callback, ship it.
+- **Cost and tooling.** Every shader carries a [measured GPU cost](#performance) you can read before you ship, and the [bench, meter, and thumbnail tools](#authoring-tooling) come in the box.
+- **Won't bloat your binary.** Per-asset subpath exports and `sideEffects: false` mean you [ship only the presets you reference](#only-ship-what-you-use); web tree-shakes and native bundles just the assets your book names.
+- **Built for extension.** A new shader is one folder that codegens to every platform, [clear by construction](#architecture); remix the compositor to [build your own worlds](#make-your-own-presets).
 
 ## Presets
 
-Like a synthesizer, the fastest way to judge it is to hear the patches. The demo book ships the gallery below; **every tile is a live link**, so click one and it opens on your own camera. Bring your own with a few lines (see [Make your own presets](#make-your-own-presets)).
+The demo book ships the gallery below; **every tile is a live link**, so click one and it opens on your own camera. Bring your own with a few lines (see [Make your own presets](#make-your-own-presets)).
 
 <!-- PRESET-WAFFLE:START -->
 
@@ -73,7 +71,6 @@ Like a synthesizer, the fastest way to judge it is to hear the patches. The demo
   <tr><td align="right" valign="middle"><sub><b>Sci-Fi</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=sci-fi-light" title="Landscape"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/sci-fi-light.thumb.webp" alt="Landscape" title="Landscape" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Ocean</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=oceanscape-dark" title="Underwater"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/oceanscape-dark.thumb.webp" alt="Underwater" title="Underwater" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Debug</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=debug-resolutions" title="Resolutions"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/debug-resolutions.thumb.webp" alt="Resolutions" title="Resolutions" width="58" /></a></td></tr>
-  <tr><td align="right" valign="middle"><sub><b>User</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=wolf-cave" title="Wolf Cave"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/wolf-cave.thumb.webp" alt="Wolf Cave" title="Wolf Cave" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Sky</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds" title="Daytime"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/catalog/composites/clouds/clouds.thumb.webp" alt="Daytime" title="Daytime" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-dawn" title="Dawn"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-dawn.thumb.webp" alt="Dawn" title="Dawn" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-dusk" title="Dusk"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-dusk.thumb.webp" alt="Dusk" title="Dusk" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-night" title="Night"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-night.thumb.webp" alt="Night" title="Night" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=clouds-otherworld" title="Otherworld"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/clouds-otherworld.thumb.webp" alt="Otherworld" title="Otherworld" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Plasma</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-ocean" title="Ocean"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-ocean.thumb.webp" alt="Ocean" title="Ocean" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-sunset" title="Sunset"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-sunset.thumb.webp" alt="Sunset" title="Sunset" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-mint" title="Mint"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-mint.thumb.webp" alt="Mint" title="Mint" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=plasma-fast" title="Fast"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/plasma-fast.thumb.webp" alt="Fast" title="Fast" width="58" /></a></td></tr>
   <tr><td align="right" valign="middle"><sub><b>Kaleidoscope</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=kaleidoscope-stained-glass" title="Stained Glass"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/kaleidoscope-stained-glass.thumb.webp" alt="Stained Glass" title="Stained Glass" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=kaleidoscope-mandala" title="Mandala"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/kaleidoscope-mandala.thumb.webp" alt="Mandala" title="Mandala" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=kaleidoscope-prism" title="Prism"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/kaleidoscope-prism.thumb.webp" alt="Prism" title="Prism" width="58" /></a></td></tr>
@@ -87,7 +84,7 @@ Like a synthesizer, the fastest way to judge it is to hear the patches. The demo
   <tr><td align="right" valign="middle"><sub><b>Data-Mesh</b></sub></td><td valign="middle"><a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=data-mesh-datafield" title="Datafield"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/data-mesh-datafield.thumb.webp" alt="Datafield" title="Datafield" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=data-mesh-boardroom" title="Boardroom"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/data-mesh-boardroom.thumb.webp" alt="Boardroom" title="Boardroom" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=data-mesh-acid" title="Acid"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/data-mesh-acid.thumb.webp" alt="Acid" title="Acid" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=data-mesh-cobalt" title="Cobalt"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/data-mesh-cobalt.thumb.webp" alt="Cobalt" title="Cobalt" width="58" /></a> <a href="https://simiancraft.github.io/react-native-webrtc-kaleidoscope/?preset=data-mesh-slate" title="Slate"><img src="https://raw.githubusercontent.com/simiancraft/react-native-webrtc-kaleidoscope/main/demo/assets/thumbnails/data-mesh-slate.thumb.webp" alt="Slate" title="Slate" width="58" /></a></td></tr>
 </table>
 
-<sub>64 presets across 4 families (Effects, Worlds, Backgrounds, Shaders); click any to open it live, or <a href="#make-your-own-presets">make your own</a> in a few lines.</sub>
+<sub>63 presets across 4 families (Effects, Worlds, Backgrounds, Shaders); click any to open it live, or <a href="#make-your-own-presets">make your own</a> in a few lines.</sub>
 
 <!-- PRESET-WAFFLE:END -->
 
@@ -164,14 +161,14 @@ import { presets } from './kaleidoscope.preset-book';
 const stream = await mediaDevices.getUserMedia({ video: true });
 const [track] = stream.getVideoTracks();
 
-const { kaleidoscope } = bindKaleidoscope(track, {
+const { kaleidoscope, dispose } = bindKaleidoscope(track, {
   presets,
-  // Web rebuilds the pipeline per command and yields a NEW track; read it here.
-  // Native mutates the bound track in place.
+  // Web yields a NEW track per command; read it here. Native mutates in place.
   onTrack: (out) => {/* setPreviewTrack(out) */},
 });
 
 kaleidoscope('wizard-tower'); // autocompletes from your book
+// call dispose() on unmount to release the track
 ```
 
 For a ready-made gallery, drop in the picker; it reads your book directly:
@@ -206,54 +203,71 @@ On web, LiveKit owns the `RTCRtpSender`, so you cannot swap the track yourself; 
 ```ts
 import { KaleidoscopeProcessor, setMaskTuning } from 'react-native-webrtc-kaleidoscope/livekit';
 
-await localVideoTrack.setProcessor(new KaleidoscopeProcessor(['blur']), true);
-setMaskTuning({ hardness: 0.2, threshold: 0.85 }); // the processor-path twin of the `mask` verb
+// A processor effect is a `composite` spec: the same layer stack a preset projects into.
+const composite = {
+  name: 'composite',
+  layers: [
+    { id: 'bg', shader: 'blur', uniforms: { sigma: 8 } },
+    { id: 'you', shader: 'direct', target: 'subject' },
+  ],
+};
+await localVideoTrack.setProcessor(
+  new KaleidoscopeProcessor([composite]),
+  true,
+);
+setMaskTuning({ hardness: 0.2, threshold: 0.85 }); // the processor-path twin of `mask`
 ```
 
-The processor constructor takes raw effect names (`'blur'`, a shader basename), not preset-book ids. The `true` shows the processed stream in your local preview. The processor tears down its Insertable-Streams pipeline on camera flip (`restart`) and unpublish (`destroy`), so repeated flips do not leak generators.
+The processor takes the same effect inputs as the core API: a `composite` spec (its layer stack), or a bare transform name like `'flip-x'`; not a preset-book id. The `true` shows the processed stream in your local preview. It tears down its Insertable-Streams pipeline on camera flip (`restart`) and unpublish (`destroy`), so repeated flips do not leak generators.
 
 ## Concepts
 
-Four nouns, learned in the order you meet them.
+The vocabulary, in the order you meet it.
 
-- **Preset book**: the file you author (`kaleidoscope.preset-book.ts`); a flat, typed map of the effects your app can command. This is your point of entry; everything else hangs off it. Declare it `as const satisfies KaleidoscopePresetBook` for per-layer typing and autocompleting ids.
-- **Preset**: one named entry in the book, `{ name, taxonomy, thumbnail?, layers, controls? }`. It is what `kaleidoscope(id)` applies. `taxonomy` is the picker's grouping path, root first (`[group, category]`, e.g. `['Backgrounds', 'Office']`).
-- **Layer**: one entry in a preset's stack, `{ id, shader, target?, blend? }` plus the shader's own fields. Layers paint back to front. `id` is unique within the preset and is how you address it for live uniform patches.
-- **Composite**: what a preset becomes at runtime, the layer stack rendered into the output frame. There is exactly one registered native effect, `composite`; "one effect" is just a composite with a single layer.
+| Term | What it is |
+|---|---|
+| **Preset book** | The file you author (`kaleidoscope.preset-book.ts`): a flat, typed map of the effects your app can command. Your point of entry; everything hangs off it. Declare `as const satisfies KaleidoscopePresetBook` for per-layer typing and id autocomplete. |
+| **Preset** | One named entry in the book: `{ name, taxonomy, thumbnail?, layers, controls? }`. What `kaleidoscope(id)` applies. `taxonomy` is the picker's grouping path (`[group, category]`). |
+| **Layer** | One entry in a preset's stack, painted back to front, addressed by a unique `id`. Three fields shape it:<br>&bull; **shader**: what it draws (`image`, `direct` the camera, `blur`, or a generative shader like `plasma` or `clouds`).<br>&bull; **target**: where it lands, `background` (fullscreen) or `subject` (stenciled to the person).<br>&bull; **blend**: how it stacks, opaque, `normal` (alpha-over), or `additive`. |
+| **Composite** | What a preset becomes at runtime: the layer stack rendered into the frame. One registered native effect; "one effect" is a composite with a single layer. |
+| **Patch** | A partial uniform override addressed by a layer `id`, merged over the baked values live with no rebuild. The lever the live editor and persistence ride on. |
+| **Controls** | The editor component a preset supplies (`controls?`) so its tunable uniforms get sliders in the live panel. |
 
-A layer's `shader` is what it draws: `image` (a bundled WebP, takes a `source`), `direct` (the ingest-normalized camera frame, upright and non-mirrored), `blur`, or a generative shader (`plasma`, `clouds`, …; these take `uniforms`). Its `target` is where it lands: `background` (fullscreen, the default) or `subject` (stenciled to the segmented person), and the two combine: `direct` + `subject` is the masked person, `direct` + `background` is the raw full frame. Its `blend` is how it stacks: opaque base, `normal` (alpha-over), or `additive`.
+`direct` + `subject` is the masked person; `direct` + `background` is the raw camera frame.
 
-## The three verbs
+## The four verbs
 
 <p align="center">
-  <code>kaleidoscope</code> &nbsp;•&nbsp; <code>transform</code> &nbsp;•&nbsp; <code>mask</code>
+  <code>kaleidoscope</code> &nbsp;•&nbsp; <code>transform</code> &nbsp;•&nbsp; <code>mask</code> &nbsp;•&nbsp; <code>dispose</code>
 </p>
 
-`bindKaleidoscope(track, { presets })` returns three functions. That is the whole runtime API.
+`bindKaleidoscope(track, { presets })` returns four functions (plus the live `track`). That is the whole runtime API.
+
+| Verb | What it does |
+|---|---|
+| **`kaleidoscope(id, patches?)`** | Swap the background. Pass a preset id; optionally patch a layer's uniforms live, addressed by `id`. Pass `null` to clear. |
+| **`transform(state?)`** | Absolute flip and rotate, snapped to 90°. Every call is the full state from identity; call bare to reset. |
+| **`mask(edge)`** | Tune the one segmentation edge shared by every effect: `hardness` and `threshold`, both `0..1`. |
+| **`dispose()`** | Tear down the pipeline and release the bound track. Call on unmount. |
 
 ```ts
-const { kaleidoscope, transform, mask } = bindKaleidoscope(track, { presets, onTrack });
+const { kaleidoscope, transform, mask, dispose } =
+  bindKaleidoscope(track, { presets, onTrack });
 
-// kaleidoscope: the art axis. Pass a preset id (autocompletes from your book):
-kaleidoscope('wizard-tower');
-// Override a layer's uniforms live, addressed by id, while the preset is active
-// (merged over the baked values, no pipeline rebuild). `shader` is a compile-time
-// discriminant that types `uniforms`; the layer is reached by `id`, not by shader:
-kaleidoscope('blur-soft', [{ id: 'bg', shader: 'blur', uniforms: { sigma: 9 } }]);
-kaleidoscope(null);                          // clear the art
+kaleidoscope('wizard-tower');          // a preset id
+kaleidoscope('blur-soft', [            // patch a layer live, by id
+  { id: 'bg', shader: 'blur', uniforms: { sigma: 9 } },
+]);
+kaleidoscope(null);                    // clear the art
 
-// transform: absolute geometry. Every call is the full state from identity;
-// re-pass what you want to keep. rotate snaps to the nearest 90°.
 transform({ flip: { x: true }, rotate: 90 });
-transform();                                 // reset to identity
+transform();                           // reset to identity
 
-// mask: one segmentation edge for the whole composite (not per layer). Both 0..1.
 mask({ hardness: 0.5, threshold: 0.5 });
+dispose();                             // on unmount
 ```
 
-Many uniforms are normalized `0..1` by convention; others (`sigma`, scales, counts) carry natural units, as the examples above show. JSDoc documents each option's expected range as an IntelliSense hint (ranges are not enforced at runtime; validate in your own layer if you forward them to end users).
-
-**Tuning note.** All three platforms run MediaPipe selfie segmentation, so the mask edge that suits one may differ slightly from another. `mask` defaults to `0.5 / 0.5`; nudge `hardness` and `threshold` to match your camera and lighting.
+Many uniforms are normalized `0..1`; others (`sigma`, scales, counts) carry natural units, and JSDoc documents each range. `mask` defaults to `0.5 / 0.5`; nudge it to match your camera and lighting.
 
 ## Make your own presets
 
@@ -272,7 +286,7 @@ A preset is a composition: **every preset is a back-to-front stack of N layers**
 },
 ```
 
-The packaged `wolf-cave` preset in the [demo book](./demo/kaleidoscope.preset-book.ts) is a worked example of a multi-layer world (a generative shader, a cut-out image, and the masked person).
+The demo book's [`wolf-cave`](./demo/kaleidoscope.preset-book.ts) is a runnable example of a custom composite (a bundled image plus the masked person). It is demo-owned, its image not shipped in the package, which is the point: it shows a consumer adding their own background.
 
 - **Bundled images** ship as tree-shakeable `image` layers, filed by category and imported per image (`import { officeDark } from 'react-native-webrtc-kaleidoscope/images/office/office-dark'`). On web a `source` can also be any image URL or data URI; native resolves bundled ids only. See [`catalog/images/README.md`](./catalog/images/README.md).
 - **New shaders** drop a single `.frag` + typed `.ts` into `catalog/shaders/<name>/`; `bun run build:shaders` codegens the web and Android sources and transpiles the iOS Metal. The canonical upright frame and the mask stencil come for free; you write zero orientation code. See [`catalog/shaders/README.md`](./catalog/shaders/README.md).
@@ -282,7 +296,7 @@ After adding a preset to the demo book, regenerate its thumbnail and this README
 
 ## Drop-in UI
 
-Build your own controls against the three verbs, or import the headless, controlled components. All are presentational: they emit a selection or a patch, you apply it.
+Build your own controls against the four verbs, or import the headless, controlled components. All are presentational: they emit a selection or a patch, you apply it.
 
 ### The picker
 
