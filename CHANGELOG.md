@@ -1,3 +1,10 @@
+## [2.7.9](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.8...v2.7.9) (2026-07-29)
+
+
+### Bug Fixes
+
+* **docs:** correct PATTERNS.md path and exclude npmjs from link check ([#105](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/105)) ([676bad8](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/676bad82485928c2bfe7280c6206db8b8ad0b209))
+
 ## [2.7.8](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.7...v2.7.8) (2026-06-15)
 
 
