@@ -8,7 +8,7 @@ generative layer shader (`plasma`, `clouds`, `godrays`, and the rest are here).
 
 For the deeper architecture (the texture-orientation contract, the
 codegen/transpile pipeline, the native registry), see
-[`../PATTERNS.md`](../PATTERNS.md). This file is the practical how-to.
+[`../../PATTERNS.md`](../../PATTERNS.md). This file is the practical how-to.
 
 ## Layout (one folder per shader)
 
