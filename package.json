@@ -636,7 +636,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
     "@expo/config-plugins": "~56.0.8",
-    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-async-storage/async-storage": "1.24.0",
     "@react-native-community/slider": "5.2.1",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/git": "^11.0.1",
@@ -653,7 +653,7 @@
     "lefthook": "^2.1.9",
     "livekit-client": "^2.0.0",
     "nativewind": "4.2.x",
-    "playwright": "1.62.1",
+    "playwright": "1.63.0",
     "publint": "^0.3.18",
     "react": "18.2.0",
     "react-native": "0.74.5",
