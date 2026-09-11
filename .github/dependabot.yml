@@ -33,3 +33,9 @@ updates:
       - dependency-name: "react-native"
       - dependency-name: "react-native-webrtc"
       - dependency-name: "expo"
+      - dependency-name: "expo-modules-core"
+      - dependency-name: "@expo/config-plugins"
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@react-native-async-storage/async-storage"
+        update-types: ["version-update:semver-major"]
