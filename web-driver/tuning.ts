@@ -13,13 +13,24 @@ import type { MaskInput } from '../src/kaleidoscope/types';
 const clamp = (value: number, lo: number, hi: number): number => Math.min(Math.max(value, lo), hi);
 
 class EffectTuningState {
-  blurSigma = 5;
-  maskHardness = 0.5;
-  maskThreshold = 0.5;
+  blurSigma: number;
+  maskHardness: number;
+  maskThreshold: number;
   // Native-only knobs stored here for cross-platform API parity; the web
   // MediaPipe pipeline does not currently consume them.
-  segmentationTargetShortSide = 384;
-  debugTiming = false;
+  segmentationTargetShortSide: number;
+  debugTiming: boolean;
+
+  // Defaults are assigned in the constructor rather than as field initializers;
+  // Bun 1.4 counts field initializers as a function that coverage never marks
+  // hit, which fails the 100% function threshold.
+  constructor() {
+    this.blurSigma = 5;
+    this.maskHardness = 0.5;
+    this.maskThreshold = 0.5;
+    this.segmentationTargetShortSide = 384;
+    this.debugTiming = false;
+  }
 
   setBlurSigma(value: number): void {
     this.blurSigma = clamp(value, 0.5, 7);
