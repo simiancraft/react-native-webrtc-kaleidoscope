@@ -1,3 +1,10 @@
+## [2.7.10](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.9...v2.7.10) (2026-09-19)
+
+
+### Bug Fixes
+
+* **demo:** patch in-range security advisories via npm overrides ([#106](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/106)) ([4416f3f](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/4416f3faa981a53445a08041ce4e694e93408a65))
+
 ## [2.7.9](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.8...v2.7.9) (2026-07-29)
 
 
