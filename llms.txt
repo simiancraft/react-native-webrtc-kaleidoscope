@@ -16,11 +16,11 @@ It is **not** a fork of `react-native-webrtc`, **not** a managed-cloud SaaS, and
 
 ```sh
 bun add react-native-webrtc react-native-webrtc-kaleidoscope
-bunx expo install expo-build-properties expo-dev-client
+bunx expo install expo-asset expo-build-properties expo-dev-client
 # or npm install / yarn add / pnpm add
 ```
 
-Peer dependencies: `expo` (>=51), `expo-asset` (>=10, already a dependency of `expo`), `react` (>=18.2), `react-native` (>=0.74). `react-native-webrtc` (>=124) is an **optional** peer you supply (or `@livekit/react-native-webrtc` + `livekit-client` if you use the `/livekit` adapter; pick ONE fork, never both). `nativewind` (>=4) and `@react-native-community/slider` (>=4.5) are **optional** peers, only needed for the styled UI / live-controls extras.
+Peer dependencies: `expo` (>=51), `expo-asset` (>=10; install it directly with `expo install` even though `expo` depends on it: `expo-doctor` requires native-module peers to be direct dependencies and warns the app may crash outside Expo Go otherwise), `react` (>=18.2), `react-native` (>=0.74). `react-native-webrtc` (>=124) is an **optional** peer you supply (or `@livekit/react-native-webrtc` + `livekit-client` if you use the `/livekit` adapter; pick ONE fork, never both). `nativewind` (>=4) and `@react-native-community/slider` (>=4.5) are **optional** peers, only needed for the styled UI / live-controls extras.
 
 ## Configure (copy-paste; every entry here is load-bearing)
 
@@ -562,6 +562,19 @@ setMaskTuning({ hardness: 0.2, threshold: 0.85 }); // the mask verb's twin on th
 - **iOS** native >= 15.0; Metal pipeline; MediaPipe Tasks segmentation.
 - **Android** native >= API 24; OpenGL ES 3.0 pipeline; MediaPipe Tasks segmentation.
 - **Web** Chromium browsers with `MediaStreamTrackProcessor`; WebGL2 compositor; MediaPipe Selfie Segmentation (WASM).
+
+## Upgrading dependencies: verify on Android, never on web alone
+
+**Any dependency upgrade that can reach the binary MUST be verified with a real Android build before you ship it.** This is the fastest way to break a React Native app, and it is the failure mode web testing cannot see: the web pipeline fetches assets as URLs and runs entirely in JS, so it never exercises native autolinking, the Gradle build, native asset bundling, the manifest merger, or the ABI split. A change can be green on web and on every typecheck and unit test while the Android app fails to build or crashes on launch.
+
+"Can reach the binary" covers more than it first appears: `react-native` and `expo` themselves, any package with an `android/` directory or a podspec (`react-native-webrtc`, `@react-native-async-storage/async-storage`, `@react-native-community/slider`, `react-native-webrtc-kaleidoscope`), anything an Expo config plugin touches (`expo-build-properties` and the SDK version that sets `minSdkVersion`, `compileSdkVersion`, and the iOS deployment target), and transitive native dependencies a lockfile refresh may move underneath you. A pure JS or types-only bump is the only safe exception, and a lockfile refresh can turn one of those into a native one without warning.
+
+The verification, in order:
+
+1. **Check alignment first.** Run `bunx expo-doctor` and `bunx react-native doctor` (or the `npx` equivalents) and resolve what they report. Doctor catches SDK-to-package version drift, duplicate or mismatched native dependencies, and misconfigured build settings faster than reading a diff does, and version compatibility is not something to settle by inspection.
+2. **Build the Android app, do not just compile the module.** A Gradle module compile proves the Kotlin still typechecks; it does not prove the app links, packages, and starts. Produce an installable artifact (`npx expo run:android`, `./gradlew assembleRelease`, or an EAS build).
+3. **Run it and look at it.** Install on an emulator or a device, launch, exercise the effects, and confirm no crash and no blank render. Bundled images and thumbnails in particular resolve by a native path that only a standalone build exercises, so a web run or a Metro dev-client run can hide a broken asset entirely.
+4. **Then confirm on iOS and web.** Android is the first gate because it is where dependency drift surfaces soonest, not because the other two platforms are optional.
 
 ## The demo is the canonical working example
 
