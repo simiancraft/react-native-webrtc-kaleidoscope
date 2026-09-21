@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreWorkspaces": ["tools/lint"],
   "entry": [
     "src/livekit.ts",
     "catalog/shaders/**/*.ts",

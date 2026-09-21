@@ -555,9 +555,6 @@
     "NOTICE.md",
     "llms.txt"
   ],
-  "workspaces": [
-    "tools/lint"
-  ],
   "scripts": {
     "clean": "rm -rf dist",
     "build": "bun run clean && tsc -p tsconfig.build.json && bun run copy:assets",
@@ -573,7 +570,7 @@
     "check:assets": "bun run scripts/check-book-assets.ts",
     "check:package": "publint --strict",
     "check:knip": "knip",
-    "check:react-compiler": "eslint src/components 'catalog/composites/**/*.controls.tsx' 'catalog/shaders/**/*.form.tsx'",
+    "check:react-compiler": "bun install --cwd tools/lint --frozen-lockfile --silent && eslint src/components 'catalog/composites/**/*.controls.tsx' 'catalog/shaders/**/*.form.tsx'",
     "check:kotlin": "bun run scripts/ktlint.ts",
     "format:kotlin": "bun run scripts/ktlint.ts --format",
     "check:swift": "bun run scripts/swift.ts",
