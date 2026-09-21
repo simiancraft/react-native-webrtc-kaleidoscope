@@ -1,3 +1,10 @@
+## [2.7.12](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.11...v2.7.12) (2026-09-21)
+
+
+### Bug Fixes
+
+* **package:** drop the workspaces field from the published manifest ([#126](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/issues/126)) ([6d18ba2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/6d18ba2722616b86401ebbe19981877302db53f5))
+
 ## [2.7.11](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.10...v2.7.11) (2026-09-21)
 
 ## [2.7.10](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.9...v2.7.10) (2026-09-19)
