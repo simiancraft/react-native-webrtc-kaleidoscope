@@ -32,10 +32,10 @@ jobs:
       - name: Biome check
         run: bun run lint
 
-      - name: Typecheck (tsgo)
+      - name: Typecheck
         run: bun run typecheck
 
-      - name: Typecheck tests (tsgo)
+      - name: Typecheck tests
         run: bun run typecheck:test
 
       - name: React Compiler safety (eslint react-compiler rule on library components)

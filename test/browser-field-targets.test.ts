@@ -3,7 +3,7 @@
 // `resolve-image-uri.ts` (or any future remapped file) is moved/renamed and
 // the browser key left stale, the type system and publint stay green while web
 // thumbnails silently break. Pin each browser key/value to an existing source
-// file (build-independent; tsgo emits dist/ from src/ 1:1).
+// file (build-independent; tsc emits dist/ from src/ 1:1).
 
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';

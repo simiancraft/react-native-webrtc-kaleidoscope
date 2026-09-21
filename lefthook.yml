@@ -12,7 +12,7 @@ pre-commit:
       glob: '*.{ts,tsx,js,jsx,mjs,json}'
       run: bunx biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
-    # Whole-project typechecks (can't be staged-scoped); fast under tsgo.
+    # Whole-project typechecks (can't be staged-scoped); fast under the Go tsc.
     - name: typecheck
       run: bun run typecheck
     - name: typecheck-test

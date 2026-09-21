@@ -11,9 +11,20 @@
 // every component is compiler-safe and gets optimized in the consumer's graph.)
 //
 // The demo is intentionally out of scope (it is the consumer, not the library).
+//
+// The parser and the react-compiler plugin are resolved from tools/lint, NOT from
+// the root: typescript-eslint throws on TypeScript >= 7 (typescript-eslint#10940)
+// and the root compiles with TypeScript 7, so tools/lint pins the TypeScript 6 API
+// the parser needs. `require` from tools/lint/package.json makes Node resolve
+// `typescript` inside that folder. This config file must STAY at the repo root:
+// ESLint refuses to lint files outside its config's base path, and the linted
+// sources live here, not under tools/lint.
 
-import tsParser from '@typescript-eslint/parser';
-import reactCompiler from 'eslint-plugin-react-compiler';
+import { createRequire } from 'node:module';
+
+const requireFromLintToolchain = createRequire(new URL('./tools/lint/package.json', import.meta.url));
+const tsParser = requireFromLintToolchain('@typescript-eslint/parser');
+const reactCompiler = requireFromLintToolchain('eslint-plugin-react-compiler');
 
 export default [
   {

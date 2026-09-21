@@ -1,0 +1,11 @@
+{
+  "name": "@kaleidoscope/lint-toolchain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pins the TypeScript 6 API for ESLint. typescript-eslint throws on TS >= 7 (typescript-eslint#10940), and the root compiles with TypeScript 7, so the parser resolves `typescript` from HERE instead of the root. See eslint.config.mjs.",
+  "devDependencies": {
+    "@typescript-eslint/parser": "^8.70.0",
+    "eslint-plugin-react-compiler": "^19.1.0-rc.2",
+    "typescript": "^6.0.3"
+  }
+}
