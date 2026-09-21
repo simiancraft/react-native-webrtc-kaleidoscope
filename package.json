@@ -555,11 +555,14 @@
     "NOTICE.md",
     "llms.txt"
   ],
+  "workspaces": [
+    "tools/lint"
+  ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "bun run clean && tsgo -p tsconfig.build.json && bun run copy:assets",
-    "typecheck": "tsgo --noEmit",
-    "typecheck:test": "tsgo --noEmit --project tsconfig.test.json",
+    "build": "bun run clean && tsc -p tsconfig.build.json && bun run copy:assets",
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --noEmit --project tsconfig.test.json",
     "typecheck:demo": "cd demo && bunx tsc --noEmit",
     "prepare": "command -v lefthook >/dev/null 2>&1 && lefthook install || true",
     "lint": "biome check",
@@ -643,10 +646,7 @@
     "@semantic-release/npm": "^13.1.5",
     "@types/bun": "^1.4.2",
     "@types/react": "~18.2.79",
-    "@typescript-eslint/parser": "^8.70.0",
-    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "eslint": "^10.11.0",
-    "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "expo": "^51.0.39",
     "expo-modules-core": "^56.0.26",
     "knip": "^6.37.0",
@@ -659,7 +659,7 @@
     "react-native": "0.74.5",
     "react-native-webrtc": "^124.0.8",
     "semantic-release": "^25.0.9",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "publishConfig": {
     "access": "public",
