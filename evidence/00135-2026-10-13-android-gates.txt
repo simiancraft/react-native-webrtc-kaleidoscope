@@ -1,0 +1,28 @@
+== gate (LiveKit 144.2.0 APK)
+label: lk-feat-livekit-144-2
+maestro_junit_pass: yes
+logcat_gate_hits: 0
+positive_evidence_missing: 0
+screenshots: 12
+
+== WebRTC classes in logcat (prefixed build)
+10-13 13:39:26.910 29490 29547 I Logging : SurfaceTextureHelper: Setting listener to livekit.org.webrtc.Camera2Session$CaptureSessionCallback$$ExternalSyntheticLambda0@c821438
+10-13 13:39:26.988 29490 29490 D com.oney.WebRTCModule.WebRTCModule: Got video track for stream URL d62860ca-d668-0378-5f7c-0a983a27e2a6 -> livekit.org.webrtc.VideoTrack@985237c
+10-13 13:43:05.208 29490 29561 W leidoscope.dem: Long monitor contention with owner CaptureThread (29547) at void livekit.org.webrtc.SurfaceTextureHelper.updateTexImage()(SurfaceTextureHelper.java:335
+
+== kaleidoscope composite evidence
+10-13 13:39:38.282 29490 29533 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [blur,direct]
+10-13 13:40:06.184 29490 29533 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [image,direct]
+10-13 13:40:06.281 29490 29547 I Kaleidoscope.Composite: composite image 'office-dark' loaded; size=1280x720 aspect=1.7777778
+10-13 13:40:49.955 29490 29533 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [image,direct]
+10-13 13:40:50.006 29490 29547 I Kaleidoscope.Composite: composite image 'wolf-cave' loaded; size=1080x720 aspect=1.5
+10-13 13:41:41.229 29490 29533 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [plasma,direct]
+10-13 13:43:03.155 29490 29533 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [clouds,direct]
+10-13 13:44:14.089 29490 29533 I Kaleidoscope.CompositeLayers: composite layers set: 3 layer(s) [clouds,image,direct]
+
+== gate (upstream 124 APK)
+label: lk-feat-upstream
+maestro_junit_pass: yes
+logcat_gate_hits: 0
+positive_evidence_missing: 0
+screenshots: 12
