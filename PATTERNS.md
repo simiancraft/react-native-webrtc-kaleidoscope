@@ -262,10 +262,10 @@ processor is `composite`; an `image` layer resolves the image by id at runtime,
 so adding an image needs NO native registration. The flow mirrors
 [`catalog/images/README.md`](./catalog/images/README.md) "Adding an image":
 
-Plates are filed by **category** (the taxonomy's second level), several leaves
+Images are filed by **category** (the taxonomy's second level), several leaves
 per folder; the leaf is the globally-unique image id.
 
-1. If it is a standalone background, append the leaf to `BACKGROUND_PRESETS` in
+1. If it is a standalone background, append the leaf to `CATALOG_IMAGE_IDS` in
    `catalog/images/image-ids.ts`. A cutout image that only feeds a packaged composite skips
    this.
 2. Create or reuse `catalog/images/<category>/` and drop the optimized `<leaf>.webp` in
@@ -284,7 +284,7 @@ At `expo prebuild` the config plugin reads the consumer's preset book, finds the
 `image` layers it references, and copies just those WebPs into the native bundle
 under `assets/images/<id>.webp`. The native side resolves an image by that id at
 runtime; there is no `Registration.kt` / `Registration.swift` line to add. The
-type-level autocomplete (`BackgroundPresetName`) picks up the new image from the
+type-level autocomplete (`CatalogImageId`) picks up the new image from the
 catalog automatically.
 
 ### Where GL pipeline helpers go

@@ -15,7 +15,7 @@
 //   - one "composite" compositor (CompositeProcessor): EVERY art effect (images,
 //     blur, generative shaders, masked subjects) is now a LAYER inside a
 //     composite, delivered out-of-band via setCompositeLayers (CompositeLayers) and
-//     composited per frame. The per-effect art processors (background-image-<id>,
+//     composited per frame. The per-effect art processors (one per bundled image,
 //     the bare generative names, blur) and their data-driven registration are
 //     gone; adding a preset is pure JS (a new Composite in the book), no Swift
 //     change and no native registration. Mirrors android/.../Registration.kt
