@@ -26,7 +26,7 @@ const config = {
   slug: 'react-native-webrtc-kaleidoscope-demo',
   owner: 'simiancraft',
   // Bump the patch on every EAS build so the on-screen version changes per build.
-  version: '0.1.14',
+  version: '0.2.0',
   orientation: 'portrait',
   scheme: 'kaleidoscope-demo',
   userInterfaceStyle: 'automatic',
@@ -86,9 +86,10 @@ const config = {
         // independently; without this expo-build-properties entry it stays
         // at the Expo default (13.4), and the iOS link step fails with
         // "compiling for iOS 13.4, but module 'Kaleidoscope' has a minimum
-        // deployment target of iOS 15.0".
+        // deployment target of iOS 15.0". expo-build-properties rejects
+        // anything below Expo's own floor, which is 16.4 from SDK 56 on.
         ios: {
-          deploymentTarget: '15.0',
+          deploymentTarget: '16.4',
         },
       },
     ],
