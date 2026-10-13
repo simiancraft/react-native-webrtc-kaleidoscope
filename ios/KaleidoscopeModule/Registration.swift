@@ -29,11 +29,16 @@
 //   - react-native-webrtc/react-native-webrtc -> module `react_native_webrtc`
 //   - livekit/react-native-webrtc (@livekit/react-native) -> `livekit_react_native_webrtc`
 // We import whichever is present; the symbols are identical either way. WebRTC
-// types (RTCVideoFrame etc.) come from WebRTC.framework via `import WebRTC`.
+// types (RTCVideoFrame etc.) come from WebRTC.framework, or from LiveKitWebRTC
+// through the aliases in WebRTCTypes.swift.
 
 import Foundation
 import os.log
-import WebRTC
+#if canImport(LiveKitWebRTC)
+    import LiveKitWebRTC
+#else
+    import WebRTC
+#endif
 #if canImport(livekit_react_native_webrtc)
     import livekit_react_native_webrtc
 #elseif canImport(react_native_webrtc)

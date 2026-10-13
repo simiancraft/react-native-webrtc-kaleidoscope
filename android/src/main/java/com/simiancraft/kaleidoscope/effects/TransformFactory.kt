@@ -47,10 +47,12 @@ import com.simiancraft.kaleidoscope.gpu.GlProgram
 import com.simiancraft.kaleidoscope.gpu.Ingest
 import com.simiancraft.kaleidoscope.gpu.Orientation
 import com.simiancraft.kaleidoscope.gpu.Shaders
-import org.webrtc.SurfaceTextureHelper
-import org.webrtc.TextureBufferImpl
-import org.webrtc.VideoFrame
-import org.webrtc.YuvConverter
+import com.simiancraft.kaleidoscope.webrtc.SurfaceTextureHelper
+import com.simiancraft.kaleidoscope.webrtc.TextureBuffer
+import com.simiancraft.kaleidoscope.webrtc.TextureBufferImpl
+import com.simiancraft.kaleidoscope.webrtc.TextureBufferType
+import com.simiancraft.kaleidoscope.webrtc.VideoFrame
+import com.simiancraft.kaleidoscope.webrtc.YuvConverter
 
 /**
  * @param op Which screen-space reorientation this factory's processor applies.
@@ -122,7 +124,7 @@ private class TransformProcessor(
             return null
         }
         val inputBuffer = frame.buffer
-        if (inputBuffer !is VideoFrame.TextureBuffer) {
+        if (inputBuffer !is TextureBuffer) {
             // Chained after a CPU effect emitting I420; silently forward.
             return null
         }
@@ -135,7 +137,7 @@ private class TransformProcessor(
         //    already normalized orientation (display-upright, rotation 0), so it is
         //    copied into the FBO via a plain 2D-sampler passthrough with NO texture
         //    matrix; re-applying Ingest here would double-apply the rotation.
-        val isOes = inputBuffer.type == VideoFrame.TextureBuffer.Type.OES
+        val isOes = inputBuffer.type == TextureBufferType.OES
         val bufW = inputBuffer.width
         val bufH = inputBuffer.height
         if (bufW <= 0 || bufH <= 0) {
@@ -259,7 +261,7 @@ private class TransformProcessor(
                 TextureBufferImpl(
                     ready.width,
                     ready.height,
-                    VideoFrame.TextureBuffer.Type.RGB,
+                    TextureBufferType.RGB,
                     readyTextureId,
                     Matrix(),
                     textureHelper.handler,

@@ -71,9 +71,10 @@ Pod::Spec.new do |s|
   s.dependency 'MediaPipeTasksVision', '0.10.14'
 
   # Fork-resolving dependency on react-native-webrtc. The Kaleidoscope target
-  # needs FRAMEWORK_SEARCH_PATHS pointing at WebRTC.framework so the Swift
-  # `import WebRTC` in Registration.swift, FrameBridge.swift, and the three
-  # Processor files resolves at compile time. We do not declare the framework
+  # needs FRAMEWORK_SEARCH_PATHS pointing at the fork's WebRTC framework
+  # (WebRTC.framework, or LiveKitWebRTC.framework from @livekit/react-native-webrtc
+  # 144.2.0 on) so the Swift WebRTC import in Registration.swift, FrameBridge.swift,
+  # and the Processor files resolves at compile time. We do not declare the framework
   # directly (it is not OS-shipped, so `s.weak_framework` is wrong; and it is
   # vended by two different forks at two different paths). Instead we depend
   # on whichever rn-webrtc fork the consumer installed, and CocoaPods

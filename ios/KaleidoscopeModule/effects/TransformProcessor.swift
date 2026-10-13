@@ -32,7 +32,11 @@ import Foundation
 import Metal
 import os.log
 import simd
-import WebRTC
+#if canImport(LiveKitWebRTC)
+    import LiveKitWebRTC
+#else
+    import WebRTC
+#endif
 
 // Import whichever react-native-webrtc fork is present; both expose the same
 // VideoFrameProcessorDelegate / ProcessorProvider symbols. See Registration.swift.

@@ -14,6 +14,25 @@ if (expoModulesCorePlugin.exists()) {
   applyKotlinExpoModulesCorePlugin()
 }
 
+// Two forks ship the same classes under `com.oney.WebRTCModule.videoEffects.*`:
+//   - react-native-webrtc/react-native-webrtc (upstream)
+//   - livekit/react-native-webrtc (LiveKit fork, required by @livekit/react-native)
+// Pick whichever the consumer's autolinking surfaced; throw if neither is present.
+def rnWebrtcCandidates = [':react-native-webrtc', ':livekit_react-native-webrtc']
+def rnWebrtcProject = rnWebrtcCandidates.find { rootProject.findProject(it) != null }
+if (rnWebrtcProject == null) {
+  throw new GradleException(
+    'react-native-webrtc-kaleidoscope: install either react-native-webrtc ' +
+    'or @livekit/react-native-webrtc as a peer dependency.'
+  )
+}
+
+// @livekit/react-native-webrtc 144.2.0 and later link LiveKit's prefixed WebRTC
+// build (io.github.webrtc-sdk:android-prefixed), which renames org.webrtc to
+// livekit.org.webrtc. Read the fork's build script, which is known before it is
+// evaluated, and compile the matching aliases in src/main/webrtc/.
+def rnWebrtcPrefixed = rootProject.project(rnWebrtcProject).buildFile.text.contains('android-prefixed')
+
 android {
   namespace 'com.simiancraft.kaleidoscope'
   compileSdkVersion safeExtGet('compileSdkVersion', 34)
@@ -36,6 +55,12 @@ android {
   testOptions {
     unitTests.returnDefaultValues = true
   }
+
+  sourceSets {
+    main {
+      java.srcDirs += rnWebrtcPrefixed ? 'src/main/webrtc/prefixed' : 'src/main/webrtc/unprefixed'
+    }
+  }
 }
 
 dependencies {
@@ -43,21 +68,8 @@ dependencies {
 
   // react-native-webrtc is a peer dependency: link against its types
   // (ProcessorProvider, VideoFrameProcessor, VideoFrameProcessorFactoryInterface,
-  // and the org.webrtc.* surface it bundles) at compile time only; the consumer
-  // app provides the runtime via autolinking.
-  //
-  // Two forks ship the same classes under `com.oney.WebRTCModule.videoEffects.*`:
-  //   - react-native-webrtc/react-native-webrtc (upstream)
-  //   - livekit/react-native-webrtc (LiveKit fork, required by @livekit/react-native)
-  // Pick whichever the consumer's autolinking surfaced; throw if neither is present.
-  def rnWebrtcCandidates = [':react-native-webrtc', ':livekit_react-native-webrtc']
-  def rnWebrtcProject = rnWebrtcCandidates.find { rootProject.findProject(it) != null }
-  if (rnWebrtcProject == null) {
-    throw new GradleException(
-      'react-native-webrtc-kaleidoscope: install either react-native-webrtc ' +
-      'or @livekit/react-native-webrtc as a peer dependency.'
-    )
-  }
+  // and the WebRTC surface it bundles) at compile time only; the consumer app
+  // provides the runtime via autolinking. See rnWebrtcProject above.
   compileOnly project(rnWebrtcProject)
 
   // Person/background mask: MediaPipe Tasks ImageSegmenter (Mask.kt), the same

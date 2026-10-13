@@ -55,10 +55,12 @@ import com.simiancraft.kaleidoscope.gpu.Ingest
 import com.simiancraft.kaleidoscope.gpu.Shaders
 import com.simiancraft.kaleidoscope.segmentation.Mask
 import com.simiancraft.kaleidoscope.segmentation.MaskTuning
-import org.webrtc.SurfaceTextureHelper
-import org.webrtc.TextureBufferImpl
-import org.webrtc.VideoFrame
-import org.webrtc.YuvConverter
+import com.simiancraft.kaleidoscope.webrtc.SurfaceTextureHelper
+import com.simiancraft.kaleidoscope.webrtc.TextureBuffer
+import com.simiancraft.kaleidoscope.webrtc.TextureBufferImpl
+import com.simiancraft.kaleidoscope.webrtc.TextureBufferType
+import com.simiancraft.kaleidoscope.webrtc.VideoFrame
+import com.simiancraft.kaleidoscope.webrtc.YuvConverter
 
 /**
  * @param context held for Mask (segmentation) and to read bundled image assets.
@@ -148,8 +150,8 @@ private class CompositeProcessor(
             return null
         }
         val inputBuffer = frame.buffer
-        if (inputBuffer !is VideoFrame.TextureBuffer) return null
-        if (inputBuffer.type != VideoFrame.TextureBuffer.Type.OES) {
+        if (inputBuffer !is TextureBuffer) return null
+        if (inputBuffer.type != TextureBufferType.OES) {
             Log.w(TAG, "TextureBuffer type is ${inputBuffer.type}; expected OES. Forwarding.")
             return null
         }
@@ -276,7 +278,7 @@ private class CompositeProcessor(
                 TextureBufferImpl(
                     ready.width,
                     ready.height,
-                    VideoFrame.TextureBuffer.Type.RGB,
+                    TextureBufferType.RGB,
                     readyTextureId,
                     Matrix(),
                     textureHelper.handler,

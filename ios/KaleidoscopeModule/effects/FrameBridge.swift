@@ -14,7 +14,11 @@
 
 import CoreVideo
 import Foundation
-import WebRTC
+#if canImport(LiveKitWebRTC)
+    import LiveKitWebRTC
+#else
+    import WebRTC
+#endif
 
 enum FrameBridge {
     /// Extract the input CVPixelBuffer from a camera RTCVideoFrame, or nil if
