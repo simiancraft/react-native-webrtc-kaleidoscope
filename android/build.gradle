@@ -28,9 +28,6 @@ android {
     targetCompatibility JavaVersion.VERSION_17
   }
 
-  kotlinOptions {
-    jvmTarget = '17'
-  }
 
   // JVM unit tests (testDebugUnitTest) for pure-logic units like the composite
   // layer-stack parser. returnDefaultValues makes android.util.Log a no-op stub
@@ -76,4 +73,12 @@ dependencies {
 // Helper: gracefully read root project ext properties with a default.
 def safeExtGet(prop, fallback) {
   rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+// compilerOptions replaces the android-scoped kotlinOptions DSL, which Kotlin 2.2
+// turns into an error.
+kotlin {
+  compilerOptions {
+    jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+  }
 }
