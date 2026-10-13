@@ -96,12 +96,18 @@ Pod::Spec.new do |s|
   # via a podspec dependency edge. The two declarations of the same pod merge
   # in CocoaPods' dependency graph.
   #
-  # `__dir__` here is `<consumer>/node_modules/react-native-webrtc-kaleidoscope/
-  # ios/` at pod-install time, so `../../@livekit/react-native-webrtc`
-  # resolves to `<consumer>/node_modules/@livekit/react-native-webrtc`;
-  # the same probe app.plugin.js performs at `:117`.
-  livekit_fork_path = File.expand_path('../../@livekit/react-native-webrtc', __dir__)
-  if File.directory?(livekit_fork_path)
+  # Probe two places for the LiveKit fork. `__dir__` is normally
+  # `<consumer>/node_modules/react-native-webrtc-kaleidoscope/ios/`, so
+  # `../../@livekit/react-native-webrtc` is its sibling in node_modules. When the
+  # library is symlinked (a `file:` dependency, pnpm), `__dir__` is the link's
+  # real path and that sibling does not exist, so also check the app's own
+  # node_modules beside the Podfile's directory, which is where the config
+  # plugin's resolveWebrtcPod looks.
+  livekit_fork_paths = [File.expand_path('../../@livekit/react-native-webrtc', __dir__)]
+  if defined?(Pod::Config)
+    livekit_fork_paths << File.expand_path('../node_modules/@livekit/react-native-webrtc', Pod::Config.instance.installation_root.to_s)
+  end
+  if livekit_fork_paths.any? { |path| File.directory?(path) }
     s.dependency 'livekit-react-native-webrtc'
   else
     s.dependency 'react-native-webrtc'
