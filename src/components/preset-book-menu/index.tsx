@@ -207,6 +207,7 @@ function Tab({ label, active, disabled, onPress, testID }: TabProps) {
     <Pressable
       accessibilityRole="tab"
       accessibilityState={{ selected: active, disabled }}
+      aria-selected={active}
       testID={testID}
       disabled={disabled}
       onPress={onPress}

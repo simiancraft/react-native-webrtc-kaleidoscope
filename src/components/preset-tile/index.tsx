@@ -55,6 +55,7 @@ export function PresetTile(props: PresetTileProps) {
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected, disabled }}
+      aria-checked={selected}
       testID={testID}
       disabled={disabled}
       onPress={onPress}
