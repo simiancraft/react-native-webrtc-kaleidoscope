@@ -95,7 +95,7 @@ function parseImageRefs(source: string): Array<{ id: string; specifier: string }
     const sourceM = body.match(/source\s*:\s*(require\(\s*['"][^'"]+['"]\s*\)|[A-Za-z0-9_$]+)/);
     const expr = sourceM?.[1];
     // The warn-never-throw contract: a layer the parse cannot follow is skipped
-    // LOUDLY, naming the layer, so the missing plate surfaces at prebuild
+    // LOUDLY, naming the layer, so the missing image surfaces at prebuild
     // instead of on-device.
     if (!expr) {
       console.warn(

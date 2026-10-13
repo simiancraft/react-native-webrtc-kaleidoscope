@@ -132,7 +132,7 @@ kept crisp (~750 KB), not a photographic background.
 An image with transparent regions: a cutout that lets a lower layer (the night sky,
 a shader) show through, or a logo. Keep the alpha; never flatten it.
 
-- **Photographic cutout** (the `fairy-caves`, `spaceship`, `wizard-tower` scenes):
+- **Photographic cutout** (the `fairy-caves`, `spaceship`, `wizard-tower` images):
   lossy WebP at ~q88 with alpha preserved. Keep the source aspect (these are often
   3:2 or 16:9); the compositor cover-fits, so the exact aspect is not load-bearing.
 

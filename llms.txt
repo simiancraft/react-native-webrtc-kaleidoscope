@@ -82,7 +82,7 @@ The plugin statically analyzes ONE file to decide which image assets ship in you
 
 1. **Exact filename, exact location:** `kaleidoscope.preset-book.ts` at the **project root** (the directory containing `package.json` and your app config). A book named or placed differently still typechecks and still works on web, but at prebuild NO assets are copied and every image background silently renders nothing on native. This is the most common integration mistake; the failure is silent.
 2. **The book is parsed as text, never executed.** Keep every `image` layer's `source` statically analyzable: a single named import from `react-native-webrtc-kaleidoscope/images/<category>/<leaf>`, a `require('./local.webp')` literal, or a `const X = Asset.fromModule(require('./local.webp')).uri` binding (the binding may span lines; a formatter wrapping it at a narrow print width is fine). Do not compute sources, build layers in helper functions, or re-export the book through a barrel; the parser will not follow them, and each skipped `image` layer warns at prebuild naming the layer id.
-3. **An `image` layer's `id` doubles as its native plate id**: keep it equal to the image file's basename (`office-dark`, `my-bg`). Your own background images must be `.webp` (native resolves `assets/images/<id>.webp`).
+3. **An `image` layer's `id` doubles as its native image id**: keep it equal to the image file's basename (`office-dark`, `my-bg`). Your own background images must be `.webp` (native resolves `assets/images/<id>.webp`).
 4. **Re-run `bunx expo prebuild` after editing the book** (adding/deleting presets changes the native asset set). JS-only uniform tweaks hot-reload without it.
 
 ## Starting fileset (six files that run)
@@ -93,7 +93,7 @@ These are trimmed copies of the demo's working files (`demo/kaleidoscope.preset-
 
 ```ts
 import type { KaleidoscopePresetBook } from 'react-native-webrtc-kaleidoscope';
-// Packaged multi-layer scenes. Each carries its own taxonomy and thumbnail;
+// Packaged multi-layer composites. Each carries its own taxonomy and thumbnail;
 // delete the import + the entry to opt out of one.
 import { clouds } from 'react-native-webrtc-kaleidoscope/composites/clouds';
 import { corporateBlobs } from 'react-native-webrtc-kaleidoscope/composites/corporate-blobs';
@@ -150,7 +150,7 @@ export const presets = {
     ],
   },
 
-  // --- Worlds: packaged scenes, spread in as-is. One line each; delete freely. ---
+  // --- Worlds: packaged composites, spread in as-is. One line each; delete freely. ---
   'wizard-tower': wizardTower,
   'wizard-tower-night': wizardTowerNight,
   'observation-deck': observationDeck,
@@ -530,7 +530,7 @@ Each preset supplies its editor as a `controls` component on the book entry: pac
 
 ## Bundled assets you can reference
 
-- **Packaged composites** (multi-layer scenes), each behind `react-native-webrtc-kaleidoscope/composites/<name>`: `wizard-tower`, `wizard-tower-night`, `observation-deck`, `fairy-cave`, `fairy-grotto`, `fairy-hollow`, `underwater`, `nebula`, `simianlights`, `corporate-blobs`, `clouds`. Import the export and spread it into your book.
+- **Packaged composites** (multi-layer stacks), each behind `react-native-webrtc-kaleidoscope/composites/<name>`: `wizard-tower`, `wizard-tower-night`, `observation-deck`, `fairy-cave`, `fairy-grotto`, `fairy-hollow`, `underwater`, `nebula`, `simianlights`, `corporate-blobs`, `clouds`. Import the export and spread it into your book.
 - **Background images**, each behind `react-native-webrtc-kaleidoscope/images/<category>/<leaf>`: `office/office-dark`, `office/office-light`, `home/home-dark`, `home/home-light`, `nature/landscape-dark`, `nature/landscape-light`, `sci-fi/sci-fi-light`, `underwater/oceanscape-dark`, `simiancraft/simiancraft-light`, `simiancraft/simiancraft-dark`, `simiancraft/simiancraft-light-transparency`, `simiancraft/simiancraft-dark-transparency`, `corporate/corporate-logo`, `fairy-caves/grotto`, `fairy-caves/hollow`, `fairy-caves/treehouse`, `fairy-caves/treehouse-2`, `fairy-caves/treehouse-3`, `spaceship/observation-deck`, `wizard-tower/wizard-tower-1`, `wizard-tower/wizard-tower-2`, `wizard-tower/wizard-tower-night`, plus `debug/debug-resolutions` (a viewport calibration grid for verifying cover-fit). On web an image `source` can also be any image URL or data URI; native resolves bundled image ids only.
 
 ## Web vs native differences
