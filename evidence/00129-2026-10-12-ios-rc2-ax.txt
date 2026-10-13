@@ -1,0 +1,137 @@
+iOS verification — react-native-webrtc-kaleidoscope PR #129 (Expo SDK 51 -> 57)
+RC2, EAS build d90e5ffa-b48f-4cd2-8143-318cb8de8bb7, profile preview-sim, source 807a2ac
+Captured 2026-10-12.
+
+ENVIRONMENT
+  Host           macOS 14.6.1 (23G93), Apple Silicon
+  Xcode (host)   16.2 (16C5032a)  [host toolchain; the artifact itself was built on EAS]
+  Device         iPhone 16 Pro simulator, udid 2B494617-C147-438C-9C66-77020AD37A8F
+  Runtime        iOS 18.3 (18.3.1 - 22D8075)
+  Driving        AXe (accessibility-driven taps), xcrun simctl
+
+INFO.PLIST (from the installed app bundle)
+  CFBundleShortVersionString  0.2.0
+  CFBundleVersion             1
+  CFBundleIdentifier          com.simiancraft.kaleidoscope.demo
+  MinimumOSVersion            16.4
+  DTSDKName                   iphonesimulator26.5
+  DTXcode                     2660
+  DTPlatformName              iphonesimulator
+
+IN-APP HEADER (confirms the running bundle, and that no OTA swap occurred)
+  v0.2.0 · 807a2ac · 2026-10-13 03:04Z
+
+RESULT: PASS
+  Install exit 0, launch clean, no crash across the full preset walk, the thumbnail
+  tour, four memory walks, and transform interaction. Runtime log: 3 lines, zero
+  errors, zero exceptions.
+
+PRESET WALK (all four classes applied, no crash after any)
+  Effects    > Blur        > Medium
+  Backgrounds> Nature      > Nature Dark
+  Shaders    > Plasma      > Sunset
+  Worlds     > Wizard Tower> Wizard Tower
+
+INLINE-REQUIRE TILE THUMBNAILS — all render (see ios-rc2-thumbnails.png)
+  Effects > Blur:     Low, Medium, High            (corridor photo at increasing blur)
+  Backgrounds > Office: Dark Office, Light Office   (distinct interior photography)
+  Shaders > Plasma:   Ocean, Sunset, Mint, Fast     (four distinct gradients)
+  Shaders > Sky:      Daytime, Dawn, Dusk, Night, Otherworld (five distinct)
+  No blanks, no placeholders, no fallback tiles.
+
+CARD GEOMETRY (the rounded-xl / bg-neutral-900 / p-3 wrapper on PresetBookMenu)
+  Identical across SDK 55, 56, 57, and RC2, to the decimal:
+    kld.family.effects         x=26.7  y=484.7  w=66  h=26.3
+    kld.category.effects.blur  x=26.7  y=519.0  w=96  h=26.3
+    kld.preset.blur-low        x=134.7 y=519.0  w=96  h=54
+    kld.preset.blur-medium     x=238.7 y=519.0  w=96  h=54
+    kld.preset.blur-high       x=134.7 y=581.0  w=96  h=54
+  At SDK 54 and earlier these sat at x=16 / y=474.0 with no wrapper; the className was
+  dropped on native from 2.7.12 through SDK 54 and first applies at SDK 55.
+
+ROTATE RADIOS after accessibilityState.selected -> checked: no change in reported value.
+  At rest:     rotate-0 'radio button, checked'; 90/180/270 'radio button, unchecked'
+  Tapped 270:  rotate-270 'radio button, checked'; 0/90/180 'radio button, unchecked'
+  Mirror switches independent: tapped flip-y, '0' -> '1', flip-x unchanged at '0'.
+
+MEMORY
+  phys_footprint via `footprint -p <pid>`, measured after each complete four-class walk.
+
+  (a) Ten-walk leak test — run on SDK 57 (d2806ed), NOT on RC2:
+        walk  1:  68 MB      walk  6:  87 MB
+        walk  2:  77 MB      walk  7:  83 MB
+        walk  3:  85 MB      walk  8:  84 MB
+        walk  4:  86 MB      walk  9:  84 MB
+        walk  5:  86 MB      walk 10:  80 MB
+      Rises for three walks, plateaus at 84-87, then falls back to 80. Bounded and
+      reclaimed, not monotonic. NOT leak-shaped. Note that the first four points alone
+      read as steady growth; the longer run is what establishes the plateau.
+
+  (b) Four-walk confirmation — run on RC2 (807a2ac):
+        walk 1: 74 MB   walk 2: 79 MB   walk 3: 86 MB   walk 4: 86 MB
+      Same shape and same plateau as (a)'s first four. Confirms, does not extend.
+
+  (c) Cross-rung baseline, single sample each, after one walk:
+        SDK 55: 54 MB      SDK 56: 69 MB      SDK 57: 70 MB
+      Run-to-run noise on this setup is roughly +/- 2-4 MB (the same build in the same
+      state read 68 and 70; the plateau wanders 83-87). So 56 vs 57 is indistinguishable,
+      while the ~15 MB step up from 55 is real and consistent with Hermes v1 baseline cost.
+
+SCOPE LIMIT — WHAT THIS VERIFICATION DOES NOT COVER
+  The video preview surface was BLACK for every preset on every rung, 51 through RC2,
+  because the iOS Simulator has no camera. This verification covers the preset/uniform
+  control plane, the accessibility surface, layout and geometry, and the asset pipeline.
+  It does NOT cover the render pipeline, mask fidelity, shader output over live video, or
+  blur-on-video. Those require a physical device and are not evidenced here.
+
+ACCESSIBILITY DUMP (RC2, Worlds tab, Wizard Tower selected, transforms at defaults)
+kld.family.effects                     label='Effects'                      AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.family.worlds                      label='Worlds'                       AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.family.backgrounds                 label='Backgrounds'                  AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.family.shaders                     label='Shaders'                      AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.category.worlds.wizard-tower       label='Wizard Tower'                 AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.preset.wizard-tower                label='demo-owned, Wizard Tower'     AXValue='radio button, checked'        role=AXGenericElement subrole=None role_description=''
+kld.preset.wizard-tower-night          label='Night'                        AXValue='radio button, unchecked'      role=AXGenericElement subrole=None role_description=''
+kld.category.worlds.spaceship          label='Spaceship'                    AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.category.worlds.fairy-cave         label='Fairy Cave'                   AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.category.worlds.ocean              label='Ocean'                        AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.category.worlds.corporate          label='Corporate'                    AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.category.worlds.interior           label='Interior'                     AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uSkyLowColor      label=''                             AXValue=None                           role=AXGroup subrole=None role_description='group'
+kld.wizard-tower.sky.uSkyLowColor.r    label='uSkyLowColor R'               AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uSkyLowColor.g    label='uSkyLowColor G'               AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uSkyLowColor.b    label='uSkyLowColor B'               AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uSkyHighColor     label=''                             AXValue=None                           role=AXGroup subrole=None role_description='group'
+kld.wizard-tower.sky.uSkyHighColor.r   label='uSkyHighColor R'              AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uSkyHighColor.g   label='uSkyHighColor G'              AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uSkyHighColor.b   label='uSkyHighColor B'              AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudLightColor  label=''                             AXValue=None                           role=AXGroup subrole=None role_description='group'
+kld.wizard-tower.sky.uCloudLightColor.r label='uCloudLightColor R'           AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudLightColor.g label='uCloudLightColor G'           AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudLightColor.b label='uCloudLightColor B'           AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudDarkColor   label=''                             AXValue=None                           role=AXGroup subrole=None role_description='group'
+kld.wizard-tower.sky.uCloudDarkColor.r label='uCloudDarkColor R'            AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudDarkColor.g label='uCloudDarkColor G'            AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudDarkColor.b label='uCloudDarkColor B'            AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uExposure.num     label='uExposure value'              AXValue='1.26'                         role=AXTextField subrole=None role_description='text field'
+kld.wizard-tower.sky.uExposure         label='uExposure'                    AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uStepSize.num     label='uStepSize value'              AXValue='0.32'                         role=AXTextField subrole=None role_description='text field'
+kld.wizard-tower.sky.uStepSize         label='uStepSize'                    AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudSpeed.num   label='uCloudSpeed value'            AXValue='0.92'                         role=AXTextField subrole=None role_description='text field'
+kld.wizard-tower.sky.uCloudSpeed       label='uCloudSpeed'                  AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCloudScale.num   label='uCloudScale value'            AXValue='0.77'                         role=AXTextField subrole=None role_description='text field'
+kld.wizard-tower.sky.uCloudScale       label='uCloudScale'                  AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uDensity.num      label='uDensity value'               AXValue='0.185'                        role=AXTextField subrole=None role_description='text field'
+kld.wizard-tower.sky.uDensity          label='uDensity'                     AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uCoverage.num     label='uCoverage value'              AXValue='0.55'                         role=AXTextField subrole=None role_description='text field'
+kld.wizard-tower.sky.uCoverage         label='uCoverage'                    AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.wizard-tower.sky.uSoftness.num     label='uSoftness value'              AXValue='0.23'                         role=AXTextField subrole=None role_description='text field'
+kld.wizard-tower.sky.uSoftness         label='uSoftness'                    AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.transform.flip-x                   label='Flip horizontal'              AXValue='0'                            role=AXCheckBox subrole='AXSwitch' role_description='switch'
+kld.transform.flip-y                   label='Flip vertical'                AXValue='0'                            role=AXCheckBox subrole='AXSwitch' role_description='switch'
+kld.transform.rotate-0                 label='No rotation'                  AXValue='radio button, checked'        role=AXGenericElement subrole=None role_description=''
+kld.transform.rotate-90                label='Rotate 90 degrees'            AXValue='radio button, unchecked'      role=AXGenericElement subrole=None role_description=''
+kld.transform.rotate-180               label='Rotate 180 degrees'           AXValue='radio button, unchecked'      role=AXGenericElement subrole=None role_description=''
+kld.transform.rotate-270               label='Rotate 270 degrees'           AXValue='radio button, unchecked'      role=AXGenericElement subrole=None role_description=''
+kld.mask.hardness                      label='hardness'                     AXValue=None                           role=AXGenericElement subrole=None role_description=''
+kld.mask.threshold                     label='threshold'                    AXValue=None                           role=AXGenericElement subrole=None role_description=''
