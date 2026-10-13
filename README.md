@@ -175,7 +175,7 @@ Want the selection, live tweaks, and mask edge to survive a reload? Wrap your ap
 
 ### Using LiveKit
 
-If your project uses `@livekit/react-native` it pulls in `@livekit/react-native-webrtc`, a fork that preserves the same `videoEffects` native classes and `_setVideoEffects` JS API. Kaleidoscope works against either fork; the Android Gradle script picks whichever one autolinking surfaced. Pick **one** fork, never both, or the native classes collide.
+If your project uses `@livekit/react-native` it pulls in `@livekit/react-native-webrtc`, a fork that preserves the same `videoEffects` native classes and `_setVideoEffects` JS API. Kaleidoscope works against either fork; the Android Gradle script picks whichever one autolinking surfaced. That includes `@livekit/react-native-webrtc` 144.2.0 and later (required by `@livekit/react-native` 3), which link LiveKit's prefixed WebRTC build (`livekit.org.webrtc` on Android, `LiveKitWebRTC` on iOS); kaleidoscope detects it at build time. Pick **one** fork, never both, or the native classes collide.
 
 ```sh
 bun add @livekit/react-native @livekit/react-native-webrtc react-native-webrtc-kaleidoscope
