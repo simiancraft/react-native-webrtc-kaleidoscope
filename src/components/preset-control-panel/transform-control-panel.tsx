@@ -100,7 +100,7 @@ export function TransformControlPanel({
               key={deg}
               accessibilityRole="radio"
               accessibilityLabel={deg === 0 ? 'No rotation' : `Rotate ${deg} degrees`}
-              accessibilityState={{ selected: on, disabled }}
+              accessibilityState={{ checked: on, disabled }}
               aria-checked={on}
               testID={rotateTestId(testIDPrefix, deg)}
               disabled={disabled}
