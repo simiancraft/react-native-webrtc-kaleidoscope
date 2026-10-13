@@ -86,9 +86,10 @@ const config = {
         // independently; without this expo-build-properties entry it stays
         // at the Expo default (13.4), and the iOS link step fails with
         // "compiling for iOS 13.4, but module 'Kaleidoscope' has a minimum
-        // deployment target of iOS 15.0".
+        // deployment target of iOS 15.0". expo-build-properties rejects
+        // anything below 15.1 from SDK 52 on, so 15.1 is the floor here.
         ios: {
-          deploymentTarget: '15.0',
+          deploymentTarget: '15.1',
         },
       },
     ],

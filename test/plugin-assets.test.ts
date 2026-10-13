@@ -24,10 +24,8 @@ type PluginConfig = Parameters<typeof withKaleidoscope>[0];
 type DangerousMod = (modConfig: unknown) => Promise<unknown>;
 
 const repoRoot = path.resolve(import.meta.dir, '..');
-const TEMPLATE_PBXPROJ = path.join(
-  repoRoot,
-  'node_modules/react-native/template/ios/HelloWorld.xcodeproj/project.pbxproj',
-);
+// RN 0.74.5's template pbxproj, vendored: RN >= 0.76 no longer ships template/.
+const TEMPLATE_PBXPROJ = path.join(repoRoot, 'test/fixtures/HelloWorld.project.pbxproj');
 
 const makeTmp = () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kaleidoscope-assets-test-'));
