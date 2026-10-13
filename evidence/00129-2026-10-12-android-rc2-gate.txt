@@ -1,0 +1,37 @@
+label: sdk57-rc2
+apk: /tmp/claude-1000/-home-the-simian-Simiancraft-Programming-Simiancraft-react-native-webrtc-kaleidoscope/8dd0fe44-8a13-46fd-a350-f9d3d9bb7af1/scratchpad/apks/sdk57-rc2.apk
+maestro_junit_pass: yes
+logcat_gate_hits: 0
+positive_evidence_missing: 0
+screenshots: 12
+
+69506f3eb7a6ba3c0f3c5e1e2a6f687b61e790fd878f894c9e75f110a5dae9f3  /tmp/claude-1000/-home-the-simian-Simiancraft-Programming-Simiancraft-react-native-webrtc-kaleidoscope/8dd0fe44-8a13-46fd-a350-f9d3d9bb7af1/scratchpad/apks/sdk57-rc2.apk
+ 21416860  1981-01-01 01:01   lib/x86/libmediapipe_tasks_vision_jni.so
+    versionCode=1 minSdk=24 targetSdk=36
+    versionName=0.2.0
+
+GLES: GLES: Google (Google Inc. (Google)), Android Emulator OpenGL ES Translator (ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)), OpenGL ES 3.1 (OpenGL ES 3.1.0 (ANGLE 2.1.17841 git hash: 5fa2e61da947))
+cameras: 2
+abi: x86
+
+== evidence.txt ==
+10-12 23:24:46.703 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [blur,direct]
+10-12 23:24:46.886 22095 22196 I tflite  : Initialized TensorFlow Lite runtime.
+10-12 23:24:46.886 22095 22196 I tflite  : Created TensorFlow Lite XNNPACK delegate for CPU.
+10-12 23:24:46.894 22095 22196 I tflite  : Replacing 246 out of 246 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for the whole graph.
+10-12 23:25:11.881 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [image,direct]
+10-12 23:25:11.937 22095 22163 I Kaleidoscope.Composite: composite image 'office-dark' loaded; size=1280x720 aspect=1.7777778
+10-12 23:25:52.094 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [image,direct]
+10-12 23:25:52.134 22095 22163 I Kaleidoscope.Composite: composite image 'wolf-cave' loaded; size=1080x720 aspect=1.5
+10-12 23:26:53.941 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [plasma,direct]
+10-12 23:28:08.129 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [clouds,direct]
+10-12 23:29:01.691 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 3 layer(s) [clouds,image,direct]
+10-12 23:29:01.975 22095 22163 I Kaleidoscope.Composite: composite image 'wizard-tower-1' loaded; size=1080x720 aspect=1.5
+10-12 23:29:46.131 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 3 layer(s) [clouds,image,direct]
+10-12 23:29:46.227 22095 22163 I Kaleidoscope.Composite: composite image 'wizard-tower-1' loaded; size=1080x720 aspect=1.5
+10-12 23:30:26.193 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 3 layer(s) [clouds,image,direct]
+10-12 23:30:26.289 22095 22163 I Kaleidoscope.Composite: composite image 'wizard-tower-1' loaded; size=1080x720 aspect=1.5
+10-12 23:31:07.713 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 3 layer(s) [clouds,image,direct]
+10-12 23:31:07.808 22095 22163 I Kaleidoscope.Composite: composite image 'wizard-tower-1' loaded; size=1080x720 aspect=1.5
+10-12 23:31:10.362 22095 22140 I Kaleidoscope.CompositeLayers: composite layers set: 3 layer(s) [clouds,image,direct]
+10-12 23:31:10.481 22095 22163 I Kaleidoscope.Composite: composite image 'wizard-tower-1' loaded; size=1080x720 aspect=1.5
