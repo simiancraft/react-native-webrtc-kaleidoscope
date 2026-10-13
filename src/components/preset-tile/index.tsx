@@ -96,6 +96,9 @@ export function PresetTile(props: PresetTileProps) {
   );
 }
 
+// Inline fill; StyleSheet.absoluteFillObject was removed in React Native 0.85.
+const fill = { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } as const;
+
 const styles = StyleSheet.create({
   tile: {
     aspectRatio: 16 / 9,
@@ -131,8 +134,8 @@ const styles = StyleSheet.create({
   recessed: { backgroundColor: '#242424', borderColor: '#333' },
   selected: { borderColor: '#4a8f3f' },
   disabled: { opacity: 0.5 },
-  thumb: { ...StyleSheet.absoluteFillObject },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
+  thumb: { ...fill },
+  scrim: { ...fill, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
   badge: {
     position: 'absolute',
     top: 4,
@@ -144,7 +147,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
   labelWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...fill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -156,6 +159,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   // Hover/press "lights up": a translucent sheet over the whole tile.
-  glow: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+  glow: { ...fill, backgroundColor: 'rgba(255, 255, 255, 0.12)' },
   glowPressed: { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
 });
