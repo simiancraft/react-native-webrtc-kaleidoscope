@@ -543,7 +543,7 @@ Each preset supplies its editor as a `controls` component on the book entry: pac
 
 ## LiveKit
 
-`@livekit/react-native` pulls in `@livekit/react-native-webrtc`, a fork that preserves the same `videoEffects` native classes; kaleidoscope works against either fork (pick one, never both). On native, bind to the local track's underlying `MediaStreamTrack`:
+`@livekit/react-native` pulls in `@livekit/react-native-webrtc`, a fork that preserves the same `videoEffects` native classes; kaleidoscope works against either fork (pick one, never both), including LiveKit's prefixed WebRTC build in `@livekit/react-native-webrtc` 144.2.0 and later, detected at build time. On native, bind to the local track's underlying `MediaStreamTrack`:
 
 ```ts
 const { kaleidoscope } = bindKaleidoscope(localCameraTrack.mediaStreamTrack, { presets });

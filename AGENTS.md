@@ -111,6 +111,7 @@ Before changing the JS facade in `src/index.ts`, **verify the upstream contract 
 
 - **Android (Kotlin):** factories implement `com.oney.WebRTCModule.videoEffects.VideoFrameProcessorFactoryInterface`. Frame buffers come in as `VideoFrame` (I420). Preserve rotation and timestamp on the way out.
 - **iOS (Swift):** processors conform to the WebRTC frame-processor protocol declared in `react-native-webrtc/ios/RCTWebRTC/videoEffects/VideoFrameProcessor.h`. CoreImage / Vision is the natural toolkit.
+- **Never import WebRTC types directly.** `@livekit/react-native-webrtc` 144.2.0 and later link LiveKit's prefixed WebRTC (`livekit.org.webrtc`; `LiveKitWebRTC` with `LKRTC*` classes). Android code imports `com.simiancraft.kaleidoscope.webrtc.*`, type aliases that `android/build.gradle` compiles from `src/main/webrtc/prefixed` or `unprefixed`; a new WebRTC class goes into both alias files. iOS imports `LiveKitWebRTC` when it can, else `WebRTC`, and `WebRTCTypes.swift` aliases the `RTC*` names; a new `RTC*` type gets an alias there.
 - Registration objects (`Registration.kt`, `Registration.swift`) are the only file the config plugin should touch. Effect factories are pure and stateless across instances.
 - Don't introduce React/RN imports into native code beyond what Expo Modules already provides.
 
