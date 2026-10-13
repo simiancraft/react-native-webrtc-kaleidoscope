@@ -14,6 +14,7 @@ import Constants from 'expo-constants';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   bindKaleidoscope,
   type KaleidoscopeBinding,
@@ -86,6 +87,8 @@ const Section = ({
 );
 
 export default function DemoScreen() {
+  // Android is edge-to-edge from SDK 54: pad past the translucent navigation bar.
+  const insets = useSafeAreaInsets();
   const stream = useLoopbackStream();
   // The persisted selection: preset id, per-preset control patches, and mask.
   const {
@@ -181,7 +184,10 @@ export default function DemoScreen() {
 
   return (
     <KaleidoscopeThemeProvider>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 16 + insets.bottom }]}
+      >
         <View style={styles.container}>
           <Text style={styles.title}>react-native-webrtc-kaleidoscope</Text>
           <Text style={styles.subtitle}>demo · kaleidoscope · transform · mask</Text>
