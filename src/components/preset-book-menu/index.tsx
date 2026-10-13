@@ -12,6 +12,7 @@ import { categoryTestId, familyTestId } from '../../lib/test-id';
 import { PresetBookMenuLayout } from './layout';
 import type { Category, Family, PresetBookMenuProps, PresetView } from './preset-book-menu.types';
 import { PresetGrid } from './preset-grid';
+import { thumbnailSource } from './thumbnail-source';
 
 /** The grouping usePresetBookMenu returns; named so BYO-layout consumers can type it. */
 export interface PresetBookMenuModel {
@@ -148,10 +149,7 @@ export function usePresetBookMenu<P extends KaleidoscopePresetBook>(
       label: labelFor?.(id as keyof P & string) ?? preset.name,
       family,
       category,
-      source:
-        typeof preset.thumbnail === 'string' || typeof preset.thumbnail === 'number'
-          ? preset.thumbnail
-          : undefined,
+      source: thumbnailSource(preset.thumbnail),
     };
     if (!viewsByFamily.has(family)) {
       families.push(family);
