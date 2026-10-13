@@ -1,3 +1,13 @@
+## [2.7.13](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.12...v2.7.13) (2026-10-13)
+
+
+### Bug Fixes
+
+* **a11y:** expose checked and selected state to the DOM on web ([69457e1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/69457e1a08bb40ed965c67622ec8d8994bb5c197))
+* **a11y:** report the rotation radios as checked, not selected ([6b38488](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/6b384882c12c093f5a73db4d0816f1a2d48f71f5))
+* **preset-book-menu:** render web thumbnails given as require() asset objects ([807a2ac](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/807a2ac214ad061d9bc3c68df496d81dd10dd020))
+* **preset-tile:** stop spreading StyleSheet.absoluteFillObject ([aaaa5e7](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/aaaa5e764ec89419af24aea6ba140d26d1907ba5))
+
 ## [2.7.12](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.11...v2.7.12) (2026-09-21)
 
 
