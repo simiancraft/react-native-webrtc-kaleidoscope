@@ -48,7 +48,11 @@ import MetalKit
 import os.log
 import QuartzCore
 import simd
-import WebRTC
+#if canImport(LiveKitWebRTC)
+    import LiveKitWebRTC
+#else
+    import WebRTC
+#endif
 #if canImport(livekit_react_native_webrtc)
     import livekit_react_native_webrtc
 #elseif canImport(react_native_webrtc)
