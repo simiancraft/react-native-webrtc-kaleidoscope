@@ -1,3 +1,15 @@
+# [2.8.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.13...v2.8.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* **ios:** find the LiveKit fork when the library is symlinked ([cab70fd](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/cab70fd08189fd086f1587782a27bb6c3fad5729))
+
+
+### Features
+
+* **native:** support LiveKit's prefixed WebRTC build ([d772236](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/d772236f525e2a097c54afae54997c9bfd80a2d3))
+
 ## [2.7.13](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.12...v2.7.13) (2026-10-13)
 
 
