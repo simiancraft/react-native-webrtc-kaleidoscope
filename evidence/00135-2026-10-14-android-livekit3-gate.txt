@@ -1,0 +1,17 @@
+label: lk3-rn3
+maestro_junit_pass: yes
+logcat_gate_hits: 0
+positive_evidence_missing: 0
+screenshots: 12
+
+10-13 21:25:21.420  3284  3327 D com.oney.WebRTCModule.WebRTCModule: Using video encoder factory: com.livekit.reactnative.video.CustomVideoEncoderFactory
+10-13 21:25:21.420  3284  3327 D com.oney.WebRTCModule.WebRTCModule: Using video decoder factory: com.livekit.reactnative.video.CustomVideoDecoderFactory
+10-13 21:25:21.874  3284  3284 D com.oney.WebRTCModule.WebRTCModule: Got video track for stream URL 12ccee8c-ac08-1ab9-a342-00a8b1e88e9b -> livekit.org.webrtc.VideoTrack@bc14e8b
+10-13 21:25:21.886  3284  3342 I Logging : SurfaceTextureHelper: Setting listener to livekit.org.webrtc.Camera2Session$CaptureSessionCallback$$ExternalSyntheticLambda0@95aeb81
+
+10-13 21:25:32.617  3284  3328 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [blur,direct]
+10-13 21:25:58.856  3284  3328 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [image,direct]
+10-13 21:25:58.940  3284  3342 I Kaleidoscope.Composite: composite image 'office-dark' loaded; size=1280x720 aspect=1.7777778
+10-13 21:26:40.045  3284  3328 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [image,direct]
+10-13 21:26:40.114  3284  3342 I Kaleidoscope.Composite: composite image 'wolf-cave' loaded; size=1080x720 aspect=1.5
+10-13 21:27:25.411  3284  3328 I Kaleidoscope.CompositeLayers: composite layers set: 2 layer(s) [plasma,direct]
