@@ -74,7 +74,7 @@ dependencies {
 
   // Person/background mask: MediaPipe Tasks ImageSegmenter (Mask.kt), the same
   // model family the web and iOS sides run.
-  implementation 'com.google.mediapipe:tasks-vision:0.10.14'
+  implementation 'com.google.mediapipe:tasks-vision:0.10.32'
 
   // Unit tests (JVM, testDebugUnitTest). The real org.json shadows the stubbed
   // android.jar copy so CompositeLayers' JSONArray/JSONObject parsing runs for real.
