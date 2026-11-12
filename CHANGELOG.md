@@ -1,3 +1,10 @@
+## [2.8.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.8.0...v2.8.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **android:** bump MediaPipe tasks-vision to 0.10.32 for 16 KB page-size alignment ([ca8b3c5](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/commit/ca8b3c5493a0c655f2043dcf7921575dc9c952ba))
+
 # [2.8.0](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.7.13...v2.8.0) (2026-10-14)
 
 
