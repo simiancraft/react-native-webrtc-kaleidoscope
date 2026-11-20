@@ -1,3 +1,5 @@
+## [2.8.3](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.8.2...v2.8.3) (2026-11-20)
+
 ## [2.8.2](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.8.1...v2.8.2) (2026-11-16)
 
 ## [2.8.1](https://github.com/simiancraft/react-native-webrtc-kaleidoscope/compare/v2.8.0...v2.8.1) (2026-11-12)
